@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../features/birthdays/presentation/pages/birthdays_page.dart';
+import '../../features/branches/presentation/pages/branch_details_page.dart';
 import '../../features/branches/presentation/pages/branch_selection_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
@@ -18,9 +19,20 @@ abstract final class AppRouter {
       case AppRoutes.branchSelection:
         return _page(const BranchSelectionPage(), settings);
       case AppRoutes.home:
-        return _page(const HomePage(), settings);
+        return _page(
+          HomePage(branchId: settings.arguments as String?),
+          settings,
+        );
+      case AppRoutes.branchDetails:
+        return _page(
+          BranchDetailsPage(branchId: settings.arguments as String?),
+          settings,
+        );
       case AppRoutes.birthdays:
-        return _page(const BirthdaysPage(), settings);
+        return _page(
+          BirthdaysPage(branchId: settings.arguments as String?),
+          settings,
+        );
       case AppRoutes.promotions:
         return _page(const PromotionsPage(), settings);
       case AppRoutes.requests:
@@ -44,4 +56,3 @@ abstract final class AppRouter {
     );
   }
 }
-

@@ -1,6 +1,7 @@
 abstract final class AppRoutes {
   static const onboarding = '/';
   static const branchSelection = '/branches/select';
+  static const branchDetails = '/branches/details';
   static const home = '/home';
   static const birthdays = '/birthdays';
   static const promotions = '/promotions';
@@ -8,4 +9,3 @@ abstract final class AppRoutes {
   static const notifications = '/notifications';
   static const profile = '/profile';
 }
-

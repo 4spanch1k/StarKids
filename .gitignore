@@ -9,6 +9,7 @@
 .env
 .env.local
 .env.*.local
+.tmp_starkids_*
 
 # Python
 __pycache__/
@@ -33,4 +34,3 @@ build/
 ios/Pods/
 ios/.symlinks/
 android/.gradle/
-
