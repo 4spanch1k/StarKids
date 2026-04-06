@@ -1,10 +1,25 @@
+from ...core.exceptions.http import DomainHTTPException, NotFoundException
+from ...db.repositories.branch_repository import BranchRepository
+from ...db.repositories.birthday_package_repository import BirthdayPackageRepository
 from ...db.repositories.lead_repository import LeadRepository
-from .schemas import BirthdayLeadCreate, ContactLeadCreate, LeadCreatedResponse
+from .schemas import (
+    BirthdayLeadCreate,
+    BirthdayLeadSubmittedResponse,
+    ContactLeadCreate,
+    LeadCreatedResponse,
+)
 
 
 class LeadService:
-    def __init__(self, repository: LeadRepository | None = None) -> None:
+    def __init__(
+        self,
+        repository: LeadRepository | None = None,
+        branch_repository: BranchRepository | None = None,
+        package_repository: BirthdayPackageRepository | None = None,
+    ) -> None:
         self.repository = repository or LeadRepository()
+        self.branch_repository = branch_repository or BranchRepository()
+        self.package_repository = package_repository or BirthdayPackageRepository()
 
     def create_contact_lead(self, payload: ContactLeadCreate) -> LeadCreatedResponse:
         lead = self.repository.create({'type': 'contact', 'phone': payload.phone})
@@ -13,7 +28,49 @@ class LeadService:
     def create_birthday_lead(
         self,
         payload: BirthdayLeadCreate,
-    ) -> LeadCreatedResponse:
-        lead = self.repository.create({'type': 'birthday', 'phone': payload.phone})
-        return LeadCreatedResponse.model_validate(lead)
+    ) -> BirthdayLeadSubmittedResponse:
+        branch = self.branch_repository.get_active_by_id(payload.branchId)
+        if branch is None:
+            raise NotFoundException(
+                code='branch_not_found',
+                message='Selected branch was not found.',
+                details=[{'field': 'branchId', 'message': 'Selected branch was not found.'}],
+            )
 
+        if payload.packageId:
+            package = self.package_repository.get_active_by_id(payload.packageId)
+            if package is None:
+                raise NotFoundException(
+                    code='package_not_found',
+                    message='Selected package was not found.',
+                    details=[{'field': 'packageId', 'message': 'Selected package was not found.'}],
+                )
+            if package.branch_id != payload.branchId:
+                raise DomainHTTPException(
+                    code='package_branch_mismatch',
+                    message='Selected package does not belong to the selected branch.',
+                    status_code=422,
+                    details=[
+                        {
+                            'field': 'packageId',
+                            'message': 'Selected package must belong to the selected branch.',
+                        }
+                    ],
+                )
+
+        request = self.repository.create_birthday_lead(
+            {
+                'branch_id': payload.branchId,
+                'birthday_package_id': payload.packageId,
+                'customer_name': payload.name,
+                'phone': payload.phone,
+                'requested_date': payload.preferredDate,
+                'guest_count': payload.guestCount,
+                'notes': payload.comment,
+            }
+        )
+        return BirthdayLeadSubmittedResponse(
+            requestId=request.id,
+            submittedAt=request.created_at,
+            nextStep='Менеджер свяжется с вами для подтверждения деталей',
+        )
