@@ -9,9 +9,13 @@ abstract final class AppEnvironment {
     defaultValue: 'http://localhost:8000/api/v1/mobile',
   );
 
+  static const useMockBirthdayRequests = bool.fromEnvironment(
+    'MOBILE_USE_MOCK_BIRTHDAY_REQUESTS',
+    defaultValue: true,
+  );
+
   static const defaultCity = String.fromEnvironment(
     'MOBILE_DEFAULT_CITY',
     defaultValue: 'Shymkent',
   );
 }
-
