@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/design_system/foundations/star_kids_colors.dart';
 import '../../../../core/design_system/foundations/star_kids_icon_sizes.dart';
@@ -11,36 +12,31 @@ import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_promo_card.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../../birthdays/data/birthday_package_seed_data.dart';
-import '../../../branches/data/branch_seed_data.dart';
+import '../../../requests/presentation/models/request_page_args.dart';
 import '../../data/home_promotion_seed_data.dart';
 
 class HomePage extends StatelessWidget {
-  const HomePage({
-    super.key,
-    this.branchId,
-  });
-
-  final String? branchId;
+  const HomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final branch = getBranchById(branchId);
-    final featuredPackage = birthdayPackageSeedData.firstWhere(
-      (item) => item.isFeatured,
-      orElse: () => birthdayPackageSeedData.first,
-    );
-    final textTheme = Theme.of(context).textTheme;
+    return AnimatedBuilder(
+      animation: ServiceRegistry.selectedBranchController,
+      builder: (context, _) {
+        final branch = ServiceRegistry.selectedBranchController.selectedBranch;
+        final featuredPackage = birthdayPackageSeedData.firstWhere(
+          (item) => item.isFeatured,
+          orElse: () => birthdayPackageSeedData.first,
+        );
+        final textTheme = Theme.of(context).textTheme;
 
-    return Scaffold(
-      bottomNavigationBar: NavigationBar(
+        return Scaffold(
+          bottomNavigationBar: NavigationBar(
         selectedIndex: 0,
         onDestinationSelected: (index) {
           switch (index) {
             case 1:
-              Navigator.of(context).pushNamed(
-                AppRoutes.birthdays,
-                arguments: branch.id,
-              );
+              Navigator.of(context).pushNamed(AppRoutes.birthdays);
               break;
             case 2:
               Navigator.of(context).pushNamed(AppRoutes.promotions);
@@ -71,9 +67,9 @@ class HomePage extends StatelessWidget {
             label: 'Профиль',
           ),
         ],
-      ),
-      body: SafeArea(
-        child: CustomScrollView(
+          ),
+          body: SafeArea(
+            child: CustomScrollView(
           slivers: [
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(
@@ -191,10 +187,8 @@ class HomePage extends StatelessWidget {
                                 const SizedBox(height: StarKidsSpacing.lg),
                                 StarKidsButton.primary(
                                   label: 'Организовать день рождения',
-                                  onPressed: () => Navigator.of(context).pushNamed(
-                                    AppRoutes.birthdays,
-                                    arguments: branch.id,
-                                  ),
+                                  onPressed: () =>
+                                      Navigator.of(context).pushNamed(AppRoutes.birthdays),
                                 ),
                               ],
                             ),
@@ -221,19 +215,15 @@ class HomePage extends StatelessWidget {
                           icon: Icons.map_rounded,
                           title: 'Филиал и маршрут',
                           subtitle: 'Как доехать и что внутри',
-                          onTap: () => Navigator.of(context).pushNamed(
-                            AppRoutes.branchDetails,
-                            arguments: branch.id,
-                          ),
+                          onTap: () =>
+                              Navigator.of(context).pushNamed(AppRoutes.branchDetails),
                         ),
                         _QuickActionTile(
                           icon: Icons.cake_rounded,
                           title: 'Дни рождения',
                           subtitle: 'Пакеты и быстрый запрос',
-                          onTap: () => Navigator.of(context).pushNamed(
-                            AppRoutes.birthdays,
-                            arguments: branch.id,
-                          ),
+                          onTap: () =>
+                              Navigator.of(context).pushNamed(AppRoutes.birthdays),
                         ),
                         _QuickActionTile(
                           icon: Icons.local_offer_rounded,
@@ -246,8 +236,10 @@ class HomePage extends StatelessWidget {
                           icon: Icons.chat_bubble_rounded,
                           title: 'Оставить заявку',
                           subtitle: 'Связаться с менеджером',
-                          onTap: () =>
-                              Navigator.of(context).pushNamed(AppRoutes.requests),
+                          onTap: () => Navigator.of(context).pushNamed(
+                            AppRoutes.requests,
+                            arguments: const RequestPageArgs(),
+                          ),
                         ),
                       ],
                     ),
@@ -257,10 +249,8 @@ class HomePage extends StatelessWidget {
                       description:
                           'Готовое коммерческое предложение, которое проще всего продать из главного экрана.',
                       actionLabel: 'Все пакеты',
-                      onActionTap: () => Navigator.of(context).pushNamed(
-                        AppRoutes.birthdays,
-                        arguments: branch.id,
-                      ),
+                      onActionTap: () =>
+                          Navigator.of(context).pushNamed(AppRoutes.birthdays),
                     ),
                     const SizedBox(height: StarKidsSpacing.lg),
                     StarKidsBirthdayPackageCard(
@@ -272,8 +262,10 @@ class HomePage extends StatelessWidget {
                       imagePath: featuredPackage.imagePath,
                       isFeatured: featuredPackage.isFeatured,
                       onActionTap: () => Navigator.of(context).pushNamed(
-                        AppRoutes.birthdays,
-                        arguments: branch.id,
+                        AppRoutes.requests,
+                        arguments: RequestPageArgs(
+                          initialPackageId: featuredPackage.id,
+                        ),
                       ),
                     ),
                     const SizedBox(height: StarKidsSpacing.x2l),
@@ -373,8 +365,10 @@ class HomePage extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

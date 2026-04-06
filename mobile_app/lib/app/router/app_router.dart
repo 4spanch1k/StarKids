@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../features/birthdays/presentation/pages/birthdays_page.dart';
-import '../../features/branches/presentation/pages/branch_details_page.dart';
 import '../../features/branches/presentation/pages/branch_selection_page.dart';
+import '../../features/branches/presentation/pages/branch_details_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/onboarding/presentation/pages/onboarding_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/promotions/presentation/pages/promotions_page.dart';
+import '../../features/requests/presentation/models/request_page_args.dart';
 import '../../features/requests/presentation/pages/request_page.dart';
 import 'app_routes.dart';
 
@@ -19,24 +20,18 @@ abstract final class AppRouter {
       case AppRoutes.branchSelection:
         return _page(const BranchSelectionPage(), settings);
       case AppRoutes.home:
-        return _page(
-          HomePage(branchId: settings.arguments as String?),
-          settings,
-        );
+        return _page(const HomePage(), settings);
       case AppRoutes.branchDetails:
-        return _page(
-          BranchDetailsPage(branchId: settings.arguments as String?),
-          settings,
-        );
+        return _page(const BranchDetailsPage(), settings);
       case AppRoutes.birthdays:
-        return _page(
-          BirthdaysPage(branchId: settings.arguments as String?),
-          settings,
-        );
+        return _page(const BirthdaysPage(), settings);
       case AppRoutes.promotions:
         return _page(const PromotionsPage(), settings);
       case AppRoutes.requests:
-        return _page(const RequestPage(), settings);
+        return _page(
+          RequestPage(args: settings.arguments as RequestPageArgs?),
+          settings,
+        );
       case AppRoutes.notifications:
         return _page(const NotificationsPage(), settings);
       case AppRoutes.profile:

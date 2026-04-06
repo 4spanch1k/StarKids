@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'di/service_registry.dart';
 import 'router/app_router.dart';
 import 'router/app_routes.dart';
 import 'theme/app_theme.dart';
@@ -13,9 +14,10 @@ class StarKidsApp extends StatelessWidget {
       title: 'Star Kids',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
-      initialRoute: AppRoutes.onboarding,
+      initialRoute: ServiceRegistry.selectedBranchController.hasStoredSelection
+          ? AppRoutes.home
+          : AppRoutes.onboarding,
       onGenerateRoute: AppRouter.onGenerateRoute,
     );
   }
 }
-

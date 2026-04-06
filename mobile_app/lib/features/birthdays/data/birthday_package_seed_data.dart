@@ -56,3 +56,12 @@ const birthdayValueHighlights = <String>[
   'Быстрая заявка без долгой переписки',
 ];
 
+BirthdayPackage? getBirthdayPackageById(String? packageId) {
+  for (final item in birthdayPackageSeedData) {
+    if (item.id == packageId) {
+      return item;
+    }
+  }
+
+  return null;
+}
