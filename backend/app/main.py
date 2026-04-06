@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .api.router import api_router
 from .core.config.settings import get_settings
+from .core.exceptions.handlers import register_exception_handlers
 from .core.logging.setup import configure_logging
 
 configure_logging()
@@ -14,6 +15,7 @@ app = FastAPI(
     docs_url='/docs',
     redoc_url='/redoc',
 )
+register_exception_handlers(app)
 
 app.add_middleware(
     CORSMiddleware,
@@ -29,4 +31,3 @@ app.include_router(api_router, prefix='/api/v1')
 @app.get('/healthz', tags=['health'])
 def healthcheck() -> dict[str, str]:
     return {'status': 'ok'}
-

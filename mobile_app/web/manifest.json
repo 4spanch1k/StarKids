@@ -1,0 +1,35 @@
+{
+    "name": "Star Kids",
+    "short_name": "Star Kids",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#FFF7F2",
+    "theme_color": "#F46A4E",
+    "description": "Star Kids mobile experience for parents.",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}

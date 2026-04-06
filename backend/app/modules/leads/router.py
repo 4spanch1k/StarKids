@@ -1,6 +1,18 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
+from sqlalchemy.orm import Session
 
-from .schemas import BirthdayLeadCreate, ContactLeadCreate, LeadCreatedResponse
+from ...core.database.session import get_db_session
+from ...db.repositories.branch_repository import BranchRepository
+from ...db.repositories.birthday_package_repository import BirthdayPackageRepository
+from ...db.repositories.lead_repository import LeadRepository
+from .schemas import (
+    BirthdayLeadCreate,
+    BirthdayLeadGenericErrorResponse,
+    BirthdayLeadSubmittedResponse,
+    BirthdayLeadValidationErrorResponse,
+    ContactLeadCreate,
+    LeadCreatedResponse,
+)
 from .service import LeadService
 
 router = APIRouter()
@@ -18,9 +30,21 @@ def create_contact_lead(payload: ContactLeadCreate) -> LeadCreatedResponse:
 
 @router.post(
     '/leads/birthday',
-    response_model=LeadCreatedResponse,
+    response_model=BirthdayLeadSubmittedResponse,
     status_code=status.HTTP_201_CREATED,
+    responses={
+        404: {'model': BirthdayLeadValidationErrorResponse},
+        422: {'model': BirthdayLeadValidationErrorResponse},
+        500: {'model': BirthdayLeadGenericErrorResponse},
+    },
 )
-def create_birthday_lead(payload: BirthdayLeadCreate) -> LeadCreatedResponse:
-    return service.create_birthday_lead(payload)
-
+def create_birthday_lead(
+    payload: BirthdayLeadCreate,
+    session: Session = Depends(get_db_session),
+) -> BirthdayLeadSubmittedResponse:
+    birthday_lead_service = LeadService(
+        repository=LeadRepository(session),
+        branch_repository=BranchRepository(session),
+        package_repository=BirthdayPackageRepository(session),
+    )
+    return birthday_lead_service.create_birthday_lead(payload)
