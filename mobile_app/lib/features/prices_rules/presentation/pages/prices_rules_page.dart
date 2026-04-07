@@ -9,14 +9,10 @@ import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
-import '../../data/seed_prices_rules_repository.dart';
 import '../../domain/branch_prices_rules.dart';
 
 class PricesRulesPage extends StatelessWidget {
   const PricesRulesPage({super.key});
-
-  static const SeedPricesRulesRepository _repository =
-      SeedPricesRulesRepository();
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +42,8 @@ class PricesRulesPage extends StatelessWidget {
             ),
           ),
           body: FutureBuilder<BranchPricesRules>(
-            future: _repository.getForBranch(branch.id),
+            future:
+                ServiceRegistry.pricesRulesRepository.getForBranch(branch.id),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());

@@ -7,16 +7,14 @@ import '../../../../core/design_system/foundations/star_kids_icon_sizes.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
+import '../../../../core/design_system/widgets/star_kids_media_image.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../../../core/services/external_link_service.dart';
-import '../../../contacts/data/seed_contact_links_repository.dart';
 import '../../../contacts/domain/branch_contact_links.dart';
+import '../../domain/branch_option.dart';
 
 class BranchDetailsPage extends StatelessWidget {
   const BranchDetailsPage({super.key});
-
-  static const SeedContactLinksRepository _contactLinksRepository =
-      SeedContactLinksRepository();
 
   @override
   Widget build(BuildContext context) {
@@ -47,11 +45,24 @@ class BranchDetailsPage extends StatelessWidget {
               ),
             ),
           ),
-          body: FutureBuilder<BranchContactLinks>(
-            future: _contactLinksRepository.getForBranch(branch.id),
+          body: FutureBuilder<_BranchDetailsScreenData>(
+            future: _loadScreenData(branch.id),
             builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (!snapshot.hasData) {
+                return const _BranchDetailsStateView(
+                  title: 'Филиал пока недоступен',
+                  description:
+                      'Не удалось загрузить live-данные по выбранному филиалу. Попробуйте открыть экран позже.',
+                );
+              }
+
               final textTheme = Theme.of(context).textTheme;
-              final contactLinks = snapshot.data;
+              final branchDetail = snapshot.data!.branch;
+              final contactLinks = snapshot.data!.contactLinks;
 
               return ListView(
                 padding: const EdgeInsets.fromLTRB(
@@ -65,26 +76,24 @@ class BranchDetailsPage extends StatelessWidget {
                     borderRadius: BorderRadius.circular(32),
                     child: AspectRatio(
                       aspectRatio: 2,
-                      child: Image.asset(
-                        branch.heroImagePath,
-                        fit: BoxFit.cover,
-                      ),
+                      child: StarKidsMediaImage(
+                          source: branchDetail.heroImagePath),
                     ),
                   ),
                   const SizedBox(height: StarKidsSpacing.lg),
-                  Text(branch.name, style: textTheme.headlineMedium),
+                  Text(branchDetail.name, style: textTheme.headlineMedium),
                   const SizedBox(height: StarKidsSpacing.sm),
-                  Text(branch.description, style: textTheme.bodyLarge),
+                  Text(branchDetail.description, style: textTheme.bodyLarge),
                   const SizedBox(height: StarKidsSpacing.lg),
                   _InfoRow(
                     icon: Icons.location_on_rounded,
                     title: 'Адрес',
-                    value: branch.address,
+                    value: branchDetail.address,
                   ),
                   _InfoRow(
                     icon: Icons.schedule_rounded,
                     title: 'Режим работы',
-                    value: branch.workingHours,
+                    value: branchDetail.workingHours,
                   ),
                   const SizedBox(height: StarKidsSpacing.lg),
                   Row(
@@ -93,14 +102,12 @@ class BranchDetailsPage extends StatelessWidget {
                         child: StarKidsButton.secondary(
                           label: 'Маршрут',
                           icon: Icons.map_rounded,
-                          onPressed: contactLinks == null
-                              ? null
-                              : () => _handleAction(
-                                    context,
-                                    () => ExternalLinkService.openMap(
-                                      contactLinks.mapUrl,
-                                    ),
-                                  ),
+                          onPressed: () => _handleAction(
+                            context,
+                            () => ExternalLinkService.openMap(
+                              contactLinks.mapUrl,
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: StarKidsSpacing.md),
@@ -110,7 +117,9 @@ class BranchDetailsPage extends StatelessWidget {
                           icon: Icons.call_rounded,
                           onPressed: () => _handleAction(
                             context,
-                            () => ExternalLinkService.openPhone(branch.phone),
+                            () => ExternalLinkService.openPhone(
+                              branchDetail.phone,
+                            ),
                           ),
                         ),
                       ),
@@ -163,7 +172,7 @@ class BranchDetailsPage extends StatelessWidget {
                   Wrap(
                     spacing: StarKidsSpacing.sm,
                     runSpacing: StarKidsSpacing.sm,
-                    children: branch.facilities
+                    children: branchDetail.facilities
                         .map(
                           (facility) => Container(
                             padding: const EdgeInsets.symmetric(
@@ -195,17 +204,17 @@ class BranchDetailsPage extends StatelessWidget {
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemBuilder: (context, index) {
-                        final imagePath = branch.galleryImagePaths[index];
+                        final imagePath = branchDetail.galleryImagePaths[index];
                         return ClipRRect(
                           borderRadius: BorderRadius.circular(20),
                           child: AspectRatio(
                             aspectRatio: 4 / 5,
-                            child: Image.asset(imagePath, fit: BoxFit.cover),
+                            child: StarKidsMediaImage(source: imagePath),
                           ),
                         );
                       },
                       separatorBuilder: (_, __) => const SizedBox(width: 8),
-                      itemCount: branch.galleryImagePaths.length,
+                      itemCount: branchDetail.galleryImagePaths.length,
                     ),
                   ),
                 ],
@@ -231,6 +240,18 @@ class BranchDetailsPage extends StatelessWidget {
       const SnackBar(
         content: Text('Не удалось открыть ссылку. Попробуйте позже.'),
       ),
+    );
+  }
+
+  Future<_BranchDetailsScreenData> _loadScreenData(String branchId) async {
+    final results = await Future.wait([
+      ServiceRegistry.branchRepository.getBranch(branchId),
+      ServiceRegistry.contactLinksRepository.getForBranch(branchId),
+    ]);
+
+    return _BranchDetailsScreenData(
+      branch: results[0] as BranchOption,
+      contactLinks: results[1] as BranchContactLinks,
     );
   }
 }
@@ -272,6 +293,54 @@ class _InfoRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _BranchDetailsScreenData {
+  const _BranchDetailsScreenData({
+    required this.branch,
+    required this.contactLinks,
+  });
+
+  final BranchOption branch;
+  final BranchContactLinks contactLinks;
+}
+
+class _BranchDetailsStateView extends StatelessWidget {
+  const _BranchDetailsStateView({
+    required this.title,
+    required this.description,
+  });
+
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(StarKidsSpacing.xl),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.all(StarKidsSpacing.xl),
+            decoration: BoxDecoration(
+              color: StarKidsColors.surfacePrimary,
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(color: StarKidsColors.borderDefault),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: Theme.of(context).textTheme.headlineSmall),
+                const SizedBox(height: StarKidsSpacing.sm),
+                Text(description, style: Theme.of(context).textTheme.bodyLarge),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

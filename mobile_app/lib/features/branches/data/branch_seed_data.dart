@@ -59,4 +59,3 @@ BranchOption getBranchById(String? branchId) {
     orElse: () => branchSeedData.first,
   );
 }
-

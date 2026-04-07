@@ -19,4 +19,3 @@ class BirthdayPackage {
   final String imagePath;
   final bool isFeatured;
 }
-

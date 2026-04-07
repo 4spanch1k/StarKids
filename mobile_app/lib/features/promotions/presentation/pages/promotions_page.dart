@@ -11,13 +11,10 @@ import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_promo_card.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../../requests/presentation/models/request_page_args.dart';
-import '../../data/seed_promotion_repository.dart';
 import '../../domain/promotion_offer.dart';
 
 class PromotionsPage extends StatelessWidget {
   const PromotionsPage({super.key});
-
-  static const SeedPromotionRepository _repository = SeedPromotionRepository();
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +46,8 @@ class PromotionsPage extends StatelessWidget {
             ),
           ),
           body: FutureBuilder<List<PromotionOffer>>(
-            future: _repository.listPromotions(branch.id),
+            future:
+                ServiceRegistry.promotionRepository.listPromotions(branch.id),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
