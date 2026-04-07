@@ -26,7 +26,17 @@ class PricesRulesPage extends StatelessWidget {
         final branch = ServiceRegistry.selectedBranchController.selectedBranch;
 
         return Scaffold(
-          appBar: AppBar(title: const Text('Цены и правила')),
+          appBar: AppBar(
+            title: const Text('Цены и правила'),
+            actions: [
+              IconButton(
+                tooltip: 'Сменить филиал',
+                onPressed: () =>
+                    Navigator.of(context).pushNamed(AppRoutes.branchSelection),
+                icon: const Icon(Icons.swap_horiz_rounded),
+              ),
+            ],
+          ),
           bottomNavigationBar: StarKidsBottomCtaBar(
             child: StarKidsButton.primary(
               label: 'Посмотреть пакеты праздника',
@@ -42,11 +52,25 @@ class PricesRulesPage extends StatelessWidget {
                 return const Center(child: CircularProgressIndicator());
               }
 
+              if (snapshot.hasError) {
+                return _PricesRulesStateView(
+                  title: 'Цены пока недоступны',
+                  description:
+                      'Не удалось показать тарифы и правила для выбранного филиала. Попробуйте выбрать другой филиал.',
+                  actionLabel: 'Сменить филиал',
+                  onActionTap: () => Navigator.of(context)
+                      .pushNamed(AppRoutes.branchSelection),
+                );
+              }
+
               if (!snapshot.hasData) {
-                return const _PricesRulesStateView(
+                return _PricesRulesStateView(
                   title: 'Цены пока недоступны',
                   description:
                       'Экран готов, но тарифы и правила для этого филиала пока не удалось показать.',
+                  actionLabel: 'Сменить филиал',
+                  onActionTap: () => Navigator.of(context)
+                      .pushNamed(AppRoutes.branchSelection),
                 );
               }
 
@@ -247,10 +271,14 @@ class _PricesRulesStateView extends StatelessWidget {
   const _PricesRulesStateView({
     required this.title,
     required this.description,
+    required this.actionLabel,
+    required this.onActionTap,
   });
 
   final String title;
   final String description;
+  final String actionLabel;
+  final VoidCallback onActionTap;
 
   @override
   Widget build(BuildContext context) {
@@ -272,6 +300,12 @@ class _PricesRulesStateView extends StatelessWidget {
                 Text(title, style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: StarKidsSpacing.sm),
                 Text(description, style: Theme.of(context).textTheme.bodyLarge),
+                const SizedBox(height: StarKidsSpacing.lg),
+                StarKidsButton.secondary(
+                  label: actionLabel,
+                  icon: Icons.swap_horiz_rounded,
+                  onPressed: onActionTap,
+                ),
               ],
             ),
           ),

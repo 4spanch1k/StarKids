@@ -237,8 +237,8 @@ class HomePage extends StatelessWidget {
                             ),
                             _QuickActionTile(
                               icon: Icons.pin_drop_rounded,
-                              title: 'Контакты и карта',
-                              subtitle: 'Звонок, WhatsApp и маршрут',
+                              title: 'Контакты и маршрут',
+                              subtitle: 'Звонок, WhatsApp и как доехать',
                               onTap: () => Navigator.of(context)
                                   .pushNamed(AppRoutes.contacts),
                             ),

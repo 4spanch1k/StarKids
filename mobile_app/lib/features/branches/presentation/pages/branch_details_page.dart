@@ -26,7 +26,17 @@ class BranchDetailsPage extends StatelessWidget {
         final branch = ServiceRegistry.selectedBranchController.selectedBranch;
 
         return Scaffold(
-          appBar: AppBar(title: Text(branch.shortLabel)),
+          appBar: AppBar(
+            title: Text(branch.shortLabel),
+            actions: [
+              IconButton(
+                tooltip: 'Сменить филиал',
+                onPressed: () =>
+                    Navigator.of(context).pushNamed(AppRoutes.branchSelection),
+                icon: const Icon(Icons.swap_horiz_rounded),
+              ),
+            ],
+          ),
           bottomNavigationBar: StarKidsBottomCtaBar(
             child: StarKidsButton.primary(
               label: 'Написать в WhatsApp',
@@ -135,6 +145,13 @@ class BranchDetailsPage extends StatelessWidget {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: StarKidsSpacing.md),
+                  StarKidsButton.secondary(
+                    label: 'Посмотреть пакеты праздника',
+                    icon: Icons.cake_rounded,
+                    onPressed: () =>
+                        Navigator.of(context).pushNamed(AppRoutes.birthdays),
                   ),
                   const SizedBox(height: StarKidsSpacing.x2l),
                   const StarKidsSectionHeader(

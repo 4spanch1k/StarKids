@@ -27,10 +27,20 @@ class PromotionsPage extends StatelessWidget {
         final branch = ServiceRegistry.selectedBranchController.selectedBranch;
 
         return Scaffold(
-          appBar: AppBar(title: const Text('Акции')),
+          appBar: AppBar(
+            title: const Text('Акции'),
+            actions: [
+              IconButton(
+                tooltip: 'Сменить филиал',
+                onPressed: () =>
+                    Navigator.of(context).pushNamed(AppRoutes.branchSelection),
+                icon: const Icon(Icons.swap_horiz_rounded),
+              ),
+            ],
+          ),
           bottomNavigationBar: StarKidsBottomCtaBar(
             child: StarKidsButton.primary(
-              label: 'Оставить заявку',
+              label: 'Оставить заявку на праздник',
               icon: Icons.chat_bubble_rounded,
               onPressed: () => Navigator.of(context).pushNamed(
                 AppRoutes.requests,
@@ -46,19 +56,25 @@ class PromotionsPage extends StatelessWidget {
               }
 
               if (snapshot.hasError) {
-                return const _PromotionsStateView(
+                return _PromotionsStateView(
                   title: 'Акции пока недоступны',
                   description:
                       'Не удалось загрузить коммерческие предложения. Попробуйте открыть экран позже.',
+                  actionLabel: 'Выбрать другой филиал',
+                  onActionTap: () => Navigator.of(context)
+                      .pushNamed(AppRoutes.branchSelection),
                 );
               }
 
               final promotions = snapshot.data ?? const <PromotionOffer>[];
               if (promotions.isEmpty) {
-                return const _PromotionsStateView(
+                return _PromotionsStateView(
                   title: 'Скоро появятся новые предложения',
                   description:
                       'Экран уже готов для коммерческого контента, но по текущему филиалу пока нет активных офферов.',
+                  actionLabel: 'Сменить филиал',
+                  onActionTap: () => Navigator.of(context)
+                      .pushNamed(AppRoutes.branchSelection),
                 );
               }
 
@@ -173,10 +189,14 @@ class _PromotionsStateView extends StatelessWidget {
   const _PromotionsStateView({
     required this.title,
     required this.description,
+    required this.actionLabel,
+    required this.onActionTap,
   });
 
   final String title;
   final String description;
+  final String actionLabel;
+  final VoidCallback onActionTap;
 
   @override
   Widget build(BuildContext context) {
@@ -198,6 +218,12 @@ class _PromotionsStateView extends StatelessWidget {
                 Text(title, style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: StarKidsSpacing.sm),
                 Text(description, style: Theme.of(context).textTheme.bodyLarge),
+                const SizedBox(height: StarKidsSpacing.lg),
+                StarKidsButton.secondary(
+                  label: actionLabel,
+                  icon: Icons.swap_horiz_rounded,
+                  onPressed: onActionTap,
+                ),
               ],
             ),
           ),
