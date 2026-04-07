@@ -14,21 +14,27 @@
           </p>
         </div>
 
-        <div v-if="sessionStore.currentUser" class="workspace__account">
-          <div class="workspace__account-copy">
-            <p class="workspace__account-name">{{ sessionStore.operatorName }}</p>
-            <p class="workspace__account-meta">
-              {{ roleLabel }} · {{ sessionStore.operatorEmail }}
-            </p>
+        <details v-if="sessionStore.currentUser" class="workspace__account-menu">
+          <summary class="workspace__account-trigger">
+            <div class="workspace__account-copy">
+              <p class="workspace__account-name">{{ sessionStore.operatorName }}</p>
+              <p class="workspace__account-meta">
+                {{ roleLabel }} · {{ sessionStore.operatorEmail }}
+              </p>
+            </div>
+            <span class="workspace__account-chevron" aria-hidden="true">▾</span>
+          </summary>
+
+          <div class="workspace__account-popover">
+            <button
+              type="button"
+              class="workspace__account-action"
+              @click="handleLogout"
+            >
+              Выйти из панели
+            </button>
           </div>
-          <button
-            type="button"
-            class="admin-button admin-button--secondary"
-            @click="handleLogout"
-          >
-            Выйти
-          </button>
-        </div>
+        </details>
       </header>
 
       <div class="workspace__content">
@@ -74,7 +80,7 @@ async function handleLogout() {
 <style scoped>
 .layout {
   display: grid;
-  grid-template-columns: 272px minmax(0, 1fr);
+  grid-template-columns: 248px minmax(0, 1fr);
   min-height: 100vh;
 }
 
@@ -87,12 +93,12 @@ async function handleLogout() {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 28px 32px 0;
+  padding: 20px 24px 0;
 }
 
 .workspace__intro {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .workspace__label {
@@ -107,25 +113,42 @@ async function handleLogout() {
 .workspace__caption {
   margin: 0;
   color: var(--color-text);
-  font-size: 14px;
-  line-height: 1.6;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
-.workspace__account {
+.workspace__account-menu {
+  position: relative;
+  min-width: 0;
+}
+
+.workspace__account-menu[open] .workspace__account-trigger {
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-soft);
+}
+
+.workspace__account-trigger {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px;
+  gap: 10px;
+  min-width: 280px;
+  padding: 8px 10px;
   border: 1px solid var(--color-border);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.88);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+  list-style: none;
+}
+
+.workspace__account-trigger::-webkit-details-marker {
+  display: none;
 }
 
 .workspace__account-copy {
   display: grid;
   gap: 2px;
   min-width: 0;
-  padding: 0 8px;
+  flex: 1;
 }
 
 .workspace__account-name,
@@ -143,8 +166,45 @@ async function handleLogout() {
   font-size: 13px;
 }
 
+.workspace__account-chevron {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.workspace__account-popover {
+  position: absolute;
+  right: 0;
+  z-index: 10;
+  display: grid;
+  gap: 8px;
+  min-width: 220px;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.workspace__account-action {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--color-surface-subtle);
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.workspace__account-action:hover {
+  background: var(--color-surface-muted);
+}
+
 .workspace__content {
-  padding: 24px 32px 32px;
+  padding: 18px 24px 24px;
 }
 
 @media (max-width: 1100px) {
@@ -157,8 +217,8 @@ async function handleLogout() {
     align-items: stretch;
   }
 
-  .workspace__account {
-    justify-content: space-between;
+  .workspace__account-trigger {
+    width: 100%;
   }
 }
 </style>

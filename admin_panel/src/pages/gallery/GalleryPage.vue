@@ -2,13 +2,36 @@
   <OperationalPreviewPage
     eyebrow="Медиа"
     title="Галерея"
-    description="Галерея должна управляться как спокойный рабочий инструмент: без хаоса, с понятной структурой по филиалам и типам изображений."
+    description="Управление медиа по филиалам и сценариям использования."
     :items="[
-      'Hero-изображения филиалов',
-      'Галереи по зонам и праздникам',
-      'Порядок и актуальность медиа',
+      {
+        id: 'branches-gallery',
+        label: 'Филиалы',
+        summary: 'Фото зон и общие hero-изображения.',
+        statusLabel: 'Активно',
+        statusTone: 'closed',
+      },
+      {
+        id: 'birthday-gallery',
+        label: 'Праздники',
+        summary: 'Подборки для birthday surfaces.',
+        statusLabel: 'В работе',
+        statusTone: 'in-progress',
+      },
+      {
+        id: 'play-zones-gallery',
+        label: 'Игровые зоны',
+        summary: 'Раздел еще не заполнен.',
+        statusLabel: 'Черновик',
+        statusTone: 'warning',
+      },
     ]"
-    note="В дальнейшем здесь должен появиться понятный upload-driven поток, но foundation уже сейчас должен быть чистым и предсказуемым."
+    list-title="Наборы медиа"
+    detail-description="Справа будет показана выбранная медиаподборка и ее текущее состояние."
+    empty-title="Галерея пока пустая"
+    empty-description="Добавьте первую подборку, чтобы команда могла управлять медиа без хаоса."
+    action-label="Добавить медиа"
+    note="Когда backend и upload-flow будут готовы, этот раздел уже не придется переделывать целиком."
   />
 </template>
 

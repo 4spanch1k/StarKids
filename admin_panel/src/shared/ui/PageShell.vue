@@ -28,19 +28,19 @@ defineProps<{
 <style scoped>
 .page-shell {
   display: grid;
-  gap: 24px;
+  gap: 18px;
 }
 
 .page-shell__header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 20px;
+  gap: 16px;
 }
 
 .page-shell__copy {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   max-width: 760px;
 }
 
@@ -48,30 +48,30 @@ defineProps<{
   margin: 0;
   font-size: 13px;
   font-weight: 700;
-  color: var(--color-accent);
+  color: var(--color-muted);
 }
 
 .page-shell__title {
   margin: 0;
-  font-size: 32px;
+  font-size: 28px;
   line-height: 1.15;
 }
 
 .page-shell__description {
   margin: 0;
   color: var(--color-muted);
-  line-height: 1.65;
+  line-height: 1.55;
 }
 
 .page-shell__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
 }
 
 .page-shell__body {
   display: grid;
-  gap: 20px;
+  gap: 14px;
 }
 
 @media (max-width: 900px) {

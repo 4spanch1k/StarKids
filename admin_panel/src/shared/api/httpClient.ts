@@ -17,13 +17,19 @@ export class HttpError extends Error {
 }
 
 export async function httpClient<T>({ path, ...options }: RequestOptions): Promise<T> {
-  const response = await fetch(`${env.apiBaseUrl}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-    ...options,
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(`${env.apiBaseUrl}${path}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      ...options,
+    });
+  } catch (error) {
+    throw new Error(resolveNetworkErrorMessage(error));
+  }
 
   if (!response.ok) {
     const payload = await readResponseBody(response);
@@ -59,4 +65,15 @@ function resolveErrorMessage(status: number, payload: unknown): string {
   }
 
   return `Запрос завершился с ошибкой (${status})`;
+}
+
+function resolveNetworkErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    const normalizedMessage = error.message.trim().toLowerCase();
+    if (normalizedMessage === 'load failed' || normalizedMessage === 'failed to fetch') {
+      return 'Не удалось подключиться к серверу. Проверьте, что локальный API запущен.';
+    }
+  }
+
+  return 'Не удалось подключиться к серверу. Попробуйте еще раз.';
 }

@@ -51,7 +51,7 @@ class Settings(BaseSettings):
         if self.admin_seed_email:
             return self.admin_seed_email
         if self.is_development:
-            return 'admin@starkids.local'
+            return 'admin@starkids.kz'
         return None
 
     @property
