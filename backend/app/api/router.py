@@ -25,4 +25,3 @@ api_router.include_router(
     tags=['mobile-notifications'],
 )
 api_router.include_router(admin_auth_router, prefix='/admin/auth', tags=['admin-auth'])
-

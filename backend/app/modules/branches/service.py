@@ -1,5 +1,6 @@
 from ...db.repositories.branch_repository import BranchRepository
-from .schemas import BranchSummary
+from ...core.exceptions.http import NotFoundException
+from .schemas import BranchDetail, BranchSummary
 
 
 class BranchService:
@@ -12,3 +13,11 @@ class BranchService:
             for branch in self.repository.list_active()
         ]
 
+    def get_branch(self, branch_id_or_slug: str) -> BranchDetail:
+        branch = self.repository.get_active_by_id_or_slug(branch_id_or_slug)
+        if branch is None:
+            raise NotFoundException(
+                code='branch_not_found',
+                message='Branch was not found.',
+            )
+        return BranchDetail.model_validate(branch)

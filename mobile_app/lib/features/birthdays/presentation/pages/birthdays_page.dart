@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/design_system/foundations/star_kids_colors.dart';
 import '../../../../core/design_system/foundations/star_kids_radii.dart';
@@ -8,32 +9,33 @@ import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
 import '../../../../core/design_system/widgets/star_kids_birthday_package_card.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
-import '../../../branches/data/branch_seed_data.dart';
+import '../../../requests/presentation/models/request_page_args.dart';
 import '../../data/birthday_package_seed_data.dart';
 
 class BirthdaysPage extends StatelessWidget {
-  const BirthdaysPage({
-    super.key,
-    this.branchId,
-  });
-
-  final String? branchId;
+  const BirthdaysPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final branch = getBranchById(branchId);
-    final textTheme = Theme.of(context).textTheme;
+    return AnimatedBuilder(
+      animation: ServiceRegistry.selectedBranchController,
+      builder: (context, _) {
+        final branch = ServiceRegistry.selectedBranchController.selectedBranch;
+        final textTheme = Theme.of(context).textTheme;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Дни рождения')),
-      bottomNavigationBar: StarKidsBottomCtaBar(
+        return Scaffold(
+          appBar: AppBar(title: const Text('Дни рождения')),
+          bottomNavigationBar: StarKidsBottomCtaBar(
         child: StarKidsButton.primary(
           label: 'Оставить заявку на праздник',
           icon: Icons.cake_rounded,
-          onPressed: () => Navigator.of(context).pushNamed(AppRoutes.requests),
+          onPressed: () => Navigator.of(context).pushNamed(
+            AppRoutes.requests,
+            arguments: const RequestPageArgs(),
+          ),
         ),
-      ),
-      body: ListView(
+          ),
+          body: ListView(
         padding: const EdgeInsets.fromLTRB(
           StarKidsSpacing.xl,
           StarKidsSpacing.lg,
@@ -160,8 +162,10 @@ class BirthdaysPage extends StatelessWidget {
                 highlights: item.highlights,
                 imagePath: item.imagePath,
                 isFeatured: item.isFeatured,
-                onActionTap: () =>
-                    Navigator.of(context).pushNamed(AppRoutes.requests),
+                onActionTap: () => Navigator.of(context).pushNamed(
+                  AppRoutes.requests,
+                  arguments: RequestPageArgs(initialPackageId: item.id),
+                ),
               ),
             ),
           ),
@@ -199,7 +203,9 @@ class BirthdaysPage extends StatelessWidget {
             ),
           ),
         ],
-      ),
+          ),
+        );
+      },
     );
   }
 }

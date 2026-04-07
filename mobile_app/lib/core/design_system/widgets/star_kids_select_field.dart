@@ -15,6 +15,7 @@ class StarKidsSelectField extends StatelessWidget {
     this.errorText,
     this.enabled = true,
     this.leadingIcon,
+    this.placeholderText = 'Выберите значение',
   });
 
   final String label;
@@ -24,6 +25,7 @@ class StarKidsSelectField extends StatelessWidget {
   final String? errorText;
   final bool enabled;
   final IconData? leadingIcon;
+  final String placeholderText;
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +77,7 @@ class StarKidsSelectField extends StatelessWidget {
                   ],
                   Expanded(
                     child: Text(
-                      value ?? 'Select',
+                      value ?? placeholderText,
                       style: textTheme.bodyLarge?.copyWith(
                         color: value == null
                             ? StarKidsColors.textSecondary
@@ -111,4 +113,3 @@ class StarKidsSelectField extends StatelessWidget {
     );
   }
 }
-

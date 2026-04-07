@@ -1,29 +1,27 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/di/service_registry.dart';
 import '../../../../core/design_system/foundations/star_kids_colors.dart';
 import '../../../../core/design_system/foundations/star_kids_icon_sizes.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
-import '../../data/branch_seed_data.dart';
 
 class BranchDetailsPage extends StatelessWidget {
-  const BranchDetailsPage({
-    super.key,
-    this.branchId,
-  });
-
-  final String? branchId;
+  const BranchDetailsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final branch = getBranchById(branchId);
-    final textTheme = Theme.of(context).textTheme;
+    return AnimatedBuilder(
+      animation: ServiceRegistry.selectedBranchController,
+      builder: (context, _) {
+        final branch = ServiceRegistry.selectedBranchController.selectedBranch;
+        final textTheme = Theme.of(context).textTheme;
 
-    return Scaffold(
-      appBar: AppBar(title: Text(branch.shortLabel)),
-      bottomNavigationBar: StarKidsBottomCtaBar(
+        return Scaffold(
+          appBar: AppBar(title: Text(branch.shortLabel)),
+          bottomNavigationBar: StarKidsBottomCtaBar(
         child: StarKidsButton.primary(
           label: 'Написать в WhatsApp',
           icon: Icons.chat_bubble_rounded,
@@ -32,8 +30,8 @@ class BranchDetailsPage extends StatelessWidget {
             'WhatsApp: ${branch.whatsAppPhone}',
           ),
         ),
-      ),
-      body: ListView(
+          ),
+          body: ListView(
         padding: const EdgeInsets.fromLTRB(
           StarKidsSpacing.xl,
           StarKidsSpacing.lg,
@@ -148,7 +146,9 @@ class BranchDetailsPage extends StatelessWidget {
             ),
           ),
         ],
-      ),
+          ),
+        );
+      },
     );
   }
 
