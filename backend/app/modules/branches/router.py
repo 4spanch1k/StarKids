@@ -3,8 +3,15 @@ from sqlalchemy.orm import Session
 
 from ...core.database.session import get_db_session
 from ...core.exceptions.schemas import ErrorResponse
+from ...db.repositories.branch_pricing_repository import BranchPricingRepository
 from ...db.repositories.branch_repository import BranchRepository
-from .schemas import BranchDetail, BranchSummary
+from .schemas import (
+    BranchContactsResponse,
+    BranchDetail,
+    BranchGalleryResponse,
+    BranchPricesRulesResponse,
+    BranchSummary,
+)
 from .service import BranchService
 
 router = APIRouter()
@@ -36,3 +43,57 @@ def get_branch(
 ) -> BranchDetail:
     service = BranchService(repository=BranchRepository(session))
     return service.get_branch(branch_id_or_slug)
+
+
+@router.get(
+    '/branches/{branch_id_or_slug}/contacts',
+    response_model=BranchContactsResponse,
+    responses={
+        404: {'model': ErrorResponse},
+        422: {'model': ErrorResponse},
+    },
+)
+def get_branch_contacts(
+    branch_id_or_slug: str = Path(min_length=2, max_length=120),
+    session: Session = Depends(get_db_session),
+) -> BranchContactsResponse:
+    service = BranchService(
+        repository=BranchRepository(session),
+        pricing_repository=BranchPricingRepository(session),
+    )
+    return service.get_branch_contacts(branch_id_or_slug)
+
+
+@router.get(
+    '/branches/{branch_id_or_slug}/gallery',
+    response_model=BranchGalleryResponse,
+    responses={
+        404: {'model': ErrorResponse},
+        422: {'model': ErrorResponse},
+    },
+)
+def get_branch_gallery(
+    branch_id_or_slug: str = Path(min_length=2, max_length=120),
+    session: Session = Depends(get_db_session),
+) -> BranchGalleryResponse:
+    service = BranchService(repository=BranchRepository(session))
+    return service.get_branch_gallery(branch_id_or_slug)
+
+
+@router.get(
+    '/branches/{branch_id_or_slug}/prices-rules',
+    response_model=BranchPricesRulesResponse,
+    responses={
+        404: {'model': ErrorResponse},
+        422: {'model': ErrorResponse},
+    },
+)
+def get_branch_prices_rules(
+    branch_id_or_slug: str = Path(min_length=2, max_length=120),
+    session: Session = Depends(get_db_session),
+) -> BranchPricesRulesResponse:
+    service = BranchService(
+        repository=BranchRepository(session),
+        pricing_repository=BranchPricingRepository(session),
+    )
+    return service.get_branch_prices_rules(branch_id_or_slug)
