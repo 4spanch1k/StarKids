@@ -7,8 +7,10 @@
 
 # Environment files
 .env
+.env.*
 .env.local
 .env.*.local
+!.env.example
 .tmp_starkids_*
 
 # Python
