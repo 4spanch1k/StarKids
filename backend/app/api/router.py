@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from ..modules.admin_auth.router import router as admin_auth_router
+from ..modules.admin_leads.router import router as admin_leads_router
 from ..modules.birthdays.router import router as birthdays_router
 from ..modules.branches.router import router as branches_router
 from ..modules.health.router import router as health_router
@@ -25,3 +26,4 @@ api_router.include_router(
     tags=['mobile-notifications'],
 )
 api_router.include_router(admin_auth_router, prefix='/admin/auth', tags=['admin-auth'])
+api_router.include_router(admin_leads_router, prefix='/admin', tags=['admin-leads'])
