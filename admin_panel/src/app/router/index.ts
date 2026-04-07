@@ -32,7 +32,8 @@ const routes: RouteRecordRaw[] = [
       requiresAuth: true,
     },
     children: [
-      { path: '', name: 'dashboard', component: DashboardPage },
+      { path: '', redirect: { name: 'leads' } },
+      { path: 'dashboard', name: 'dashboard', component: DashboardPage },
       { path: 'leads', name: 'leads', component: LeadsPage },
       { path: 'branches', name: 'branches', component: BranchesPage },
       {

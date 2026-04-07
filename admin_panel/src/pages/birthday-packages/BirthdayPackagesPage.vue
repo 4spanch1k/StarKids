@@ -1,27 +1,17 @@
 <template>
-  <PageShell
-    eyebrow="Monetization"
-    title="Birthday packages"
-    description="Packages should define offer structure, included services, add-ons, and branch availability."
-  >
-    <ul class="stack">
-      <li>Package list and availability management</li>
-      <li>Included items and extra services</li>
-      <li>Lead conversion visibility by package</li>
-    </ul>
-  </PageShell>
+  <OperationalPreviewPage
+    eyebrow="Коммерческое предложение"
+    title="Пакеты дней рождения"
+    description="Экран должен помогать быстро поддерживать актуальные пакеты, состав услуг и branch-aware доступность."
+    :items="[
+      'Список пакетов и их статус',
+      'Состав пакета и дополнительные услуги',
+      'Привязка пакета к филиалу',
+    ]"
+    note="Для сотрудника здесь важно быстро понять, какой пакет сейчас активен и что входит в предложение."
+  />
 </template>
 
 <script setup lang="ts">
-import PageShell from '@/shared/ui/PageShell.vue';
+import OperationalPreviewPage from '@/shared/ui/OperationalPreviewPage.vue';
 </script>
-
-<style scoped>
-.stack {
-  display: grid;
-  gap: 12px;
-  margin: 0;
-  padding-left: 18px;
-}
-</style>
-

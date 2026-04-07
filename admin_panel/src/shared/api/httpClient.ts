@@ -58,5 +58,5 @@ function resolveErrorMessage(status: number, payload: unknown): string {
     }
   }
 
-  return `Request failed with status ${status}`;
+  return `Запрос завершился с ошибкой (${status})`;
 }

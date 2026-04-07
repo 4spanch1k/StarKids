@@ -66,7 +66,7 @@ export function useLeadInbox() {
     } catch (error) {
       branchesErrorMessage.value = resolveErrorMessage(
         error,
-        'Branch filter options are unavailable.',
+        'Не удалось загрузить список филиалов.',
       );
     } finally {
       isBranchesLoading.value = false;
@@ -85,7 +85,7 @@ export function useLeadInbox() {
       total.value = response.total;
       syncSelectedLeadWithList();
     } catch (error) {
-      listErrorMessage.value = resolveErrorMessage(error, 'Could not load leads.');
+      listErrorMessage.value = resolveErrorMessage(error, 'Не удалось загрузить заявки.');
     } finally {
       isListLoading.value = false;
     }
@@ -143,16 +143,16 @@ export function useLeadInbox() {
         selectedLeadId.value = '';
         selectedLead.value = null;
         statusSuccessMessage.value =
-          'Lead status updated. Current filters no longer include this request.';
+          'Статус обновлен. Заявка больше не попадает под текущие фильтры.';
         await loadLeads();
         return;
       }
 
-      statusSuccessMessage.value = 'Lead status updated.';
+      statusSuccessMessage.value = 'Статус заявки обновлен.';
     } catch (error) {
       statusErrorMessage.value = resolveErrorMessage(
         error,
-        'Could not update lead status.',
+        'Не удалось обновить статус заявки.',
       );
     } finally {
       isStatusUpdating.value = false;
@@ -171,7 +171,7 @@ export function useLeadInbox() {
       if (selectedLeadId.value === leadId) {
         detailErrorMessage.value = resolveErrorMessage(
           error,
-          'Could not load lead details.',
+          'Не удалось загрузить детали заявки.',
         );
       }
     } finally {

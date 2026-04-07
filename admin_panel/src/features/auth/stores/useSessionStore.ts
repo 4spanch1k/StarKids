@@ -78,7 +78,7 @@ export const useSessionStore = defineStore('session', () => {
   async function refreshSession() {
     if (!refreshToken.value) {
       clearSession();
-      throw new Error('Refresh token missing.');
+      throw new Error('Сессия истекла. Выполните вход заново.');
     }
 
     const response = await refreshAdminSession({
@@ -160,7 +160,7 @@ export const useSessionStore = defineStore('session', () => {
     if (error instanceof Error) {
       return error.message;
     }
-    return 'Request failed.';
+    return 'Не удалось выполнить запрос.';
   }
 
   return {

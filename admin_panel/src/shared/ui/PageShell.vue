@@ -1,16 +1,17 @@
 <template>
   <section class="page-shell">
-    <header class="page-header">
-      <div>
-        <p class="eyebrow">{{ eyebrow }}</p>
-        <h2>{{ title }}</h2>
+    <header class="page-shell__header">
+      <div class="page-shell__copy">
+        <p v-if="eyebrow" class="page-shell__eyebrow">{{ eyebrow }}</p>
+        <h1 class="page-shell__title">{{ title }}</h1>
+        <p class="page-shell__description">{{ description }}</p>
       </div>
-      <slot name="actions" />
+      <div v-if="$slots.actions" class="page-shell__actions">
+        <slot name="actions" />
+      </div>
     </header>
 
-    <p class="description">{{ description }}</p>
-
-    <div class="panel">
+    <div class="page-shell__body">
       <slot />
     </div>
   </section>
@@ -18,7 +19,7 @@
 
 <script setup lang="ts">
 defineProps<{
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   description: string;
 }>();
@@ -26,45 +27,56 @@ defineProps<{
 
 <style scoped>
 .page-shell {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
+  display: grid;
+  gap: 24px;
 }
 
-.page-header {
+.page-shell__header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: 20px;
 }
 
-.eyebrow {
-  margin: 0 0 6px;
-  font-size: 12px;
+.page-shell__copy {
+  display: grid;
+  gap: 8px;
+  max-width: 760px;
+}
+
+.page-shell__eyebrow {
+  margin: 0;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--color-accent);
 }
 
-.page-header h2 {
+.page-shell__title {
   margin: 0;
-  font-size: 22px;
+  font-size: 32px;
+  line-height: 1.15;
 }
 
-.description {
+.page-shell__description {
   margin: 0;
-  max-width: 760px;
   color: var(--color-muted);
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
-.panel {
-  border: 1px solid var(--color-border);
-  border-radius: 24px;
-  padding: 24px;
-  background: var(--color-surface);
-  box-shadow: var(--shadow-soft);
+.page-shell__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.page-shell__body {
+  display: grid;
+  gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .page-shell__header {
+    flex-direction: column;
+  }
 }
 </style>
-

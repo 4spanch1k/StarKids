@@ -1,27 +1,17 @@
 <template>
-  <PageShell
-    eyebrow="Retention"
-    title="Promotions"
-    description="Promotions should connect content, push campaigns, and branch targeting."
-  >
-    <ul class="stack">
-      <li>Seasonal offers</li>
-      <li>Branch targeting</li>
-      <li>Launch dates and campaign visibility</li>
-    </ul>
-  </PageShell>
+  <OperationalPreviewPage
+    eyebrow="Акции"
+    title="Акции"
+    description="Экран акций должен помогать быстро обновлять branch-aware предложения и не путать сотрудников лишними полями."
+    :items="[
+      'Список активных и черновых акций',
+      'Филиалы, к которым относится акция',
+      'Текст оффера и CTA',
+    ]"
+    note="Оператору должно быть понятно, что сейчас опубликовано, где действует акция и что увидит родитель в мобильном приложении."
+  />
 </template>
 
 <script setup lang="ts">
-import PageShell from '@/shared/ui/PageShell.vue';
+import OperationalPreviewPage from '@/shared/ui/OperationalPreviewPage.vue';
 </script>
-
-<style scoped>
-.stack {
-  display: grid;
-  gap: 12px;
-  margin: 0;
-  padding-left: 18px;
-}
-</style>
-

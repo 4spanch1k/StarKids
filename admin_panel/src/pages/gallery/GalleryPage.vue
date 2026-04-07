@@ -1,27 +1,17 @@
 <template>
-  <PageShell
-    eyebrow="Media"
-    title="Gallery and media"
-    description="Media should be upload-driven and reusable across home, branches, and promotions."
-  >
-    <ul class="stack">
-      <li>Branch gallery collections</li>
-      <li>Compression and ordering policies</li>
-      <li>Shared media library</li>
-    </ul>
-  </PageShell>
+  <OperationalPreviewPage
+    eyebrow="Медиа"
+    title="Галерея"
+    description="Галерея должна управляться как спокойный рабочий инструмент: без хаоса, с понятной структурой по филиалам и типам изображений."
+    :items="[
+      'Hero-изображения филиалов',
+      'Галереи по зонам и праздникам',
+      'Порядок и актуальность медиа',
+    ]"
+    note="В дальнейшем здесь должен появиться понятный upload-driven поток, но foundation уже сейчас должен быть чистым и предсказуемым."
+  />
 </template>
 
 <script setup lang="ts">
-import PageShell from '@/shared/ui/PageShell.vue';
+import OperationalPreviewPage from '@/shared/ui/OperationalPreviewPage.vue';
 </script>
-
-<style scoped>
-.stack {
-  display: grid;
-  gap: 12px;
-  margin: 0;
-  padding-left: 18px;
-}
-</style>
-

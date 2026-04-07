@@ -1,27 +1,17 @@
 <template>
-  <PageShell
-    eyebrow="Commercial content"
-    title="Tariffs and rules"
-    description="Tariffs, visit conditions, and rule text should stay structured so mobile content remains easy to update."
-  >
-    <ul class="stack">
-      <li>Visit tariff definitions</li>
-      <li>Branch-specific pricing</li>
-      <li>Rules and disclaimers</li>
-    </ul>
-  </PageShell>
+  <OperationalPreviewPage
+    eyebrow="Коммерческие условия"
+    title="Тарифы и правила"
+    description="Раздел нужен для поддержки тарифов посещения и правил, которые потом показываются в мобильном приложении."
+    :items="[
+      'Тарифы посещения по филиалу',
+      'Правила и disclaimers',
+      'Связь с экраном цен в приложении',
+    ]"
+    note="Сейчас раздел вторичен в навигации. Важно не перегружать его, а сделать понятной точкой настройки условий."
+  />
 </template>
 
 <script setup lang="ts">
-import PageShell from '@/shared/ui/PageShell.vue';
+import OperationalPreviewPage from '@/shared/ui/OperationalPreviewPage.vue';
 </script>
-
-<style scoped>
-.stack {
-  display: grid;
-  gap: 12px;
-  margin: 0;
-  padding-left: 18px;
-}
-</style>
-

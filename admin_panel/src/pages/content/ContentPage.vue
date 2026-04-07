@@ -1,27 +1,17 @@
 <template>
-  <PageShell
-    eyebrow="Content"
-    title="App content"
-    description="Home banners, section ordering, legal pages, and static copy should be managed outside the mobile client."
-  >
-    <ul class="stack">
-      <li>Home banners</li>
-      <li>Section ordering</li>
-      <li>Legal page publishing</li>
-    </ul>
-  </PageShell>
+  <OperationalPreviewPage
+    eyebrow="Контент"
+    title="Контент приложения"
+    description="Здесь должен жить управляемый контент для мобильного приложения: блоки, тексты и порядок показа."
+    :items="[
+      'Контент-блоки по разделам приложения',
+      'Публикация и снятие с публикации',
+      'Проверка ключей и порядка отображения',
+    ]"
+    note="Контент нельзя прятать за сложной структурой. Менеджер должен быстро найти нужный surface и обновить его без ошибок."
+  />
 </template>
 
 <script setup lang="ts">
-import PageShell from '@/shared/ui/PageShell.vue';
+import OperationalPreviewPage from '@/shared/ui/OperationalPreviewPage.vue';
 </script>
-
-<style scoped>
-.stack {
-  display: grid;
-  gap: 12px;
-  margin: 0;
-  padding-left: 18px;
-}
-</style>
-

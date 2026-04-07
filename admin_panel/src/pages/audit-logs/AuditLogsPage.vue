@@ -1,27 +1,17 @@
 <template>
-  <PageShell
-    eyebrow="Security"
-    title="Audit logs"
-    description="Administrative changes should be traceable before the project grows beyond a single operator."
-  >
-    <ul class="stack">
-      <li>Authentication events</li>
-      <li>Content and promotion changes</li>
-      <li>Lead status history</li>
-    </ul>
-  </PageShell>
+  <OperationalPreviewPage
+    eyebrow="Системный контроль"
+    title="Журнал аудита"
+    description="Здесь должен собираться понятный журнал действий, чтобы команда видела, кто и когда менял заявки и контент."
+    :items="[
+      'История входов в админ-панель',
+      'Изменения статусов по заявкам',
+      'Изменения контента, акций и филиалов',
+    ]"
+    note="Журнал особенно важен, когда в панели начинает работать несколько сотрудников одновременно."
+  />
 </template>
 
 <script setup lang="ts">
-import PageShell from '@/shared/ui/PageShell.vue';
+import OperationalPreviewPage from '@/shared/ui/OperationalPreviewPage.vue';
 </script>
-
-<style scoped>
-.stack {
-  display: grid;
-  gap: 12px;
-  margin: 0;
-  padding-left: 18px;
-}
-</style>
-
