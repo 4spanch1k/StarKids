@@ -30,7 +30,7 @@ void main() {
 
     final promotionsTile = find.widgetWithText(Card, 'Акции');
     final pricesRulesTile = find.widgetWithText(Card, 'Цены и правила');
-    final contactsTile = find.widgetWithText(Card, 'Контакты и карта');
+    final contactsTile = find.widgetWithText(Card, 'Контакты и маршрут');
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -1200));
     await tester.pumpAndSettle();

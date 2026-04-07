@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
+import '../../../../app/router/app_routes.dart';
 import '../../../../core/design_system/foundations/star_kids_colors.dart';
 import '../../../../core/design_system/foundations/star_kids_radii.dart';
 import '../../../../core/design_system/foundations/star_kids_shadows.dart';
@@ -26,7 +27,17 @@ class ContactsMapPage extends StatelessWidget {
         final branch = ServiceRegistry.selectedBranchController.selectedBranch;
 
         return Scaffold(
-          appBar: AppBar(title: const Text('Контакты и маршрут')),
+          appBar: AppBar(
+            title: const Text('Контакты и маршрут'),
+            actions: [
+              IconButton(
+                tooltip: 'Сменить филиал',
+                onPressed: () =>
+                    Navigator.of(context).pushNamed(AppRoutes.branchSelection),
+                icon: const Icon(Icons.swap_horiz_rounded),
+              ),
+            ],
+          ),
           bottomNavigationBar: StarKidsBottomCtaBar(
             child: StarKidsButton.primary(
               label: 'Написать в WhatsApp',
@@ -44,11 +55,25 @@ class ContactsMapPage extends StatelessWidget {
                 return const Center(child: CircularProgressIndicator());
               }
 
+              if (snapshot.hasError) {
+                return _ContactsStateView(
+                  title: 'Контакты пока недоступны',
+                  description:
+                      'Не удалось открыть контакты и маршрут для выбранного филиала. Попробуйте выбрать другой филиал.',
+                  actionLabel: 'Сменить филиал',
+                  onActionTap: () => Navigator.of(context)
+                      .pushNamed(AppRoutes.branchSelection),
+                );
+              }
+
               if (!snapshot.hasData) {
-                return const _ContactsStateView(
+                return _ContactsStateView(
                   title: 'Контакты пока недоступны',
                   description:
                       'Экран готов, но контакты и маршрут для выбранного филиала пока не удалось показать.',
+                  actionLabel: 'Сменить филиал',
+                  onActionTap: () => Navigator.of(context)
+                      .pushNamed(AppRoutes.branchSelection),
                 );
               }
 
@@ -289,10 +314,14 @@ class _ContactsStateView extends StatelessWidget {
   const _ContactsStateView({
     required this.title,
     required this.description,
+    required this.actionLabel,
+    required this.onActionTap,
   });
 
   final String title;
   final String description;
+  final String actionLabel;
+  final VoidCallback onActionTap;
 
   @override
   Widget build(BuildContext context) {
@@ -314,6 +343,12 @@ class _ContactsStateView extends StatelessWidget {
                 Text(title, style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: StarKidsSpacing.sm),
                 Text(description, style: Theme.of(context).textTheme.bodyLarge),
+                const SizedBox(height: StarKidsSpacing.lg),
+                StarKidsButton.secondary(
+                  label: actionLabel,
+                  icon: Icons.swap_horiz_rounded,
+                  onPressed: onActionTap,
+                ),
               ],
             ),
           ),

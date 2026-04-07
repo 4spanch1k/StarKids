@@ -65,7 +65,9 @@ class _RequestPageState extends State<RequestPage> {
         return Scaffold(
           appBar: AppBar(
             title: Text(
-              submission == null ? 'Заявка на день рождения' : 'Заявка отправлена',
+              submission == null
+                  ? 'Заявка на день рождения'
+                  : 'Заявка отправлена',
             ),
           ),
           bottomNavigationBar: submission == null
@@ -93,11 +95,14 @@ class _RequestPageState extends State<RequestPage> {
                   branch: branch,
                   selectedPackage: package,
                   submission: submission,
-                  onBackHome: () => Navigator.of(context).pushNamedAndRemoveUntil(
+                  onBackHome: () =>
+                      Navigator.of(context).pushNamedAndRemoveUntil(
                     AppRoutes.home,
                     (route) => false,
                   ),
-                  onCreateAnother: _controller.resetForm,
+                  onCreateAnother: () => _controller.resetForm(
+                    preserveSelectedPackage: package != null,
+                  ),
                 ),
         );
       },
@@ -138,7 +143,8 @@ class _RequestPageState extends State<RequestPage> {
       return;
     }
 
-    await ServiceRegistry.selectedBranchController.selectBranch(selectedBranchId);
+    await ServiceRegistry.selectedBranchController
+        .selectBranch(selectedBranchId);
   }
 
   Future<void> _showPackagePicker() async {
@@ -340,7 +346,7 @@ class _RequestSuccessView extends StatelessWidget {
           const _RequestStatusBanner(
             title: 'Заявка отправлена',
             description:
-                'Мы зафиксировали ваш интерес и передадим запрос менеджеру Star Kids.',
+                'Мы уже передали запрос менеджеру Star Kids. Дальше с вами свяжутся, чтобы подтвердить детали праздника.',
             backgroundColor: StarKidsColors.statusSuccessSurface,
             foregroundColor: StarKidsColors.statusSuccess,
             icon: Icons.check_circle_rounded,
@@ -387,7 +393,9 @@ class _RequestSuccessView extends StatelessWidget {
           const SizedBox(height: StarKidsSpacing.sm),
           Center(
             child: StarKidsButton.ghost(
-              label: 'Оставить еще одну заявку',
+              label: selectedPackage == null
+                  ? 'Оставить еще одну заявку'
+                  : 'Оставить еще одну заявку по этому пакету',
               onPressed: onCreateAnother,
             ),
           ),

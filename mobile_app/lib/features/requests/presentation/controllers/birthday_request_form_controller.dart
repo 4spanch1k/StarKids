@@ -43,9 +43,11 @@ class BirthdayRequestFormController extends ChangeNotifier {
   String? _dateErrorText;
   String? _submissionErrorText;
   BirthdayRequestSubmission? _submission;
-  BirthdayRequestSubmissionStatus _status = BirthdayRequestSubmissionStatus.idle;
+  BirthdayRequestSubmissionStatus _status =
+      BirthdayRequestSubmissionStatus.idle;
 
-  BirthdayPackage? get selectedPackage => getBirthdayPackageById(_selectedPackageId);
+  BirthdayPackage? get selectedPackage =>
+      getBirthdayPackageById(_selectedPackageId);
 
   String? get selectedPackageId => _selectedPackageId;
 
@@ -61,14 +63,16 @@ class BirthdayRequestFormController extends ChangeNotifier {
 
   BirthdayRequestSubmissionStatus get status => _status;
 
-  bool get isSubmitting => _status == BirthdayRequestSubmissionStatus.submitting;
+  bool get isSubmitting =>
+      _status == BirthdayRequestSubmissionStatus.submitting;
 
   void updateSelectedPackage(String? packageId) {
     _selectedPackageId = packageId;
     _packageErrorText = null;
     clearTransientFeedback();
 
-    final suggestedGuests = _extractGuestCount(getBirthdayPackageById(packageId));
+    final suggestedGuests =
+        _extractGuestCount(getBirthdayPackageById(packageId));
     if (suggestedGuests != null && guestCountController.text.trim().isEmpty) {
       guestCountController.text = suggestedGuests.toString();
     }
@@ -134,7 +138,8 @@ class BirthdayRequestFormController extends ChangeNotifier {
       return;
     }
 
-    _submissionErrorText = (result as Failure<BirthdayRequestSubmission>).message;
+    _submissionErrorText =
+        (result as Failure<BirthdayRequestSubmission>).message;
     _status = BirthdayRequestSubmissionStatus.error;
     notifyListeners();
   }
@@ -154,17 +159,30 @@ class BirthdayRequestFormController extends ChangeNotifier {
     }
   }
 
-  void resetForm() {
+  void resetForm({
+    bool preserveSelectedPackage = false,
+  }) {
+    final preservedPackageId =
+        preserveSelectedPackage ? _selectedPackageId : null;
+
     nameController.clear();
     phoneController.clear();
     guestCountController.clear();
     commentController.clear();
+    _selectedPackageId = preservedPackageId;
     _desiredDate = null;
     _packageErrorText = null;
     _dateErrorText = null;
     _submission = null;
     _submissionErrorText = null;
     _status = BirthdayRequestSubmissionStatus.idle;
+
+    final suggestedGuests =
+        _extractGuestCount(getBirthdayPackageById(_selectedPackageId));
+    if (suggestedGuests != null) {
+      guestCountController.text = suggestedGuests.toString();
+    }
+
     notifyListeners();
   }
 
