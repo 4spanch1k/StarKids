@@ -10,9 +10,7 @@ import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_input_field.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../../../core/design_system/widgets/star_kids_select_field.dart';
-import '../../../birthdays/data/birthday_package_seed_data.dart';
 import '../../../birthdays/domain/birthday_package.dart';
-import '../../../branches/data/branch_seed_data.dart';
 import '../../../branches/domain/branch_option.dart';
 import '../controllers/birthday_request_form_controller.dart';
 import '../../domain/birthday_request_submission.dart';
@@ -41,6 +39,7 @@ class _RequestPageState extends State<RequestPage> {
     _controller = BirthdayRequestFormController(
       repository: ServiceRegistry.birthdayRequestRepository,
       initialPackageId: widget.args?.initialPackageId,
+      initialPackage: widget.args?.initialPackage,
     );
   }
 
@@ -123,6 +122,25 @@ class _RequestPageState extends State<RequestPage> {
   }
 
   Future<void> _showBranchPicker() async {
+    List<BranchOption> branches;
+    try {
+      branches = await ServiceRegistry.branchRepository.listBranches();
+    } catch (_) {
+      if (mounted) {
+        _showLoadError('Не удалось загрузить филиалы. Попробуйте позже.');
+      }
+      return;
+    }
+
+    if (branches.isEmpty) {
+      _showLoadError('Список филиалов пока недоступен.');
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
     final selectedBranchId = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: StarKidsColors.surfacePrimary,
@@ -131,7 +149,7 @@ class _RequestPageState extends State<RequestPage> {
       ),
       builder: (context) => _SelectionSheet<BranchOption>(
         title: 'Выберите филиал',
-        items: branchSeedData,
+        items: branches,
         currentId: ServiceRegistry.selectedBranchController.selectedBranchId,
         titleBuilder: (branch) => branch.name,
         subtitleBuilder: (branch) => branch.address,
@@ -148,6 +166,27 @@ class _RequestPageState extends State<RequestPage> {
   }
 
   Future<void> _showPackagePicker() async {
+    List<BirthdayPackage> packages;
+    try {
+      packages = await ServiceRegistry.birthdayPackageRepository.listPackages(
+        branchId: ServiceRegistry.selectedBranchController.selectedBranchId,
+      );
+    } catch (_) {
+      _showLoadError('Не удалось загрузить пакеты. Попробуйте позже.');
+      return;
+    }
+
+    if (packages.isEmpty) {
+      _showLoadError(
+        'Для выбранного филиала пока нет опубликованных пакетов.',
+      );
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
     final selectedPackageId = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: StarKidsColors.surfacePrimary,
@@ -156,7 +195,7 @@ class _RequestPageState extends State<RequestPage> {
       ),
       builder: (context) => _SelectionSheet<BirthdayPackage>(
         title: 'Выберите пакет',
-        items: birthdayPackageSeedData,
+        items: packages,
         currentId: _controller.selectedPackageId,
         titleBuilder: (item) => item.name,
         subtitleBuilder: (item) => '${item.priceLabel} • ${item.guestLabel}',
@@ -168,7 +207,23 @@ class _RequestPageState extends State<RequestPage> {
       return;
     }
 
-    _controller.updateSelectedPackage(selectedPackageId);
+    final selectedPackage = packages.firstWhere(
+      (item) => item.id == selectedPackageId,
+    );
+    _controller.updateSelectedPackage(
+      selectedPackageId,
+      selectedPackage: selectedPackage,
+    );
+  }
+
+  void _showLoadError(String message) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 }
 

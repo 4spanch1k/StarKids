@@ -12,6 +12,20 @@ class ApiClient {
   final String baseUrl;
   final http.Client _httpClient;
 
+  Future<ApiClientResponse> getJson(String path) async {
+    final response = await _httpClient.get(
+      _buildUri(path),
+      headers: const {
+        'Accept': 'application/json',
+      },
+    ).timeout(const Duration(seconds: 10));
+
+    return ApiClientResponse(
+      statusCode: response.statusCode,
+      data: _decodeBody(response.body),
+    );
+  }
+
   Future<ApiClientResponse> postJson(
     String path, {
     required Map<String, dynamic> body,
@@ -68,6 +82,14 @@ class ApiClientResponse {
   Map<String, dynamic>? get jsonBody {
     if (data is Map<String, dynamic>) {
       return data as Map<String, dynamic>;
+    }
+
+    return null;
+  }
+
+  List<dynamic>? get jsonListBody {
+    if (data is List<dynamic>) {
+      return data as List<dynamic>;
     }
 
     return null;

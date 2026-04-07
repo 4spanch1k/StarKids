@@ -4,6 +4,7 @@ import '../foundations/star_kids_colors.dart';
 import '../foundations/star_kids_icon_sizes.dart';
 import '../foundations/star_kids_radii.dart';
 import '../foundations/star_kids_spacing.dart';
+import 'star_kids_media_image.dart';
 import 'star_kids_button.dart';
 
 class StarKidsBirthdayPackageCard extends StatelessWidget {
@@ -51,7 +52,7 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
           children: [
             AspectRatio(
               aspectRatio: 19 / 10,
-              child: Image.asset(imagePath, fit: BoxFit.cover),
+              child: StarKidsMediaImage(source: imagePath),
             ),
             Padding(
               padding: const EdgeInsets.all(StarKidsSpacing.lg),
@@ -112,7 +113,8 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
                   const SizedBox(height: StarKidsSpacing.md),
                   ...highlights.map(
                     (highlight) => Padding(
-                      padding: const EdgeInsets.only(bottom: StarKidsSpacing.xs),
+                      padding:
+                          const EdgeInsets.only(bottom: StarKidsSpacing.xs),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [

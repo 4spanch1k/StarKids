@@ -4,6 +4,7 @@ import '../foundations/star_kids_colors.dart';
 import '../foundations/star_kids_icon_sizes.dart';
 import '../foundations/star_kids_radii.dart';
 import '../foundations/star_kids_spacing.dart';
+import 'star_kids_media_image.dart';
 
 class StarKidsBranchCard extends StatelessWidget {
   const StarKidsBranchCard({
@@ -39,7 +40,7 @@ class StarKidsBranchCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.asset(imagePath, fit: BoxFit.cover),
+                  StarKidsMediaImage(source: imagePath),
                   const DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(

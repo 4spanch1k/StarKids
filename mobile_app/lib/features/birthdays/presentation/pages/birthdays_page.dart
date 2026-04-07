@@ -11,6 +11,7 @@ import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../../requests/presentation/models/request_page_args.dart';
 import '../../data/birthday_package_seed_data.dart';
+import '../../domain/birthday_package.dart';
 
 class BirthdaysPage extends StatelessWidget {
   const BirthdaysPage({super.key});
@@ -45,177 +46,249 @@ class BirthdaysPage extends StatelessWidget {
               ),
             ),
           ),
-          body: ListView(
-            padding: const EdgeInsets.fromLTRB(
-              StarKidsSpacing.xl,
-              StarKidsSpacing.lg,
-              StarKidsSpacing.xl,
-              StarKidsSpacing.x5l,
+          body: FutureBuilder<List<BirthdayPackage>>(
+            future: ServiceRegistry.birthdayPackageRepository.listPackages(
+              branchId: branch.id,
             ),
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(StarKidsRadii.hero),
-                child: Stack(
-                  children: [
-                    AspectRatio(
-                      aspectRatio: 1,
-                      child: Image.asset(
-                        'assets/images/birthday_hero.jpg',
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    const Positioned.fill(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Color(0x1A171316),
-                              StarKidsColors.overlayImageBottom,
+            builder: (context, snapshot) {
+              final packages = snapshot.data ?? const <BirthdayPackage>[];
+
+              if (snapshot.connectionState == ConnectionState.waiting &&
+                  packages.isEmpty) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (snapshot.hasError && packages.isEmpty) {
+                return const _BirthdaysStateView(
+                  title: 'Пакеты пока недоступны',
+                  description:
+                      'Не удалось загрузить live-данные по пакетам праздника. Попробуйте открыть экран позже.',
+                );
+              }
+
+              if (packages.isEmpty) {
+                return const _BirthdaysStateView(
+                  title: 'Пакеты скоро появятся',
+                  description:
+                      'Для выбранного филиала пока нет опубликованных пакетов. Можно оставить общую заявку, и менеджер подберет формат вручную.',
+                );
+              }
+
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(
+                  StarKidsSpacing.xl,
+                  StarKidsSpacing.lg,
+                  StarKidsSpacing.xl,
+                  StarKidsSpacing.x5l,
+                ),
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(StarKidsRadii.hero),
+                    child: Stack(
+                      children: [
+                        AspectRatio(
+                          aspectRatio: 1,
+                          child: Image.asset(
+                            'assets/images/birthday_hero.jpg',
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        const Positioned.fill(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Color(0x1A171316),
+                                  StarKidsColors.overlayImageBottom,
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: StarKidsSpacing.lg,
+                          right: StarKidsSpacing.lg,
+                          bottom: StarKidsSpacing.lg,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: StarKidsSpacing.md,
+                                  vertical: StarKidsSpacing.sm,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: StarKidsColors.brandHighlight,
+                                  borderRadius: BorderRadius.circular(
+                                    StarKidsRadii.full,
+                                  ),
+                                ),
+                                child: Text(
+                                  branch.shortLabel,
+                                  style: textTheme.labelMedium?.copyWith(
+                                    color: StarKidsColors.textPrimary,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: StarKidsSpacing.md),
+                              Text(
+                                'Праздник, который удобно продать и легко организовать',
+                                style: textTheme.displayLarge?.copyWith(
+                                  color: StarKidsColors.textInverse,
+                                ),
+                              ),
+                              const SizedBox(height: StarKidsSpacing.md),
+                              Text(
+                                'Готовые пакеты, понятная ценность и быстрый переход к заявке без сложной логики.',
+                                style: textTheme.bodyLarge?.copyWith(
+                                  color: StarKidsColors.textInverse,
+                                ),
+                              ),
                             ],
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                    Positioned(
-                      left: StarKidsSpacing.lg,
-                      right: StarKidsSpacing.lg,
-                      bottom: StarKidsSpacing.lg,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
+                  ),
+                  const SizedBox(height: StarKidsSpacing.x2l),
+                  const StarKidsSectionHeader(
+                    title: 'Почему родители выбирают этот формат',
+                    description:
+                        'Сначала показываем ценность, потом предложения. Так экран работает как коммерческий оффер.',
+                  ),
+                  const SizedBox(height: StarKidsSpacing.lg),
+                  Wrap(
+                    spacing: StarKidsSpacing.sm,
+                    runSpacing: StarKidsSpacing.sm,
+                    children: birthdayValueHighlights
+                        .map(
+                          (highlight) => Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: StarKidsSpacing.md,
-                              vertical: StarKidsSpacing.sm,
+                              vertical: StarKidsSpacing.xs,
                             ),
                             decoration: BoxDecoration(
-                              color: StarKidsColors.brandHighlight,
-                              borderRadius: BorderRadius.circular(
-                                StarKidsRadii.full,
-                              ),
+                              color: StarKidsColors.surfaceSecondary,
+                              borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(
-                              branch.shortLabel,
+                              highlight,
                               style: textTheme.labelMedium?.copyWith(
                                 color: StarKidsColors.textPrimary,
                               ),
                             ),
                           ),
-                          const SizedBox(height: StarKidsSpacing.md),
-                          Text(
-                            'Праздник, который удобно продать и легко организовать',
-                            style: textTheme.displayLarge?.copyWith(
-                              color: StarKidsColors.textInverse,
-                            ),
-                          ),
-                          const SizedBox(height: StarKidsSpacing.md),
-                          Text(
-                            'Готовые пакеты, понятная ценность и быстрый переход к заявке без сложной логики.',
-                            style: textTheme.bodyLarge?.copyWith(
-                              color: StarKidsColors.textInverse,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: StarKidsSpacing.x2l),
-              const StarKidsSectionHeader(
-                title: 'Почему родители выбирают этот формат',
-                description:
-                    'Сначала показываем ценность, потом предложения. Так экран работает как коммерческий оффер.',
-              ),
-              const SizedBox(height: StarKidsSpacing.lg),
-              Wrap(
-                spacing: StarKidsSpacing.sm,
-                runSpacing: StarKidsSpacing.sm,
-                children: birthdayValueHighlights
-                    .map(
-                      (highlight) => Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: StarKidsSpacing.md,
-                          vertical: StarKidsSpacing.xs,
-                        ),
-                        decoration: BoxDecoration(
-                          color: StarKidsColors.surfaceSecondary,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          highlight,
-                          style: textTheme.labelMedium?.copyWith(
-                            color: StarKidsColors.textPrimary,
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: StarKidsSpacing.x2l),
+                  const StarKidsSectionHeader(
+                    title: 'Пакеты для разных сценариев',
+                    description:
+                        'Пользователь должен быстро понять бюджет, формат и самый подходящий пакет.',
+                  ),
+                  const SizedBox(height: StarKidsSpacing.md),
+                  ...packages.map(
+                    (item) => Padding(
+                      padding:
+                          const EdgeInsets.only(bottom: StarKidsSpacing.lg),
+                      child: StarKidsBirthdayPackageCard(
+                        title: item.name,
+                        priceLabel: item.priceLabel,
+                        guestLabel: item.guestLabel,
+                        description: item.description,
+                        highlights: item.highlights,
+                        imagePath: item.imagePath,
+                        isFeatured: item.isFeatured,
+                        onActionTap: () => Navigator.of(context).pushNamed(
+                          AppRoutes.requests,
+                          arguments: RequestPageArgs(
+                            initialPackageId: item.id,
+                            initialPackage: item,
                           ),
                         ),
                       ),
-                    )
-                    .toList(),
-              ),
-              const SizedBox(height: StarKidsSpacing.x2l),
-              const StarKidsSectionHeader(
-                title: 'Пакеты для разных сценариев',
-                description:
-                    'Пользователь должен быстро понять бюджет, формат и самый подходящий пакет.',
-              ),
-              const SizedBox(height: StarKidsSpacing.md),
-              ...birthdayPackageSeedData.map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: StarKidsSpacing.lg),
-                  child: StarKidsBirthdayPackageCard(
-                    title: item.name,
-                    priceLabel: item.priceLabel,
-                    guestLabel: item.guestLabel,
-                    description: item.description,
-                    highlights: item.highlights,
-                    imagePath: item.imagePath,
-                    isFeatured: item.isFeatured,
-                    onActionTap: () => Navigator.of(context).pushNamed(
-                      AppRoutes.requests,
-                      arguments: RequestPageArgs(initialPackageId: item.id),
                     ),
                   ),
-                ),
-              ),
-              const StarKidsSectionHeader(
-                title: 'Как принять решение быстрее',
-                description:
-                    'Минимальный comparison-блок вместо перегруженной таблицы. Достаточно для MVP и хорошо продает.',
-              ),
-              const SizedBox(height: StarKidsSpacing.md),
-              Container(
-                padding: const EdgeInsets.all(StarKidsSpacing.lg),
-                decoration: BoxDecoration(
-                  color: StarKidsColors.surfacePrimary,
-                  borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-                  border: Border.all(color: StarKidsColors.borderDefault),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    _ComparisonRow(
-                      title: 'Нужен быстрый семейный праздник',
-                      value: 'Выбирайте Spark Party',
+                  const StarKidsSectionHeader(
+                    title: 'Как принять решение быстрее',
+                    description:
+                        'Минимальный comparison-блок вместо перегруженной таблицы. Достаточно для MVP и хорошо продает.',
+                  ),
+                  const SizedBox(height: StarKidsSpacing.md),
+                  Container(
+                    padding: const EdgeInsets.all(StarKidsSpacing.lg),
+                    decoration: BoxDecoration(
+                      color: StarKidsColors.surfacePrimary,
+                      borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+                      border: Border.all(color: StarKidsColors.borderDefault),
                     ),
-                    SizedBox(height: StarKidsSpacing.md),
-                    _ComparisonRow(
-                      title: 'Нужен wow-эффект и шоу',
-                      value: 'Лучше всего подойдет Star Show',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        _ComparisonRow(
+                          title: 'Нужен быстрый семейный праздник',
+                          value: 'Выбирайте Spark Party',
+                        ),
+                        SizedBox(height: StarKidsSpacing.md),
+                        _ComparisonRow(
+                          title: 'Нужен wow-эффект и шоу',
+                          value: 'Лучше всего подойдет Star Show',
+                        ),
+                        SizedBox(height: StarKidsSpacing.md),
+                        _ComparisonRow(
+                          title: 'Большая компания и семейный формат',
+                          value: 'Идите в Family Day',
+                        ),
+                      ],
                     ),
-                    SizedBox(height: StarKidsSpacing.md),
-                    _ComparisonRow(
-                      title: 'Большая компания и семейный формат',
-                      value: 'Идите в Family Day',
-                    ),
-                  ],
-                ),
-              ),
-            ],
+                  ),
+                ],
+              );
+            },
           ),
         );
       },
+    );
+  }
+}
+
+class _BirthdaysStateView extends StatelessWidget {
+  const _BirthdaysStateView({
+    required this.title,
+    required this.description,
+  });
+
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(StarKidsSpacing.xl),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.all(StarKidsSpacing.xl),
+            decoration: BoxDecoration(
+              color: StarKidsColors.surfacePrimary,
+              borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+              border: Border.all(color: StarKidsColors.borderDefault),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: Theme.of(context).textTheme.headlineSmall),
+                const SizedBox(height: StarKidsSpacing.sm),
+                Text(description, style: Theme.of(context).textTheme.bodyLarge),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -19,10 +19,12 @@ class BirthdayRequestFormController extends ChangeNotifier {
   BirthdayRequestFormController({
     required BirthdayRequestRepository repository,
     String? initialPackageId,
+    BirthdayPackage? initialPackage,
   })  : _repository = repository,
-        _selectedPackageId = initialPackageId {
+        _selectedPackageId = initialPackage?.id ?? initialPackageId,
+        _selectedPackage = initialPackage {
     final suggestedGuests = _extractGuestCount(
-      getBirthdayPackageById(initialPackageId),
+      initialPackage ?? getBirthdayPackageById(initialPackageId),
     );
 
     if (suggestedGuests != null) {
@@ -38,6 +40,7 @@ class BirthdayRequestFormController extends ChangeNotifier {
   final commentController = TextEditingController();
 
   String? _selectedPackageId;
+  BirthdayPackage? _selectedPackage;
   DateTime? _desiredDate;
   String? _packageErrorText;
   String? _dateErrorText;
@@ -47,7 +50,7 @@ class BirthdayRequestFormController extends ChangeNotifier {
       BirthdayRequestSubmissionStatus.idle;
 
   BirthdayPackage? get selectedPackage =>
-      getBirthdayPackageById(_selectedPackageId);
+      _selectedPackage ?? getBirthdayPackageById(_selectedPackageId);
 
   String? get selectedPackageId => _selectedPackageId;
 
@@ -66,13 +69,18 @@ class BirthdayRequestFormController extends ChangeNotifier {
   bool get isSubmitting =>
       _status == BirthdayRequestSubmissionStatus.submitting;
 
-  void updateSelectedPackage(String? packageId) {
+  void updateSelectedPackage(
+    String? packageId, {
+    BirthdayPackage? selectedPackage,
+  }) {
     _selectedPackageId = packageId;
+    _selectedPackage = selectedPackage;
     _packageErrorText = null;
     clearTransientFeedback();
 
-    final suggestedGuests =
-        _extractGuestCount(getBirthdayPackageById(packageId));
+    final suggestedGuests = _extractGuestCount(
+      selectedPackage ?? getBirthdayPackageById(packageId),
+    );
     if (suggestedGuests != null && guestCountController.text.trim().isEmpty) {
       guestCountController.text = suggestedGuests.toString();
     }
@@ -164,12 +172,14 @@ class BirthdayRequestFormController extends ChangeNotifier {
   }) {
     final preservedPackageId =
         preserveSelectedPackage ? _selectedPackageId : null;
+    final preservedPackage = preserveSelectedPackage ? _selectedPackage : null;
 
     nameController.clear();
     phoneController.clear();
     guestCountController.clear();
     commentController.clear();
     _selectedPackageId = preservedPackageId;
+    _selectedPackage = preservedPackage;
     _desiredDate = null;
     _packageErrorText = null;
     _dateErrorText = null;
@@ -177,8 +187,9 @@ class BirthdayRequestFormController extends ChangeNotifier {
     _submissionErrorText = null;
     _status = BirthdayRequestSubmissionStatus.idle;
 
-    final suggestedGuests =
-        _extractGuestCount(getBirthdayPackageById(_selectedPackageId));
+    final suggestedGuests = _extractGuestCount(
+      _selectedPackage ?? getBirthdayPackageById(_selectedPackageId),
+    );
     if (suggestedGuests != null) {
       guestCountController.text = suggestedGuests.toString();
     }

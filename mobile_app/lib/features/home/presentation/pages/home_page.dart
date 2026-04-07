@@ -283,6 +283,7 @@ class HomePage extends StatelessWidget {
                             AppRoutes.requests,
                             arguments: RequestPageArgs(
                               initialPackageId: featuredPackage.id,
+                              initialPackage: featuredPackage,
                             ),
                           ),
                         ),
