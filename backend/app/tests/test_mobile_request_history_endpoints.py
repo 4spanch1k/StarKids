@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 import unittest
 
 from fastapi.testclient import TestClient
@@ -211,6 +211,68 @@ class MobileRequestHistoryEndpointTests(unittest.TestCase):
             self.assertEqual(saved_birthday.mobile_user_id, user_one['user']['id'])
             self.assertEqual(saved_contact.mobile_user_id, user_one['user']['id'])
             self.assertIsNone(anonymous_contact.mobile_user_id)
+
+    def test_history_items_are_returned_newest_first(self) -> None:
+        user = self._authenticate_mobile_user('+77075550000')
+
+        birthday_response = self.client.post(
+            '/api/v1/mobile/leads/birthday',
+            headers={'Authorization': f"Bearer {user['access_token']}"},
+            json={
+                'name': 'Dana',
+                'phone': '+77075550000',
+                'branchId': 'branch-main',
+                'preferredDate': str(date.today()),
+                'guestCount': 8,
+                'comment': 'Утренний слот.',
+                'packageId': 'package-main',
+            },
+        )
+        self.assertEqual(birthday_response.status_code, 201)
+
+        contact_response = self.client.post(
+            '/api/v1/mobile/leads/contact',
+            headers={'Authorization': f"Bearer {user['access_token']}"},
+            json={
+                'name': 'Dana',
+                'phone': '+77075550000',
+                'email': 'dana@example.com',
+                'message': 'Хочу уточнить детали.',
+            },
+        )
+        self.assertEqual(contact_response.status_code, 201)
+
+        older_created_at = datetime.now(timezone.utc) - timedelta(days=1)
+        newer_created_at = datetime.now(timezone.utc)
+        with self.SessionLocal() as session:
+            birthday_request = session.scalar(
+                select(BirthdayRequest).where(
+                    BirthdayRequest.id == birthday_response.json()['requestId']
+                )
+            )
+            contact_lead = session.scalar(
+                select(ContactLead).where(
+                    ContactLead.id == contact_response.json()['id']
+                )
+            )
+            self.assertIsNotNone(birthday_request)
+            self.assertIsNotNone(contact_lead)
+            birthday_request.created_at = older_created_at
+            contact_lead.created_at = newer_created_at
+            session.commit()
+
+        history_response = self.client.get(
+            '/api/v1/mobile/me/requests',
+            headers={'Authorization': f"Bearer {user['access_token']}"},
+        )
+
+        self.assertEqual(history_response.status_code, 200)
+        items = history_response.json()['items']
+        self.assertEqual([item['type'] for item in items], ['contact', 'birthday_request'])
+        self.assertEqual(
+            [item['id'] for item in items],
+            [contact_response.json()['id'], birthday_response.json()['requestId']],
+        )
 
     def _authenticate_mobile_user(self, phone: str) -> dict[str, object]:
         response = self.client.post(
