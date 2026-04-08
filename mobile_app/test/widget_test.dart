@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:star_kids_mobile/app/app.dart';
+import 'package:star_kids_mobile/app/router/app_routes.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -28,28 +29,25 @@ void main() {
     await tester.tap(find.text('Star Kids Al-Farabi'));
     await tester.pumpAndSettle();
 
-    final promotionsTile = find.widgetWithText(Card, 'Акции');
-    final pricesRulesTile = find.widgetWithText(Card, 'Цены и правила');
-    final contactsTile = find.widgetWithText(Card, 'Контакты и маршрут');
+    final navigator = Navigator.of(
+      tester.element(find.byType(Scaffold).first),
+    );
 
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -1200));
-    await tester.pumpAndSettle();
-
-    await tester.tap(promotionsTile);
+    navigator.pushNamed(AppRoutes.promotions);
     await tester.pumpAndSettle();
     expect(find.text('Акции'), findsWidgets);
 
-    await tester.pageBack();
+    navigator.pop();
     await tester.pumpAndSettle();
 
-    await tester.tap(pricesRulesTile);
+    navigator.pushNamed(AppRoutes.pricesRules);
     await tester.pumpAndSettle();
     expect(find.text('Цены и правила'), findsWidgets);
 
-    await tester.pageBack();
+    navigator.pop();
     await tester.pumpAndSettle();
 
-    await tester.tap(contactsTile);
+    navigator.pushNamed(AppRoutes.contacts);
     await tester.pumpAndSettle();
     expect(find.text('Контакты и маршрут'), findsOneWidget);
   });

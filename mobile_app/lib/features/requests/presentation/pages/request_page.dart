@@ -38,6 +38,7 @@ class _RequestPageState extends State<RequestPage> {
     super.initState();
     _controller = BirthdayRequestFormController(
       repository: ServiceRegistry.birthdayRequestRepository,
+      packageRepository: ServiceRegistry.birthdayPackageRepository,
       initialPackageId: widget.args?.initialPackageId,
       initialPackage: widget.args?.initialPackage,
     );

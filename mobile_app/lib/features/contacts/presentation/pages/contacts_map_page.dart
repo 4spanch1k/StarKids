@@ -8,9 +8,11 @@ import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
+import '../../../../core/design_system/widgets/star_kids_content_block_card.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../../../core/services/external_link_service.dart';
 import '../../../branches/domain/branch_option.dart';
+import '../../../content/domain/public_content_block.dart';
 import '../../domain/branch_contact_links.dart';
 
 class ContactsMapPage extends StatelessWidget {
@@ -258,6 +260,27 @@ class ContactsMapPage extends StatelessWidget {
                           ],
                         ),
                       ),
+                      if (snapshot.data!.contentBlocks.isNotEmpty) ...[
+                        const SizedBox(height: StarKidsSpacing.x2l),
+                        const StarKidsSectionHeader(
+                          title: 'Что еще важно знать',
+                          description:
+                              'Дополнительные подсказки по маршруту и визиту приходят из live-контента админки.',
+                        ),
+                        const SizedBox(height: StarKidsSpacing.md),
+                        ...snapshot.data!.contentBlocks.map(
+                          (block) => Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: StarKidsSpacing.md,
+                            ),
+                            child: StarKidsContentBlockCard(
+                              title: block.title,
+                              body: block.body,
+                              label: block.ctaLabel,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   );
                 },
@@ -290,11 +313,15 @@ class ContactsMapPage extends StatelessWidget {
     final results = await Future.wait([
       ServiceRegistry.branchRepository.getBranch(branchId),
       ServiceRegistry.contactLinksRepository.getForBranch(branchId),
+      ServiceRegistry.publicContentRepository.listContentBlocks(
+        surface: 'contacts',
+      ),
     ]);
 
     return _ContactsScreenData(
       branch: results[0] as BranchOption,
       contactLinks: results[1] as BranchContactLinks,
+      contentBlocks: results[2] as List<PublicContentBlock>,
     );
   }
 }
@@ -341,10 +368,12 @@ class _ContactsScreenData {
   const _ContactsScreenData({
     required this.branch,
     required this.contactLinks,
+    required this.contentBlocks,
   });
 
   final BranchOption branch;
   final BranchContactLinks contactLinks;
+  final List<PublicContentBlock> contentBlocks;
 }
 
 class _ContactsStateView extends StatelessWidget {

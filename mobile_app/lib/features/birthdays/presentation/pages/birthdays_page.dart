@@ -8,9 +8,10 @@ import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
 import '../../../../core/design_system/widgets/star_kids_birthday_package_card.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
+import '../../../../core/design_system/widgets/star_kids_content_block_card.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
+import '../../../content/domain/public_content_block.dart';
 import '../../../requests/presentation/models/request_page_args.dart';
-import '../../data/birthday_package_seed_data.dart';
 import '../../domain/birthday_package.dart';
 
 class BirthdaysPage extends StatelessWidget {
@@ -46,12 +47,11 @@ class BirthdaysPage extends StatelessWidget {
               ),
             ),
           ),
-          body: FutureBuilder<List<BirthdayPackage>>(
-            future: ServiceRegistry.birthdayPackageRepository.listPackages(
-              branchId: branch.id,
-            ),
+          body: FutureBuilder<_BirthdaysScreenData>(
+            future: _loadScreenData(branch.id),
             builder: (context, snapshot) {
-              final packages = snapshot.data ?? const <BirthdayPackage>[];
+              final data = snapshot.data;
+              final packages = data?.packages ?? const <BirthdayPackage>[];
 
               if (snapshot.connectionState == ConnectionState.waiting &&
                   packages.isEmpty) {
@@ -162,7 +162,7 @@ class BirthdaysPage extends StatelessWidget {
                   Wrap(
                     spacing: StarKidsSpacing.sm,
                     runSpacing: StarKidsSpacing.sm,
-                    children: birthdayValueHighlights
+                    children: _birthdayValueHighlights
                         .map(
                           (highlight) => Container(
                             padding: const EdgeInsets.symmetric(
@@ -212,39 +212,60 @@ class BirthdaysPage extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const StarKidsSectionHeader(
-                    title: 'Как принять решение быстрее',
-                    description:
-                        'Минимальный comparison-блок вместо перегруженной таблицы. Достаточно для MVP и хорошо продает.',
-                  ),
-                  const SizedBox(height: StarKidsSpacing.md),
-                  Container(
-                    padding: const EdgeInsets.all(StarKidsSpacing.lg),
-                    decoration: BoxDecoration(
-                      color: StarKidsColors.surfacePrimary,
-                      borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-                      border: Border.all(color: StarKidsColors.borderDefault),
+                  const SizedBox(height: StarKidsSpacing.xl),
+                  if (data?.contentBlocks.isNotEmpty == true) ...[
+                    const StarKidsSectionHeader(
+                      title: 'Что важно по праздникам',
+                      description:
+                          'Этот блок управляется через live-контент и помогает быстро обновлять коммерческие акценты.',
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        _ComparisonRow(
-                          title: 'Нужен быстрый семейный праздник',
-                          value: 'Выбирайте Spark Party',
+                    const SizedBox(height: StarKidsSpacing.md),
+                    ...data!.contentBlocks.map(
+                      (block) => Padding(
+                        padding:
+                            const EdgeInsets.only(bottom: StarKidsSpacing.md),
+                        child: StarKidsContentBlockCard(
+                          title: block.title,
+                          body: block.body,
+                          label: block.ctaLabel,
                         ),
-                        SizedBox(height: StarKidsSpacing.md),
-                        _ComparisonRow(
-                          title: 'Нужен wow-эффект и шоу',
-                          value: 'Лучше всего подойдет Star Show',
-                        ),
-                        SizedBox(height: StarKidsSpacing.md),
-                        _ComparisonRow(
-                          title: 'Большая компания и семейный формат',
-                          value: 'Идите в Family Day',
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
+                  ] else ...[
+                    const StarKidsSectionHeader(
+                      title: 'Как принять решение быстрее',
+                      description:
+                          'Минимальный comparison-блок вместо перегруженной таблицы. Достаточно для MVP и хорошо продает.',
+                    ),
+                    const SizedBox(height: StarKidsSpacing.md),
+                    Container(
+                      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+                      decoration: BoxDecoration(
+                        color: StarKidsColors.surfacePrimary,
+                        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+                        border: Border.all(color: StarKidsColors.borderDefault),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          _ComparisonRow(
+                            title: 'Нужен быстрый семейный праздник',
+                            value: 'Выбирайте Spark Party',
+                          ),
+                          SizedBox(height: StarKidsSpacing.md),
+                          _ComparisonRow(
+                            title: 'Нужен wow-эффект и шоу',
+                            value: 'Лучше всего подойдет Star Show',
+                          ),
+                          SizedBox(height: StarKidsSpacing.md),
+                          _ComparisonRow(
+                            title: 'Большая компания и семейный формат',
+                            value: 'Идите в Family Day',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               );
             },
@@ -253,7 +274,27 @@ class BirthdaysPage extends StatelessWidget {
       },
     );
   }
+
+  Future<_BirthdaysScreenData> _loadScreenData(String branchId) async {
+    final packages = await ServiceRegistry.birthdayPackageRepository
+        .listPackages(branchId: branchId)
+        .catchError((_) => const <BirthdayPackage>[]);
+    final contentBlocks = await ServiceRegistry.publicContentRepository
+        .listContentBlocks(surface: 'birthdays');
+
+    return _BirthdaysScreenData(
+      packages: packages,
+      contentBlocks: contentBlocks,
+    );
+  }
 }
+
+const _birthdayValueHighlights = <String>[
+  'Аниматоры и шоу',
+  'Безлимитный активити парк',
+  'Пакеты под разный бюджет',
+  'Быстрая заявка без долгой переписки',
+];
 
 class _BirthdaysStateView extends StatelessWidget {
   const _BirthdaysStateView({
@@ -315,4 +356,14 @@ class _ComparisonRow extends StatelessWidget {
       ],
     );
   }
+}
+
+class _BirthdaysScreenData {
+  const _BirthdaysScreenData({
+    required this.packages,
+    required this.contentBlocks,
+  });
+
+  final List<BirthdayPackage> packages;
+  final List<PublicContentBlock> contentBlocks;
 }

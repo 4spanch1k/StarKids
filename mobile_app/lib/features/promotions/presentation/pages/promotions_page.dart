@@ -8,8 +8,10 @@ import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
+import '../../../../core/design_system/widgets/star_kids_content_block_card.dart';
 import '../../../../core/design_system/widgets/star_kids_promo_card.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
+import '../../../content/domain/public_content_block.dart';
 import '../../../requests/presentation/models/request_page_args.dart';
 import '../../domain/promotion_offer.dart';
 
@@ -45,11 +47,11 @@ class PromotionsPage extends StatelessWidget {
               ),
             ),
           ),
-          body: FutureBuilder<List<PromotionOffer>>(
-            future:
-                ServiceRegistry.promotionRepository.listPromotions(branch.id),
+          body: FutureBuilder<_PromotionsScreenData>(
+            future: _loadScreenData(branch.id),
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
+              if (snapshot.connectionState == ConnectionState.waiting &&
+                  !snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
               }
 
@@ -64,7 +66,12 @@ class PromotionsPage extends StatelessWidget {
                 );
               }
 
-              final promotions = snapshot.data ?? const <PromotionOffer>[];
+              final data = snapshot.data ??
+                  const _PromotionsScreenData(
+                    promotions: <PromotionOffer>[],
+                    contentBlocks: <PublicContentBlock>[],
+                  );
+              final promotions = data.promotions;
               if (promotions.isEmpty) {
                 return _PromotionsStateView(
                   title: 'Скоро появятся новые предложения',
@@ -152,33 +159,59 @@ class PromotionsPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: StarKidsSpacing.lg),
-                  Container(
-                    padding: const EdgeInsets.all(StarKidsSpacing.lg),
-                    decoration: BoxDecoration(
-                      color: StarKidsColors.surfaceSecondary,
-                      borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Зачем открывать приложение снова',
-                          style: textTheme.titleLarge,
+                  if (data.contentBlocks.isNotEmpty)
+                    ...data.contentBlocks.map(
+                      (block) => Padding(
+                        padding:
+                            const EdgeInsets.only(bottom: StarKidsSpacing.md),
+                        child: StarKidsContentBlockCard(
+                          title: block.title,
+                          body: block.body,
+                          label: block.ctaLabel,
                         ),
-                        const SizedBox(height: StarKidsSpacing.sm),
-                        Text(
-                          'Филиалы, акции и birthday flow уже собраны в один сценарий: посмотреть, выбрать и оставить заявку за пару минут.',
-                          style: textTheme.bodyLarge,
-                        ),
-                      ],
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+                      decoration: BoxDecoration(
+                        color: StarKidsColors.surfaceSecondary,
+                        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Зачем открывать приложение снова',
+                            style: textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: StarKidsSpacing.sm),
+                          Text(
+                            'Филиалы, акции и birthday flow уже собраны в один сценарий: посмотреть, выбрать и оставить заявку за пару минут.',
+                            style: textTheme.bodyLarge,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
                 ],
               );
             },
           ),
         );
       },
+    );
+  }
+
+  Future<_PromotionsScreenData> _loadScreenData(String branchId) async {
+    final promotions = await ServiceRegistry.promotionRepository
+        .listPromotions(branchId)
+        .catchError((_) => const <PromotionOffer>[]);
+    final contentBlocks = await ServiceRegistry.publicContentRepository
+        .listContentBlocks(surface: 'promotions');
+
+    return _PromotionsScreenData(
+      promotions: promotions,
+      contentBlocks: contentBlocks,
     );
   }
 }
@@ -229,4 +262,14 @@ class _PromotionsStateView extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PromotionsScreenData {
+  const _PromotionsScreenData({
+    required this.promotions,
+    required this.contentBlocks,
+  });
+
+  final List<PromotionOffer> promotions;
+  final List<PublicContentBlock> contentBlocks;
 }
