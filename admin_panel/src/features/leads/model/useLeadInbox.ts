@@ -6,7 +6,10 @@ import type {
   LeadListItem,
   LeadStatus,
 } from '@/entities/lead/model/lead';
-import { useSessionStore } from '@/features/auth/stores/useSessionStore';
+import {
+  executeAuthorizedAdminRequest,
+  resolveAdminRequestError,
+} from '@/features/auth/lib/adminRequest';
 import {
   fetchAdminLeadDetail,
   fetchAdminLeadList,
@@ -14,7 +17,6 @@ import {
   type LeadInboxBranchFilterOption,
   updateAdminLeadStatus,
 } from '@/features/leads/api/adminLeadInboxApi';
-import { HttpError } from '@/shared/api/httpClient';
 
 const defaultFilters = (): LeadListFilters => ({
   branchId: '',
@@ -24,8 +26,6 @@ const defaultFilters = (): LeadListFilters => ({
 });
 
 export function useLeadInbox() {
-  const sessionStore = useSessionStore();
-
   const filters = reactive<LeadListFilters>(defaultFilters());
   const branchOptions = ref<LeadInboxBranchFilterOption[]>([]);
   const leads = ref<LeadListItem[]>([]);
@@ -64,7 +64,7 @@ export function useLeadInbox() {
     try {
       branchOptions.value = await fetchLeadInboxBranchOptions();
     } catch (error) {
-      branchesErrorMessage.value = resolveErrorMessage(
+      branchesErrorMessage.value = resolveAdminRequestError(
         error,
         'Не удалось загрузить список филиалов.',
       );
@@ -78,7 +78,7 @@ export function useLeadInbox() {
     listErrorMessage.value = '';
 
     try {
-      const response = await executeAuthorizedRequest((accessToken) => {
+      const response = await executeAuthorizedAdminRequest((accessToken) => {
         return fetchAdminLeadList({ accessToken, filters });
       });
       leads.value = response.items;
@@ -89,7 +89,7 @@ export function useLeadInbox() {
         await selectLead(leads.value[0].id);
       }
     } catch (error) {
-      listErrorMessage.value = resolveErrorMessage(error, 'Не удалось загрузить заявки.');
+      listErrorMessage.value = resolveAdminRequestError(error, 'Не удалось загрузить заявки.');
     } finally {
       isListLoading.value = false;
     }
@@ -132,7 +132,7 @@ export function useLeadInbox() {
     const leadId = selectedLead.value.id;
 
     try {
-      const updatedLead = await executeAuthorizedRequest((accessToken) => {
+      const updatedLead = await executeAuthorizedAdminRequest((accessToken) => {
         return updateAdminLeadStatus({
           accessToken,
           leadId,
@@ -154,7 +154,7 @@ export function useLeadInbox() {
 
       statusSuccessMessage.value = 'Статус заявки обновлен.';
     } catch (error) {
-      statusErrorMessage.value = resolveErrorMessage(
+      statusErrorMessage.value = resolveAdminRequestError(
         error,
         'Не удалось обновить статус заявки.',
       );
@@ -174,7 +174,7 @@ export function useLeadInbox() {
     statusSuccessMessage.value = '';
 
     try {
-      const updatedLead = await executeAuthorizedRequest((accessToken) => {
+      const updatedLead = await executeAuthorizedAdminRequest((accessToken) => {
         return updateAdminLeadStatus({
           accessToken,
           leadId,
@@ -201,7 +201,7 @@ export function useLeadInbox() {
 
       statusSuccessMessage.value = 'Статус заявки обновлен.';
     } catch (error) {
-      statusErrorMessage.value = resolveErrorMessage(
+      statusErrorMessage.value = resolveAdminRequestError(
         error,
         'Не удалось обновить статус заявки.',
       );
@@ -215,12 +215,12 @@ export function useLeadInbox() {
     detailErrorMessage.value = '';
 
     try {
-      selectedLead.value = await executeAuthorizedRequest((accessToken) => {
+      selectedLead.value = await executeAuthorizedAdminRequest((accessToken) => {
         return fetchAdminLeadDetail({ accessToken, leadId });
       });
     } catch (error) {
       if (selectedLeadId.value === leadId) {
-        detailErrorMessage.value = resolveErrorMessage(
+        detailErrorMessage.value = resolveAdminRequestError(
           error,
           'Не удалось загрузить детали заявки.',
         );
@@ -272,35 +272,6 @@ export function useLeadInbox() {
         ...matchingLead,
       };
     }
-  }
-
-  async function executeAuthorizedRequest<T>(
-    request: (accessToken: string) => Promise<T>,
-  ): Promise<T> {
-    try {
-      return await request(sessionStore.accessToken);
-    } catch (error) {
-      if (!isUnauthorized(error)) {
-        throw error;
-      }
-
-      await sessionStore.refreshSession();
-      return request(sessionStore.accessToken);
-    }
-  }
-
-  function isUnauthorized(error: unknown): error is HttpError {
-    return error instanceof HttpError && error.status === 401;
-  }
-
-  function resolveErrorMessage(error: unknown, fallback: string): string {
-    if (error instanceof HttpError) {
-      return error.message;
-    }
-    if (error instanceof Error && error.message) {
-      return error.message;
-    }
-    return fallback;
   }
 
   return {
