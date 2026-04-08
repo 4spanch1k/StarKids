@@ -12,13 +12,18 @@ class ApiClient {
   final String baseUrl;
   final http.Client _httpClient;
 
-  Future<ApiClientResponse> getJson(String path) async {
-    final response = await _httpClient.get(
-      _buildUri(path),
-      headers: const {
-        'Accept': 'application/json',
-      },
-    ).timeout(const Duration(seconds: 10));
+  Future<ApiClientResponse> getJson(
+    String path, {
+    Map<String, String>? headers,
+  }) async {
+    final response = await _httpClient
+        .get(
+          _buildUri(path),
+          headers: _mergeHeaders(const {
+            'Accept': 'application/json',
+          }, headers),
+        )
+        .timeout(const Duration(seconds: 10));
 
     return ApiClientResponse(
       statusCode: response.statusCode,
@@ -29,14 +34,15 @@ class ApiClient {
   Future<ApiClientResponse> postJson(
     String path, {
     required Map<String, dynamic> body,
+    Map<String, String>? headers,
   }) async {
     final response = await _httpClient
         .post(
           _buildUri(path),
-          headers: const {
+          headers: _mergeHeaders(const {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-          },
+          }, headers),
           body: jsonEncode(body),
         )
         .timeout(const Duration(seconds: 10));
@@ -53,6 +59,20 @@ class ApiClient {
     }
 
     return Uri.parse('$baseUrl$path');
+  }
+
+  Map<String, String> _mergeHeaders(
+    Map<String, String> baseHeaders,
+    Map<String, String>? additionalHeaders,
+  ) {
+    if (additionalHeaders == null || additionalHeaders.isEmpty) {
+      return baseHeaders;
+    }
+
+    return <String, String>{
+      ...baseHeaders,
+      ...additionalHeaders,
+    };
   }
 
   static Object? _decodeBody(String body) {

@@ -12,6 +12,7 @@ import '../../../../core/design_system/widgets/star_kids_input_field.dart';
 import '../../../auth/domain/mobile_auth_session.dart';
 import '../../../auth/domain/otp_challenge.dart';
 import '../../../auth/presentation/controllers/mobile_auth_controller.dart';
+import '../../../branches/domain/branch_option.dart';
 import '../../../requests/presentation/formatters/kz_phone_input_formatter.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -29,6 +30,11 @@ class _ProfilePageState extends State<ProfilePage> {
 
   MobileAuthController get _authController =>
       ServiceRegistry.mobileAuthController;
+
+  Listenable get _pageListenable => Listenable.merge([
+        _authController,
+        ServiceRegistry.selectedBranchController,
+      ]);
 
   @override
   void initState() {
@@ -93,6 +99,10 @@ class _ProfilePageState extends State<ProfilePage> {
     _codeController.clear();
   }
 
+  Future<void> _refreshProfile() async {
+    await _authController.refreshProfile();
+  }
+
   Future<void> _resendOtp() async {
     await _authController.resendOtp();
     _codeController.clear();
@@ -106,11 +116,13 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _authController,
+      animation: _pageListenable,
       builder: (context, _) {
         final session = _authController.session;
         final challenge = _authController.pendingChallenge;
         final errorMessage = _authController.errorMessage;
+        final selectedBranch =
+            ServiceRegistry.selectedBranchController.selectedBranch;
 
         return Scaffold(
           appBar: AppBar(title: const Text('Профиль')),
@@ -122,15 +134,15 @@ class _ProfilePageState extends State<ProfilePage> {
                 children: [
                   _ProfileIntroCard(
                     title: session != null
-                        ? 'Вход уже подтвержден'
+                        ? 'Ваш профиль уже активен'
                         : challenge != null
-                            ? 'Подтвердите вход'
-                            : 'Вход по номеру телефона',
+                            ? 'Подтвердите вход по коду'
+                            : 'Войдите по номеру телефона',
                     description: session != null
-                        ? 'Сессия сохранена на этом устройстве. Профиль, история и персональный контекст можно будет расширять без нового входа.'
+                        ? 'Номер телефона уже подключен к приложению. Здесь будут собираться ваш профиль и персональный контекст.'
                         : challenge != null
                             ? 'Мы отправили одноразовый код на ваш номер. После подтверждения приложение сохранит вход на этом устройстве.'
-                            : 'Введите номер телефона, чтобы сохранить персональный контекст и подготовить основу для профиля и истории.',
+                            : 'Войдите по номеру телефона, чтобы сохранить сессию, персональный контекст и подготовить основу для истории заявок.',
                   ),
                   if (errorMessage != null) ...[
                     const SizedBox(height: StarKidsSpacing.lg),
@@ -148,6 +160,10 @@ class _ProfilePageState extends State<ProfilePage> {
                             session: session,
                             maskedPhone:
                                 _authController.maskPhone(session.phone),
+                            selectedBranch: selectedBranch,
+                            isRefreshing: _authController.isRefreshingProfile,
+                            isLoggingOut: _authController.isLoggingOut,
+                            onRefresh: _refreshProfile,
                             onLogout: _logout,
                           )
                         : challenge != null
@@ -176,7 +192,10 @@ class _ProfilePageState extends State<ProfilePage> {
                               ),
                   ),
                   const SizedBox(height: StarKidsSpacing.lg),
-                  const _FoundationScopeCard(),
+                  _ProfileNextStepCard(
+                    isAuthenticated: session != null,
+                    selectedBranchLabel: selectedBranch.name,
+                  ),
                 ],
               ),
             ),
@@ -436,11 +455,19 @@ class _AuthenticatedProfileCard extends StatelessWidget {
     super.key,
     required this.session,
     required this.maskedPhone,
+    required this.selectedBranch,
+    required this.isRefreshing,
+    required this.isLoggingOut,
+    required this.onRefresh,
     required this.onLogout,
   });
 
   final MobileAuthSession session;
   final String maskedPhone;
+  final BranchOption selectedBranch;
+  final bool isRefreshing;
+  final bool isLoggingOut;
+  final Future<void> Function() onRefresh;
   final Future<void> Function() onLogout;
 
   @override
@@ -449,31 +476,77 @@ class _AuthenticatedProfileCard extends StatelessWidget {
     final verifiedDate = MaterialLocalizations.of(
       context,
     ).formatMediumDate(session.verifiedAt);
+    final displayPhone = KzPhoneInputFormatter.formatDisplay(
+      session.user?.phone ?? session.phone,
+    );
 
     return _AuthCardShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Вход активен', style: textTheme.titleLarge),
+          Row(
+            children: [
+              Expanded(
+                child: Text('Профиль подключен', style: textTheme.titleLarge),
+              ),
+              if (isRefreshing)
+                const SizedBox(
+                  width: StarKidsSpacing.lg,
+                  height: StarKidsSpacing.lg,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+            ],
+          ),
           const SizedBox(height: StarKidsSpacing.sm),
           Text(
-            'Номер $maskedPhone уже подтвержден. Сессия сохранена на этом устройстве.',
+            'Номер $maskedPhone подтвержден. Вход сохранен на этом устройстве и будет использоваться для персонального контекста.',
             style: textTheme.bodyMedium,
           ),
           const SizedBox(height: StarKidsSpacing.lg),
           _ProfileFactRow(
             label: 'Телефон',
-            value: session.phone,
+            value: displayPhone,
           ),
           const SizedBox(height: StarKidsSpacing.md),
           _ProfileFactRow(
-            label: 'Подтвержден',
+            label: 'Текущий филиал',
+            value: selectedBranch.name,
+          ),
+          const SizedBox(height: StarKidsSpacing.md),
+          _ProfileFactRow(
+            label: 'Адрес филиала',
+            value: selectedBranch.address,
+          ),
+          const SizedBox(height: StarKidsSpacing.md),
+          _ProfileFactRow(
+            label: 'Вход подтвержден',
             value: verifiedDate,
           ),
+          const SizedBox(height: StarKidsSpacing.md),
+          _ProfileFactRow(
+            label: 'Состояние',
+            value: isRefreshing ? 'Обновляем профиль' : 'Активная сессия',
+          ),
           const SizedBox(height: StarKidsSpacing.xl),
-          StarKidsButton.secondary(
-            label: 'Выйти',
-            onPressed: () => onLogout(),
+          Row(
+            children: [
+              Expanded(
+                child: StarKidsButton.secondary(
+                  label: 'Обновить профиль',
+                  onPressed:
+                      isRefreshing || isLoggingOut ? null : () => onRefresh(),
+                ),
+              ),
+              const SizedBox(width: StarKidsSpacing.sm),
+              Expanded(
+                child: StarKidsButton.primary(
+                  label: 'Выйти',
+                  onPressed:
+                      isRefreshing || isLoggingOut ? null : () => onLogout(),
+                  isLoading: isLoggingOut,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -481,8 +554,14 @@ class _AuthenticatedProfileCard extends StatelessWidget {
   }
 }
 
-class _FoundationScopeCard extends StatelessWidget {
-  const _FoundationScopeCard();
+class _ProfileNextStepCard extends StatelessWidget {
+  const _ProfileNextStepCard({
+    required this.isAuthenticated,
+    required this.selectedBranchLabel,
+  });
+
+  final bool isAuthenticated;
+  final String selectedBranchLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -494,7 +573,9 @@ class _FoundationScopeCard extends StatelessWidget {
         border: Border.all(color: StarKidsColors.borderDefault),
       ),
       child: Text(
-        'На этом этапе приложение уже умеет сохранять вход по номеру телефона. Следующими шагами на этой основе можно подключить профиль, историю заявок и персональные уведомления.',
+        isAuthenticated
+            ? 'Профиль уже привязан к номеру телефона. Следующим шагом на этой основе можно показать историю ваших заявок в филиале $selectedBranchLabel.'
+            : 'После входа по номеру телефона приложение сохранит ваш профиль на устройстве и подготовит основу для истории заявок.',
         style: Theme.of(context).textTheme.bodyMedium,
       ),
     );
