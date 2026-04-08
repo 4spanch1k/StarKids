@@ -1,5 +1,9 @@
 import '../../core/api/api_client.dart';
 import '../../core/storage/local_storage.dart';
+import '../../features/auth/data/api_mobile_auth_repository.dart';
+import '../../features/auth/data/mobile_auth_session_storage.dart';
+import '../../features/auth/domain/mobile_auth_repository.dart';
+import '../../features/auth/presentation/controllers/mobile_auth_controller.dart';
 import '../../features/birthdays/data/api_birthday_package_repository.dart';
 import '../../features/birthdays/domain/birthday_package_repository.dart';
 import '../../features/branches/data/api_branch_repository.dart';
@@ -20,6 +24,15 @@ import '../config/app_environment.dart';
 abstract final class ServiceRegistry {
   static final apiClient = ApiClient(baseUrl: AppEnvironment.apiBaseUrl);
   static final localStorage = LocalStorage();
+  static final mobileAuthSessionStorage = MobileAuthSessionStorage();
+  static final MobileAuthRepository mobileAuthRepository =
+      ApiMobileAuthRepository(
+    apiClient: apiClient,
+    sessionStorage: mobileAuthSessionStorage,
+  );
+  static final mobileAuthController = MobileAuthController(
+    repository: mobileAuthRepository,
+  );
   static final BranchRepository branchRepository = ApiBranchRepository(
     apiClient: apiClient,
   );
@@ -52,6 +65,7 @@ abstract final class ServiceRegistry {
           : ApiBirthdayRequestRepository(apiClient: apiClient);
 
   static Future<void> bootstrap() async {
+    await mobileAuthController.bootstrap();
     await selectedBranchController.load();
   }
 }
