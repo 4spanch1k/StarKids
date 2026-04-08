@@ -1,0 +1,35 @@
+from fastapi import Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.orm import Session
+
+from ...core.database.session import get_db_session
+from ...db.repositories.mobile_session_repository import MobileSessionRepository
+from ...db.repositories.mobile_user_repository import MobileUserRepository
+from .schemas import MobileCurrentUserResponse
+from .service import MobileAuthService
+
+bearer_scheme = HTTPBearer(auto_error=False)
+
+
+def get_mobile_auth_service(
+    session: Session = Depends(get_db_session),
+) -> MobileAuthService:
+    return MobileAuthService(
+        user_repository=MobileUserRepository(session),
+        session_repository=MobileSessionRepository(session),
+    )
+
+
+def get_mobile_access_token(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> str:
+    if credentials is None or credentials.scheme.lower() != 'bearer':
+        raise MobileAuthService.authentication_required_exception()
+    return credentials.credentials
+
+
+def get_current_mobile_user(
+    access_token: str = Depends(get_mobile_access_token),
+    service: MobileAuthService = Depends(get_mobile_auth_service),
+) -> MobileCurrentUserResponse:
+    return service.get_current_user(access_token)

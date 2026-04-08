@@ -9,6 +9,8 @@ from .birthday_request import BirthdayRequest
 from .branch import Branch
 from .content_block import ContentBlock
 from .faq_entry import FAQEntry
+from .mobile_session import MobileSession
+from .mobile_user import MobileUser
 from .promotion import Promotion
 from .promotion_branch import PromotionBranch
 
@@ -26,4 +28,6 @@ __all__ = [
     'PromotionBranch',
     'FAQEntry',
     'ContentBlock',
+    'MobileUser',
+    'MobileSession',
 ]
