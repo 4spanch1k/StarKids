@@ -9,11 +9,16 @@ import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_birthday_package_card.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
+import '../../../../core/design_system/widgets/star_kids_content_block_card.dart';
+import '../../../../core/design_system/widgets/star_kids_faq_card.dart';
+import '../../../../core/design_system/widgets/star_kids_media_image.dart';
 import '../../../../core/design_system/widgets/star_kids_promo_card.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
-import '../../../birthdays/data/birthday_package_seed_data.dart';
+import '../../../birthdays/domain/birthday_package.dart';
+import '../../../content/domain/public_content_block.dart';
+import '../../../content/domain/public_faq_item.dart';
+import '../../../promotions/domain/promotion_offer.dart';
 import '../../../requests/presentation/models/request_page_args.dart';
-import '../../data/home_promotion_seed_data.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -24,10 +29,6 @@ class HomePage extends StatelessWidget {
       animation: ServiceRegistry.selectedBranchController,
       builder: (context, _) {
         final branch = ServiceRegistry.selectedBranchController.selectedBranch;
-        final featuredPackage = birthdayPackageSeedData.firstWhere(
-          (item) => item.isFeatured,
-          orElse: () => birthdayPackageSeedData.first,
-        );
         final textTheme = Theme.of(context).textTheme;
 
         return Scaffold(
@@ -97,7 +98,8 @@ class HomePage extends StatelessWidget {
                                 StarKidsRadii.full,
                               ),
                               border: Border.all(
-                                  color: StarKidsColors.borderDefault),
+                                color: StarKidsColors.borderDefault,
+                              ),
                             ),
                             child: Row(
                               children: [
@@ -129,9 +131,9 @@ class HomePage extends StatelessWidget {
                             children: [
                               AspectRatio(
                                 aspectRatio: 1,
-                                child: Image.asset(
-                                  branch.heroImagePath,
-                                  fit: BoxFit.cover,
+                                child: StarKidsMediaImage(
+                                  source: branch.heroImagePath,
+                                  fallbackSource: 'assets/images/home_hero.jpg',
                                 ),
                               ),
                               const Positioned.fill(
@@ -262,125 +264,243 @@ class HomePage extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: StarKidsSpacing.x2l),
-                        StarKidsSectionHeader(
-                          title: 'Главный пакет для праздника',
-                          description:
-                              'Готовое коммерческое предложение, которое проще всего продать из главного экрана.',
-                          actionLabel: 'Все пакеты',
-                          onActionTap: () => Navigator.of(context)
-                              .pushNamed(AppRoutes.birthdays),
-                        ),
-                        const SizedBox(height: StarKidsSpacing.lg),
-                        StarKidsBirthdayPackageCard(
-                          title: featuredPackage.name,
-                          priceLabel: featuredPackage.priceLabel,
-                          guestLabel: featuredPackage.guestLabel,
-                          description: featuredPackage.description,
-                          highlights: featuredPackage.highlights,
-                          imagePath: featuredPackage.imagePath,
-                          isFeatured: featuredPackage.isFeatured,
-                          onActionTap: () => Navigator.of(context).pushNamed(
-                            AppRoutes.requests,
-                            arguments: RequestPageArgs(
-                              initialPackageId: featuredPackage.id,
-                              initialPackage: featuredPackage,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: StarKidsSpacing.x2l),
-                        StarKidsSectionHeader(
-                          title: 'Актуальные акции и поводы вернуться',
-                          description:
-                              'Лента офферов должна быть заметной, но не превращаться в шум.',
-                        ),
-                        const SizedBox(height: StarKidsSpacing.lg),
-                        ...homePromotionSeedData.map(
-                          (promotion) => Padding(
-                            padding: const EdgeInsets.only(
-                                bottom: StarKidsSpacing.md),
-                            child: StarKidsPromoCard(
-                              title: promotion.title,
-                              description: promotion.description,
-                              imagePath: promotion.imagePath,
-                              badgeLabel: promotion.badgeLabel,
-                              onTap: () => Navigator.of(context)
-                                  .pushNamed(AppRoutes.promotions),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: StarKidsSpacing.x2l),
-                        const StarKidsSectionHeader(
-                          title: 'Почему сюда удобно возвращаться',
-                          description:
-                              'Четкий trust-block для повторного визита и быстрой заявки.',
-                        ),
-                        const SizedBox(height: StarKidsSpacing.lg),
-                        Container(
-                          padding: const EdgeInsets.all(StarKidsSpacing.lg),
-                          decoration: BoxDecoration(
-                            color: StarKidsColors.surfacePrimary,
-                            borderRadius:
-                                BorderRadius.circular(StarKidsRadii.xl),
-                            border:
-                                Border.all(color: StarKidsColors.borderDefault),
-                            boxShadow: StarKidsShadows.depth1,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Star Kids помогает быстро решить семейный досуг: выбрать филиал, понять условия и сразу перейти к празднику или заявке.',
-                                style: textTheme.bodyLarge,
-                              ),
-                              const SizedBox(height: StarKidsSpacing.lg),
-                              Wrap(
-                                spacing: StarKidsSpacing.sm,
-                                runSpacing: StarKidsSpacing.sm,
-                                children:
-                                    branch.facilities.take(4).map((facility) {
-                                  return Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: StarKidsSpacing.md,
-                                      vertical: StarKidsSpacing.xs,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: StarKidsColors.surfaceSecondary,
-                                      borderRadius: BorderRadius.circular(
-                                        StarKidsRadii.full,
+                        FutureBuilder<_HomeContentData>(
+                          future: _loadHomeContent(branch.id),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                    ConnectionState.waiting &&
+                                !snapshot.hasData) {
+                              return const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: StarKidsSpacing.x2l,
+                                  ),
+                                  child: CircularProgressIndicator(),
+                                ),
+                              );
+                            }
+
+                            final content = snapshot.data ??
+                                const _HomeContentData(
+                                  promotions: <PromotionOffer>[],
+                                  contentBlocks: <PublicContentBlock>[],
+                                  faqs: <PublicFaqItem>[],
+                                );
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                StarKidsSectionHeader(
+                                  title: 'Главный пакет для праздника',
+                                  description:
+                                      'Готовое коммерческое предложение, которое проще всего открыть с главного экрана.',
+                                  actionLabel: 'Все пакеты',
+                                  onActionTap: () => Navigator.of(context)
+                                      .pushNamed(AppRoutes.birthdays),
+                                ),
+                                const SizedBox(height: StarKidsSpacing.lg),
+                                if (content.featuredPackage != null)
+                                  StarKidsBirthdayPackageCard(
+                                    title: content.featuredPackage!.name,
+                                    priceLabel:
+                                        content.featuredPackage!.priceLabel,
+                                    guestLabel:
+                                        content.featuredPackage!.guestLabel,
+                                    description:
+                                        content.featuredPackage!.description,
+                                    highlights:
+                                        content.featuredPackage!.highlights,
+                                    imagePath:
+                                        content.featuredPackage!.imagePath,
+                                    isFeatured:
+                                        content.featuredPackage!.isFeatured,
+                                    onActionTap: () =>
+                                        Navigator.of(context).pushNamed(
+                                      AppRoutes.requests,
+                                      arguments: RequestPageArgs(
+                                        initialPackageId:
+                                            content.featuredPackage!.id,
+                                        initialPackage: content.featuredPackage,
                                       ),
                                     ),
-                                    child: Text(
-                                      facility,
-                                      style: textTheme.labelMedium?.copyWith(
-                                        color: StarKidsColors.textPrimary,
+                                  )
+                                else
+                                  const _HomeStateCard(
+                                    title: 'Пакеты скоро появятся',
+                                    description:
+                                        'Для выбранного филиала пока нет опубликованных пакетов. Можно оставить общую заявку, и менеджер поможет подобрать формат.',
+                                  ),
+                                const SizedBox(height: StarKidsSpacing.x2l),
+                                const StarKidsSectionHeader(
+                                  title: 'Актуальные акции и поводы вернуться',
+                                  description:
+                                      'Живые предложения из админки должны быть заметны, но не превращаться в визуальный шум.',
+                                ),
+                                const SizedBox(height: StarKidsSpacing.lg),
+                                if (content.promotions.isNotEmpty)
+                                  ...content.promotions.take(2).map(
+                                        (promotion) => Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: StarKidsSpacing.md,
+                                          ),
+                                          child: StarKidsPromoCard(
+                                            title: promotion.title,
+                                            description: promotion.description,
+                                            imagePath: promotion.imagePath,
+                                            badgeLabel: promotion.badgeLabel,
+                                            onTap: () => Navigator.of(context)
+                                                .pushNamed(
+                                                    AppRoutes.promotions),
+                                          ),
+                                        ),
+                                      )
+                                else
+                                  const _HomeStateCard(
+                                    title: 'Акции скоро появятся',
+                                    description:
+                                        'По выбранному филиалу пока нет активных предложений. Остальные экраны приложения продолжают работать в обычном режиме.',
+                                  ),
+                                const SizedBox(height: StarKidsSpacing.x2l),
+                                if (content.contentBlocks.isNotEmpty) ...[
+                                  const StarKidsSectionHeader(
+                                    title: 'Что важно перед визитом',
+                                    description:
+                                        'Контентные блоки из админки помогают обновлять ключевые сообщения без ручной правки приложения.',
+                                  ),
+                                  const SizedBox(height: StarKidsSpacing.lg),
+                                  ...content.contentBlocks.map(
+                                    (block) => Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: StarKidsSpacing.md,
                                       ),
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                              const SizedBox(height: StarKidsSpacing.lg),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _TrustStat(
-                                      title: '3000 кв.м',
-                                      subtitle: 'пространства для активности',
+                                      child: StarKidsContentBlockCard(
+                                        title: block.title,
+                                        body: block.body,
+                                        label: block.ctaLabel,
+                                      ),
                                     ),
                                   ),
-                                  const SizedBox(width: StarKidsSpacing.md),
-                                  Expanded(
-                                    child: _TrustStat(
-                                      title: branch.workingHours.replaceFirst(
-                                        'Ежедневно ',
-                                        '',
+                                ] else ...[
+                                  const StarKidsSectionHeader(
+                                    title: 'Почему сюда удобно возвращаться',
+                                    description:
+                                        'Четкий trust-block для повторного визита и быстрой заявки.',
+                                  ),
+                                  const SizedBox(height: StarKidsSpacing.lg),
+                                  Container(
+                                    padding: const EdgeInsets.all(
+                                      StarKidsSpacing.lg,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: StarKidsColors.surfacePrimary,
+                                      borderRadius: BorderRadius.circular(
+                                        StarKidsRadii.xl,
                                       ),
-                                      subtitle: 'ежедневный режим работы',
+                                      border: Border.all(
+                                        color: StarKidsColors.borderDefault,
+                                      ),
+                                      boxShadow: StarKidsShadows.depth1,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Star Kids помогает быстро решить семейный досуг: выбрать филиал, понять условия и сразу перейти к празднику или заявке.',
+                                          style: textTheme.bodyLarge,
+                                        ),
+                                        const SizedBox(
+                                          height: StarKidsSpacing.lg,
+                                        ),
+                                        Wrap(
+                                          spacing: StarKidsSpacing.sm,
+                                          runSpacing: StarKidsSpacing.sm,
+                                          children: branch.facilities
+                                              .take(4)
+                                              .map(
+                                                (facility) => Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                    horizontal:
+                                                        StarKidsSpacing.md,
+                                                    vertical:
+                                                        StarKidsSpacing.xs,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: StarKidsColors
+                                                        .surfaceSecondary,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                      StarKidsRadii.full,
+                                                    ),
+                                                  ),
+                                                  child: Text(
+                                                    facility,
+                                                    style: textTheme.labelMedium
+                                                        ?.copyWith(
+                                                      color: StarKidsColors
+                                                          .textPrimary,
+                                                    ),
+                                                  ),
+                                                ),
+                                              )
+                                              .toList(),
+                                        ),
+                                        const SizedBox(
+                                          height: StarKidsSpacing.lg,
+                                        ),
+                                        Row(
+                                          children: [
+                                            const Expanded(
+                                              child: _TrustStat(
+                                                title: '3000 кв.м',
+                                                subtitle:
+                                                    'пространства для активности',
+                                              ),
+                                            ),
+                                            const SizedBox(
+                                              width: StarKidsSpacing.md,
+                                            ),
+                                            Expanded(
+                                              child: _TrustStat(
+                                                title: branch.workingHours
+                                                    .replaceFirst(
+                                                  'Ежедневно ',
+                                                  '',
+                                                ),
+                                                subtitle:
+                                                    'ежедневный режим работы',
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
-                              ),
-                            ],
-                          ),
+                                if (content.faqs.isNotEmpty) ...[
+                                  const SizedBox(height: StarKidsSpacing.x2l),
+                                  const StarKidsSectionHeader(
+                                    title: 'Частые вопросы',
+                                    description:
+                                        'Ответы из live-контента помогают снять базовые вопросы до заявки или звонка.',
+                                  ),
+                                  const SizedBox(height: StarKidsSpacing.lg),
+                                  ...content.faqs.take(3).map(
+                                        (faq) => Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: StarKidsSpacing.md,
+                                          ),
+                                          child: StarKidsFaqCard(
+                                            question: faq.question,
+                                            answer: faq.answer,
+                                          ),
+                                        ),
+                                      ),
+                                ],
+                              ],
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -391,6 +511,34 @@ class HomePage extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Future<_HomeContentData> _loadHomeContent(String branchId) async {
+    final packages = await ServiceRegistry.birthdayPackageRepository
+        .listPackages(branchId: branchId)
+        .catchError((_) => const <BirthdayPackage>[]);
+    final promotions = await ServiceRegistry.promotionRepository
+        .listPromotions(branchId)
+        .catchError((_) => const <PromotionOffer>[]);
+    final contentBlocks = await ServiceRegistry.publicContentRepository
+        .listContentBlocks(surface: 'home');
+    final faqs = await ServiceRegistry.publicContentRepository.listFaqs();
+
+    BirthdayPackage? featuredPackage;
+    for (final item in packages) {
+      if (item.isFeatured) {
+        featuredPackage = item;
+        break;
+      }
+    }
+    featuredPackage ??= packages.isEmpty ? null : packages.first;
+
+    return _HomeContentData(
+      featuredPackage: featuredPackage,
+      promotions: promotions,
+      contentBlocks: contentBlocks,
+      faqs: faqs,
     );
   }
 }
@@ -475,4 +623,48 @@ class _TrustStat extends StatelessWidget {
       ),
     );
   }
+}
+
+class _HomeStateCard extends StatelessWidget {
+  const _HomeStateCard({
+    required this.title,
+    required this.description,
+  });
+
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      decoration: BoxDecoration(
+        color: StarKidsColors.surfacePrimary,
+        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+        border: Border.all(color: StarKidsColors.borderDefault),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: StarKidsSpacing.sm),
+          Text(description, style: Theme.of(context).textTheme.bodyLarge),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeContentData {
+  const _HomeContentData({
+    this.featuredPackage,
+    required this.promotions,
+    required this.contentBlocks,
+    required this.faqs,
+  });
+
+  final BirthdayPackage? featuredPackage;
+  final List<PromotionOffer> promotions;
+  final List<PublicContentBlock> contentBlocks;
+  final List<PublicFaqItem> faqs;
 }

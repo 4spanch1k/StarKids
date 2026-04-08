@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/utils/result.dart';
-import '../../../birthdays/data/birthday_package_seed_data.dart';
 import '../../../birthdays/domain/birthday_package.dart';
+import '../../../birthdays/domain/birthday_package_repository.dart';
 import '../../domain/birthday_request_payload.dart';
 import '../../domain/birthday_request_repository.dart';
 import '../../domain/birthday_request_submission.dart';
@@ -18,21 +18,22 @@ enum BirthdayRequestSubmissionStatus {
 class BirthdayRequestFormController extends ChangeNotifier {
   BirthdayRequestFormController({
     required BirthdayRequestRepository repository,
+    required BirthdayPackageRepository packageRepository,
     String? initialPackageId,
     BirthdayPackage? initialPackage,
   })  : _repository = repository,
+        _packageRepository = packageRepository,
         _selectedPackageId = initialPackage?.id ?? initialPackageId,
         _selectedPackage = initialPackage {
-    final suggestedGuests = _extractGuestCount(
-      initialPackage ?? getBirthdayPackageById(initialPackageId),
-    );
-
-    if (suggestedGuests != null) {
-      guestCountController.text = suggestedGuests.toString();
+    if (initialPackage != null) {
+      _applySuggestedGuests(initialPackage);
+    } else if (initialPackageId != null) {
+      _hydrateInitialPackage(initialPackageId);
     }
   }
 
   final BirthdayRequestRepository _repository;
+  final BirthdayPackageRepository _packageRepository;
 
   final nameController = TextEditingController();
   final phoneController = TextEditingController();
@@ -48,9 +49,9 @@ class BirthdayRequestFormController extends ChangeNotifier {
   BirthdayRequestSubmission? _submission;
   BirthdayRequestSubmissionStatus _status =
       BirthdayRequestSubmissionStatus.idle;
+  bool _isDisposed = false;
 
-  BirthdayPackage? get selectedPackage =>
-      _selectedPackage ?? getBirthdayPackageById(_selectedPackageId);
+  BirthdayPackage? get selectedPackage => _selectedPackage;
 
   String? get selectedPackageId => _selectedPackageId;
 
@@ -78,11 +79,8 @@ class BirthdayRequestFormController extends ChangeNotifier {
     _packageErrorText = null;
     clearTransientFeedback();
 
-    final suggestedGuests = _extractGuestCount(
-      selectedPackage ?? getBirthdayPackageById(packageId),
-    );
-    if (suggestedGuests != null && guestCountController.text.trim().isEmpty) {
-      guestCountController.text = suggestedGuests.toString();
+    if (selectedPackage != null && guestCountController.text.trim().isEmpty) {
+      _applySuggestedGuests(selectedPackage);
     }
 
     notifyListeners();
@@ -187,11 +185,8 @@ class BirthdayRequestFormController extends ChangeNotifier {
     _submissionErrorText = null;
     _status = BirthdayRequestSubmissionStatus.idle;
 
-    final suggestedGuests = _extractGuestCount(
-      _selectedPackage ?? getBirthdayPackageById(_selectedPackageId),
-    );
-    if (suggestedGuests != null) {
-      guestCountController.text = suggestedGuests.toString();
+    if (_selectedPackage != null) {
+      _applySuggestedGuests(_selectedPackage!);
     }
 
     notifyListeners();
@@ -254,11 +249,33 @@ class BirthdayRequestFormController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _isDisposed = true;
     nameController.dispose();
     phoneController.dispose();
     guestCountController.dispose();
     commentController.dispose();
     super.dispose();
+  }
+
+  Future<void> _hydrateInitialPackage(String packageId) async {
+    final package = await _packageRepository.getPackageById(packageId);
+    if (package == null) {
+      return;
+    }
+
+    _selectedPackage = package;
+    _applySuggestedGuests(package);
+    if (_isDisposed) {
+      return;
+    }
+    notifyListeners();
+  }
+
+  void _applySuggestedGuests(BirthdayPackage package) {
+    final suggestedGuests = _extractGuestCount(package);
+    if (suggestedGuests != null) {
+      guestCountController.text = suggestedGuests.toString();
+    }
   }
 
   static String? _normalizeComment(String value) {
