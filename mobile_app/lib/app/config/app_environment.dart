@@ -11,7 +11,7 @@ abstract final class AppEnvironment {
 
   static const useMockBirthdayRequests = bool.fromEnvironment(
     'MOBILE_USE_MOCK_BIRTHDAY_REQUESTS',
-    defaultValue: true,
+    defaultValue: false,
   );
 
   static const defaultCity = String.fromEnvironment(

@@ -7,6 +7,7 @@ from .branch_tariff import BranchTariff
 from .birthday_package import BirthdayPackage
 from .birthday_request import BirthdayRequest
 from .branch import Branch
+from .contact_lead import ContactLead
 from .content_block import ContentBlock
 from .faq_entry import FAQEntry
 from .mobile_session import MobileSession
@@ -24,6 +25,7 @@ __all__ = [
     'BranchRule',
     'BirthdayPackage',
     'BirthdayRequest',
+    'ContactLead',
     'Promotion',
     'PromotionBranch',
     'FAQEntry',

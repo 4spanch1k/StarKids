@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 LeadInboxStatus = Literal['new', 'in_progress', 'closed']
-LeadInboxType = Literal['birthday_request']
+LeadInboxType = Literal['birthday_request', 'contact']
 
 
 class AdminLeadBranchSummary(BaseModel):
@@ -38,7 +38,7 @@ class AdminLeadBaseResponse(BaseModel):
     guestCount: int | None = None
     requestedDate: date | None = None
     createdAt: datetime
-    branch: AdminLeadBranchSummary
+    branch: AdminLeadBranchSummary | None = None
     package: AdminLeadPackageSummary | None = None
 
     @field_serializer('createdAt')
@@ -53,6 +53,7 @@ class AdminLeadListResponse(BaseModel):
 
 
 class AdminLeadDetailResponse(AdminLeadBaseResponse):
+    email: str | None = None
     notes: str | None = None
     contactMethod: str
 

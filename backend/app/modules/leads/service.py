@@ -22,8 +22,19 @@ class LeadService:
         self.package_repository = package_repository or BirthdayPackageRepository()
 
     def create_contact_lead(self, payload: ContactLeadCreate) -> LeadCreatedResponse:
-        lead = self.repository.create({'type': 'contact', 'phone': payload.phone})
-        return LeadCreatedResponse.model_validate(lead)
+        lead = self.repository.create_contact_lead(
+            {
+                'customer_name': payload.name,
+                'phone': payload.phone,
+                'email': payload.email,
+                'message': payload.message,
+            }
+        )
+        return LeadCreatedResponse(
+            id=lead.id,
+            type='contact',
+            status=lead.status,
+        )
 
     def create_birthday_lead(
         self,

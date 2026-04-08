@@ -143,8 +143,7 @@
                 <div class="lead-card__title">
                   <strong>{{ lead.customerName }}</strong>
                   <p>
-                    {{ lead.branch.shortLabel }}
-                    <span v-if="lead.package"> · {{ lead.package.name }}</span>
+                    {{ formatLeadSummary(lead) }}
                   </p>
                 </div>
                 <StatusBadge
@@ -156,9 +155,9 @@
               <div class="lead-card__timeline">
                 <div
                   class="lead-card__deadline"
-                  :class="deadlineClass(lead.requestedDate)"
+                  :class="deadlineClass(lead.type, lead.requestedDate)"
                 >
-                  {{ deadlineLabel(lead.requestedDate) }}
+                  {{ deadlineLabel(lead.type, lead.requestedDate) }}
                 </div>
                 <p class="lead-card__created">Создана {{ formatDateTime(lead.createdAt) }}</p>
               </div>
@@ -254,18 +253,15 @@
                 />
               </div>
               <p class="lead-detail__description">
-                {{ leadInbox.selectedLead.branch.name }}
-                <span v-if="leadInbox.selectedLead.package">
-                  · {{ leadInbox.selectedLead.package.name }}
-                </span>
+                {{ formatLeadSummary(leadInbox.selectedLead) }}
               </p>
             </div>
 
             <div
               class="lead-detail__deadline"
-              :class="deadlineClass(leadInbox.selectedLead.requestedDate)"
+              :class="deadlineClass(leadInbox.selectedLead.type, leadInbox.selectedLead.requestedDate)"
             >
-              {{ deadlineLabel(leadInbox.selectedLead.requestedDate) }}
+              {{ deadlineLabel(leadInbox.selectedLead.type, leadInbox.selectedLead.requestedDate) }}
             </div>
           </header>
 
@@ -332,6 +328,10 @@
                   <dt>Способ связи</dt>
                   <dd>{{ formatContactMethod(leadInbox.selectedLead.contactMethod) }}</dd>
                 </div>
+                <div v-if="leadInbox.selectedLead.email">
+                  <dt>Email</dt>
+                  <dd>{{ leadInbox.selectedLead.email }}</dd>
+                </div>
                 <div>
                   <dt>Источник</dt>
                   <dd>{{ formatSource(leadInbox.selectedLead.source) }}</dd>
@@ -341,15 +341,15 @@
 
             <article class="lead-detail-card">
               <div class="admin-section-heading">
-                <h3>Параметры заявки</h3>
+                <h3>{{ leadInbox.selectedLead.type === 'contact' ? 'Параметры обращения' : 'Параметры заявки' }}</h3>
               </div>
               <dl class="lead-detail-card__list">
-                <div>
+                <div v-if="leadInbox.selectedLead.type === 'birthday_request'">
                   <dt>Гостей</dt>
                   <dd>{{ formatGuestCount(leadInbox.selectedLead.guestCount) }}</dd>
                 </div>
                 <div>
-                  <dt>Дата праздника</dt>
+                  <dt>{{ leadInbox.selectedLead.type === 'contact' ? 'Дата обращения' : 'Дата праздника' }}</dt>
                   <dd>{{ formatDate(leadInbox.selectedLead.requestedDate) }}</dd>
                 </div>
                 <div>
@@ -421,7 +421,7 @@ const inProgressLeadCount = computed(() => {
 });
 
 const urgentLeadCount = computed(() => {
-  return leadInbox.leads.filter((lead) => deadlineTone(lead.requestedDate) === 'danger').length;
+  return leadInbox.leads.filter((lead) => deadlineTone(lead.type, lead.requestedDate) === 'danger').length;
 });
 
 const branchFilterOptions = computed(() => {
@@ -499,6 +499,35 @@ function formatDateTime(value: string): string {
   }).format(new Date(value));
 }
 
+function formatLeadType(type: string): string {
+  const labels: Record<string, string> = {
+    birthday_request: 'Заявка на день рождения',
+    contact: 'Контактная заявка',
+  };
+
+  return labels[type] ?? type;
+}
+
+function formatLeadSummary(lead: {
+  type: string;
+  branch: { name: string; shortLabel: string } | null;
+  package: { name: string } | null;
+}): string {
+  const parts = [formatLeadType(lead.type)];
+
+  if (lead.branch) {
+    parts.push(lead.branch.shortLabel || lead.branch.name);
+  } else {
+    parts.push('Филиал не указан');
+  }
+
+  if (lead.package) {
+    parts.push(lead.package.name);
+  }
+
+  return parts.join(' · ');
+}
+
 function formatGuestCount(value: number | null): string {
   if (!value) {
     return 'Не указано';
@@ -532,7 +561,11 @@ function formatTelHref(phone: string): string {
   return `tel:${phone.replace(/[^\d+]/g, '')}`;
 }
 
-function deadlineLabel(value: string | null): string {
+function deadlineLabel(type: string, value: string | null): string {
+  if (type === 'contact') {
+    return 'Контактное обращение';
+  }
+
   if (!value) {
     return 'Дата праздника не указана';
   }
@@ -540,7 +573,14 @@ function deadlineLabel(value: string | null): string {
   return `Праздник ${formatDate(value)}`;
 }
 
-function deadlineTone(value: string | null): 'neutral' | 'warning' | 'danger' {
+function deadlineTone(
+  type: string,
+  value: string | null,
+): 'neutral' | 'warning' | 'danger' {
+  if (type === 'contact') {
+    return 'neutral';
+  }
+
   if (!value) {
     return 'neutral';
   }
@@ -560,8 +600,8 @@ function deadlineTone(value: string | null): 'neutral' | 'warning' | 'danger' {
   return 'neutral';
 }
 
-function deadlineClass(value: string | null): string {
-  return `lead-deadline--${deadlineTone(value)}`;
+function deadlineClass(type: string, value: string | null): string {
+  return `lead-deadline--${deadlineTone(type, value)}`;
 }
 
 function startOfDay(date: Date): Date {

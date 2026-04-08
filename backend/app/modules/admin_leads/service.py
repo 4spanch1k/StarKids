@@ -37,7 +37,7 @@ class AdminLeadInboxService:
 
     def list_leads(self, filters: AdminLeadListQuery) -> AdminLeadListResponse:
         self._validate_filters(filters)
-        records = self.repository.list_birthday_request_records(
+        records = self.repository.list_records(
             branch_id=filters.branchId,
             status=filters.status,
             created_from=filters.createdFrom,
@@ -49,7 +49,7 @@ class AdminLeadInboxService:
         )
 
     def get_lead(self, lead_id: str) -> AdminLeadDetailResponse:
-        record = self.repository.get_birthday_request_record(lead_id)
+        record = self.repository.get_record(lead_id)
         if record is None:
             raise NotFoundException(
                 code='lead_not_found',
@@ -63,13 +63,16 @@ class AdminLeadInboxService:
         payload: AdminLeadStatusUpdateRequest,
     ) -> AdminLeadDetailResponse:
         birthday_request = self.repository.get_birthday_request_entity(lead_id)
+        contact_lead = None
         if birthday_request is None:
+            contact_lead = self.repository.get_contact_lead_entity(lead_id)
+        if birthday_request is None and contact_lead is None:
             raise NotFoundException(
                 code='lead_not_found',
                 message='Lead was not found.',
             )
 
-        current_status = birthday_request.status
+        current_status = birthday_request.status if birthday_request is not None else contact_lead.status
         if current_status not in LEAD_STATUS_TRANSITIONS:
             raise DomainHTTPException(
                 code='unsupported_lead_status',
@@ -100,10 +103,16 @@ class AdminLeadInboxService:
             )
 
         if payload.status != current_status:
-            self.repository.update_birthday_request_status(
-                birthday_request,
-                status=payload.status,
-            )
+            if birthday_request is not None:
+                self.repository.update_birthday_request_status(
+                    birthday_request,
+                    status=payload.status,
+                )
+            else:
+                self.repository.update_contact_lead_status(
+                    contact_lead,
+                    status=payload.status,
+                )
 
         return self.get_lead(lead_id)
 
@@ -128,7 +137,7 @@ class AdminLeadInboxService:
     def _serialize_list_item(self, record: LeadInboxRecord) -> AdminLeadBaseResponse:
         return AdminLeadBaseResponse(
             id=record.id,
-            type='birthday_request',
+            type=record.type,
             status=record.status,
             source=record.source,
             customerName=record.customer_name,
@@ -143,11 +152,18 @@ class AdminLeadInboxService:
     def _serialize_detail(self, record: LeadInboxRecord) -> AdminLeadDetailResponse:
         return AdminLeadDetailResponse(
             **self._serialize_list_item(record).model_dump(),
+            email=record.email,
             notes=record.notes,
             contactMethod=record.contact_method,
         )
 
-    def _serialize_branch(self, record: LeadInboxRecord) -> AdminLeadBranchSummary:
+    def _serialize_branch(self, record: LeadInboxRecord) -> AdminLeadBranchSummary | None:
+        if (
+            record.branch_id is None
+            or record.branch_name is None
+            or record.branch_short_label is None
+        ):
+            return None
         return AdminLeadBranchSummary(
             id=record.branch_id,
             name=record.branch_name,
