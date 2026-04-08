@@ -11,6 +11,12 @@ class BirthdayRequest(Base):
     __tablename__ = 'birthday_requests'
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid4().hex)
+    mobile_user_id: Mapped[str | None] = mapped_column(
+        String(32),
+        ForeignKey('mobile_users.id', ondelete='SET NULL'),
+        nullable=True,
+        index=True,
+    )
     branch_id: Mapped[str] = mapped_column(
         String(32),
         ForeignKey('branches.id', ondelete='RESTRICT'),
