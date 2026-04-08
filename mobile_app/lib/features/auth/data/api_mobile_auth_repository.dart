@@ -4,6 +4,7 @@ import '../domain/mobile_auth_repository.dart';
 import '../domain/mobile_auth_session.dart';
 import '../domain/mobile_auth_user.dart';
 import '../domain/otp_challenge.dart';
+import 'mobile_auth_authorization.dart';
 import 'mobile_auth_api_models.dart';
 import 'mobile_auth_session_storage.dart';
 
@@ -217,7 +218,7 @@ class ApiMobileAuthRepository implements MobileAuthRepository {
       final response = await _apiClient.postJson(
         '/auth/logout',
         body: const <String, dynamic>{},
-        headers: _authorizationHeader(session.accessToken, session.tokenType),
+        headers: buildMobileAuthAuthorizationHeader(session),
       );
 
       if (response.isSuccess || response.statusCode == 401) {
@@ -250,7 +251,9 @@ class ApiMobileAuthRepository implements MobileAuthRepository {
   Future<ApiClientResponse> _getCurrentUserResponse(String accessToken) {
     return _apiClient.getJson(
       '/auth/current-user',
-      headers: _authorizationHeader(accessToken, 'Bearer'),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+      },
     );
   }
 
@@ -272,24 +275,5 @@ class ApiMobileAuthRepository implements MobileAuthRepository {
     }
 
     return MobileAuthUserDto.fromJson(jsonBody).toDomain();
-  }
-
-  Map<String, String> _authorizationHeader(
-    String accessToken,
-    String tokenType,
-  ) {
-    final normalizedTokenType =
-        tokenType.isEmpty ? 'Bearer' : _capitalize(tokenType);
-    return {
-      'Authorization': '$normalizedTokenType $accessToken',
-    };
-  }
-
-  String _capitalize(String value) {
-    if (value.isEmpty) {
-      return value;
-    }
-
-    return '${value[0].toUpperCase()}${value.substring(1)}';
   }
 }
