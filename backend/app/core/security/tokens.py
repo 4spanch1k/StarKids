@@ -1,15 +1,16 @@
 from __future__ import annotations
 
+from uuid import uuid4
+from base64 import urlsafe_b64decode, urlsafe_b64encode
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 import hashlib
 import hmac
 import json
-from uuid import uuid4
-from base64 import urlsafe_b64decode, urlsafe_b64encode
 
 JWT_ALGORITHM = 'HS256'
-JWT_ISSUER = 'star-kids-admin'
+ADMIN_JWT_ISSUER = 'star-kids-admin'
+MOBILE_JWT_ISSUER = 'star-kids-mobile'
 
 
 @dataclass(frozen=True)
@@ -47,13 +48,58 @@ def create_admin_token_pair(
     refresh_token_ttl_days: int,
     now: datetime | None = None,
 ) -> TokenPair:
+    return _create_token_pair(
+        secret_key=secret_key,
+        user_id=user_id,
+        role=role,
+        session_id=session_id,
+        access_token_ttl_minutes=access_token_ttl_minutes,
+        refresh_token_ttl_days=refresh_token_ttl_days,
+        issuer=ADMIN_JWT_ISSUER,
+        now=now,
+    )
+
+
+def create_mobile_token_pair(
+    *,
+    secret_key: str,
+    user_id: str,
+    role: str,
+    session_id: str,
+    access_token_ttl_minutes: int,
+    refresh_token_ttl_days: int,
+    now: datetime | None = None,
+) -> TokenPair:
+    return _create_token_pair(
+        secret_key=secret_key,
+        user_id=user_id,
+        role=role,
+        session_id=session_id,
+        access_token_ttl_minutes=access_token_ttl_minutes,
+        refresh_token_ttl_days=refresh_token_ttl_days,
+        issuer=MOBILE_JWT_ISSUER,
+        now=now,
+    )
+
+
+def _create_token_pair(
+    *,
+    secret_key: str,
+    user_id: str,
+    role: str,
+    session_id: str,
+    access_token_ttl_minutes: int,
+    refresh_token_ttl_days: int,
+    issuer: str,
+    now: datetime | None = None,
+) -> TokenPair:
     issued_at = now or datetime.now(UTC)
     access_expires_at = issued_at + timedelta(minutes=access_token_ttl_minutes)
     refresh_expires_at = issued_at + timedelta(days=refresh_token_ttl_days)
 
     access_token = _encode_jwt(
         {
-            'iss': JWT_ISSUER,
+            'iss': issuer,
             'sub': user_id,
             'role': role,
             'type': 'access',
@@ -66,7 +112,7 @@ def create_admin_token_pair(
     )
     refresh_token = _encode_jwt(
         {
-            'iss': JWT_ISSUER,
+            'iss': issuer,
             'sub': user_id,
             'role': role,
             'type': 'refresh',
@@ -98,6 +144,39 @@ def decode_admin_token(
     expected_type: str | None = None,
     now: datetime | None = None,
 ) -> TokenPayload:
+    return _decode_token(
+        token,
+        secret_key=secret_key,
+        expected_type=expected_type,
+        issuer=ADMIN_JWT_ISSUER,
+        now=now,
+    )
+
+
+def decode_mobile_token(
+    token: str,
+    *,
+    secret_key: str,
+    expected_type: str | None = None,
+    now: datetime | None = None,
+) -> TokenPayload:
+    return _decode_token(
+        token,
+        secret_key=secret_key,
+        expected_type=expected_type,
+        issuer=MOBILE_JWT_ISSUER,
+        now=now,
+    )
+
+
+def _decode_token(
+    token: str,
+    *,
+    secret_key: str,
+    expected_type: str | None,
+    issuer: str,
+    now: datetime | None,
+) -> TokenPayload:
     payload = _decode_jwt(token, secret_key)
 
     token_type = payload.get('type')
@@ -108,7 +187,7 @@ def decode_admin_token(
     issued_at = payload.get('iat')
     expires_at = payload.get('exp')
 
-    if payload.get('iss') != JWT_ISSUER:
+    if payload.get('iss') != issuer:
         raise TokenValidationError('Invalid token issuer.')
     if not all(
         isinstance(value, str) and value
