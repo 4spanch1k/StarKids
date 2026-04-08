@@ -93,13 +93,13 @@ a {
 }
 
 .admin-button--primary {
-  background: var(--color-text);
+  background: var(--color-accent);
   color: #fff;
-  box-shadow: 0 8px 18px rgba(23, 33, 45, 0.14);
+  box-shadow: 0 8px 18px rgba(208, 47, 112, 0.2);
 }
 
 .admin-button--primary:hover:not(:disabled) {
-  background: #0f1721;
+  background: #b82561;
 }
 
 .admin-button--secondary {

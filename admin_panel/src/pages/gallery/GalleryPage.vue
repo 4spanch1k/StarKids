@@ -23,7 +23,7 @@
         label: 'Игровые зоны',
         summary: 'Раздел еще не заполнен.',
         statusLabel: 'Черновик',
-        statusTone: 'warning',
+        statusTone: 'neutral',
       },
     ]"
     list-title="Наборы медиа"

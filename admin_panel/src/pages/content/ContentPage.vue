@@ -23,7 +23,7 @@
         label: 'Акции',
         summary: 'Тексты и CTA для мобильной витрины акций.',
         statusLabel: 'Черновик',
-        statusTone: 'warning',
+        statusTone: 'neutral',
       },
     ]"
     list-title="Контентные поверхности"

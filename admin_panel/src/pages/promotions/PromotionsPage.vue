@@ -16,7 +16,7 @@
         label: 'Комбо для группы',
         summary: 'Готова к запуску по нескольким филиалам.',
         statusLabel: 'Черновик',
-        statusTone: 'warning',
+        statusTone: 'neutral',
       },
       {
         id: 'return-visit',

@@ -118,7 +118,7 @@
           <template #actions>
             <button
               type="button"
-              class="admin-button admin-button--secondary"
+              class="admin-button admin-button--primary"
               :disabled="!leadInbox.hasActiveFilters"
               @click="leadInbox.resetFilters"
             >

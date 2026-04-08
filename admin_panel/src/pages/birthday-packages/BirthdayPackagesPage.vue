@@ -23,7 +23,7 @@
         label: 'Weekend Boost',
         summary: 'Подготовлен, но еще не опубликован.',
         statusLabel: 'Черновик',
-        statusTone: 'warning',
+        statusTone: 'neutral',
       },
     ]"
     list-title="Список пакетов"

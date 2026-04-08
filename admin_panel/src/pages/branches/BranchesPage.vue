@@ -23,7 +23,7 @@
         label: 'Аль-Фараби',
         summary: 'Новый филиал, контент еще заполняется.',
         statusLabel: 'Черновик',
-        statusTone: 'warning',
+        statusTone: 'neutral',
       },
     ]"
     list-title="Список филиалов"

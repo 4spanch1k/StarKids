@@ -18,12 +18,22 @@
 
         <label class="admin-field">
           <span class="admin-field__label">Поиск</span>
-          <input
-            v-model="searchQuery"
-            type="search"
-            class="admin-control"
-            :placeholder="searchPlaceholder"
-          />
+          <div class="preview-search">
+            <span class="preview-search__icon" aria-hidden="true">
+              <svg viewBox="0 0 20 20" focusable="false">
+                <path
+                  d="M13.5 12.1l3.6 3.6-1.4 1.4-3.6-3.6a6 6 0 1 1 1.4-1.4zM8.5 13A4.5 4.5 0 1 0 8.5 4a4.5 4.5 0 0 0 0 9z"
+                  fill="currentColor"
+                />
+              </svg>
+            </span>
+            <input
+              v-model="searchQuery"
+              type="search"
+              class="admin-control preview-search__input"
+              :placeholder="searchPlaceholder"
+            />
+          </div>
         </label>
 
         <StatePanel
@@ -76,7 +86,7 @@
         <template v-else>
           <header class="preview-detail__header">
             <div class="preview-detail__copy">
-              <p class="preview-detail__eyebrow">Карточка записи</p>
+              <p class="preview-detail__eyebrow">Код: {{ selectedItem.id }}</p>
               <div class="preview-detail__title-row">
                 <h2>{{ selectedItem.label }}</h2>
                 <StatusBadge
@@ -229,8 +239,8 @@ watch(
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 56px;
-  padding: 0 14px 0 16px;
+  min-height: 64px;
+  padding: 12px 14px 12px 16px;
   border: 1px solid var(--color-border);
   border-radius: 14px;
   background: var(--color-surface);
@@ -269,6 +279,31 @@ watch(
   display: grid;
   gap: 3px;
   min-width: 0;
+}
+
+.preview-search {
+  position: relative;
+}
+
+.preview-search__icon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  color: var(--color-muted);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.preview-search__icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.preview-search__input {
+  padding-left: 38px;
 }
 
 .preview-record__label {

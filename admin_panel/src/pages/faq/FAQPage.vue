@@ -23,7 +23,7 @@
         label: 'Правила посещения',
         summary: 'Раздел готовится к публикации.',
         statusLabel: 'Черновик',
-        statusTone: 'warning',
+        statusTone: 'neutral',
       },
     ]"
     list-title="Темы FAQ"
