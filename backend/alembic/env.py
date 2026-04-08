@@ -7,13 +7,7 @@ from sqlalchemy import engine_from_config, pool
 
 from app.core.config.settings import get_settings
 from app.db.models import Base
-from app.db.models import (  # noqa: F401
-    admin_session,
-    admin_user,
-    birthday_package,
-    birthday_request,
-    branch,
-)
+from app.db.models import birthday_package, birthday_request, branch  # noqa: F401
 
 config = context.config
 settings = get_settings()

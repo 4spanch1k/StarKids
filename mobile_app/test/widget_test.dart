@@ -1,56 +1,30 @@
+// This is a basic Flutter widget test.
+//
+// To perform an interaction with a widget in your test, use the WidgetTester
+// utility in the flutter_test package. For example, you can send tap and scroll
+// gestures. You can also use WidgetTester to find child widgets in the widget
+// tree, read text, and verify that the values of widget properties are correct.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:star_kids_mobile/app/app.dart';
+import 'package:star_kids_mobile/main.dart';
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
+    // Build our app and trigger a frame.
+    await tester.pumpWidget(const MyApp());
 
-  setUp(() {
-    SharedPreferences.setMockInitialValues({});
-  });
+    // Verify that our counter starts at 0.
+    expect(find.text('0'), findsOneWidget);
+    expect(find.text('1'), findsNothing);
 
-  testWidgets('commercial surfaces are reachable from home', (
-    WidgetTester tester,
-  ) async {
-    tester.view.physicalSize = const Size(1280, 2400);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    // Tap the '+' icon and trigger a frame.
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pump();
 
-    await tester.pumpWidget(const StarKidsApp());
-    expect(find.text('Star Kids Shymkent'), findsOneWidget);
-
-    await tester.tap(find.text('Continue'));
-    await tester.pumpAndSettle();
-
-    await tester.ensureVisible(find.text('Star Kids Al-Farabi'));
-    await tester.tap(find.text('Star Kids Al-Farabi'));
-    await tester.pumpAndSettle();
-
-    final promotionsTile = find.widgetWithText(Card, 'Акции');
-    final pricesRulesTile = find.widgetWithText(Card, 'Цены и правила');
-    final contactsTile = find.widgetWithText(Card, 'Контакты и маршрут');
-
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -1200));
-    await tester.pumpAndSettle();
-
-    await tester.tap(promotionsTile);
-    await tester.pumpAndSettle();
-    expect(find.text('Акции'), findsWidgets);
-
-    await tester.pageBack();
-    await tester.pumpAndSettle();
-
-    await tester.tap(pricesRulesTile);
-    await tester.pumpAndSettle();
-    expect(find.text('Цены и правила'), findsWidgets);
-
-    await tester.pageBack();
-    await tester.pumpAndSettle();
-
-    await tester.tap(contactsTile);
-    await tester.pumpAndSettle();
-    expect(find.text('Контакты и маршрут'), findsOneWidget);
+    // Verify that our counter has incremented.
+    expect(find.text('0'), findsNothing);
+    expect(find.text('1'), findsOneWidget);
   });
 }

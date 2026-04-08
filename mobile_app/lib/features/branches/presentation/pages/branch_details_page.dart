@@ -1,22 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
-import '../../../../app/router/app_routes.dart';
 import '../../../../core/design_system/foundations/star_kids_colors.dart';
 import '../../../../core/design_system/foundations/star_kids_icon_sizes.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
-import '../../../../core/services/external_link_service.dart';
-import '../../../contacts/data/seed_contact_links_repository.dart';
-import '../../../contacts/domain/branch_contact_links.dart';
 
 class BranchDetailsPage extends StatelessWidget {
   const BranchDetailsPage({super.key});
-
-  static const SeedContactLinksRepository _contactLinksRepository =
-      SeedContactLinksRepository();
 
   @override
   Widget build(BuildContext context) {
@@ -24,214 +17,143 @@ class BranchDetailsPage extends StatelessWidget {
       animation: ServiceRegistry.selectedBranchController,
       builder: (context, _) {
         final branch = ServiceRegistry.selectedBranchController.selectedBranch;
+        final textTheme = Theme.of(context).textTheme;
 
         return Scaffold(
-          appBar: AppBar(
-            title: Text(branch.shortLabel),
-            actions: [
-              IconButton(
-                tooltip: 'Сменить филиал',
-                onPressed: () =>
-                    Navigator.of(context).pushNamed(AppRoutes.branchSelection),
-                icon: const Icon(Icons.swap_horiz_rounded),
-              ),
-            ],
-          ),
+          appBar: AppBar(title: Text(branch.shortLabel)),
           bottomNavigationBar: StarKidsBottomCtaBar(
-            child: StarKidsButton.primary(
-              label: 'Написать в WhatsApp',
-              icon: Icons.chat_bubble_rounded,
-              onPressed: () => _handleAction(
-                context,
-                () => ExternalLinkService.openWhatsApp(branch.whatsAppPhone),
+        child: StarKidsButton.primary(
+          label: 'Написать в WhatsApp',
+          icon: Icons.chat_bubble_rounded,
+          onPressed: () => _showMessage(
+            context,
+            'WhatsApp: ${branch.whatsAppPhone}',
+          ),
+        ),
+          ),
+          body: ListView(
+        padding: const EdgeInsets.fromLTRB(
+          StarKidsSpacing.xl,
+          StarKidsSpacing.lg,
+          StarKidsSpacing.xl,
+          StarKidsSpacing.x5l,
+        ),
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(32),
+            child: AspectRatio(
+              aspectRatio: 2,
+              child: Image.asset(
+                branch.heroImagePath,
+                fit: BoxFit.cover,
               ),
             ),
           ),
-          body: FutureBuilder<BranchContactLinks>(
-            future: _contactLinksRepository.getForBranch(branch.id),
-            builder: (context, snapshot) {
-              final textTheme = Theme.of(context).textTheme;
-              final contactLinks = snapshot.data;
-
-              return ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  StarKidsSpacing.xl,
-                  StarKidsSpacing.lg,
-                  StarKidsSpacing.xl,
-                  StarKidsSpacing.x5l,
+          const SizedBox(height: StarKidsSpacing.lg),
+          Text(branch.name, style: textTheme.headlineMedium),
+          const SizedBox(height: StarKidsSpacing.sm),
+          Text(branch.description, style: textTheme.bodyLarge),
+          const SizedBox(height: StarKidsSpacing.lg),
+          _InfoRow(
+            icon: Icons.location_on_rounded,
+            title: 'Адрес',
+            value: branch.address,
+          ),
+          _InfoRow(
+            icon: Icons.schedule_rounded,
+            title: 'Режим работы',
+            value: branch.workingHours,
+          ),
+          const SizedBox(height: StarKidsSpacing.lg),
+          Row(
+            children: [
+              Expanded(
+                child: StarKidsButton.secondary(
+                  label: 'Маршрут',
+                  icon: Icons.map_rounded,
+                  onPressed: () => _showMessage(
+                    context,
+                    'Маршрут до филиала: ${branch.address}',
+                  ),
                 ),
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(32),
-                    child: AspectRatio(
-                      aspectRatio: 2,
-                      child: Image.asset(
-                        branch.heroImagePath,
-                        fit: BoxFit.cover,
+              ),
+              const SizedBox(width: StarKidsSpacing.md),
+              Expanded(
+                child: StarKidsButton.secondary(
+                  label: 'Позвонить',
+                  icon: Icons.call_rounded,
+                  onPressed: () => _showMessage(
+                    context,
+                    'Телефон филиала: ${branch.phone}',
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: StarKidsSpacing.x2l),
+          StarKidsSectionHeader(
+            title: 'Почему родители выбирают этот филиал',
+            description:
+                'Короткая, понятная информация без перегруза перед заявкой или повторным визитом.',
+          ),
+          const SizedBox(height: StarKidsSpacing.md),
+          Wrap(
+            spacing: StarKidsSpacing.sm,
+            runSpacing: StarKidsSpacing.sm,
+            children: branch.facilities
+                .map(
+                  (facility) => Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: StarKidsSpacing.md,
+                      vertical: StarKidsSpacing.xs,
+                    ),
+                    decoration: BoxDecoration(
+                      color: StarKidsColors.surfaceSecondary,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      facility,
+                      style: textTheme.labelMedium?.copyWith(
+                        color: StarKidsColors.textPrimary,
                       ),
                     ),
                   ),
-                  const SizedBox(height: StarKidsSpacing.lg),
-                  Text(branch.name, style: textTheme.headlineMedium),
-                  const SizedBox(height: StarKidsSpacing.sm),
-                  Text(branch.description, style: textTheme.bodyLarge),
-                  const SizedBox(height: StarKidsSpacing.lg),
-                  _InfoRow(
-                    icon: Icons.location_on_rounded,
-                    title: 'Адрес',
-                    value: branch.address,
+                )
+                .toList(),
+          ),
+          const SizedBox(height: StarKidsSpacing.x2l),
+          StarKidsSectionHeader(
+            title: 'Галерея филиала',
+            description: 'Реальные зоны, сцены и атмосфера площадки.',
+          ),
+          const SizedBox(height: StarKidsSpacing.md),
+          SizedBox(
+            height: 156,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemBuilder: (context, index) {
+                final imagePath = branch.galleryImagePaths[index];
+                return ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: AspectRatio(
+                    aspectRatio: 4 / 5,
+                    child: Image.asset(imagePath, fit: BoxFit.cover),
                   ),
-                  _InfoRow(
-                    icon: Icons.schedule_rounded,
-                    title: 'Режим работы',
-                    value: branch.workingHours,
-                  ),
-                  const SizedBox(height: StarKidsSpacing.lg),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: StarKidsButton.secondary(
-                          label: 'Маршрут',
-                          icon: Icons.map_rounded,
-                          onPressed: contactLinks == null
-                              ? null
-                              : () => _handleAction(
-                                    context,
-                                    () => ExternalLinkService.openMap(
-                                      contactLinks.mapUrl,
-                                    ),
-                                  ),
-                        ),
-                      ),
-                      const SizedBox(width: StarKidsSpacing.md),
-                      Expanded(
-                        child: StarKidsButton.secondary(
-                          label: 'Позвонить',
-                          icon: Icons.call_rounded,
-                          onPressed: () => _handleAction(
-                            context,
-                            () => ExternalLinkService.openPhone(branch.phone),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: StarKidsSpacing.x2l),
-                  const StarKidsSectionHeader(
-                    title: 'Еще полезно перед визитом',
-                    description:
-                        'Короткие переходы к важным коммерческим экранам без перегруза текущего филиала.',
-                  ),
-                  const SizedBox(height: StarKidsSpacing.md),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: StarKidsButton.secondary(
-                          label: 'Цены и правила',
-                          icon: Icons.receipt_long_rounded,
-                          onPressed: () => Navigator.of(
-                            context,
-                          ).pushNamed(AppRoutes.pricesRules),
-                        ),
-                      ),
-                      const SizedBox(width: StarKidsSpacing.md),
-                      Expanded(
-                        child: StarKidsButton.secondary(
-                          label: 'Контакты и маршрут',
-                          icon: Icons.pin_drop_rounded,
-                          onPressed: () => Navigator.of(
-                            context,
-                          ).pushNamed(AppRoutes.contacts),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: StarKidsSpacing.md),
-                  StarKidsButton.secondary(
-                    label: 'Посмотреть пакеты праздника',
-                    icon: Icons.cake_rounded,
-                    onPressed: () =>
-                        Navigator.of(context).pushNamed(AppRoutes.birthdays),
-                  ),
-                  const SizedBox(height: StarKidsSpacing.x2l),
-                  const StarKidsSectionHeader(
-                    title: 'Почему родители выбирают этот филиал',
-                    description:
-                        'Короткая, понятная информация без перегруза перед заявкой или повторным визитом.',
-                  ),
-                  const SizedBox(height: StarKidsSpacing.md),
-                  Wrap(
-                    spacing: StarKidsSpacing.sm,
-                    runSpacing: StarKidsSpacing.sm,
-                    children: branch.facilities
-                        .map(
-                          (facility) => Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: StarKidsSpacing.md,
-                              vertical: StarKidsSpacing.xs,
-                            ),
-                            decoration: BoxDecoration(
-                              color: StarKidsColors.surfaceSecondary,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              facility,
-                              style: textTheme.labelMedium?.copyWith(
-                                color: StarKidsColors.textPrimary,
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                  const SizedBox(height: StarKidsSpacing.x2l),
-                  const StarKidsSectionHeader(
-                    title: 'Галерея филиала',
-                    description: 'Реальные зоны, сцены и атмосфера площадки.',
-                  ),
-                  const SizedBox(height: StarKidsSpacing.md),
-                  SizedBox(
-                    height: 156,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemBuilder: (context, index) {
-                        final imagePath = branch.galleryImagePaths[index];
-                        return ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
-                          child: AspectRatio(
-                            aspectRatio: 4 / 5,
-                            child: Image.asset(imagePath, fit: BoxFit.cover),
-                          ),
-                        );
-                      },
-                      separatorBuilder: (_, __) => const SizedBox(width: 8),
-                      itemCount: branch.galleryImagePaths.length,
-                    ),
-                  ),
-                ],
-              );
-            },
+                );
+              },
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemCount: branch.galleryImagePaths.length,
+            ),
+          ),
+        ],
           ),
         );
       },
     );
   }
 
-  static Future<void> _handleAction(
-    BuildContext context,
-    Future<bool> Function() action,
-  ) async {
-    final success = await action();
-
-    if (!context.mounted || success) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Не удалось открыть ссылку. Попробуйте позже.'),
-      ),
-    );
+  static void _showMessage(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
