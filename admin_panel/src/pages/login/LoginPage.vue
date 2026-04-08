@@ -11,67 +11,38 @@
 
       <label class="field">
         <span>Email</span>
-        <input
-          v-model="email"
-          type="email"
-          autocomplete="email"
-          placeholder="manager@starkids.kz"
-        />
+        <input v-model="email" type="email" placeholder="manager@starkids.kz" />
       </label>
 
       <label class="field">
         <span>Password</span>
-        <input
-          v-model="password"
-          type="password"
-          autocomplete="current-password"
-          placeholder="••••••••"
-        />
+        <input v-model="password" type="password" placeholder="••••••••" />
       </label>
 
-      <p v-if="formErrorMessage" class="error-message">{{ formErrorMessage }}</p>
-
-      <button type="submit" :disabled="isSubmitting">
-        {{ isSubmitting ? 'Signing in...' : 'Continue' }}
-      </button>
+      <button type="submit">Continue</button>
     </form>
   </main>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { useSessionStore } from '@/features/auth/stores/useSessionStore';
 
 const router = useRouter();
-const route = useRoute();
 const sessionStore = useSessionStore();
 
 const email = ref('');
 const password = ref('');
-const localErrorMessage = ref('');
-const isSubmitting = computed(() => sessionStore.isLoading);
-const formErrorMessage = computed(() => {
-  return localErrorMessage.value || sessionStore.errorMessage;
-});
 
-async function submit() {
-  localErrorMessage.value = '';
-
+function submit() {
   if (!email.value || !password.value) {
-    localErrorMessage.value = 'Enter email and password.';
     return;
   }
 
-  try {
-    await sessionStore.signIn(email.value, password.value);
-    const redirectPath =
-      typeof route.query.redirect === 'string' ? route.query.redirect : '/';
-    await router.replace(redirectPath);
-  } catch {
-    // Error state is already reflected by the auth store.
-  }
+  sessionStore.signIn(email.value);
+  router.push('/');
 }
 </script>
 
@@ -125,11 +96,6 @@ h1 {
   background: #fff;
 }
 
-.error-message {
-  margin: 0;
-  color: #c53d3d;
-}
-
 button {
   border: none;
   border-radius: 14px;
@@ -138,9 +104,5 @@ button {
   color: #fff;
   cursor: pointer;
 }
-
-button:disabled {
-  opacity: 0.72;
-  cursor: wait;
-}
 </style>
+

@@ -14,23 +14,16 @@ import LoginPage from '@/pages/login/LoginPage.vue';
 import PromotionsPage from '@/pages/promotions/PromotionsPage.vue';
 import PushCampaignsPage from '@/pages/push-campaigns/PushCampaignsPage.vue';
 import TariffsPage from '@/pages/tariffs/TariffsPage.vue';
-import { useSessionStore } from '@/features/auth/stores/useSessionStore';
 
 const routes: RouteRecordRaw[] = [
   {
     path: '/login',
     name: 'login',
     component: LoginPage,
-    meta: {
-      guestOnly: true,
-    },
   },
   {
     path: '/',
     component: AdminLayout,
-    meta: {
-      requiresAuth: true,
-    },
     children: [
       { path: '', name: 'dashboard', component: DashboardPage },
       { path: 'leads', name: 'leads', component: LeadsPage },
@@ -61,29 +54,5 @@ const router = createRouter({
   routes,
 });
 
-router.beforeEach(async (to) => {
-  const sessionStore = useSessionStore();
-  await sessionStore.initialize();
-
-  const requiresAuth = to.matched.some((record) => record.meta.requiresAuth);
-  const guestOnly = to.matched.some((record) => record.meta.guestOnly);
-
-  if (requiresAuth && !sessionStore.isAuthenticated) {
-    return {
-      name: 'login',
-      query: { redirect: to.fullPath },
-    };
-  }
-
-  if (guestOnly && sessionStore.isAuthenticated) {
-    const redirectPath =
-      typeof to.query.redirect === 'string' && to.query.redirect !== '/login'
-        ? to.query.redirect
-        : '/';
-    return redirectPath;
-  }
-
-  return true;
-});
-
 export default router;
+
