@@ -26,6 +26,8 @@ class MobileAuthController extends ChangeNotifier {
   MobileAuthSession? _session;
   OtpChallenge? _pendingChallenge;
   String? _errorMessage;
+  bool _isRefreshingProfile = false;
+  bool _isLoggingOut = false;
 
   MobileAuthStatus get status => _status;
 
@@ -37,21 +39,45 @@ class MobileAuthController extends ChangeNotifier {
 
   bool get isAuthenticated => _session != null;
 
+  bool get isRefreshingProfile => _isRefreshingProfile;
+
+  bool get isLoggingOut => _isLoggingOut;
+
   bool get isBusy =>
       _status == MobileAuthStatus.loading ||
-      _status == MobileAuthStatus.verifying;
+      _status == MobileAuthStatus.verifying ||
+      _isRefreshingProfile ||
+      _isLoggingOut;
 
   Future<void> bootstrap() async {
     _status = MobileAuthStatus.loading;
+    _isRefreshingProfile = false;
+    _isLoggingOut = false;
     notifyListeners();
 
     final restoredSession = await _repository.restoreSession();
-    _session = restoredSession;
     _pendingChallenge = null;
     _errorMessage = null;
-    _status = restoredSession == null
-        ? MobileAuthStatus.unauthenticated
-        : MobileAuthStatus.authenticated;
+
+    if (restoredSession == null) {
+      _session = null;
+      _status = MobileAuthStatus.unauthenticated;
+      notifyListeners();
+      return;
+    }
+
+    final syncResult = await _repository.syncSession(restoredSession);
+    if (syncResult is Success<MobileAuthSession?>) {
+      _session = syncResult.data;
+      _status = _session == null
+          ? MobileAuthStatus.unauthenticated
+          : MobileAuthStatus.authenticated;
+      notifyListeners();
+      return;
+    }
+
+    _session = restoredSession;
+    _status = MobileAuthStatus.authenticated;
     notifyListeners();
   }
 
@@ -67,6 +93,8 @@ class MobileAuthController extends ChangeNotifier {
 
     _errorMessage = null;
     _status = MobileAuthStatus.loading;
+    _isRefreshingProfile = false;
+    _isLoggingOut = false;
     notifyListeners();
 
     final result = await _repository.requestOtp(phone);
@@ -104,6 +132,8 @@ class MobileAuthController extends ChangeNotifier {
 
     _errorMessage = null;
     _status = MobileAuthStatus.verifying;
+    _isRefreshingProfile = false;
+    _isLoggingOut = false;
     notifyListeners();
 
     final result = await _repository.verifyOtp(
@@ -134,12 +164,64 @@ class MobileAuthController extends ChangeNotifier {
     await requestOtp(challenge.phone);
   }
 
+  Future<void> refreshProfile() async {
+    final session = _session;
+    if (session == null || _isRefreshingProfile || _isLoggingOut) {
+      return;
+    }
+
+    _errorMessage = null;
+    _isRefreshingProfile = true;
+    notifyListeners();
+
+    final result = await _repository.syncSession(session);
+
+    if (result is Success<MobileAuthSession?>) {
+      _session = result.data;
+      _pendingChallenge = null;
+      _status = _session == null
+          ? MobileAuthStatus.unauthenticated
+          : MobileAuthStatus.authenticated;
+      _isRefreshingProfile = false;
+      notifyListeners();
+      return;
+    }
+
+    _errorMessage = (result as Failure<MobileAuthSession?>).message;
+    _status = MobileAuthStatus.error;
+    _isRefreshingProfile = false;
+    notifyListeners();
+  }
+
   Future<void> logout() async {
+    if (_isLoggingOut) {
+      return;
+    }
+
+    _isLoggingOut = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    final session = _session;
+    final result = session == null
+        ? const Success<void>(null)
+        : await _repository.logout(session);
+
+    if (result is Failure<void>) {
+      _errorMessage = result.message;
+      _status = MobileAuthStatus.error;
+      _isLoggingOut = false;
+      notifyListeners();
+      return;
+    }
+
     await _repository.clearSession();
     _session = null;
     _pendingChallenge = null;
     _errorMessage = null;
     _status = MobileAuthStatus.unauthenticated;
+    _isRefreshingProfile = false;
+    _isLoggingOut = false;
     notifyListeners();
   }
 

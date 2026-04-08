@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../domain/mobile_auth_user.dart';
 import '../domain/mobile_auth_session.dart';
 
 class MobileAuthSessionStorage {
@@ -12,9 +13,18 @@ class MobileAuthSessionStorage {
     await preferences.setString(
       _sessionKey,
       jsonEncode({
+        'user': session.user == null
+            ? null
+            : {
+                'id': session.user!.id,
+                'phone': session.user!.phone,
+              },
         'phone': session.phone,
         'accessToken': session.accessToken,
         'refreshToken': session.refreshToken,
+        'tokenType': session.tokenType,
+        'accessExpiresAt': session.accessExpiresAt?.toIso8601String(),
+        'refreshExpiresAt': session.refreshExpiresAt?.toIso8601String(),
         'verifiedAt': session.verifiedAt.toIso8601String(),
       }),
     );
@@ -37,7 +47,11 @@ class MobileAuthSessionStorage {
       final phone = json['phone'] as String?;
       final accessToken = json['accessToken'] as String?;
       final refreshToken = json['refreshToken'] as String?;
+      final tokenType = (json['tokenType'] as String?) ?? 'bearer';
+      final accessExpiresAtRaw = json['accessExpiresAt'] as String?;
+      final refreshExpiresAtRaw = json['refreshExpiresAt'] as String?;
       final verifiedAtRaw = json['verifiedAt'] as String?;
+      final userJson = json['user'];
 
       if (phone == null ||
           accessToken == null ||
@@ -46,10 +60,30 @@ class MobileAuthSessionStorage {
         return null;
       }
 
+      MobileAuthUser? user;
+      if (userJson is Map<String, dynamic>) {
+        final id = userJson['id'] as String?;
+        final userPhone = userJson['phone'] as String?;
+        if (id != null && userPhone != null) {
+          user = MobileAuthUser(
+            id: id,
+            phone: userPhone,
+          );
+        }
+      }
+
       return MobileAuthSession(
+        user: user,
         phone: phone,
         accessToken: accessToken,
         refreshToken: refreshToken,
+        tokenType: tokenType,
+        accessExpiresAt: accessExpiresAtRaw == null
+            ? null
+            : DateTime.parse(accessExpiresAtRaw),
+        refreshExpiresAt: refreshExpiresAtRaw == null
+            ? null
+            : DateTime.parse(refreshExpiresAtRaw),
         verifiedAt: DateTime.parse(verifiedAtRaw),
       );
     } catch (_) {

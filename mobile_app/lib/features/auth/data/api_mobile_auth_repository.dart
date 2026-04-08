@@ -2,6 +2,7 @@ import '../../../core/api/api_client.dart';
 import '../../../core/utils/result.dart';
 import '../domain/mobile_auth_repository.dart';
 import '../domain/mobile_auth_session.dart';
+import '../domain/mobile_auth_user.dart';
 import '../domain/otp_challenge.dart';
 import 'mobile_auth_api_models.dart';
 import 'mobile_auth_session_storage.dart';
@@ -66,15 +67,15 @@ class ApiMobileAuthRepository implements MobileAuthRepository {
         },
       );
 
-      if (response.isSuccess && response.jsonBody != null) {
-        final session = TokenResponseDto.fromJson(
-          response.jsonBody!,
-        ).toDomain(
-          phone: phone,
-          verifiedAt: DateTime.now(),
+      if (response.isSuccess) {
+        final session = await _storeTokenResponse(response.jsonBody);
+        if (session != null) {
+          return Success<MobileAuthSession>(session);
+        }
+
+        return const Failure<MobileAuthSession>(
+          'Не удалось подтвердить код. Попробуйте снова немного позже.',
         );
-        await _sessionStorage.saveSession(session);
-        return Success<MobileAuthSession>(session);
       }
 
       if (response.statusCode == 422 || response.statusCode == 401) {
@@ -99,7 +100,196 @@ class ApiMobileAuthRepository implements MobileAuthRepository {
   }
 
   @override
+  Future<Result<MobileAuthSession?>> syncSession(
+    MobileAuthSession session,
+  ) async {
+    try {
+      final currentUserResponse = await _getCurrentUserResponse(
+        session.accessToken,
+      );
+
+      if (currentUserResponse.isSuccess) {
+        final currentUser = _parseCurrentUser(currentUserResponse.jsonBody);
+        if (currentUser != null) {
+          final updatedSession = session.copyWith(
+            user: currentUser,
+            phone: currentUser.phone,
+          );
+          await _sessionStorage.saveSession(updatedSession);
+          return Success<MobileAuthSession?>(updatedSession);
+        }
+      }
+
+      if (currentUserResponse.statusCode == 401) {
+        final refreshResponse = await _refreshSessionResponse(
+          session.refreshToken,
+        );
+
+        if (refreshResponse.isSuccess) {
+          final refreshedSession = await _storeTokenResponse(
+            refreshResponse.jsonBody,
+          );
+          if (refreshedSession != null) {
+            return Success<MobileAuthSession?>(refreshedSession);
+          }
+        }
+
+        if (refreshResponse.statusCode == 401) {
+          await _sessionStorage.clearSession();
+          return const Success<MobileAuthSession?>(null);
+        }
+
+        return const Failure<MobileAuthSession?>(
+          'Не удалось обновить профиль. Проверьте интернет и попробуйте снова.',
+        );
+      }
+
+      return const Failure<MobileAuthSession?>(
+        'Не удалось обновить профиль. Попробуйте снова немного позже.',
+      );
+    } catch (_) {
+      return const Failure<MobileAuthSession?>(
+        'Не удалось обновить профиль. Проверьте интернет и попробуйте снова.',
+      );
+    }
+  }
+
+  @override
+  Future<Result<MobileAuthSession>> refreshSession(String refreshToken) async {
+    try {
+      final response = await _refreshSessionResponse(refreshToken);
+
+      if (response.isSuccess) {
+        final session = await _storeTokenResponse(response.jsonBody);
+        if (session != null) {
+          return Success<MobileAuthSession>(session);
+        }
+      }
+
+      if (response.statusCode == 401) {
+        await _sessionStorage.clearSession();
+        return const Failure<MobileAuthSession>(
+          'Сессия больше не действительна. Войдите снова.',
+        );
+      }
+
+      return const Failure<MobileAuthSession>(
+        'Не удалось восстановить сессию. Попробуйте снова немного позже.',
+      );
+    } catch (_) {
+      return const Failure<MobileAuthSession>(
+        'Не удалось восстановить сессию. Проверьте интернет и попробуйте снова.',
+      );
+    }
+  }
+
+  @override
+  Future<Result<MobileAuthUser>> getCurrentUser(String accessToken) async {
+    try {
+      final response = await _getCurrentUserResponse(accessToken);
+
+      if (response.isSuccess) {
+        final currentUser = _parseCurrentUser(response.jsonBody);
+        if (currentUser != null) {
+          return Success<MobileAuthUser>(currentUser);
+        }
+      }
+
+      if (response.statusCode == 401) {
+        return const Failure<MobileAuthUser>(
+          'Сессия больше не действительна. Войдите снова.',
+        );
+      }
+
+      return const Failure<MobileAuthUser>(
+        'Не удалось загрузить профиль. Попробуйте снова немного позже.',
+      );
+    } catch (_) {
+      return const Failure<MobileAuthUser>(
+        'Не удалось загрузить профиль. Проверьте интернет и попробуйте снова.',
+      );
+    }
+  }
+
+  @override
+  Future<Result<void>> logout(MobileAuthSession session) async {
+    try {
+      final response = await _apiClient.postJson(
+        '/auth/logout',
+        body: const <String, dynamic>{},
+        headers: _authorizationHeader(session.accessToken, session.tokenType),
+      );
+
+      if (response.isSuccess || response.statusCode == 401) {
+        await _sessionStorage.clearSession();
+        return const Success<void>(null);
+      }
+
+      return const Failure<void>(
+        'Не удалось завершить сеанс. Попробуйте снова немного позже.',
+      );
+    } catch (_) {
+      return const Failure<void>(
+        'Не удалось завершить сеанс. Проверьте интернет и попробуйте снова.',
+      );
+    }
+  }
+
+  @override
   Future<void> clearSession() {
     return _sessionStorage.clearSession();
+  }
+
+  Future<ApiClientResponse> _refreshSessionResponse(String refreshToken) {
+    return _apiClient.postJson(
+      '/auth/refresh',
+      body: {'refresh_token': refreshToken},
+    );
+  }
+
+  Future<ApiClientResponse> _getCurrentUserResponse(String accessToken) {
+    return _apiClient.getJson(
+      '/auth/current-user',
+      headers: _authorizationHeader(accessToken, 'Bearer'),
+    );
+  }
+
+  Future<MobileAuthSession?> _storeTokenResponse(Object? jsonBody) async {
+    if (jsonBody is! Map<String, dynamic>) {
+      return null;
+    }
+
+    final session = TokenResponseDto.fromJson(
+      jsonBody,
+    ).toDomain(verifiedAt: DateTime.now());
+    await _sessionStorage.saveSession(session);
+    return session;
+  }
+
+  MobileAuthUser? _parseCurrentUser(Object? jsonBody) {
+    if (jsonBody is! Map<String, dynamic>) {
+      return null;
+    }
+
+    return MobileAuthUserDto.fromJson(jsonBody).toDomain();
+  }
+
+  Map<String, String> _authorizationHeader(
+    String accessToken,
+    String tokenType,
+  ) {
+    final normalizedTokenType =
+        tokenType.isEmpty ? 'Bearer' : _capitalize(tokenType);
+    return {
+      'Authorization': '$normalizedTokenType $accessToken',
+    };
+  }
+
+  String _capitalize(String value) {
+    if (value.isEmpty) {
+      return value;
+    }
+
+    return '${value[0].toUpperCase()}${value.substring(1)}';
   }
 }

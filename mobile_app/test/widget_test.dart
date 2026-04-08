@@ -56,6 +56,6 @@ void main() {
 
     navigator.pushNamed(AppRoutes.profile);
     await tester.pumpAndSettle();
-    expect(find.text('Вход по номеру телефона'), findsOneWidget);
+    expect(find.text('Войдите по номеру телефона'), findsOneWidget);
   });
 }
