@@ -10,6 +10,7 @@ import '../../../../core/design_system/widgets/star_kids_birthday_package_card.d
 import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_content_block_card.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
+import '../../../branches/domain/branch_option.dart';
 import '../../../content/domain/public_content_block.dart';
 import '../../../requests/presentation/models/request_page_args.dart';
 import '../../domain/birthday_package.dart';
@@ -51,6 +52,7 @@ class BirthdaysPage extends StatelessWidget {
             future: _loadScreenData(branch.id),
             builder: (context, snapshot) {
               final data = snapshot.data;
+              final resolvedBranch = data?.branch ?? branch;
               final packages = data?.packages ?? const <BirthdayPackage>[];
 
               if (snapshot.connectionState == ConnectionState.waiting &&
@@ -126,7 +128,7 @@ class BirthdaysPage extends StatelessWidget {
                                   ),
                                 ),
                                 child: Text(
-                                  branch.shortLabel,
+                                  resolvedBranch.shortLabel,
                                   style: textTheme.labelMedium?.copyWith(
                                     color: StarKidsColors.textPrimary,
                                   ),
@@ -245,9 +247,9 @@ class BirthdaysPage extends StatelessWidget {
                         borderRadius: BorderRadius.circular(StarKidsRadii.xl),
                         border: Border.all(color: StarKidsColors.borderDefault),
                       ),
-                      child: Column(
+                      child: const Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
+                        children: [
                           _ComparisonRow(
                             title: 'Нужен быстрый семейный праздник',
                             value: 'Выбирайте Spark Party',
@@ -276,13 +278,20 @@ class BirthdaysPage extends StatelessWidget {
   }
 
   Future<_BirthdaysScreenData> _loadScreenData(String branchId) async {
+    final branch =
+        await ServiceRegistry.branchRepository.getBranch(branchId).catchError(
+              (_) => ServiceRegistry.selectedBranchController.selectedBranch,
+            );
+    ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
     final packages = await ServiceRegistry.birthdayPackageRepository
         .listPackages(branchId: branchId)
         .catchError((_) => const <BirthdayPackage>[]);
     final contentBlocks = await ServiceRegistry.publicContentRepository
-        .listContentBlocks(surface: 'birthdays');
+        .listContentBlocks(surface: 'birthdays')
+        .catchError((_) => const <PublicContentBlock>[]);
 
     return _BirthdaysScreenData(
+      branch: branch,
       packages: packages,
       contentBlocks: contentBlocks,
     );
@@ -360,10 +369,12 @@ class _ComparisonRow extends StatelessWidget {
 
 class _BirthdaysScreenData {
   const _BirthdaysScreenData({
+    required this.branch,
     required this.packages,
     required this.contentBlocks,
   });
 
+  final BranchOption branch;
   final List<BirthdayPackage> packages;
   final List<PublicContentBlock> contentBlocks;
 }

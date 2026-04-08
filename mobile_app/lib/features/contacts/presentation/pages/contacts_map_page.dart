@@ -30,6 +30,12 @@ class ContactsMapPage extends StatelessWidget {
           builder: (context, snapshot) {
             final contactLinks = snapshot.data?.contactLinks;
             final branchDetail = snapshot.data?.branch ?? branch;
+            final canOpenWhatsApp =
+                contactLinks != null && _hasValue(contactLinks.whatsAppPhone);
+            final canOpenMap =
+                contactLinks != null && _hasValue(contactLinks.mapUrl);
+            final canCall =
+                contactLinks != null && _hasValue(contactLinks.phone);
 
             return Scaffold(
               appBar: AppBar(
@@ -47,7 +53,7 @@ class ContactsMapPage extends StatelessWidget {
                 child: StarKidsButton.primary(
                   label: 'Написать в WhatsApp',
                   icon: Icons.chat_bubble_rounded,
-                  onPressed: contactLinks == null
+                  onPressed: !canOpenWhatsApp
                       ? null
                       : () => _handleAction(
                             context,
@@ -159,22 +165,34 @@ class ContactsMapPage extends StatelessWidget {
                             _ContactRow(
                               icon: Icons.location_on_rounded,
                               title: 'Адрес',
-                              value: contact.address,
+                              value: _displayValue(
+                                contact.address,
+                                fallback: branchDetail.address,
+                              ),
                             ),
                             _ContactRow(
                               icon: Icons.schedule_rounded,
                               title: 'Режим работы',
-                              value: branchDetail.workingHours,
+                              value: _displayValue(
+                                branchDetail.workingHours,
+                                fallback: 'Уточняйте у менеджера',
+                              ),
                             ),
                             _ContactRow(
                               icon: Icons.call_rounded,
                               title: 'Телефон',
-                              value: contact.phone,
+                              value: _displayValue(
+                                contact.phone,
+                                fallback: 'Уточняйте у менеджера',
+                              ),
                             ),
                             _ContactRow(
                               icon: Icons.chat_bubble_rounded,
                               title: 'WhatsApp',
-                              value: contact.whatsAppPhone,
+                              value: _displayValue(
+                                contact.whatsAppPhone,
+                                fallback: 'Уточняйте у менеджера',
+                              ),
                             ),
                           ],
                         ),
@@ -186,12 +204,14 @@ class ContactsMapPage extends StatelessWidget {
                             child: StarKidsButton.secondary(
                               label: 'Построить маршрут',
                               icon: Icons.map_rounded,
-                              onPressed: () => _handleAction(
-                                context,
-                                () => ExternalLinkService.openMap(
-                                  contact.mapUrl,
-                                ),
-                              ),
+                              onPressed: !canOpenMap
+                                  ? null
+                                  : () => _handleAction(
+                                        context,
+                                        () => ExternalLinkService.openMap(
+                                          contact.mapUrl,
+                                        ),
+                                      ),
                             ),
                           ),
                           const SizedBox(width: StarKidsSpacing.md),
@@ -199,12 +219,14 @@ class ContactsMapPage extends StatelessWidget {
                             child: StarKidsButton.secondary(
                               label: 'Позвонить',
                               icon: Icons.call_rounded,
-                              onPressed: () => _handleAction(
-                                context,
-                                () => ExternalLinkService.openPhone(
-                                  contact.phone,
-                                ),
-                              ),
+                              onPressed: !canCall
+                                  ? null
+                                  : () => _handleAction(
+                                        context,
+                                        () => ExternalLinkService.openPhone(
+                                          contact.phone,
+                                        ),
+                                      ),
                             ),
                           ),
                         ],
@@ -213,12 +235,14 @@ class ContactsMapPage extends StatelessWidget {
                       StarKidsButton.secondary(
                         label: 'Написать в WhatsApp',
                         icon: Icons.chat_bubble_rounded,
-                        onPressed: () => _handleAction(
-                          context,
-                          () => ExternalLinkService.openWhatsApp(
-                            contact.whatsAppPhone,
-                          ),
-                        ),
+                        onPressed: !canOpenWhatsApp
+                            ? null
+                            : () => _handleAction(
+                                  context,
+                                  () => ExternalLinkService.openWhatsApp(
+                                    contact.whatsAppPhone,
+                                  ),
+                                ),
                       ),
                       const SizedBox(height: StarKidsSpacing.x2l),
                       Container(
@@ -234,27 +258,38 @@ class ContactsMapPage extends StatelessWidget {
                               'Как добраться',
                               style: textTheme.titleLarge,
                             ),
-                            const SizedBox(height: StarKidsSpacing.sm),
-                            Text(
-                              contact.routeLabel,
-                              style: textTheme.labelMedium?.copyWith(
-                                color: StarKidsColors.brandPrimary,
+                            if (_hasValue(contact.routeLabel)) ...[
+                              const SizedBox(height: StarKidsSpacing.sm),
+                              Text(
+                                contact.routeLabel,
+                                style: textTheme.labelMedium?.copyWith(
+                                  color: StarKidsColors.brandPrimary,
+                                ),
                               ),
-                            ),
-                            if (contact.parkingHint != null) ...[
+                            ],
+                            if (_hasValue(contact.parkingHint)) ...[
                               const SizedBox(height: StarKidsSpacing.md),
                               Text(
                                 contact.parkingHint!,
                                 style: textTheme.bodyLarge,
                               ),
                             ],
-                            if (contact.arrivalHint != null) ...[
+                            if (_hasValue(contact.arrivalHint)) ...[
                               const SizedBox(height: StarKidsSpacing.sm),
                               Text(
                                 contact.arrivalHint!,
                                 style: textTheme.bodyMedium?.copyWith(
                                   color: StarKidsColors.textSecondary,
                                 ),
+                              ),
+                            ],
+                            if (!_hasValue(contact.routeLabel) &&
+                                !_hasValue(contact.parkingHint) &&
+                                !_hasValue(contact.arrivalHint)) ...[
+                              const SizedBox(height: StarKidsSpacing.sm),
+                              Text(
+                                'Маршрут и дополнительные подсказки скоро появятся для этого филиала.',
+                                style: textTheme.bodyLarge,
                               ),
                             ],
                           ],
@@ -310,19 +345,51 @@ class ContactsMapPage extends StatelessWidget {
   }
 
   Future<_ContactsScreenData> _loadScreenData(String branchId) async {
-    final results = await Future.wait([
-      ServiceRegistry.branchRepository.getBranch(branchId),
-      ServiceRegistry.contactLinksRepository.getForBranch(branchId),
-      ServiceRegistry.publicContentRepository.listContentBlocks(
-        surface: 'contacts',
-      ),
-    ]);
+    final branch = await ServiceRegistry.branchRepository.getBranch(branchId);
+    ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
+    final contactLinks = await ServiceRegistry.contactLinksRepository
+        .getForBranch(branchId)
+        .catchError((_) => _buildFallbackContactLinks(branch));
+    final contentBlocks = await ServiceRegistry.publicContentRepository
+        .listContentBlocks(
+          surface: 'contacts',
+        )
+        .catchError((_) => const <PublicContentBlock>[]);
 
     return _ContactsScreenData(
-      branch: results[0] as BranchOption,
-      contactLinks: results[1] as BranchContactLinks,
-      contentBlocks: results[2] as List<PublicContentBlock>,
+      branch: branch,
+      contactLinks: contactLinks,
+      contentBlocks: contentBlocks,
     );
+  }
+
+  BranchContactLinks _buildFallbackContactLinks(BranchOption branch) {
+    return BranchContactLinks(
+      branchId: branch.id,
+      address: branch.address,
+      phone: branch.phone,
+      whatsAppPhone: branch.whatsAppPhone,
+      mapUrl: '',
+      routeLabel: '',
+      parkingHint: null,
+      arrivalHint: null,
+    );
+  }
+
+  static bool _hasValue(String? value) {
+    return value?.trim().isNotEmpty == true;
+  }
+
+  static String _displayValue(
+    String? value, {
+    required String fallback,
+  }) {
+    final normalized = value?.trim();
+    if (normalized == null || normalized.isEmpty) {
+      return fallback;
+    }
+
+    return normalized;
   }
 }
 

@@ -1,5 +1,4 @@
 import '../domain/branch_option.dart';
-import 'branch_seed_data.dart';
 
 class BranchSummaryDto {
   const BranchSummaryDto({
@@ -30,20 +29,18 @@ class BranchSummaryDto {
   }
 
   BranchOption toDomain() {
-    final fallback = getBranchById(id);
-
     return BranchOption(
       id: id,
       name: name,
       shortLabel: shortLabel,
       address: address,
       workingHours: workingHours,
-      description: fallback.description,
-      phone: fallback.phone,
-      whatsAppPhone: fallback.whatsAppPhone,
-      heroImagePath: fallback.heroImagePath,
-      galleryImagePaths: fallback.galleryImagePaths,
-      facilities: fallback.facilities,
+      description: '',
+      phone: '',
+      whatsAppPhone: '',
+      heroImagePath: '',
+      galleryImagePaths: const [],
+      facilities: const [],
     );
   }
 }
@@ -100,24 +97,28 @@ class BranchDetailDto {
   }
 
   BranchOption toDomain() {
-    final fallback = getBranchById(id);
-
     return BranchOption(
       id: id,
       name: name,
       shortLabel: shortLabel,
       address: address,
       workingHours: workingHours,
-      description: description,
-      phone: phone,
-      whatsAppPhone: whatsappPhone,
-      heroImagePath: heroImageUrl?.trim().isNotEmpty == true
-          ? heroImageUrl!
-          : fallback.heroImagePath,
-      galleryImagePaths: galleryImageUrls.isNotEmpty
-          ? galleryImageUrls
-          : fallback.galleryImagePaths,
-      facilities: facilities.isNotEmpty ? facilities : fallback.facilities,
+      description: description.trim(),
+      phone: phone.trim(),
+      whatsAppPhone: whatsappPhone.trim(),
+      heroImagePath: _normalizeString(heroImageUrl),
+      galleryImagePaths: galleryImageUrls
+          .map(_normalizeString)
+          .where((value) => value.isNotEmpty)
+          .toList(),
+      facilities: facilities
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty)
+          .toList(),
     );
+  }
+
+  static String _normalizeString(String? value) {
+    return value?.trim() ?? '';
   }
 }

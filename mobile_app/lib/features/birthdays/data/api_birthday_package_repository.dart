@@ -19,18 +19,27 @@ class ApiBirthdayPackageRepository implements BirthdayPackageRepository {
 
   @override
   Future<BirthdayPackage?> getPackageById(String packageId) async {
+    final package = await _fetchPackageFromApi(packageId);
+    if (package != null) {
+      return package;
+    }
+
+    return _fallbackRepository.getPackageById(packageId);
+  }
+
+  Future<BirthdayPackage?> _fetchPackageFromApi(String packageId) async {
     try {
       final response =
           await _apiClient.getJson('/birthday-packages/$packageId');
       final json = response.jsonBody;
 
       if (!response.isSuccess || json == null) {
-        return _fallbackRepository.getPackageById(packageId);
+        return null;
       }
 
       return BirthdayPackageDetailDto.fromJson(json).toDomain();
     } catch (_) {
-      return _fallbackRepository.getPackageById(packageId);
+      return null;
     }
   }
 
@@ -56,7 +65,7 @@ class ApiBirthdayPackageRepository implements BirthdayPackageRepository {
 
       final details = await Future.wait(
         summaries.map((summary) async {
-          final detailedPackage = await getPackageById(summary.id);
+          final detailedPackage = await _fetchPackageFromApi(summary.id);
           return detailedPackage ??
               BirthdayPackage(
                 id: summary.id,
@@ -65,9 +74,7 @@ class ApiBirthdayPackageRepository implements BirthdayPackageRepository {
                 guestLabel: summary.guestCapacityLabel,
                 description: '',
                 highlights: const [],
-                imagePath: summary.imageUrl?.trim().isNotEmpty == true
-                    ? summary.imageUrl!
-                    : 'assets/images/birthday_hero.jpg',
+                imagePath: summary.imageUrl?.trim() ?? '',
                 isFeatured: summary.isFeatured,
               );
         }),

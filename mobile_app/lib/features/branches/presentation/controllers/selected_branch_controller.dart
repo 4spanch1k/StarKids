@@ -36,6 +36,9 @@ class SelectedBranchController extends ChangeNotifier {
     BranchOption? selectedBranch,
   }) async {
     if (_selectedBranch.id == branchId) {
+      if (selectedBranch != null) {
+        _applySelectedBranch(selectedBranch);
+      }
       return;
     }
 
@@ -45,11 +48,61 @@ class SelectedBranchController extends ChangeNotifier {
     await _localStorage.savePreferredBranch(branchId);
   }
 
+  Future<void> refreshSelectedBranch() async {
+    final refreshedBranch = await _resolveBranch(_selectedBranch.id);
+    _applySelectedBranch(refreshedBranch);
+  }
+
+  void syncSelectedBranch(BranchOption branch) {
+    if (_selectedBranch.id != branch.id) {
+      return;
+    }
+
+    _applySelectedBranch(branch);
+  }
+
   Future<BranchOption> _resolveBranch(String branchId) async {
     try {
       return await _branchRepository.getBranch(branchId);
     } catch (_) {
       return getBranchById(branchId);
     }
+  }
+
+  void _applySelectedBranch(BranchOption branch) {
+    if (_isSameBranch(_selectedBranch, branch)) {
+      return;
+    }
+
+    _selectedBranch = branch;
+    notifyListeners();
+  }
+
+  bool _isSameBranch(BranchOption left, BranchOption right) {
+    return left.id == right.id &&
+        left.name == right.name &&
+        left.address == right.address &&
+        left.workingHours == right.workingHours &&
+        left.description == right.description &&
+        left.phone == right.phone &&
+        left.whatsAppPhone == right.whatsAppPhone &&
+        left.heroImagePath == right.heroImagePath &&
+        _listEquals(left.galleryImagePaths, right.galleryImagePaths) &&
+        _listEquals(left.facilities, right.facilities) &&
+        left.shortLabel == right.shortLabel;
+  }
+
+  bool _listEquals(List<String> left, List<String> right) {
+    if (left.length != right.length) {
+      return false;
+    }
+
+    for (var index = 0; index < left.length; index += 1) {
+      if (left[index] != right[index]) {
+        return false;
+      }
+    }
+
+    return true;
   }
 }

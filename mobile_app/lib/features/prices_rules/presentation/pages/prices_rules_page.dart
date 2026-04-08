@@ -9,6 +9,7 @@ import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
+import '../../../branches/domain/branch_option.dart';
 import '../../domain/branch_prices_rules.dart';
 
 class PricesRulesPage extends StatelessWidget {
@@ -41,9 +42,8 @@ class PricesRulesPage extends StatelessWidget {
                   Navigator.of(context).pushNamed(AppRoutes.birthdays),
             ),
           ),
-          body: FutureBuilder<BranchPricesRules>(
-            future:
-                ServiceRegistry.pricesRulesRepository.getForBranch(branch.id),
+          body: FutureBuilder<_PricesRulesScreenData>(
+            future: _loadScreenData(branch.id),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -71,8 +71,18 @@ class PricesRulesPage extends StatelessWidget {
                 );
               }
 
-              final data = snapshot.data!;
+              final data = snapshot.data!.pricesRules;
+              final resolvedBranch = snapshot.data!.branch;
               final textTheme = Theme.of(context).textTheme;
+              final introTitle = data.introTitle.trim().isNotEmpty
+                  ? data.introTitle.trim()
+                  : 'Цены и правила';
+              final introDescription = data.introDescription.trim().isNotEmpty
+                  ? data.introDescription.trim()
+                  : 'Актуальные условия посещения для выбранного филиала появятся здесь.';
+              final birthdayNote = data.birthdayNote.trim().isNotEmpty
+                  ? data.birthdayNote.trim()
+                  : 'Детали по формату дня рождения можно уточнить у менеджера после выбора пакета.';
 
               return ListView(
                 padding: const EdgeInsets.fromLTRB(
@@ -104,16 +114,16 @@ class PricesRulesPage extends StatelessWidget {
                                 BorderRadius.circular(StarKidsRadii.full),
                           ),
                           child: Text(
-                            branch.shortLabel,
+                            resolvedBranch.shortLabel,
                             style: textTheme.labelMedium?.copyWith(
                               color: StarKidsColors.brandPrimary,
                             ),
                           ),
                         ),
                         const SizedBox(height: StarKidsSpacing.md),
-                        Text(data.introTitle, style: textTheme.headlineMedium),
+                        Text(introTitle, style: textTheme.headlineMedium),
                         const SizedBox(height: StarKidsSpacing.md),
-                        Text(data.introDescription, style: textTheme.bodyLarge),
+                        Text(introDescription, style: textTheme.bodyLarge),
                       ],
                     ),
                   ),
@@ -124,13 +134,20 @@ class PricesRulesPage extends StatelessWidget {
                         'Компактный экран вместо тяжелой таблицы. Достаточно, чтобы быстро понять базовый бюджет.',
                   ),
                   const SizedBox(height: StarKidsSpacing.lg),
-                  ...data.visitTariffs.map(
-                    (tariff) => Padding(
-                      padding:
-                          const EdgeInsets.only(bottom: StarKidsSpacing.md),
-                      child: _TariffCard(tariff: tariff),
+                  if (data.visitTariffs.isNotEmpty)
+                    ...data.visitTariffs.map(
+                      (tariff) => Padding(
+                        padding:
+                            const EdgeInsets.only(bottom: StarKidsSpacing.md),
+                        child: _TariffCard(tariff: tariff),
+                      ),
+                    )
+                  else
+                    const _InlineInfoCard(
+                      title: 'Тарифы скоро появятся',
+                      description:
+                          'Для этого филиала еще не опубликован список тарифов. Базовые детали можно уточнить у менеджера.',
                     ),
-                  ),
                   const SizedBox(height: StarKidsSpacing.x2l),
                   const StarKidsSectionHeader(
                     title: 'Что важно знать перед визитом',
@@ -138,13 +155,20 @@ class PricesRulesPage extends StatelessWidget {
                         'Правила собраны коротко и без мелкого текста, чтобы не ломать коммерческий flow.',
                   ),
                   const SizedBox(height: StarKidsSpacing.md),
-                  ...data.rules.map(
-                    (rule) => Padding(
-                      padding:
-                          const EdgeInsets.only(bottom: StarKidsSpacing.md),
-                      child: _RuleRow(rule: rule),
+                  if (data.rules.isNotEmpty)
+                    ...data.rules.map(
+                      (rule) => Padding(
+                        padding:
+                            const EdgeInsets.only(bottom: StarKidsSpacing.md),
+                        child: _RuleRow(rule: rule),
+                      ),
+                    )
+                  else
+                    const _InlineInfoCard(
+                      title: 'Правила скоро появятся',
+                      description:
+                          'Основные правила посещения для этого филиала обновляются. Их можно уточнить перед визитом.',
                     ),
-                  ),
                   const SizedBox(height: StarKidsSpacing.xl),
                   Container(
                     padding: const EdgeInsets.all(StarKidsSpacing.lg),
@@ -157,7 +181,7 @@ class PricesRulesPage extends StatelessWidget {
                       children: [
                         Text('Для дня рождения', style: textTheme.titleLarge),
                         const SizedBox(height: StarKidsSpacing.sm),
-                        Text(data.birthdayNote, style: textTheme.bodyLarge),
+                        Text(birthdayNote, style: textTheme.bodyLarge),
                       ],
                     ),
                   ),
@@ -176,6 +200,21 @@ class PricesRulesPage extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Future<_PricesRulesScreenData> _loadScreenData(String branchId) async {
+    final branch =
+        await ServiceRegistry.branchRepository.getBranch(branchId).catchError(
+              (_) => ServiceRegistry.selectedBranchController.selectedBranch,
+            );
+    ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
+    final pricesRules =
+        await ServiceRegistry.pricesRulesRepository.getForBranch(branchId);
+
+    return _PricesRulesScreenData(
+      branch: branch,
+      pricesRules: pricesRules,
     );
   }
 }
@@ -307,6 +346,46 @@ class _PricesRulesStateView extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PricesRulesScreenData {
+  const _PricesRulesScreenData({
+    required this.branch,
+    required this.pricesRules,
+  });
+
+  final BranchOption branch;
+  final BranchPricesRules pricesRules;
+}
+
+class _InlineInfoCard extends StatelessWidget {
+  const _InlineInfoCard({
+    required this.title,
+    required this.description,
+  });
+
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      decoration: BoxDecoration(
+        color: StarKidsColors.surfacePrimary,
+        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+        border: Border.all(color: StarKidsColors.borderDefault),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: StarKidsSpacing.sm),
+          Text(description, style: Theme.of(context).textTheme.bodyLarge),
+        ],
       ),
     );
   }
