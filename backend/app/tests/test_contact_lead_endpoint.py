@@ -86,6 +86,7 @@ class ContactLeadEndpointTests(unittest.TestCase):
             self.assertIsNotNone(saved)
             self.assertEqual(saved.customer_name, 'Dana')
             self.assertEqual(saved.phone, '+77070000002')
+            self.assertIsNone(saved.mobile_user_id)
             self.assertEqual(saved.email, 'dana@example.com')
             self.assertEqual(saved.message, 'Нужна консультация по услугам.')
 

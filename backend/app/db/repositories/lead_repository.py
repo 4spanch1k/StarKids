@@ -6,6 +6,7 @@ from .base import Repository
 class LeadRepository(Repository):
     def create_contact_lead(self, payload: dict[str, object]) -> ContactLead:
         lead = ContactLead(
+            mobile_user_id=payload.get('mobile_user_id'),
             customer_name=payload['customer_name'],
             phone=payload['phone'],
             email=payload.get('email'),
@@ -18,6 +19,7 @@ class LeadRepository(Repository):
 
     def create_birthday_lead(self, payload: dict[str, object]) -> BirthdayRequest:
         request = BirthdayRequest(
+            mobile_user_id=payload.get('mobile_user_id'),
             branch_id=payload['branch_id'],
             birthday_package_id=payload.get('birthday_package_id'),
             customer_name=payload['customer_name'],

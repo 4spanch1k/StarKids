@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import DateTime, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
@@ -11,6 +11,12 @@ class ContactLead(Base):
     __tablename__ = 'contact_leads'
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid4().hex)
+    mobile_user_id: Mapped[str | None] = mapped_column(
+        String(32),
+        ForeignKey('mobile_users.id', ondelete='SET NULL'),
+        nullable=True,
+        index=True,
+    )
     customer_name: Mapped[str] = mapped_column(String(120))
     phone: Mapped[str] = mapped_column(String(32))
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)

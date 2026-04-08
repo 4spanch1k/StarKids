@@ -153,6 +153,7 @@ class BirthdayLeadEndpointTests(unittest.TestCase):
             self.assertIsNotNone(saved)
             self.assertEqual(saved.customer_name, 'Amina')
             self.assertEqual(saved.phone, '+77070000000')
+            self.assertIsNone(saved.mobile_user_id)
             self.assertEqual(saved.branch_id, 'branch-main')
             self.assertEqual(saved.birthday_package_id, 'package-main')
             self.assertEqual(saved.guest_count, 12)

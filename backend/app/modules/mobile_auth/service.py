@@ -78,22 +78,18 @@ class MobileAuthService:
         return self._build_auth_response(user, token_pair)
 
     def get_current_user(self, access_token: str) -> MobileCurrentUserResponse:
-        self._ensure_runtime_configuration()
-        token_payload = self._decode_token(access_token, expected_type='access')
-        user = self._get_active_user(token_payload.subject)
-        session = self._get_active_session(token_payload.session_id)
-        if session.mobile_user_id != user.id:
-            raise self.authentication_required_exception()
+        user = self.authenticate_access_token(access_token)
         return self._serialize_user(user)
 
     def logout(self, access_token: str) -> None:
-        self._ensure_runtime_configuration()
-        token_payload = self._decode_token(access_token, expected_type='access')
-        user = self._get_active_user(token_payload.subject)
-        session = self._get_active_session(token_payload.session_id)
+        user, session = self._authenticate_access_token(access_token)
         if session.mobile_user_id != user.id:
             raise self.authentication_required_exception()
         self.session_repository.revoke(session)
+
+    def authenticate_access_token(self, access_token: str) -> MobileUser:
+        user, _ = self._authenticate_access_token(access_token)
+        return user
 
     @staticmethod
     def authentication_required_exception() -> DomainHTTPException:
@@ -209,6 +205,15 @@ class MobileAuthService:
         if self._normalize_datetime(session.expires_at) <= datetime.now(UTC):
             raise self.authentication_required_exception()
         return session
+
+    def _authenticate_access_token(self, access_token: str) -> tuple[MobileUser, MobileSession]:
+        self._ensure_runtime_configuration()
+        token_payload = self._decode_token(access_token, expected_type='access')
+        user = self._get_active_user(token_payload.subject)
+        session = self._get_active_session(token_payload.session_id)
+        if session.mobile_user_id != user.id:
+            raise self.authentication_required_exception()
+        return user, session
 
     def _decode_token(self, token: str, *, expected_type: str):
         try:
