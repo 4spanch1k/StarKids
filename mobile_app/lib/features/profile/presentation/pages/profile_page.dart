@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../app/di/service_registry.dart';
+import '../../../../app/router/app_routes.dart';
 import '../../../../core/design_system/foundations/star_kids_colors.dart';
 import '../../../../core/design_system/foundations/star_kids_icon_sizes.dart';
 import '../../../../core/design_system/foundations/star_kids_radii.dart';
@@ -195,6 +196,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   _ProfileNextStepCard(
                     isAuthenticated: session != null,
                     selectedBranchLabel: selectedBranch.name,
+                    onOpenHistory: () => Navigator.of(
+                      context,
+                    ).pushNamed(AppRoutes.myRequests),
                   ),
                 ],
               ),
@@ -558,13 +562,17 @@ class _ProfileNextStepCard extends StatelessWidget {
   const _ProfileNextStepCard({
     required this.isAuthenticated,
     required this.selectedBranchLabel,
+    required this.onOpenHistory,
   });
 
   final bool isAuthenticated;
   final String selectedBranchLabel;
+  final VoidCallback onOpenHistory;
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Container(
       padding: const EdgeInsets.all(StarKidsSpacing.lg),
       decoration: BoxDecoration(
@@ -572,11 +580,21 @@ class _ProfileNextStepCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(StarKidsRadii.lg),
         border: Border.all(color: StarKidsColors.borderDefault),
       ),
-      child: Text(
-        isAuthenticated
-            ? 'Профиль уже привязан к номеру телефона. Следующим шагом на этой основе можно показать историю ваших заявок в филиале $selectedBranchLabel.'
-            : 'После входа по номеру телефона приложение сохранит ваш профиль на устройстве и подготовит основу для истории заявок.',
-        style: Theme.of(context).textTheme.bodyMedium,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isAuthenticated
+                ? 'Профиль уже привязан к номеру телефона. Здесь можно открыть историю ваших заявок для филиала $selectedBranchLabel.'
+                : 'После входа по номеру телефона приложение покажет только ваши заявки и их актуальный статус.',
+            style: textTheme.bodyMedium,
+          ),
+          const SizedBox(height: StarKidsSpacing.md),
+          StarKidsButton.secondary(
+            label: 'Мои заявки',
+            onPressed: onOpenHistory,
+          ),
+        ],
       ),
     );
   }

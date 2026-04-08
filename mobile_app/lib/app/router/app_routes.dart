@@ -10,4 +10,5 @@ abstract final class AppRoutes {
   static const requests = '/requests';
   static const notifications = '/notifications';
   static const profile = '/profile';
+  static const myRequests = '/profile/requests';
 }

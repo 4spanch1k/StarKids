@@ -57,5 +57,10 @@ void main() {
     navigator.pushNamed(AppRoutes.profile);
     await tester.pumpAndSettle();
     expect(find.text('Войдите по номеру телефона'), findsOneWidget);
+    expect(find.text('Мои заявки'), findsOneWidget);
+
+    await tester.tap(find.text('Мои заявки'));
+    await tester.pumpAndSettle();
+    expect(find.text('История доступна после входа'), findsOneWidget);
   });
 }

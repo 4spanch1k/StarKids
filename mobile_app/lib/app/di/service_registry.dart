@@ -16,6 +16,8 @@ import '../../features/prices_rules/data/api_prices_rules_repository.dart';
 import '../../features/prices_rules/domain/prices_rules_repository.dart';
 import '../../features/promotions/data/api_promotion_repository.dart';
 import '../../features/promotions/domain/promotion_repository.dart';
+import '../../features/request_history/data/api_request_history_repository.dart';
+import '../../features/request_history/domain/request_history_repository.dart';
 import '../../features/requests/data/api_birthday_request_repository.dart';
 import '../../features/branches/presentation/controllers/selected_branch_controller.dart';
 import '../../features/requests/data/mock_birthday_request_repository.dart';
@@ -58,6 +60,12 @@ abstract final class ServiceRegistry {
   static final PublicContentRepository publicContentRepository =
       ApiPublicContentRepository(
     apiClient: apiClient,
+  );
+  static final RequestHistoryRepository requestHistoryRepository =
+      ApiRequestHistoryRepository(
+    apiClient: apiClient,
+    sessionStorage: mobileAuthSessionStorage,
+    authRepository: mobileAuthRepository,
   );
   static final birthdayRequestRepository =
       AppEnvironment.useMockBirthdayRequests
