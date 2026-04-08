@@ -50,5 +50,12 @@ void main() {
     navigator.pushNamed(AppRoutes.contacts);
     await tester.pumpAndSettle();
     expect(find.text('Контакты и маршрут'), findsOneWidget);
+
+    navigator.pop();
+    await tester.pumpAndSettle();
+
+    navigator.pushNamed(AppRoutes.profile);
+    await tester.pumpAndSettle();
+    expect(find.text('Вход по номеру телефона'), findsOneWidget);
   });
 }
