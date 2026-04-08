@@ -1,7 +1,7 @@
 export const leadStatuses = ['new', 'in_progress', 'closed'] as const;
 
 export type LeadStatus = (typeof leadStatuses)[number];
-export type LeadType = 'birthday_request';
+export type LeadType = 'birthday_request' | 'contact';
 
 export type LeadBranchSummary = {
   id: string;
@@ -31,7 +31,7 @@ export type LeadListItem = {
   guestCount: number | null;
   requestedDate: string | null;
   createdAt: string;
-  branch: LeadBranchSummary;
+  branch: LeadBranchSummary | null;
   package: LeadPackageSummary | null;
 };
 
@@ -41,6 +41,7 @@ export type LeadListResponse = {
 };
 
 export type LeadDetail = LeadListItem & {
+  email: string | null;
   notes: string | null;
   contactMethod: string;
 };

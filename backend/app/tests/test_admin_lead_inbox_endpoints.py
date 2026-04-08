@@ -256,6 +256,7 @@ class AdminLeadInboxEndpointTests(unittest.TestCase):
                     'shortLabel': 'Main',
                 },
                 'package': None,
+                'email': None,
                 'notes': None,
                 'contactMethod': 'whatsapp',
             },

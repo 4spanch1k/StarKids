@@ -16,7 +16,6 @@ from .schemas import (
 from .service import LeadService
 
 router = APIRouter()
-service = LeadService()
 
 
 @router.post(
@@ -24,8 +23,14 @@ service = LeadService()
     response_model=LeadCreatedResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_contact_lead(payload: ContactLeadCreate) -> LeadCreatedResponse:
-    return service.create_contact_lead(payload)
+def create_contact_lead(
+    payload: ContactLeadCreate,
+    session: Session = Depends(get_db_session),
+) -> LeadCreatedResponse:
+    contact_lead_service = LeadService(
+        repository=LeadRepository(session),
+    )
+    return contact_lead_service.create_contact_lead(payload)
 
 
 @router.post(

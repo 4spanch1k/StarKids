@@ -36,9 +36,11 @@ class SelectedBranchController extends ChangeNotifier {
     BranchOption? selectedBranch,
   }) async {
     if (_selectedBranch.id == branchId) {
+      _hasStoredSelection = true;
       if (selectedBranch != null) {
         _applySelectedBranch(selectedBranch);
       }
+      await _localStorage.savePreferredBranch(branchId);
       return;
     }
 

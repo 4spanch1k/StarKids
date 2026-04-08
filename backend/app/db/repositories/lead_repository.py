@@ -1,16 +1,20 @@
-from uuid import uuid4
-
 from ..models.birthday_request import BirthdayRequest
+from ..models.contact_lead import ContactLead
 from .base import Repository
 
 
 class LeadRepository(Repository):
-    def create(self, payload: dict[str, str]) -> dict[str, str]:
-        return {
-            'id': f'lead_{uuid4().hex}',
-            'type': payload['type'],
-            'status': 'new',
-        }
+    def create_contact_lead(self, payload: dict[str, object]) -> ContactLead:
+        lead = ContactLead(
+            customer_name=payload['customer_name'],
+            phone=payload['phone'],
+            email=payload.get('email'),
+            message=payload.get('message'),
+        )
+        self.db.add(lead)
+        self.db.commit()
+        self.db.refresh(lead)
+        return lead
 
     def create_birthday_lead(self, payload: dict[str, object]) -> BirthdayRequest:
         request = BirthdayRequest(
