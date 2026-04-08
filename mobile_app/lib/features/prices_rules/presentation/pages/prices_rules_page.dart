@@ -8,16 +8,15 @@ import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
-import '../../../../core/design_system/widgets/star_kids_promo_card.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
-import '../../../requests/presentation/models/request_page_args.dart';
-import '../../data/seed_promotion_repository.dart';
-import '../../domain/promotion_offer.dart';
+import '../../data/seed_prices_rules_repository.dart';
+import '../../domain/branch_prices_rules.dart';
 
-class PromotionsPage extends StatelessWidget {
-  const PromotionsPage({super.key});
+class PricesRulesPage extends StatelessWidget {
+  const PricesRulesPage({super.key});
 
-  static const SeedPromotionRepository _repository = SeedPromotionRepository();
+  static const SeedPricesRulesRepository _repository =
+      SeedPricesRulesRepository();
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +27,7 @@ class PromotionsPage extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Акции'),
+            title: const Text('Цены и правила'),
             actions: [
               IconButton(
                 tooltip: 'Сменить филиал',
@@ -40,44 +39,42 @@ class PromotionsPage extends StatelessWidget {
           ),
           bottomNavigationBar: StarKidsBottomCtaBar(
             child: StarKidsButton.primary(
-              label: 'Оставить заявку на праздник',
-              icon: Icons.chat_bubble_rounded,
-              onPressed: () => Navigator.of(context).pushNamed(
-                AppRoutes.requests,
-                arguments: const RequestPageArgs(),
-              ),
+              label: 'Посмотреть пакеты праздника',
+              icon: Icons.cake_rounded,
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(AppRoutes.birthdays),
             ),
           ),
-          body: FutureBuilder<List<PromotionOffer>>(
-            future: _repository.listPromotions(branch.id),
+          body: FutureBuilder<BranchPricesRules>(
+            future: _repository.getForBranch(branch.id),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
 
               if (snapshot.hasError) {
-                return _PromotionsStateView(
-                  title: 'Акции пока недоступны',
+                return _PricesRulesStateView(
+                  title: 'Цены пока недоступны',
                   description:
-                      'Не удалось загрузить коммерческие предложения. Попробуйте открыть экран позже.',
-                  actionLabel: 'Выбрать другой филиал',
-                  onActionTap: () => Navigator.of(context)
-                      .pushNamed(AppRoutes.branchSelection),
-                );
-              }
-
-              final promotions = snapshot.data ?? const <PromotionOffer>[];
-              if (promotions.isEmpty) {
-                return _PromotionsStateView(
-                  title: 'Скоро появятся новые предложения',
-                  description:
-                      'Экран уже готов для коммерческого контента, но по текущему филиалу пока нет активных офферов.',
+                      'Не удалось показать тарифы и правила для выбранного филиала. Попробуйте выбрать другой филиал.',
                   actionLabel: 'Сменить филиал',
                   onActionTap: () => Navigator.of(context)
                       .pushNamed(AppRoutes.branchSelection),
                 );
               }
 
+              if (!snapshot.hasData) {
+                return _PricesRulesStateView(
+                  title: 'Цены пока недоступны',
+                  description:
+                      'Экран готов, но тарифы и правила для этого филиала пока не удалось показать.',
+                  actionLabel: 'Сменить филиал',
+                  onActionTap: () => Navigator.of(context)
+                      .pushNamed(AppRoutes.branchSelection),
+                );
+              }
+
+              final data = snapshot.data!;
               final textTheme = Theme.of(context).textTheme;
 
               return ListView(
@@ -105,55 +102,53 @@ class PromotionsPage extends StatelessWidget {
                             vertical: StarKidsSpacing.sm,
                           ),
                           decoration: BoxDecoration(
-                            color: StarKidsColors.brandHighlight,
+                            color: StarKidsColors.surfaceTertiary,
                             borderRadius:
                                 BorderRadius.circular(StarKidsRadii.full),
                           ),
                           child: Text(
                             branch.shortLabel,
                             style: textTheme.labelMedium?.copyWith(
-                              color: StarKidsColors.textPrimary,
+                              color: StarKidsColors.brandPrimary,
                             ),
                           ),
                         ),
                         const SizedBox(height: StarKidsSpacing.md),
-                        Text(
-                          'Акции должны возвращать родителя в приложение, а не просто висеть как баннер.',
-                          style: textTheme.headlineMedium,
-                        ),
+                        Text(data.introTitle, style: textTheme.headlineMedium),
                         const SizedBox(height: StarKidsSpacing.md),
-                        Text(
-                          'Здесь собраны branch-aware офферы и удобный вход в request flow без нового визуального шума.',
-                          style: textTheme.bodyLarge,
-                        ),
+                        Text(data.introDescription, style: textTheme.bodyLarge),
                       ],
                     ),
                   ),
                   const SizedBox(height: StarKidsSpacing.x2l),
-                  StarKidsSectionHeader(
-                    title: 'Предложения для ${branch.shortLabel}',
+                  const StarKidsSectionHeader(
+                    title: 'Тарифы посещения',
                     description:
-                        'Коммерческий экран должен быстро показать, почему сюда стоит вернуться именно сейчас.',
+                        'Компактный экран вместо тяжелой таблицы. Достаточно, чтобы быстро понять базовый бюджет.',
                   ),
                   const SizedBox(height: StarKidsSpacing.lg),
-                  ...promotions.map(
-                    (promotion) => Padding(
+                  ...data.visitTariffs.map(
+                    (tariff) => Padding(
                       padding:
-                          const EdgeInsets.only(bottom: StarKidsSpacing.lg),
-                      child: StarKidsPromoCard(
-                        title: promotion.title,
-                        description: promotion.description,
-                        imagePath: promotion.imagePath,
-                        badgeLabel: promotion.badgeLabel,
-                        actionLabel: promotion.ctaLabel,
-                        onTap: () => Navigator.of(context).pushNamed(
-                          AppRoutes.requests,
-                          arguments: const RequestPageArgs(),
-                        ),
-                      ),
+                          const EdgeInsets.only(bottom: StarKidsSpacing.md),
+                      child: _TariffCard(tariff: tariff),
                     ),
                   ),
-                  const SizedBox(height: StarKidsSpacing.lg),
+                  const SizedBox(height: StarKidsSpacing.x2l),
+                  const StarKidsSectionHeader(
+                    title: 'Что важно знать перед визитом',
+                    description:
+                        'Правила собраны коротко и без мелкого текста, чтобы не ломать коммерческий flow.',
+                  ),
+                  const SizedBox(height: StarKidsSpacing.md),
+                  ...data.rules.map(
+                    (rule) => Padding(
+                      padding:
+                          const EdgeInsets.only(bottom: StarKidsSpacing.md),
+                      child: _RuleRow(rule: rule),
+                    ),
+                  ),
+                  const SizedBox(height: StarKidsSpacing.xl),
                   Container(
                     padding: const EdgeInsets.all(StarKidsSpacing.lg),
                     decoration: BoxDecoration(
@@ -163,18 +158,21 @@ class PromotionsPage extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Зачем открывать приложение снова',
-                          style: textTheme.titleLarge,
-                        ),
+                        Text('Для дня рождения', style: textTheme.titleLarge),
                         const SizedBox(height: StarKidsSpacing.sm),
-                        Text(
-                          'Филиалы, акции и birthday flow уже собраны в один сценарий: посмотреть, выбрать и оставить заявку за пару минут.',
-                          style: textTheme.bodyLarge,
-                        ),
+                        Text(data.birthdayNote, style: textTheme.bodyLarge),
                       ],
                     ),
                   ),
+                  if (data.disclaimer != null) ...[
+                    const SizedBox(height: StarKidsSpacing.lg),
+                    Text(
+                      data.disclaimer!,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: StarKidsColors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ],
               );
             },
@@ -185,8 +183,92 @@ class PromotionsPage extends StatelessWidget {
   }
 }
 
-class _PromotionsStateView extends StatelessWidget {
-  const _PromotionsStateView({
+class _TariffCard extends StatelessWidget {
+  const _TariffCard({
+    required this.tariff,
+  });
+
+  final VisitTariff tariff;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      decoration: BoxDecoration(
+        color: StarKidsColors.surfacePrimary,
+        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+        border: Border.all(color: StarKidsColors.borderDefault),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: Text(tariff.title, style: textTheme.titleLarge)),
+              const SizedBox(width: StarKidsSpacing.md),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: StarKidsSpacing.md,
+                  vertical: StarKidsSpacing.sm,
+                ),
+                decoration: BoxDecoration(
+                  color: StarKidsColors.brandHighlight,
+                  borderRadius: BorderRadius.circular(StarKidsRadii.full),
+                ),
+                child: Text(
+                  tariff.priceLabel,
+                  style: textTheme.labelMedium?.copyWith(
+                    color: StarKidsColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: StarKidsSpacing.sm),
+          Text(tariff.description, style: textTheme.bodyMedium),
+        ],
+      ),
+    );
+  }
+}
+
+class _RuleRow extends StatelessWidget {
+  const _RuleRow({
+    required this.rule,
+  });
+
+  final String rule;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(top: 4),
+          child: Icon(
+            Icons.check_circle_rounded,
+            size: 18,
+            color: StarKidsColors.brandSecondary,
+          ),
+        ),
+        const SizedBox(width: StarKidsSpacing.sm),
+        Expanded(
+          child: Text(
+            rule,
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PricesRulesStateView extends StatelessWidget {
+  const _PricesRulesStateView({
     required this.title,
     required this.description,
     required this.actionLabel,
