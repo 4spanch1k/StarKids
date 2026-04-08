@@ -1,27 +1,17 @@
 <template>
-  <PageShell
-    eyebrow="Retention"
-    title="Push campaigns"
-    description="Push campaign management should stay simple in MVP: audience, message, target branch, and send status."
-  >
-    <ul class="stack">
-      <li>Campaign drafts</li>
-      <li>Audience filters</li>
-      <li>Delivery status overview</li>
-    </ul>
-  </PageShell>
+  <OperationalPreviewPage
+    eyebrow="Удержание"
+    title="Пуш-кампании"
+    description="Пуш-кампании остаются вторичным разделом. В базовом слое панели важно не выпячивать его раньше времени, но сохранить спокойную точку входа."
+    :items="[
+      'Черновики пуш-кампаний',
+      'Филиал и целевой сегмент',
+      'Статус отправки',
+    ]"
+    note="Когда раздел станет активным, оператору должен быть понятен один главный сценарий: подготовить сообщение и безопасно отправить его."
+  />
 </template>
 
 <script setup lang="ts">
-import PageShell from '@/shared/ui/PageShell.vue';
+import OperationalPreviewPage from '@/shared/ui/OperationalPreviewPage.vue';
 </script>
-
-<style scoped>
-.stack {
-  display: grid;
-  gap: 12px;
-  margin: 0;
-  padding-left: 18px;
-}
-</style>
-

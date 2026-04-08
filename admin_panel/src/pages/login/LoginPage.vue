@@ -1,38 +1,49 @@
 <template>
   <main class="login-page">
     <form class="login-card" @submit.prevent="submit">
-      <div>
-        <p class="eyebrow">Admin access</p>
-        <h1>Star Kids Admin</h1>
-        <p class="description">
-          Foundation login screen for operators, content managers, and sales managers.
+      <div class="login-card__copy">
+        <p class="login-card__eyebrow">Star Kids</p>
+        <h1>Вход в админ-панель</h1>
+        <p class="login-card__description">
+          Откройте рабочее пространство для заявок, филиалов и контента.
         </p>
       </div>
 
-      <label class="field">
-        <span>Email</span>
+      <label class="admin-field">
+        <span class="admin-field__label">Электронная почта</span>
         <input
           v-model="email"
           type="email"
           autocomplete="email"
+          class="admin-control"
           placeholder="manager@starkids.kz"
         />
       </label>
 
-      <label class="field">
-        <span>Password</span>
+      <label class="admin-field">
+        <span class="admin-field__label">Пароль</span>
         <input
           v-model="password"
           type="password"
           autocomplete="current-password"
+          class="admin-control"
           placeholder="••••••••"
         />
       </label>
 
-      <p v-if="formErrorMessage" class="error-message">{{ formErrorMessage }}</p>
+      <p
+        v-if="formErrorMessage"
+        class="admin-inline-message admin-inline-message--error"
+      >
+        {{ formErrorMessage }}
+      </p>
 
-      <button type="submit" :disabled="isSubmitting">
-        {{ isSubmitting ? 'Signing in...' : 'Continue' }}
+      <button
+        type="submit"
+        class="admin-button admin-button--primary"
+        :disabled="isSubmitting"
+      >
+        {{ isSubmitting ? 'Входим…' : 'Войти' }}
       </button>
     </form>
   </main>
@@ -60,7 +71,7 @@ async function submit() {
   localErrorMessage.value = '';
 
   if (!email.value || !password.value) {
-    localErrorMessage.value = 'Enter email and password.';
+    localErrorMessage.value = 'Введите email и пароль.';
     return;
   }
 
@@ -80,67 +91,41 @@ async function submit() {
   display: grid;
   place-items: center;
   min-height: 100vh;
-  padding: 24px;
+  padding: 32px;
 }
 
 .login-card {
   display: grid;
-  gap: 18px;
-  width: min(100%, 440px);
-  padding: 28px;
+  gap: 20px;
+  width: min(100%, 420px);
+  padding: 32px;
   border: 1px solid var(--color-border);
   border-radius: 24px;
-  background: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.94);
   box-shadow: var(--shadow-soft);
 }
 
-.eyebrow {
-  margin: 0 0 6px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-accent);
-}
-
-h1 {
-  margin: 0 0 8px;
-}
-
-.description {
-  margin: 0;
-  line-height: 1.6;
-  color: var(--color-muted);
-}
-
-.field {
+.login-card__copy {
   display: grid;
   gap: 8px;
 }
 
-.field input {
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  padding: 12px 14px;
-  background: #fff;
-}
-
-.error-message {
+.login-card__eyebrow {
   margin: 0;
-  color: #c53d3d;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-accent);
 }
 
-button {
-  border: none;
-  border-radius: 14px;
-  padding: 14px 16px;
-  background: var(--color-accent);
-  color: #fff;
-  cursor: pointer;
+.login-card h1 {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.2;
 }
 
-button:disabled {
-  opacity: 0.72;
-  cursor: wait;
+.login-card__description {
+  margin: 0;
+  line-height: 1.6;
+  color: var(--color-muted);
 }
 </style>

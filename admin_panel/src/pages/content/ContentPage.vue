@@ -1,27 +1,40 @@
 <template>
-  <PageShell
-    eyebrow="Content"
-    title="App content"
-    description="Home banners, section ordering, legal pages, and static copy should be managed outside the mobile client."
-  >
-    <ul class="stack">
-      <li>Home banners</li>
-      <li>Section ordering</li>
-      <li>Legal page publishing</li>
-    </ul>
-  </PageShell>
+  <OperationalPreviewPage
+    eyebrow="Контент"
+    title="Контент приложения"
+    description="Управление контентными блоками мобильного приложения и порядком показа."
+    :items="[
+      {
+        id: 'home-content',
+        label: 'Главный экран',
+        summary: 'Блоки первого экрана и порядок показа.',
+        statusLabel: 'В работе',
+        statusTone: 'in-progress',
+      },
+      {
+        id: 'birthdays-content',
+        label: 'Дни рождения',
+        summary: 'Промо-блоки и тексты пакетов.',
+        statusLabel: 'Активен',
+        statusTone: 'closed',
+      },
+      {
+        id: 'promotions-content',
+        label: 'Акции',
+        summary: 'Тексты и CTA для мобильной витрины акций.',
+        statusLabel: 'Черновик',
+        statusTone: 'neutral',
+      },
+    ]"
+    list-title="Контентные поверхности"
+    detail-description="Справа будет открыта выбранная поверхность с описанием и рабочими действиями."
+    empty-title="Контент пока не настроен"
+    empty-description="Создайте первый блок, чтобы команда могла управлять текстами и порядком показа."
+    action-label="Добавить блок"
+    note="Следующий шаг для этого раздела — реальные формы редактирования и публикации."
+  />
 </template>
 
 <script setup lang="ts">
-import PageShell from '@/shared/ui/PageShell.vue';
+import OperationalPreviewPage from '@/shared/ui/OperationalPreviewPage.vue';
 </script>
-
-<style scoped>
-.stack {
-  display: grid;
-  gap: 12px;
-  margin: 0;
-  padding-left: 18px;
-}
-</style>
-

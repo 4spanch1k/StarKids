@@ -66,7 +66,7 @@ export function useLeadInbox() {
     } catch (error) {
       branchesErrorMessage.value = resolveErrorMessage(
         error,
-        'Branch filter options are unavailable.',
+        'Не удалось загрузить список филиалов.',
       );
     } finally {
       isBranchesLoading.value = false;
@@ -84,8 +84,12 @@ export function useLeadInbox() {
       leads.value = response.items;
       total.value = response.total;
       syncSelectedLeadWithList();
+
+      if (leads.value.length > 0 && !selectedLeadId.value) {
+        await selectLead(leads.value[0].id);
+      }
     } catch (error) {
-      listErrorMessage.value = resolveErrorMessage(error, 'Could not load leads.');
+      listErrorMessage.value = resolveErrorMessage(error, 'Не удалось загрузить заявки.');
     } finally {
       isListLoading.value = false;
     }
@@ -143,16 +147,63 @@ export function useLeadInbox() {
         selectedLeadId.value = '';
         selectedLead.value = null;
         statusSuccessMessage.value =
-          'Lead status updated. Current filters no longer include this request.';
+          'Статус обновлен. Заявка больше не попадает под текущие фильтры.';
         await loadLeads();
         return;
       }
 
-      statusSuccessMessage.value = 'Lead status updated.';
+      statusSuccessMessage.value = 'Статус заявки обновлен.';
     } catch (error) {
       statusErrorMessage.value = resolveErrorMessage(
         error,
-        'Could not update lead status.',
+        'Не удалось обновить статус заявки.',
+      );
+    } finally {
+      isStatusUpdating.value = false;
+    }
+  }
+
+  async function quickUpdateLeadStatus(leadId: string, status: LeadStatus) {
+    const currentLead = leads.value.find((lead) => lead.id === leadId);
+    if (!currentLead || currentLead.status === status || isStatusUpdating.value) {
+      return;
+    }
+
+    isStatusUpdating.value = true;
+    statusErrorMessage.value = '';
+    statusSuccessMessage.value = '';
+
+    try {
+      const updatedLead = await executeAuthorizedRequest((accessToken) => {
+        return updateAdminLeadStatus({
+          accessToken,
+          leadId,
+          status,
+        });
+      });
+
+      patchLeadInList(updatedLead);
+
+      if (selectedLeadId.value === leadId) {
+        selectedLead.value = updatedLead;
+      }
+
+      if (filters.status && filters.status !== updatedLead.status) {
+        if (selectedLeadId.value === leadId) {
+          selectedLeadId.value = '';
+          selectedLead.value = null;
+        }
+        statusSuccessMessage.value =
+          'Статус обновлен. Заявка больше не попадает под текущие фильтры.';
+        await loadLeads();
+        return;
+      }
+
+      statusSuccessMessage.value = 'Статус заявки обновлен.';
+    } catch (error) {
+      statusErrorMessage.value = resolveErrorMessage(
+        error,
+        'Не удалось обновить статус заявки.',
       );
     } finally {
       isStatusUpdating.value = false;
@@ -171,7 +222,7 @@ export function useLeadInbox() {
       if (selectedLeadId.value === leadId) {
         detailErrorMessage.value = resolveErrorMessage(
           error,
-          'Could not load lead details.',
+          'Не удалось загрузить детали заявки.',
         );
       }
     } finally {
@@ -274,6 +325,7 @@ export function useLeadInbox() {
     statusErrorMessage,
     statusSuccessMessage,
     total,
+    quickUpdateLeadStatus,
     updateLeadStatus,
   };
 }

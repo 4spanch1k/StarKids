@@ -1,27 +1,17 @@
 <template>
-  <PageShell
-    eyebrow="CRM"
-    title="Customers"
-    description="Customer list is the base for future segmentation, request history, and repeat-use analysis."
-  >
-    <ul class="stack">
-      <li>Phone-based customer records</li>
-      <li>Preferred branch</li>
-      <li>Push registration status</li>
-    </ul>
-  </PageShell>
+  <OperationalPreviewPage
+    eyebrow="Клиентская база"
+    title="Клиенты"
+    description="Раздел нужен как спокойная база для будущей истории обращений, сегментации и связи с push-статусом."
+    :items="[
+      'Телефон и имя клиента',
+      'Предпочтительный филиал',
+      'Признаки активности и повторных обращений',
+    ]"
+    note="Сейчас этот раздел вторичен. Важно не выпячивать его в навигации, но foundation должен быть понятным и готовым к росту."
+  />
 </template>
 
 <script setup lang="ts">
-import PageShell from '@/shared/ui/PageShell.vue';
+import OperationalPreviewPage from '@/shared/ui/OperationalPreviewPage.vue';
 </script>
-
-<style scoped>
-.stack {
-  display: grid;
-  gap: 12px;
-  margin: 0;
-  padding-left: 18px;
-}
-</style>
-

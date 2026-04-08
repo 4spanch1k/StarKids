@@ -11,7 +11,7 @@ class AdminAuthConfigurationTests(unittest.TestCase):
         settings = Settings(app_env='development')
 
         self.assertTrue(settings.is_development)
-        self.assertEqual(settings.bootstrap_admin_email, 'admin@starkids.local')
+        self.assertEqual(settings.bootstrap_admin_email, 'admin@starkids.kz')
         self.assertEqual(settings.bootstrap_admin_password, 'ChangeMe123!')
         self.assertFalse(settings.requires_explicit_jwt_secret)
 

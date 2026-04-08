@@ -1,27 +1,40 @@
 <template>
-  <PageShell
-    eyebrow="Monetization"
-    title="Birthday packages"
-    description="Packages should define offer structure, included services, add-ons, and branch availability."
-  >
-    <ul class="stack">
-      <li>Package list and availability management</li>
-      <li>Included items and extra services</li>
-      <li>Lead conversion visibility by package</li>
-    </ul>
-  </PageShell>
+  <OperationalPreviewPage
+    eyebrow="Коммерческое предложение"
+    title="Пакеты дней рождения"
+    description="Управление пакетами, составом услуг и доступностью по филиалам."
+    :items="[
+      {
+        id: 'star-show',
+        label: 'Star Show',
+        summary: 'Флагманский пакет с аниматором и шоу.',
+        statusLabel: 'Опубликован',
+        statusTone: 'closed',
+      },
+      {
+        id: 'mini-party',
+        label: 'Mini Party',
+        summary: 'Компактный пакет для небольших групп.',
+        statusLabel: 'Опубликован',
+        statusTone: 'closed',
+      },
+      {
+        id: 'weekend-boost',
+        label: 'Weekend Boost',
+        summary: 'Подготовлен, но еще не опубликован.',
+        statusLabel: 'Черновик',
+        statusTone: 'neutral',
+      },
+    ]"
+    list-title="Список пакетов"
+    detail-description="Справа будет открыт выбранный пакет с составом услуг и состоянием публикации."
+    empty-title="Пакетов пока нет"
+    empty-description="Добавьте первый пакет, чтобы команда могла поддерживать предложение в актуальном состоянии."
+    action-label="Добавить пакет"
+    note="Следующим шагом сюда можно посадить реальный list-detail CRUD."
+  />
 </template>
 
 <script setup lang="ts">
-import PageShell from '@/shared/ui/PageShell.vue';
+import OperationalPreviewPage from '@/shared/ui/OperationalPreviewPage.vue';
 </script>
-
-<style scoped>
-.stack {
-  display: grid;
-  gap: 12px;
-  margin: 0;
-  padding-left: 18px;
-}
-</style>
-
