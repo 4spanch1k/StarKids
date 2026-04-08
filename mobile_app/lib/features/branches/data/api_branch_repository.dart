@@ -25,11 +25,19 @@ class ApiBranchRepository implements BranchRepository {
         return _fallbackRepository.listBranches();
       }
 
-      return jsonList
+      final summaries = jsonList
           .whereType<Map<String, dynamic>>()
           .map(BranchSummaryDto.fromJson)
-          .map((item) => item.toDomain())
           .toList();
+
+      final branches = await Future.wait(
+        summaries.map((summary) async {
+          final detailedBranch = await _fetchBranchFromApi(summary.id);
+          return detailedBranch ?? summary.toDomain();
+        }),
+      );
+
+      return branches;
     } catch (_) {
       return _fallbackRepository.listBranches();
     }
@@ -37,17 +45,26 @@ class ApiBranchRepository implements BranchRepository {
 
   @override
   Future<BranchOption> getBranch(String branchIdOrSlug) async {
+    final branch = await _fetchBranchFromApi(branchIdOrSlug);
+    if (branch != null) {
+      return branch;
+    }
+
+    return _fallbackRepository.getBranch(branchIdOrSlug);
+  }
+
+  Future<BranchOption?> _fetchBranchFromApi(String branchIdOrSlug) async {
     try {
       final response = await _apiClient.getJson('/branches/$branchIdOrSlug');
       final json = response.jsonBody;
 
       if (!response.isSuccess || json == null) {
-        return _fallbackRepository.getBranch(branchIdOrSlug);
+        return null;
       }
 
       return BranchDetailDto.fromJson(json).toDomain();
     } catch (_) {
-      return _fallbackRepository.getBranch(branchIdOrSlug);
+      return null;
     }
   }
 }

@@ -15,6 +15,7 @@ import '../../../../core/design_system/widgets/star_kids_media_image.dart';
 import '../../../../core/design_system/widgets/star_kids_promo_card.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../../birthdays/domain/birthday_package.dart';
+import '../../../branches/domain/branch_option.dart';
 import '../../../content/domain/public_content_block.dart';
 import '../../../content/domain/public_faq_item.dart';
 import '../../../promotions/domain/promotion_offer.dart';
@@ -281,11 +282,13 @@ class HomePage extends StatelessWidget {
                             }
 
                             final content = snapshot.data ??
-                                const _HomeContentData(
+                                _HomeContentData(
+                                  branch: branch,
                                   promotions: <PromotionOffer>[],
                                   contentBlocks: <PublicContentBlock>[],
                                   faqs: <PublicFaqItem>[],
                                 );
+                            final homeBranch = content.branch;
 
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -415,7 +418,7 @@ class HomePage extends StatelessWidget {
                                         Wrap(
                                           spacing: StarKidsSpacing.sm,
                                           runSpacing: StarKidsSpacing.sm,
-                                          children: branch.facilities
+                                          children: homeBranch.facilities
                                               .take(4)
                                               .map(
                                                 (facility) => Container(
@@ -463,7 +466,7 @@ class HomePage extends StatelessWidget {
                                             ),
                                             Expanded(
                                               child: _TrustStat(
-                                                title: branch.workingHours
+                                                title: homeBranch.workingHours
                                                     .replaceFirst(
                                                   'Ежедневно ',
                                                   '',
@@ -515,6 +518,11 @@ class HomePage extends StatelessWidget {
   }
 
   Future<_HomeContentData> _loadHomeContent(String branchId) async {
+    final branch =
+        await ServiceRegistry.branchRepository.getBranch(branchId).catchError(
+              (_) => ServiceRegistry.selectedBranchController.selectedBranch,
+            );
+    ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
     final packages = await ServiceRegistry.birthdayPackageRepository
         .listPackages(branchId: branchId)
         .catchError((_) => const <BirthdayPackage>[]);
@@ -522,8 +530,11 @@ class HomePage extends StatelessWidget {
         .listPromotions(branchId)
         .catchError((_) => const <PromotionOffer>[]);
     final contentBlocks = await ServiceRegistry.publicContentRepository
-        .listContentBlocks(surface: 'home');
-    final faqs = await ServiceRegistry.publicContentRepository.listFaqs();
+        .listContentBlocks(surface: 'home')
+        .catchError((_) => const <PublicContentBlock>[]);
+    final faqs = await ServiceRegistry.publicContentRepository
+        .listFaqs()
+        .catchError((_) => const <PublicFaqItem>[]);
 
     BirthdayPackage? featuredPackage;
     for (final item in packages) {
@@ -535,6 +546,7 @@ class HomePage extends StatelessWidget {
     featuredPackage ??= packages.isEmpty ? null : packages.first;
 
     return _HomeContentData(
+      branch: branch,
       featuredPackage: featuredPackage,
       promotions: promotions,
       contentBlocks: contentBlocks,
@@ -657,12 +669,14 @@ class _HomeStateCard extends StatelessWidget {
 
 class _HomeContentData {
   const _HomeContentData({
+    required this.branch,
     this.featuredPackage,
     required this.promotions,
     required this.contentBlocks,
     required this.faqs,
   });
 
+  final BranchOption branch;
   final BirthdayPackage? featuredPackage;
   final List<PromotionOffer> promotions;
   final List<PublicContentBlock> contentBlocks;

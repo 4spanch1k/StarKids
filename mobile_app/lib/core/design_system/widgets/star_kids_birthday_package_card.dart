@@ -34,6 +34,11 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final normalizedDescription = description.trim();
+    final normalizedHighlights = highlights
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -108,35 +113,42 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
                   ),
                   const SizedBox(height: StarKidsSpacing.xs),
                   Text(guestLabel, style: textTheme.labelMedium),
-                  const SizedBox(height: StarKidsSpacing.sm),
-                  Text(description, style: textTheme.bodyMedium),
-                  const SizedBox(height: StarKidsSpacing.md),
-                  ...highlights.map(
-                    (highlight) => Padding(
-                      padding:
-                          const EdgeInsets.only(bottom: StarKidsSpacing.xs),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Padding(
-                            padding: EdgeInsets.only(top: 2),
-                            child: Icon(
-                              Icons.star_rounded,
-                              size: StarKidsIconSizes.xs,
-                              color: StarKidsColors.brandPrimary,
+                  if (normalizedDescription.isNotEmpty) ...[
+                    const SizedBox(height: StarKidsSpacing.sm),
+                    Text(
+                      normalizedDescription,
+                      style: textTheme.bodyMedium,
+                    ),
+                  ],
+                  if (normalizedHighlights.isNotEmpty) ...[
+                    const SizedBox(height: StarKidsSpacing.md),
+                    ...normalizedHighlights.map(
+                      (highlight) => Padding(
+                        padding:
+                            const EdgeInsets.only(bottom: StarKidsSpacing.xs),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 2),
+                              child: Icon(
+                                Icons.star_rounded,
+                                size: StarKidsIconSizes.xs,
+                                color: StarKidsColors.brandPrimary,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: StarKidsSpacing.sm),
-                          Expanded(
-                            child: Text(
-                              highlight,
-                              style: textTheme.bodyMedium,
+                            const SizedBox(width: StarKidsSpacing.sm),
+                            Expanded(
+                              child: Text(
+                                highlight,
+                                style: textTheme.bodyMedium,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                   const SizedBox(height: StarKidsSpacing.lg),
                   StarKidsButton.primary(
                     label: 'Оставить заявку',

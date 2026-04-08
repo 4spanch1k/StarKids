@@ -11,6 +11,7 @@ import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_content_block_card.dart';
 import '../../../../core/design_system/widgets/star_kids_promo_card.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
+import '../../../branches/domain/branch_option.dart';
 import '../../../content/domain/public_content_block.dart';
 import '../../../requests/presentation/models/request_page_args.dart';
 import '../../domain/promotion_offer.dart';
@@ -67,7 +68,8 @@ class PromotionsPage extends StatelessWidget {
               }
 
               final data = snapshot.data ??
-                  const _PromotionsScreenData(
+                  _PromotionsScreenData(
+                    branch: branch,
                     promotions: <PromotionOffer>[],
                     contentBlocks: <PublicContentBlock>[],
                   );
@@ -115,7 +117,7 @@ class PromotionsPage extends StatelessWidget {
                                 BorderRadius.circular(StarKidsRadii.full),
                           ),
                           child: Text(
-                            branch.shortLabel,
+                            data.branch.shortLabel,
                             style: textTheme.labelMedium?.copyWith(
                               color: StarKidsColors.textPrimary,
                             ),
@@ -136,7 +138,7 @@ class PromotionsPage extends StatelessWidget {
                   ),
                   const SizedBox(height: StarKidsSpacing.x2l),
                   StarKidsSectionHeader(
-                    title: 'Предложения для ${branch.shortLabel}',
+                    title: 'Предложения для ${data.branch.shortLabel}',
                     description:
                         'Коммерческий экран должен быстро показать, почему сюда стоит вернуться именно сейчас.',
                   ),
@@ -203,13 +205,20 @@ class PromotionsPage extends StatelessWidget {
   }
 
   Future<_PromotionsScreenData> _loadScreenData(String branchId) async {
+    final branch =
+        await ServiceRegistry.branchRepository.getBranch(branchId).catchError(
+              (_) => ServiceRegistry.selectedBranchController.selectedBranch,
+            );
+    ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
     final promotions = await ServiceRegistry.promotionRepository
         .listPromotions(branchId)
         .catchError((_) => const <PromotionOffer>[]);
     final contentBlocks = await ServiceRegistry.publicContentRepository
-        .listContentBlocks(surface: 'promotions');
+        .listContentBlocks(surface: 'promotions')
+        .catchError((_) => const <PublicContentBlock>[]);
 
     return _PromotionsScreenData(
+      branch: branch,
       promotions: promotions,
       contentBlocks: contentBlocks,
     );
@@ -266,10 +275,12 @@ class _PromotionsStateView extends StatelessWidget {
 
 class _PromotionsScreenData {
   const _PromotionsScreenData({
+    required this.branch,
     required this.promotions,
     required this.contentBlocks,
   });
 
+  final BranchOption branch;
   final List<PromotionOffer> promotions;
   final List<PublicContentBlock> contentBlocks;
 }

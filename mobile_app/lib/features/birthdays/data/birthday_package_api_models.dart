@@ -1,5 +1,4 @@
 import '../domain/birthday_package.dart';
-import 'birthday_package_seed_data.dart';
 
 class BirthdayPackageSummaryDto {
   const BirthdayPackageSummaryDto({
@@ -70,21 +69,17 @@ class BirthdayPackageDetailDto {
   }
 
   BirthdayPackage toDomain() {
-    final fallback = getBirthdayPackageById(id);
-
     return BirthdayPackage(
       id: id,
       name: name,
       priceLabel: priceLabel,
       guestLabel: guestCapacityLabel,
-      description:
-          description.isNotEmpty ? description : (fallback?.description ?? ''),
-      highlights: highlights.isNotEmpty
-          ? highlights
-          : (fallback?.highlights ?? const []),
-      imagePath: imageUrl?.trim().isNotEmpty == true
-          ? imageUrl!
-          : (fallback?.imagePath ?? 'assets/images/birthday_hero.jpg'),
+      description: description.trim(),
+      highlights: highlights
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty)
+          .toList(),
+      imagePath: imageUrl?.trim() ?? '',
       isFeatured: isFeatured,
     );
   }

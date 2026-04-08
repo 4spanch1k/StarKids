@@ -1,5 +1,4 @@
 import '../domain/promotion_offer.dart';
-import 'promotion_seed_data.dart';
 
 class PromotionOfferDto {
   const PromotionOfferDto({
@@ -35,22 +34,14 @@ class PromotionOfferDto {
   }
 
   PromotionOffer toDomain() {
-    PromotionOffer? fallback;
-    for (final item in promotionSeedData) {
-      if (item.id == id) {
-        fallback = item;
-        break;
-      }
-    }
-
     return PromotionOffer(
       id: id,
       title: title,
       description: description,
       badgeLabel: badgeLabel,
       imagePath: imageUrl?.trim().isNotEmpty == true
-          ? imageUrl!
-          : (fallback?.imagePath ?? 'assets/images/promo_hero.jpg'),
+          ? imageUrl!.trim()
+          : 'assets/images/promo_hero.jpg',
       branchIds: branchIds,
       ctaLabel: ctaLabel,
     );
