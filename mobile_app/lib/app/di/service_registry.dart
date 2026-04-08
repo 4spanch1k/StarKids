@@ -62,7 +62,10 @@ abstract final class ServiceRegistry {
   static final birthdayRequestRepository =
       AppEnvironment.useMockBirthdayRequests
           ? MockBirthdayRequestRepository()
-          : ApiBirthdayRequestRepository(apiClient: apiClient);
+          : ApiBirthdayRequestRepository(
+              apiClient: apiClient,
+              sessionStorage: mobileAuthSessionStorage,
+            );
 
   static Future<void> bootstrap() async {
     await mobileAuthController.bootstrap();
