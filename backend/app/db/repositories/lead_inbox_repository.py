@@ -9,6 +9,7 @@ from ..models.birthday_package import BirthdayPackage
 from ..models.birthday_request import BirthdayRequest
 from ..models.branch import Branch
 from ..models.contact_lead import ContactLead
+from ...modules.leads.constants import LEAD_TYPE_BIRTHDAY_REQUEST, LEAD_TYPE_CONTACT
 from .base import Repository
 
 
@@ -166,7 +167,7 @@ class LeadInboxRepository(Repository):
         birthday_request, branch, package = row
         return LeadInboxRecord(
             id=birthday_request.id,
-            type='birthday_request',
+            type=LEAD_TYPE_BIRTHDAY_REQUEST,
             status=birthday_request.status,
             source=birthday_request.source,
             customer_name=birthday_request.customer_name,
@@ -187,7 +188,7 @@ class LeadInboxRepository(Repository):
     def _map_contact_record(self, lead: ContactLead) -> LeadInboxRecord:
         return LeadInboxRecord(
             id=lead.id,
-            type='contact',
+            type=LEAD_TYPE_CONTACT,
             status=lead.status,
             source=lead.source,
             customer_name=lead.customer_name,

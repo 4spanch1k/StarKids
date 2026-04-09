@@ -24,8 +24,10 @@ import '../../features/promotions/domain/promotion_repository.dart';
 import '../../features/request_history/data/api_request_history_repository.dart';
 import '../../features/request_history/domain/request_history_repository.dart';
 import '../../features/requests/data/api_birthday_request_repository.dart';
+import '../../features/requests/data/api_contact_request_repository.dart';
 import '../../features/branches/presentation/controllers/selected_branch_controller.dart';
 import '../../features/requests/data/mock_birthday_request_repository.dart';
+import '../../features/requests/domain/contact_request_repository.dart';
 import '../config/app_environment.dart';
 
 abstract final class ServiceRegistry {
@@ -82,6 +84,11 @@ abstract final class ServiceRegistry {
     apiClient: apiClient,
     sessionStorage: mobileAuthSessionStorage,
     authRepository: mobileAuthRepository,
+  );
+  static final ContactRequestRepository contactRequestRepository =
+      ApiContactRequestRepository(
+    apiClient: apiClient,
+    sessionStorage: mobileAuthSessionStorage,
   );
   static final birthdayRequestRepository =
       AppEnvironment.useMockBirthdayRequests

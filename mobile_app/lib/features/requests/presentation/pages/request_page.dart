@@ -12,8 +12,11 @@ import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../../../core/design_system/widgets/star_kids_select_field.dart';
 import '../../../birthdays/domain/birthday_package.dart';
 import '../../../branches/domain/branch_option.dart';
-import '../controllers/birthday_request_form_controller.dart';
 import '../../domain/birthday_request_submission.dart';
+import '../../domain/contact_request_submission.dart';
+import '../../domain/request_type.dart';
+import '../controllers/birthday_request_form_controller.dart';
+import '../controllers/contact_request_form_controller.dart';
 import '../formatters/kz_phone_input_formatter.dart';
 import '../models/request_page_args.dart';
 
@@ -30,23 +33,31 @@ class RequestPage extends StatefulWidget {
 }
 
 class _RequestPageState extends State<RequestPage> {
-  final _formKey = GlobalKey<FormState>();
-  late final BirthdayRequestFormController _controller;
+  final _birthdayFormKey = GlobalKey<FormState>();
+  final _contactFormKey = GlobalKey<FormState>();
+  late final BirthdayRequestFormController _birthdayController;
+  late final ContactRequestFormController _contactController;
+  late RequestType _selectedType;
 
   @override
   void initState() {
     super.initState();
-    _controller = BirthdayRequestFormController(
+    _selectedType = widget.args?.initialType ?? RequestType.birthdayRequest;
+    _birthdayController = BirthdayRequestFormController(
       repository: ServiceRegistry.birthdayRequestRepository,
       packageRepository: ServiceRegistry.birthdayPackageRepository,
       initialPackageId: widget.args?.initialPackageId,
       initialPackage: widget.args?.initialPackage,
     );
+    _contactController = ContactRequestFormController(
+      repository: ServiceRegistry.contactRequestRepository,
+    );
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _birthdayController.dispose();
+    _contactController.dispose();
     super.dispose();
   }
 
@@ -54,72 +65,138 @@ class _RequestPageState extends State<RequestPage> {
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: Listenable.merge([
-        _controller,
+        _birthdayController,
+        _contactController,
         ServiceRegistry.selectedBranchController,
       ]),
       builder: (context, _) {
         final branch = ServiceRegistry.selectedBranchController.selectedBranch;
-        final package = _controller.selectedPackage;
-        final submission = _controller.submission;
+        final package = _birthdayController.selectedPackage;
+        final birthdaySubmission = _birthdayController.submission;
+        final contactSubmission = _contactController.submission;
+        final isBirthdayRequest = _selectedType.isBirthdayRequest;
+        final hasSubmission = isBirthdayRequest
+            ? birthdaySubmission != null
+            : contactSubmission != null;
 
         return Scaffold(
           appBar: AppBar(
             title: Text(
-              submission == null
-                  ? 'Заявка на день рождения'
-                  : 'Заявка отправлена',
+              hasSubmission
+                  ? _selectedType.successTitle
+                  : _selectedType.screenTitle,
             ),
           ),
-          bottomNavigationBar: submission == null
-              ? StarKidsBottomCtaBar(
+          bottomNavigationBar: hasSubmission
+              ? null
+              : StarKidsBottomCtaBar(
                   child: StarKidsButton.primary(
-                    label: 'Отправить заявку',
-                    icon: Icons.send_rounded,
-                    isLoading: _controller.isSubmitting,
-                    onPressed: _controller.isSubmitting
-                        ? null
-                        : () => _submitForm(branch),
-                  ),
-                )
-              : null,
-          body: submission == null
-              ? _RequestFormView(
-                  formKey: _formKey,
-                  controller: _controller,
-                  branch: branch,
-                  selectedPackage: package,
-                  onPickBranch: _showBranchPicker,
-                  onPickPackage: _showPackagePicker,
-                )
-              : _RequestSuccessView(
-                  branch: branch,
-                  selectedPackage: package,
-                  submission: submission,
-                  onBackHome: () =>
-                      Navigator.of(context).pushNamedAndRemoveUntil(
-                    AppRoutes.home,
-                    (route) => false,
-                  ),
-                  onCreateAnother: () => _controller.resetForm(
-                    preserveSelectedPackage: package != null,
+                    label: _selectedType.submitButtonLabel,
+                    icon: isBirthdayRequest
+                        ? Icons.send_rounded
+                        : Icons.chat_bubble_rounded,
+                    isLoading: _isSubmitting,
+                    onPressed:
+                        _isSubmitting ? null : () => _submitActiveForm(branch),
                   ),
                 ),
+          body: hasSubmission
+              ? isBirthdayRequest
+                  ? _RequestSuccessView(
+                      branch: branch,
+                      selectedPackage: package,
+                      submission: birthdaySubmission!,
+                      onBackHome: () =>
+                          Navigator.of(context).pushNamedAndRemoveUntil(
+                        AppRoutes.home,
+                        (route) => false,
+                      ),
+                      onCreateAnother: () => _birthdayController.resetForm(
+                        preserveSelectedPackage: package != null,
+                      ),
+                    )
+                  : _ContactRequestSuccessView(
+                      submission: contactSubmission!,
+                      onBackHome: () =>
+                          Navigator.of(context).pushNamedAndRemoveUntil(
+                        AppRoutes.home,
+                        (route) => false,
+                      ),
+                      onCreateAnother: _contactController.resetForm,
+                    )
+              : isBirthdayRequest
+                  ? _BirthdayRequestFormView(
+                      formKey: _birthdayFormKey,
+                      typeSelector: _RequestTypeSelector(
+                        selectedType: _selectedType,
+                        onSelected: _selectRequestType,
+                      ),
+                      controller: _birthdayController,
+                      branch: branch,
+                      selectedPackage: package,
+                      onPickBranch: _showBranchPicker,
+                      onPickPackage: _showPackagePicker,
+                    )
+                  : _ContactRequestFormView(
+                      formKey: _contactFormKey,
+                      typeSelector: _RequestTypeSelector(
+                        selectedType: _selectedType,
+                        onSelected: _selectRequestType,
+                      ),
+                      controller: _contactController,
+                    ),
         );
       },
     );
   }
 
-  Future<void> _submitForm(BranchOption branch) async {
+  bool get _isSubmitting => _selectedType.isBirthdayRequest
+      ? _birthdayController.isSubmitting
+      : _contactController.isSubmitting;
+
+  void _selectRequestType(RequestType type) {
+    if (_selectedType == type) {
+      return;
+    }
+
+    _birthdayController.clearTransientFeedback();
+    _contactController.clearTransientFeedback();
+    setState(() {
+      _selectedType = type;
+    });
+  }
+
+  Future<void> _submitActiveForm(BranchOption branch) async {
+    if (_selectedType.isBirthdayRequest) {
+      await _submitBirthdayForm(branch);
+      return;
+    }
+
+    await _submitContactForm();
+  }
+
+  Future<void> _submitBirthdayForm(BranchOption branch) async {
     FocusScope.of(context).unfocus();
 
-    final formIsValid = _formKey.currentState?.validate() ?? false;
-    final selectionsAreValid = _controller.validateSelections();
+    final formIsValid = _birthdayFormKey.currentState?.validate() ?? false;
+    final selectionsAreValid = _birthdayController.validateSelections();
 
     if (!formIsValid || !selectionsAreValid) {
       return;
     }
 
-    await _controller.submit(branchId: branch.id);
+    await _birthdayController.submit(branchId: branch.id);
+  }
+
+  Future<void> _submitContactForm() async {
+    FocusScope.of(context).unfocus();
+
+    final formIsValid = _contactFormKey.currentState?.validate() ?? false;
+    if (!formIsValid) {
+      return;
+    }
+
+    await _contactController.submit();
   }
 
   Future<void> _showBranchPicker() async {
@@ -197,7 +274,7 @@ class _RequestPageState extends State<RequestPage> {
       builder: (context) => _SelectionSheet<BirthdayPackage>(
         title: 'Выберите пакет',
         items: packages,
-        currentId: _controller.selectedPackageId,
+        currentId: _birthdayController.selectedPackageId,
         titleBuilder: (item) => item.name,
         subtitleBuilder: (item) => '${item.priceLabel} • ${item.guestLabel}',
         itemIdBuilder: (item) => item.id,
@@ -211,7 +288,7 @@ class _RequestPageState extends State<RequestPage> {
     final selectedPackage = packages.firstWhere(
       (item) => item.id == selectedPackageId,
     );
-    _controller.updateSelectedPackage(
+    _birthdayController.updateSelectedPackage(
       selectedPackageId,
       selectedPackage: selectedPackage,
     );
@@ -228,9 +305,114 @@ class _RequestPageState extends State<RequestPage> {
   }
 }
 
-class _RequestFormView extends StatelessWidget {
-  const _RequestFormView({
+class _RequestTypeSelector extends StatelessWidget {
+  const _RequestTypeSelector({
+    required this.selectedType,
+    required this.onSelected,
+  });
+
+  final RequestType selectedType;
+  final ValueChanged<RequestType> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const StarKidsSectionHeader(
+          title: 'Какой запрос нужен',
+          description:
+              'Можно оставить заявку на праздник или короткий запрос на обратную связь.',
+        ),
+        const SizedBox(height: StarKidsSpacing.lg),
+        ...RequestType.values.map(
+          (type) => Padding(
+            padding: const EdgeInsets.only(bottom: StarKidsSpacing.md),
+            child: _RequestTypeOptionCard(
+              type: type,
+              isSelected: type == selectedType,
+              onTap: () => onSelected(type),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RequestTypeOptionCard extends StatelessWidget {
+  const _RequestTypeOptionCard({
+    required this.type,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final RequestType type;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Material(
+      color: StarKidsColors.surfacePrimary,
+      borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(StarKidsSpacing.lg),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+            border: Border.all(
+              color: isSelected
+                  ? StarKidsColors.brandPrimary
+                  : StarKidsColors.borderDefault,
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: StarKidsColors.surfaceSecondary,
+                  borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+                ),
+                child: Icon(
+                  type.isBirthdayRequest
+                      ? Icons.cake_rounded
+                      : Icons.support_agent_rounded,
+                  color: StarKidsColors.brandPrimary,
+                ),
+              ),
+              const SizedBox(width: StarKidsSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(type.label, style: textTheme.titleMedium),
+                    const SizedBox(height: StarKidsSpacing.xs),
+                    Text(
+                      type.selectorDescription,
+                      style: textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BirthdayRequestFormView extends StatelessWidget {
+  const _BirthdayRequestFormView({
     required this.formKey,
+    required this.typeSelector,
     required this.controller,
     required this.branch,
     required this.selectedPackage,
@@ -239,6 +421,7 @@ class _RequestFormView extends StatelessWidget {
   });
 
   final GlobalKey<FormState> formKey;
+  final Widget typeSelector;
   final BirthdayRequestFormController controller;
   final BranchOption branch;
   final BirthdayPackage? selectedPackage;
@@ -260,6 +443,8 @@ class _RequestFormView extends StatelessWidget {
             StarKidsSpacing.x5l,
           ),
           children: [
+            typeSelector,
+            const SizedBox(height: StarKidsSpacing.xl),
             const StarKidsSectionHeader(
               title: 'Оставьте заявку за пару минут',
               description:
@@ -378,6 +563,111 @@ class _RequestFormView extends StatelessWidget {
   }
 }
 
+class _ContactRequestFormView extends StatelessWidget {
+  const _ContactRequestFormView({
+    required this.formKey,
+    required this.typeSelector,
+    required this.controller,
+  });
+
+  final GlobalKey<FormState> formKey;
+  final Widget typeSelector;
+  final ContactRequestFormController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return SafeArea(
+      child: Form(
+        key: formKey,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            StarKidsSpacing.xl,
+            StarKidsSpacing.lg,
+            StarKidsSpacing.xl,
+            StarKidsSpacing.x5l,
+          ),
+          children: [
+            typeSelector,
+            const SizedBox(height: StarKidsSpacing.xl),
+            const StarKidsSectionHeader(
+              title: 'Оставьте запрос на обратную связь',
+              description:
+                  'Укажите контакт, и менеджер поможет с вопросом по филиалу, формату праздника или свободным датам.',
+            ),
+            const SizedBox(height: StarKidsSpacing.lg),
+            if (controller.submissionErrorText != null) ...[
+              _RequestStatusBanner(
+                title: 'Запрос пока не отправлен',
+                description: controller.submissionErrorText!,
+                backgroundColor: StarKidsColors.statusErrorSurface,
+                foregroundColor: StarKidsColors.statusError,
+                icon: Icons.error_rounded,
+              ),
+              const SizedBox(height: StarKidsSpacing.lg),
+            ],
+            StarKidsInputField(
+              controller: controller.nameController,
+              label: 'Имя родителя',
+              hintText: 'Например, Айдана',
+              prefixIcon: Icons.person_rounded,
+              textInputAction: TextInputAction.next,
+              textCapitalization: TextCapitalization.words,
+              validator: controller.validateName,
+              onChanged: (_) => controller.clearTransientFeedback(),
+            ),
+            const SizedBox(height: StarKidsSpacing.lg),
+            StarKidsInputField(
+              controller: controller.phoneController,
+              label: 'Телефон',
+              hintText: '+7 707 000 00 00',
+              prefixIcon: Icons.call_rounded,
+              keyboardType: TextInputType.phone,
+              textInputAction: TextInputAction.next,
+              validator: controller.validatePhone,
+              inputFormatters: [KzPhoneInputFormatter()],
+              onChanged: (_) => controller.clearTransientFeedback(),
+            ),
+            const SizedBox(height: StarKidsSpacing.lg),
+            StarKidsInputField(
+              controller: controller.emailController,
+              label: 'Email',
+              hintText: 'Например, family@example.com',
+              helperText:
+                  'Необязательно. Если удобно, продублируем детали на почту.',
+              prefixIcon: Icons.alternate_email_rounded,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              validator: controller.validateEmail,
+              onChanged: (_) => controller.clearTransientFeedback(),
+            ),
+            const SizedBox(height: StarKidsSpacing.lg),
+            StarKidsInputField(
+              controller: controller.messageController,
+              label: 'Что нужно уточнить',
+              hintText:
+                  'Свободные даты, формат праздника, цены или другой вопрос',
+              helperText:
+                  'Необязательно. Чем точнее вопрос, тем быстрее менеджер подготовит ответ.',
+              maxLines: 4,
+              minLines: 4,
+              textInputAction: TextInputAction.newline,
+              textCapitalization: TextCapitalization.sentences,
+              onChanged: (_) => controller.clearTransientFeedback(),
+            ),
+            const SizedBox(height: StarKidsSpacing.xl),
+            Text(
+              'После отправки менеджер перезвонит и поможет выбрать подходящий сценарий без лишних шагов.',
+              style: textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _RequestSuccessView extends StatelessWidget {
   const _RequestSuccessView({
     required this.branch,
@@ -450,8 +740,86 @@ class _RequestSuccessView extends StatelessWidget {
           Center(
             child: StarKidsButton.ghost(
               label: selectedPackage == null
-                  ? 'Оставить еще одну заявку'
+                  ? RequestType.birthdayRequest.createAnotherLabel
                   : 'Оставить еще одну заявку по этому пакету',
+              onPressed: onCreateAnother,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ContactRequestSuccessView extends StatelessWidget {
+  const _ContactRequestSuccessView({
+    required this.submission,
+    required this.onBackHome,
+    required this.onCreateAnother,
+  });
+
+  final ContactRequestSubmission submission;
+  final VoidCallback onBackHome;
+  final VoidCallback onCreateAnother;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.all(StarKidsSpacing.xl),
+        children: [
+          const _RequestStatusBanner(
+            title: 'Запрос отправлен',
+            description:
+                'Мы уже передали запрос менеджеру Star Kids. С вами свяжутся по указанному номеру, чтобы помочь с выбором.',
+            backgroundColor: StarKidsColors.statusSuccessSurface,
+            foregroundColor: StarKidsColors.statusSuccess,
+            icon: Icons.check_circle_rounded,
+          ),
+          const SizedBox(height: StarKidsSpacing.x2l),
+          Container(
+            padding: const EdgeInsets.all(StarKidsSpacing.lg),
+            decoration: BoxDecoration(
+              color: StarKidsColors.surfacePrimary,
+              borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+              border: Border.all(color: StarKidsColors.borderDefault),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SuccessRow(
+                  label: 'Тип обращения',
+                  value: submission.type.label,
+                ),
+                const SizedBox(height: StarKidsSpacing.md),
+                _SuccessRow(
+                  label: 'Номер заявки',
+                  value: submission.requestId,
+                ),
+                const SizedBox(height: StarKidsSpacing.md),
+                _SuccessRow(
+                  label: 'Статус',
+                  value: submission.status.label,
+                ),
+                const SizedBox(height: StarKidsSpacing.md),
+                const _SuccessRow(
+                  label: 'Следующий шаг',
+                  value:
+                      'Менеджер свяжется с вами и поможет с вопросом по филиалу или формату праздника.',
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: StarKidsSpacing.x2l),
+          StarKidsButton.primary(
+            label: 'На главную',
+            icon: Icons.home_rounded,
+            onPressed: onBackHome,
+          ),
+          const SizedBox(height: StarKidsSpacing.sm),
+          Center(
+            child: StarKidsButton.ghost(
+              label: submission.type.createAnotherLabel,
               onPressed: onCreateAnother,
             ),
           ),

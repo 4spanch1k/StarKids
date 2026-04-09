@@ -2,6 +2,7 @@ from ...core.exceptions.http import DomainHTTPException, NotFoundException
 from ...db.repositories.branch_repository import BranchRepository
 from ...db.repositories.birthday_package_repository import BirthdayPackageRepository
 from ...db.repositories.lead_repository import LeadRepository
+from .constants import LEAD_TYPE_CONTACT
 from .schemas import (
     BirthdayLeadCreate,
     BirthdayLeadSubmittedResponse,
@@ -38,7 +39,7 @@ class LeadService:
         )
         return LeadCreatedResponse(
             id=lead.id,
-            type='contact',
+            type=LEAD_TYPE_CONTACT,
             status=lead.status,
         )
 

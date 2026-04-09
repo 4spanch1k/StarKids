@@ -13,6 +13,7 @@ import '../../../../core/design_system/widgets/star_kids_promo_card.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../../branches/domain/branch_option.dart';
 import '../../../content/domain/public_content_block.dart';
+import '../../../requests/domain/request_type.dart';
 import '../../../requests/presentation/models/request_page_args.dart';
 import '../../domain/promotion_offer.dart';
 
@@ -44,7 +45,9 @@ class PromotionsPage extends StatelessWidget {
               icon: Icons.chat_bubble_rounded,
               onPressed: () => Navigator.of(context).pushNamed(
                 AppRoutes.requests,
-                arguments: const RequestPageArgs(),
+                arguments: const RequestPageArgs(
+                  initialType: RequestType.birthdayRequest,
+                ),
               ),
             ),
           ),
@@ -155,7 +158,9 @@ class PromotionsPage extends StatelessWidget {
                         actionLabel: promotion.ctaLabel,
                         onTap: () => Navigator.of(context).pushNamed(
                           AppRoutes.requests,
-                          arguments: const RequestPageArgs(),
+                          arguments: const RequestPageArgs(
+                            initialType: RequestType.birthdayRequest,
+                          ),
                         ),
                       ),
                     ),

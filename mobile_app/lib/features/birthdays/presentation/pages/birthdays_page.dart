@@ -12,6 +12,7 @@ import '../../../../core/design_system/widgets/star_kids_content_block_card.dart
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../../branches/domain/branch_option.dart';
 import '../../../content/domain/public_content_block.dart';
+import '../../../requests/domain/request_type.dart';
 import '../../../requests/presentation/models/request_page_args.dart';
 import '../../domain/birthday_package.dart';
 
@@ -44,7 +45,9 @@ class BirthdaysPage extends StatelessWidget {
               icon: Icons.cake_rounded,
               onPressed: () => Navigator.of(context).pushNamed(
                 AppRoutes.requests,
-                arguments: const RequestPageArgs(),
+                arguments: const RequestPageArgs(
+                  initialType: RequestType.birthdayRequest,
+                ),
               ),
             ),
           ),
@@ -207,6 +210,7 @@ class BirthdaysPage extends StatelessWidget {
                         onActionTap: () => Navigator.of(context).pushNamed(
                           AppRoutes.requests,
                           arguments: RequestPageArgs(
+                            initialType: RequestType.birthdayRequest,
                             initialPackageId: item.id,
                             initialPackage: item,
                           ),

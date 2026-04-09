@@ -1,4 +1,6 @@
 import '../domain/request_history_item.dart';
+import '../../requests/domain/request_status.dart';
+import '../../requests/domain/request_type.dart';
 
 class RequestHistoryListDto {
   const RequestHistoryListDto({
@@ -63,8 +65,8 @@ class RequestHistoryItemDto {
   RequestHistoryItem toDomain() {
     return RequestHistoryItem(
       id: id,
-      type: RequestHistoryType.fromApi(type),
-      status: RequestHistoryStatus.fromApi(status),
+      type: RequestType.fromApi(type),
+      status: RequestStatus.fromApi(status),
       createdAt: createdAt,
       requestedDate: requestedDate,
       guestCount: guestCount,

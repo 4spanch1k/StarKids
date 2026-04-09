@@ -1,57 +1,5 @@
-enum RequestHistoryType {
-  birthdayRequest,
-  contact;
-
-  factory RequestHistoryType.fromApi(String value) {
-    switch (value) {
-      case 'birthday_request':
-        return RequestHistoryType.birthdayRequest;
-      case 'contact':
-        return RequestHistoryType.contact;
-    }
-
-    throw FormatException('Unknown request history type: $value');
-  }
-
-  String get label {
-    switch (this) {
-      case RequestHistoryType.birthdayRequest:
-        return 'День рождения';
-      case RequestHistoryType.contact:
-        return 'Связь с менеджером';
-    }
-  }
-}
-
-enum RequestHistoryStatus {
-  newRequest,
-  inProgress,
-  closed;
-
-  factory RequestHistoryStatus.fromApi(String value) {
-    switch (value) {
-      case 'new':
-        return RequestHistoryStatus.newRequest;
-      case 'in_progress':
-        return RequestHistoryStatus.inProgress;
-      case 'closed':
-        return RequestHistoryStatus.closed;
-    }
-
-    throw FormatException('Unknown request history status: $value');
-  }
-
-  String get label {
-    switch (this) {
-      case RequestHistoryStatus.newRequest:
-        return 'Новая';
-      case RequestHistoryStatus.inProgress:
-        return 'В работе';
-      case RequestHistoryStatus.closed:
-        return 'Закрыта';
-    }
-  }
-}
+import '../../requests/domain/request_status.dart';
+import '../../requests/domain/request_type.dart';
 
 class RequestHistoryBranchSummary {
   const RequestHistoryBranchSummary({
@@ -89,8 +37,8 @@ class RequestHistoryItem {
   });
 
   final String id;
-  final RequestHistoryType type;
-  final RequestHistoryStatus status;
+  final RequestType type;
+  final RequestStatus status;
   final DateTime createdAt;
   final DateTime? requestedDate;
   final int? guestCount;

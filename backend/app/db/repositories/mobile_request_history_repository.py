@@ -9,6 +9,7 @@ from ..models.birthday_package import BirthdayPackage
 from ..models.birthday_request import BirthdayRequest
 from ..models.branch import Branch
 from ..models.contact_lead import ContactLead
+from ...modules.leads.constants import LEAD_TYPE_BIRTHDAY_REQUEST, LEAD_TYPE_CONTACT
 from .base import Repository
 
 
@@ -62,7 +63,7 @@ class MobileRequestHistoryRepository(Repository):
         request, branch, package = row
         return MobileRequestHistoryRecord(
             id=request.id,
-            type='birthday_request',
+            type=LEAD_TYPE_BIRTHDAY_REQUEST,
             status=request.status,
             created_at=request.created_at,
             requested_date=request.requested_date,
@@ -78,7 +79,7 @@ class MobileRequestHistoryRepository(Repository):
     def _map_contact_record(self, lead: ContactLead) -> MobileRequestHistoryRecord:
         return MobileRequestHistoryRecord(
             id=lead.id,
-            type='contact',
+            type=LEAD_TYPE_CONTACT,
             status=lead.status,
             created_at=lead.created_at,
             requested_date=None,

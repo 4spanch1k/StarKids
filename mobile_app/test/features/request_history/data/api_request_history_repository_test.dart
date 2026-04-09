@@ -13,8 +13,9 @@ import 'package:star_kids_mobile/features/auth/domain/mobile_auth_session.dart';
 import 'package:star_kids_mobile/features/auth/domain/mobile_auth_user.dart';
 import 'package:star_kids_mobile/features/auth/domain/otp_challenge.dart';
 import 'package:star_kids_mobile/features/request_history/data/api_request_history_repository.dart';
-import 'package:star_kids_mobile/features/request_history/domain/request_history_item.dart';
 import 'package:star_kids_mobile/features/request_history/domain/request_history_repository.dart';
+import 'package:star_kids_mobile/features/requests/domain/request_status.dart';
+import 'package:star_kids_mobile/features/requests/domain/request_type.dart';
 
 void main() {
   group('ApiRequestHistoryRepository', () {
@@ -112,8 +113,8 @@ void main() {
       expect(result, isA<RequestHistoryFetchSuccess>());
       final success = result as RequestHistoryFetchSuccess;
       expect(success.total, 1);
-      expect(success.items.single.type, RequestHistoryType.birthdayRequest);
-      expect(success.items.single.status, RequestHistoryStatus.newRequest);
+      expect(success.items.single.type, RequestType.birthdayRequest);
+      expect(success.items.single.status, RequestStatus.newRequest);
       expect(requestCount, 2);
     });
   });
