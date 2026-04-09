@@ -31,6 +31,7 @@ class AdminLeadBaseResponse(BaseModel):
 
     id: str
     type: LeadInboxType = 'birthday_request'
+    summary: str
     status: LeadInboxStatus
     source: str
     customerName: str

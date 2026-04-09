@@ -256,8 +256,8 @@ class HomePage extends StatelessWidget {
                             ),
                             _QuickActionTile(
                               icon: Icons.chat_bubble_rounded,
-                              title: 'Оставить заявку',
-                              subtitle: 'Связаться с менеджером',
+                              title: 'Запрос менеджеру',
+                              subtitle: 'Вопрос по филиалу и услугам',
                               onTap: () => Navigator.of(context).pushNamed(
                                 AppRoutes.requests,
                                 arguments: const RequestPageArgs(

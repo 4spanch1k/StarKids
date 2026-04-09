@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from ...core.exceptions.http import DomainHTTPException, NotFoundException
 from ...db.repositories.lead_inbox_repository import LeadInboxRecord, LeadInboxRepository
+from ..leads.constants import LEAD_TYPE_BIRTHDAY_REQUEST, LEAD_TYPE_CONTACT
 from .schemas import (
     AdminLeadBaseResponse,
     AdminLeadBranchSummary,
@@ -138,6 +139,7 @@ class AdminLeadInboxService:
         return AdminLeadBaseResponse(
             id=record.id,
             type=record.type,
+            summary=self._build_summary(record),
             status=record.status,
             source=record.source,
             customerName=record.customer_name,
@@ -180,3 +182,37 @@ class AdminLeadInboxService:
             id=record.birthday_package_id,
             name=record.birthday_package_name,
         )
+
+    def _build_summary(self, record: LeadInboxRecord) -> str:
+        if record.type == LEAD_TYPE_BIRTHDAY_REQUEST:
+            parts = ['Заявка на день рождения']
+            branch_label = record.branch_short_label or record.branch_name
+            if branch_label is not None:
+                parts.append(branch_label)
+            if record.birthday_package_name is not None:
+                parts.append(record.birthday_package_name)
+            return ' · '.join(parts)
+
+        parts = ['Связь с менеджером']
+        context = self._build_contact_context(record)
+        if context is not None:
+            parts.append(context)
+        return ' · '.join(parts)
+
+    def _build_contact_context(self, record: LeadInboxRecord) -> str | None:
+        if record.type != LEAD_TYPE_CONTACT:
+            return None
+
+        if record.notes is not None:
+            normalized_notes = ' '.join(record.notes.split())
+            if normalized_notes:
+                if len(normalized_notes) <= 96:
+                    return normalized_notes
+                return f'{normalized_notes[:93].rstrip()}...'
+
+        if record.email is not None:
+            normalized_email = record.email.strip()
+            if normalized_email:
+                return normalized_email
+
+        return 'Без дополнительного контекста'

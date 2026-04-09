@@ -2,7 +2,8 @@ enum RequestType {
   birthdayRequest(
     apiValue: 'birthday_request',
     label: 'День рождения',
-    selectorDescription: 'Праздник с выбором филиала, пакета и удобной даты.',
+    selectorDescription:
+        'Праздник с выбором филиала, пакета, даты и количества гостей.',
     screenTitle: 'Заявка на день рождения',
     formTitle: 'Оставьте заявку за пару минут',
     formDescription:
@@ -19,7 +20,7 @@ enum RequestType {
     apiValue: 'contact',
     label: 'Связь с менеджером',
     selectorDescription:
-        'Короткий запрос на обратную связь без выбора пакета и даты.',
+        'Короткий запрос по филиалу, маршруту, свободным датам или услугам.',
     screenTitle: 'Связь с менеджером',
     formTitle: 'Оставьте запрос на обратную связь',
     formDescription:

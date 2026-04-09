@@ -238,6 +238,7 @@ export function useLeadInbox() {
 
       return {
         ...lead,
+        summary: updatedLead.summary,
         status: updatedLead.status,
         customerName: updatedLead.customerName,
         phone: updatedLead.phone,

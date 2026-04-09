@@ -23,6 +23,23 @@ void main() {
     expect(controller.submission, isNull);
     expect(controller.submissionErrorText, isNotEmpty);
   });
+
+  test('resetForm restores initial contact context message', () async {
+    final controller = ContactRequestFormController(
+      repository: _FailureContactRequestRepository(),
+      initialMessage: 'Интересует филиал Star Kids Main.',
+    );
+    addTearDown(controller.dispose);
+
+    controller.messageController.text = 'Измененный текст';
+    controller.resetForm();
+
+    expect(
+      controller.messageController.text,
+      'Интересует филиал Star Kids Main.',
+    );
+    expect(controller.hasInitialMessage, isTrue);
+  });
 }
 
 class _FailureContactRequestRepository implements ContactRequestRepository {

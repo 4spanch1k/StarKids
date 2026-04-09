@@ -114,6 +114,7 @@ class ContactLeadEndpointTests(unittest.TestCase):
             {
                 'id': lead_id,
                 'type': 'contact',
+                'summary': 'Связь с менеджером · Нужна консультация по услугам.',
                 'status': 'new',
                 'source': 'mobile_app',
                 'customerName': 'Dana',
@@ -137,6 +138,7 @@ class ContactLeadEndpointTests(unittest.TestCase):
             {
                 'id': lead_id,
                 'type': 'contact',
+                'summary': 'Связь с менеджером · Нужна консультация по услугам.',
                 'status': 'new',
                 'source': 'mobile_app',
                 'customerName': 'Dana',

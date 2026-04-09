@@ -13,6 +13,8 @@ import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../../../core/services/external_link_service.dart';
 import '../../../branches/domain/branch_option.dart';
 import '../../../content/domain/public_content_block.dart';
+import '../../../requests/domain/request_type.dart';
+import '../../../requests/presentation/models/request_page_args.dart';
 import '../../domain/branch_contact_links.dart';
 
 class ContactsMapPage extends StatelessWidget {
@@ -243,6 +245,45 @@ class ContactsMapPage extends StatelessWidget {
                                     contact.whatsAppPhone,
                                   ),
                                 ),
+                      ),
+                      const SizedBox(height: StarKidsSpacing.xl),
+                      Container(
+                        padding: const EdgeInsets.all(StarKidsSpacing.lg),
+                        decoration: BoxDecoration(
+                          color: StarKidsColors.surfacePrimary,
+                          borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+                          border:
+                              Border.all(color: StarKidsColors.borderDefault),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Если неудобно говорить сейчас',
+                              style: textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: StarKidsSpacing.sm),
+                            Text(
+                              'Оставьте короткий запрос менеджеру. Мы добавим в сообщение контекст по выбранному филиалу, чтобы оператору было проще помочь без лишних уточнений.',
+                              style: textTheme.bodyMedium,
+                            ),
+                            const SizedBox(height: StarKidsSpacing.lg),
+                            StarKidsButton.secondary(
+                              label: 'Оставить запрос менеджеру',
+                              icon: Icons.support_agent_rounded,
+                              onPressed: () => Navigator.of(context).pushNamed(
+                                AppRoutes.requests,
+                                arguments: RequestPageArgs(
+                                  initialType: RequestType.contact,
+                                  initialContactContextLabel:
+                                      'Филиал: ${branchDetail.name}',
+                                  initialContactMessage:
+                                      'Интересует филиал ${branchDetail.name}. Нужна помощь по маршруту, формату визита или свободным датам.',
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: StarKidsSpacing.x2l),
                       Container(

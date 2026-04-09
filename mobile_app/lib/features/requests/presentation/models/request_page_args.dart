@@ -6,9 +6,13 @@ class RequestPageArgs {
     this.initialType = RequestType.birthdayRequest,
     this.initialPackageId,
     this.initialPackage,
+    this.initialContactContextLabel,
+    this.initialContactMessage,
   });
 
   final RequestType initialType;
   final String? initialPackageId;
   final BirthdayPackage? initialPackage;
+  final String? initialContactContextLabel;
+  final String? initialContactMessage;
 }
