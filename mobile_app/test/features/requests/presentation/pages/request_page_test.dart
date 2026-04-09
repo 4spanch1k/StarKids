@@ -53,4 +53,35 @@ void main() {
     expect(find.text('Оставьте запрос на обратную связь'), findsOneWidget);
     expect(find.text('Отправить запрос'), findsOneWidget);
   });
+
+  testWidgets('shows contact context and prefilled message when provided',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: RequestPage(
+          args: RequestPageArgs(
+            initialType: RequestType.contact,
+            initialContactContextLabel: 'Филиал: Star Kids Main',
+            initialContactMessage:
+                'Интересует филиал Star Kids Main. Нужна помощь по маршруту.',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).first, const Offset(0, -500));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Филиал: Star Kids Main'), findsOneWidget);
+    expect(
+      find.textContaining('Контекст по выбранному филиалу уже добавлен'),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        'Интересует филиал Star Kids Main. Нужна помощь по маршруту.',
+      ),
+      findsOneWidget,
+    );
+  });
 }

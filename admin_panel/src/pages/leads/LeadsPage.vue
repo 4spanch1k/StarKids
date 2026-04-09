@@ -143,7 +143,7 @@
                 <div class="lead-card__title">
                   <strong>{{ lead.customerName }}</strong>
                   <p>
-                    {{ formatLeadSummary(lead) }}
+                    {{ lead.summary }}
                   </p>
                 </div>
                 <StatusBadge
@@ -167,7 +167,7 @@
                   <dt>Телефон</dt>
                   <dd>{{ lead.phone }}</dd>
                 </div>
-                <div>
+                <div v-if="lead.type === 'birthday_request'">
                   <dt>Гостей</dt>
                   <dd>{{ formatGuestCount(lead.guestCount) }}</dd>
                 </div>
@@ -253,7 +253,7 @@
                 />
               </div>
               <p class="lead-detail__description">
-                {{ formatLeadSummary(leadInbox.selectedLead) }}
+                {{ leadInbox.selectedLead.summary }}
               </p>
             </div>
 
@@ -348,8 +348,8 @@
                   <dt>Гостей</dt>
                   <dd>{{ formatGuestCount(leadInbox.selectedLead.guestCount) }}</dd>
                 </div>
-                <div>
-                  <dt>{{ leadInbox.selectedLead.type === 'contact' ? 'Дата обращения' : 'Дата праздника' }}</dt>
+                <div v-if="leadInbox.selectedLead.type === 'birthday_request'">
+                  <dt>Дата праздника</dt>
                   <dd>{{ formatDate(leadInbox.selectedLead.requestedDate) }}</dd>
                 </div>
                 <div>
@@ -497,35 +497,6 @@ function formatDateTime(value: string): string {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(value));
-}
-
-function formatLeadType(type: string): string {
-  const labels: Record<string, string> = {
-    birthday_request: 'Заявка на день рождения',
-    contact: 'Контактная заявка',
-  };
-
-  return labels[type] ?? type;
-}
-
-function formatLeadSummary(lead: {
-  type: string;
-  branch: { name: string; shortLabel: string } | null;
-  package: { name: string } | null;
-}): string {
-  const parts = [formatLeadType(lead.type)];
-
-  if (lead.branch) {
-    parts.push(lead.branch.shortLabel || lead.branch.name);
-  } else {
-    parts.push('Филиал не указан');
-  }
-
-  if (lead.package) {
-    parts.push(lead.package.name);
-  }
-
-  return parts.join(' · ');
 }
 
 function formatGuestCount(value: number | null): string {

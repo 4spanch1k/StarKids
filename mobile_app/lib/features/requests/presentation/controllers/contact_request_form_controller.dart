@@ -16,13 +16,21 @@ enum ContactRequestSubmissionStatus {
 class ContactRequestFormController extends ChangeNotifier {
   ContactRequestFormController({
     required ContactRequestRepository repository,
-  }) : _repository = repository;
+    String? initialMessage,
+  })  : _repository = repository,
+        _initialMessage = _normalizeOptionalStatic(initialMessage) {
+    final initialMessageValue = _initialMessage;
+    if (initialMessageValue != null) {
+      messageController.text = initialMessageValue;
+    }
+  }
 
   static final RegExp _emailPattern = RegExp(
     r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
   );
 
   final ContactRequestRepository _repository;
+  final String? _initialMessage;
 
   final nameController = TextEditingController();
   final phoneController = TextEditingController();
@@ -37,6 +45,7 @@ class ContactRequestFormController extends ChangeNotifier {
   String? get submissionErrorText => _submissionErrorText;
   ContactRequestSubmissionStatus get status => _status;
   bool get isSubmitting => _status == ContactRequestSubmissionStatus.submitting;
+  bool get hasInitialMessage => _initialMessage != null;
 
   Future<void> submit() async {
     _submissionErrorText = null;
@@ -69,7 +78,7 @@ class ContactRequestFormController extends ChangeNotifier {
     nameController.clear();
     phoneController.clear();
     emailController.clear();
-    messageController.clear();
+    messageController.text = _initialMessage ?? '';
     _submission = null;
     _submissionErrorText = null;
     _status = ContactRequestSubmissionStatus.idle;
@@ -132,6 +141,13 @@ class ContactRequestFormController extends ChangeNotifier {
   }
 
   String? _normalizeOptional(String value) {
+    return _normalizeOptionalStatic(value);
+  }
+
+  static String? _normalizeOptionalStatic(String? value) {
+    if (value == null) {
+      return null;
+    }
     final normalized = value.trim();
     if (normalized.isEmpty) {
       return null;

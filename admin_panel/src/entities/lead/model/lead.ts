@@ -24,6 +24,7 @@ export type LeadListFilters = {
 export type LeadListItem = {
   id: string;
   type: LeadType;
+  summary: string;
   status: LeadStatus;
   source: string;
   customerName: string;

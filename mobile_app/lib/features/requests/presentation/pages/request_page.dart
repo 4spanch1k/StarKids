@@ -38,11 +38,13 @@ class _RequestPageState extends State<RequestPage> {
   late final BirthdayRequestFormController _birthdayController;
   late final ContactRequestFormController _contactController;
   late RequestType _selectedType;
+  late final String? _contactContextLabel;
 
   @override
   void initState() {
     super.initState();
     _selectedType = widget.args?.initialType ?? RequestType.birthdayRequest;
+    _contactContextLabel = widget.args?.initialContactContextLabel;
     _birthdayController = BirthdayRequestFormController(
       repository: ServiceRegistry.birthdayRequestRepository,
       packageRepository: ServiceRegistry.birthdayPackageRepository,
@@ -51,6 +53,7 @@ class _RequestPageState extends State<RequestPage> {
     );
     _contactController = ContactRequestFormController(
       repository: ServiceRegistry.contactRequestRepository,
+      initialMessage: widget.args?.initialContactMessage,
     );
   }
 
@@ -105,6 +108,7 @@ class _RequestPageState extends State<RequestPage> {
                   ? _RequestSuccessView(
                       branch: branch,
                       selectedPackage: package,
+                      type: RequestType.birthdayRequest,
                       submission: birthdaySubmission!,
                       onBackHome: () =>
                           Navigator.of(context).pushNamedAndRemoveUntil(
@@ -117,6 +121,7 @@ class _RequestPageState extends State<RequestPage> {
                     )
                   : _ContactRequestSuccessView(
                       submission: contactSubmission!,
+                      contextLabel: _contactContextLabel,
                       onBackHome: () =>
                           Navigator.of(context).pushNamedAndRemoveUntil(
                         AppRoutes.home,
@@ -127,6 +132,7 @@ class _RequestPageState extends State<RequestPage> {
               : isBirthdayRequest
                   ? _BirthdayRequestFormView(
                       formKey: _birthdayFormKey,
+                      type: RequestType.birthdayRequest,
                       typeSelector: _RequestTypeSelector(
                         selectedType: _selectedType,
                         onSelected: _selectRequestType,
@@ -139,11 +145,13 @@ class _RequestPageState extends State<RequestPage> {
                     )
                   : _ContactRequestFormView(
                       formKey: _contactFormKey,
+                      type: RequestType.contact,
                       typeSelector: _RequestTypeSelector(
                         selectedType: _selectedType,
                         onSelected: _selectRequestType,
                       ),
                       controller: _contactController,
+                      contextLabel: _contactContextLabel,
                     ),
         );
       },
@@ -413,6 +421,7 @@ class _BirthdayRequestFormView extends StatelessWidget {
   const _BirthdayRequestFormView({
     required this.formKey,
     required this.typeSelector,
+    required this.type,
     required this.controller,
     required this.branch,
     required this.selectedPackage,
@@ -422,6 +431,7 @@ class _BirthdayRequestFormView extends StatelessWidget {
 
   final GlobalKey<FormState> formKey;
   final Widget typeSelector;
+  final RequestType type;
   final BirthdayRequestFormController controller;
   final BranchOption branch;
   final BirthdayPackage? selectedPackage;
@@ -445,10 +455,9 @@ class _BirthdayRequestFormView extends StatelessWidget {
           children: [
             typeSelector,
             const SizedBox(height: StarKidsSpacing.xl),
-            const StarKidsSectionHeader(
-              title: 'Оставьте заявку за пару минут',
-              description:
-                  'Филиал и пакет уже под рукой. Осталось указать контакт и удобную дату.',
+            StarKidsSectionHeader(
+              title: type.formTitle,
+              description: type.formDescription,
             ),
             const SizedBox(height: StarKidsSpacing.lg),
             Container(
@@ -567,12 +576,16 @@ class _ContactRequestFormView extends StatelessWidget {
   const _ContactRequestFormView({
     required this.formKey,
     required this.typeSelector,
+    required this.type,
     required this.controller,
+    this.contextLabel,
   });
 
   final GlobalKey<FormState> formKey;
   final Widget typeSelector;
+  final RequestType type;
   final ContactRequestFormController controller;
+  final String? contextLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -591,12 +604,20 @@ class _ContactRequestFormView extends StatelessWidget {
           children: [
             typeSelector,
             const SizedBox(height: StarKidsSpacing.xl),
-            const StarKidsSectionHeader(
-              title: 'Оставьте запрос на обратную связь',
-              description:
-                  'Укажите контакт, и менеджер поможет с вопросом по филиалу, формату праздника или свободным датам.',
+            StarKidsSectionHeader(
+              title: type.formTitle,
+              description: type.formDescription,
             ),
             const SizedBox(height: StarKidsSpacing.lg),
+            if (contextLabel != null) ...[
+              _RequestContextCard(
+                label: contextLabel!,
+                description: controller.hasInitialMessage
+                    ? 'Контекст по выбранному филиалу уже добавлен в текст запроса. Можно оставить как есть или отредактировать.'
+                    : 'Контекст по выбранному филиалу сохранится в запросе для менеджера.',
+              ),
+              const SizedBox(height: StarKidsSpacing.lg),
+            ],
             if (controller.submissionErrorText != null) ...[
               _RequestStatusBanner(
                 title: 'Запрос пока не отправлен',
@@ -648,8 +669,9 @@ class _ContactRequestFormView extends StatelessWidget {
               label: 'Что нужно уточнить',
               hintText:
                   'Свободные даты, формат праздника, цены или другой вопрос',
-              helperText:
-                  'Необязательно. Чем точнее вопрос, тем быстрее менеджер подготовит ответ.',
+              helperText: controller.hasInitialMessage
+                  ? 'Мы уже добавили стартовый контекст по выбранному филиалу. При желании уточните вопрос своими словами.'
+                  : 'Необязательно. Чем точнее вопрос, тем быстрее менеджер подготовит ответ.',
               maxLines: 4,
               minLines: 4,
               textInputAction: TextInputAction.newline,
@@ -672,6 +694,7 @@ class _RequestSuccessView extends StatelessWidget {
   const _RequestSuccessView({
     required this.branch,
     required this.selectedPackage,
+    required this.type,
     required this.submission,
     required this.onBackHome,
     required this.onCreateAnother,
@@ -679,6 +702,7 @@ class _RequestSuccessView extends StatelessWidget {
 
   final BranchOption branch;
   final BirthdayPackage? selectedPackage;
+  final RequestType type;
   final BirthdayRequestSubmission submission;
   final VoidCallback onBackHome;
   final VoidCallback onCreateAnother;
@@ -689,10 +713,9 @@ class _RequestSuccessView extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.all(StarKidsSpacing.xl),
         children: [
-          const _RequestStatusBanner(
-            title: 'Заявка отправлена',
-            description:
-                'Мы уже передали запрос менеджеру Star Kids. Дальше с вами свяжутся, чтобы подтвердить детали праздника.',
+          _RequestStatusBanner(
+            title: type.successTitle,
+            description: type.successDescription,
             backgroundColor: StarKidsColors.statusSuccessSurface,
             foregroundColor: StarKidsColors.statusSuccess,
             icon: Icons.check_circle_rounded,
@@ -740,7 +763,7 @@ class _RequestSuccessView extends StatelessWidget {
           Center(
             child: StarKidsButton.ghost(
               label: selectedPackage == null
-                  ? RequestType.birthdayRequest.createAnotherLabel
+                  ? type.createAnotherLabel
                   : 'Оставить еще одну заявку по этому пакету',
               onPressed: onCreateAnother,
             ),
@@ -754,11 +777,13 @@ class _RequestSuccessView extends StatelessWidget {
 class _ContactRequestSuccessView extends StatelessWidget {
   const _ContactRequestSuccessView({
     required this.submission,
+    this.contextLabel,
     required this.onBackHome,
     required this.onCreateAnother,
   });
 
   final ContactRequestSubmission submission;
+  final String? contextLabel;
   final VoidCallback onBackHome;
   final VoidCallback onCreateAnother;
 
@@ -768,10 +793,9 @@ class _ContactRequestSuccessView extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.all(StarKidsSpacing.xl),
         children: [
-          const _RequestStatusBanner(
-            title: 'Запрос отправлен',
-            description:
-                'Мы уже передали запрос менеджеру Star Kids. С вами свяжутся по указанному номеру, чтобы помочь с выбором.',
+          _RequestStatusBanner(
+            title: submission.type.successTitle,
+            description: submission.type.successDescription,
             backgroundColor: StarKidsColors.statusSuccessSurface,
             foregroundColor: StarKidsColors.statusSuccess,
             icon: Icons.check_circle_rounded,
@@ -791,6 +815,13 @@ class _ContactRequestSuccessView extends StatelessWidget {
                   label: 'Тип обращения',
                   value: submission.type.label,
                 ),
+                if (contextLabel != null) ...[
+                  const SizedBox(height: StarKidsSpacing.md),
+                  _SuccessRow(
+                    label: 'Контекст',
+                    value: contextLabel!,
+                  ),
+                ],
                 const SizedBox(height: StarKidsSpacing.md),
                 _SuccessRow(
                   label: 'Номер заявки',
@@ -822,6 +853,46 @@ class _ContactRequestSuccessView extends StatelessWidget {
               label: submission.type.createAnotherLabel,
               onPressed: onCreateAnother,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RequestContextCard extends StatelessWidget {
+  const _RequestContextCard({
+    required this.label,
+    required this.description,
+  });
+
+  final String label;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      decoration: BoxDecoration(
+        color: StarKidsColors.surfaceSecondary,
+        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+        border: Border.all(color: StarKidsColors.borderDefault),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: textTheme.titleMedium?.copyWith(
+              color: StarKidsColors.brandPrimary,
+            ),
+          ),
+          const SizedBox(height: StarKidsSpacing.xs),
+          Text(
+            description,
+            style: textTheme.bodyMedium,
           ),
         ],
       ),

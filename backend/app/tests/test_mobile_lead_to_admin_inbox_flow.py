@@ -134,6 +134,7 @@ class MobileLeadToAdminInboxFlowTests(unittest.TestCase):
             {
                 'id': request_id,
                 'type': 'birthday_request',
+                'summary': 'Заявка на день рождения · Main · Spark Party',
                 'status': 'new',
                 'source': 'mobile_app',
                 'customerName': 'Amina',
