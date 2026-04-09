@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from ...core.exceptions.http import DomainHTTPException, NotFoundException
 from ...db.repositories.lead_inbox_repository import LeadInboxRecord, LeadInboxRepository
 from ..leads.constants import LEAD_TYPE_BIRTHDAY_REQUEST, LEAD_TYPE_CONTACT
@@ -191,6 +193,10 @@ class AdminLeadInboxService:
                 parts.append(branch_label)
             if record.birthday_package_name is not None:
                 parts.append(record.birthday_package_name)
+            if record.requested_date is not None:
+                parts.append(self._format_requested_date(record.requested_date))
+            if record.guest_count is not None:
+                parts.append(self._format_guest_count(record.guest_count))
             return ' · '.join(parts)
 
         parts = ['Связь с менеджером']
@@ -215,4 +221,22 @@ class AdminLeadInboxService:
             if normalized_email:
                 return normalized_email
 
+        normalized_phone = record.phone.strip()
+        if normalized_phone:
+            return normalized_phone
+
+        normalized_name = record.customer_name.strip()
+        if normalized_name:
+            return normalized_name
+
         return 'Без дополнительного контекста'
+
+    def _format_requested_date(self, value: date) -> str:
+        return value.strftime('%d.%m.%Y')
+
+    def _format_guest_count(self, value: int) -> str:
+        if value % 10 == 1 and value % 100 != 11:
+            return f'{value} гость'
+        if value % 10 in {2, 3, 4} and value % 100 not in {12, 13, 14}:
+            return f'{value} гостя'
+        return f'{value} гостей'

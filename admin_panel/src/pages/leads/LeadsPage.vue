@@ -113,7 +113,7 @@
         <StatePanel
           v-else-if="leadInbox.leads.length === 0"
           title="По этим фильтрам заявок нет"
-          description="Измените период, филиал или статус, чтобы вернуть обращения в очередь."
+          :description="emptyStateDescription"
         >
           <template #actions>
             <button
@@ -141,6 +141,10 @@
             >
               <div class="lead-card__header">
                 <div class="lead-card__title">
+                  <div class="lead-card__meta">
+                    <StatusBadge :label="formatType(lead.type)" tone="neutral" />
+                    <span>{{ formatSource(lead.source) }}</span>
+                  </div>
                   <strong>{{ lead.customerName }}</strong>
                   <p>
                     {{ lead.summary }}
@@ -185,22 +189,13 @@
 
               <div class="lead-card__quick-actions">
                 <button
-                  v-if="lead.status === 'new'"
+                  v-if="quickActionForLead(lead.status)"
                   type="button"
                   class="admin-button admin-button--secondary lead-card__quick-button"
                   :disabled="leadInbox.isStatusUpdating"
-                  @click.stop="leadInbox.quickUpdateLeadStatus(lead.id, 'in_progress')"
+                  @click.stop="triggerQuickAction(lead.id, lead.status)"
                 >
-                  В работу
-                </button>
-                <button
-                  v-else-if="lead.status === 'in_progress'"
-                  type="button"
-                  class="admin-button admin-button--secondary lead-card__quick-button"
-                  :disabled="leadInbox.isStatusUpdating"
-                  @click.stop="leadInbox.quickUpdateLeadStatus(lead.id, 'closed')"
-                >
-                  Закрыть
+                  {{ quickActionForLead(lead.status)?.label }}
                 </button>
               </div>
             </div>
@@ -247,10 +242,13 @@
               <p class="lead-detail__eyebrow">Выбранная заявка</p>
               <div class="lead-detail__title-row">
                 <h2>{{ leadInbox.selectedLead.customerName }}</h2>
-                <StatusBadge
-                  :label="formatStatus(leadInbox.selectedLead.status)"
-                  :tone="statusTone(leadInbox.selectedLead.status)"
-                />
+                <div class="lead-detail__badges">
+                  <StatusBadge :label="formatType(leadInbox.selectedLead.type)" tone="neutral" />
+                  <StatusBadge
+                    :label="formatStatus(leadInbox.selectedLead.status)"
+                    :tone="statusTone(leadInbox.selectedLead.status)"
+                  />
+                </div>
               </div>
               <p class="lead-detail__description">
                 {{ leadInbox.selectedLead.summary }}
@@ -286,12 +284,16 @@
                 :class="{
                   'lead-status-button--active': status === leadInbox.selectedLead.status,
                 }"
-                :disabled="leadInbox.isStatusUpdating"
+                :disabled="leadInbox.isStatusUpdating || !canUpdateSelectedLeadStatus(status)"
                 @click="leadInbox.updateLeadStatus(status)"
               >
                 {{ formatStatus(status) }}
               </button>
             </div>
+
+            <p class="lead-status-panel__hint">
+              {{ statusFlowHint }}
+            </p>
 
             <p
               v-if="leadInbox.statusSuccessMessage"
@@ -344,6 +346,18 @@
                 <h3>{{ leadInbox.selectedLead.type === 'contact' ? 'Параметры обращения' : 'Параметры заявки' }}</h3>
               </div>
               <dl class="lead-detail-card__list">
+                <div>
+                  <dt>Тип</dt>
+                  <dd>{{ formatType(leadInbox.selectedLead.type) }}</dd>
+                </div>
+                <div v-if="leadInbox.selectedLead.type === 'birthday_request'">
+                  <dt>Филиал</dt>
+                  <dd>{{ formatBranchName(leadInbox.selectedLead.branch) }}</dd>
+                </div>
+                <div v-if="leadInbox.selectedLead.type === 'birthday_request'">
+                  <dt>Пакет</dt>
+                  <dd>{{ formatPackageName(leadInbox.selectedLead.package) }}</dd>
+                </div>
                 <div v-if="leadInbox.selectedLead.type === 'birthday_request'">
                   <dt>Гостей</dt>
                   <dd>{{ formatGuestCount(leadInbox.selectedLead.guestCount) }}</dd>
@@ -361,10 +375,10 @@
 
             <article class="lead-detail-card lead-detail-card--full">
               <div class="admin-section-heading">
-                <h3>Комментарий клиента</h3>
+                <h3>{{ leadInbox.selectedLead.type === 'contact' ? 'Контекст обращения' : 'Комментарий клиента' }}</h3>
               </div>
               <p class="lead-detail-card__notes">
-                {{ leadInbox.selectedLead.notes || 'Комментарий не оставлен.' }}
+                {{ notesFallback(leadInbox.selectedLead.type, leadInbox.selectedLead.notes) }}
               </p>
             </article>
           </div>
@@ -377,7 +391,15 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive } from 'vue';
 
-import { leadStatuses, type LeadStatus } from '@/entities/lead/model/lead';
+import {
+  describeLeadStatusFlow,
+  formatLeadStatus as formatStatus,
+  formatLeadType as formatType,
+  isLeadStatusActionEnabled,
+  leadStatuses,
+  type LeadStatus,
+  type LeadType,
+} from '@/entities/lead/model/lead';
 import { useLeadInbox } from '@/features/leads/model/useLeadInbox';
 import AppDateRangeField from '@/shared/ui/AppDateRangeField.vue';
 import AppSelectField from '@/shared/ui/AppSelectField.vue';
@@ -386,12 +408,6 @@ import StatePanel from '@/shared/ui/StatePanel.vue';
 import StatusBadge from '@/shared/ui/StatusBadge.vue';
 
 const leadInbox = reactive(useLeadInbox());
-
-const statusLabels: Record<LeadStatus, string> = {
-  new: 'Новая',
-  in_progress: 'В работе',
-  closed: 'Закрыта',
-};
 
 const totalLabel = computed(() => {
   const count = leadInbox.total;
@@ -409,7 +425,7 @@ const filterSummary = computed(() => {
     return 'Показаны все обращения без дополнительных ограничений.';
   }
 
-  return 'Очередь отфильтрована по выбранным условиям.';
+  return buildFilterExplanation({ includeBranchCaveat: true });
 });
 
 const newLeadCount = computed(() => {
@@ -432,6 +448,31 @@ const branchFilterOptions = computed(() => {
       value: branch.id,
     })),
   ];
+});
+
+const selectedBranchLabel = computed(() => {
+  const selectedBranch = leadInbox.branchOptions.find(
+    (branch) => branch.id === leadInbox.filters.branchId,
+  );
+
+  return selectedBranch?.shortLabel ?? 'выбранный филиал';
+});
+
+const emptyStateDescription = computed(() => {
+  if (leadInbox.hasActiveFilters) {
+    const explanation = buildFilterExplanation({ includeBranchCaveat: true });
+    return `По этим условиям заявок не найдено. ${explanation}`;
+  }
+
+  return 'Измените период, филиал или статус, чтобы вернуть обращения в очередь.';
+});
+
+const statusFlowHint = computed(() => {
+  if (!leadInbox.selectedLead) {
+    return '';
+  }
+
+  return describeLeadStatusFlow(leadInbox.selectedLead.status);
 });
 
 const statusFilterOptions = computed(() => {
@@ -460,10 +501,6 @@ const createdRange = computed({
 onMounted(() => {
   void leadInbox.initialize();
 });
-
-function formatStatus(status: LeadStatus): string {
-  return statusLabels[status];
-}
 
 function statusTone(status: LeadStatus): 'new' | 'in-progress' | 'closed' {
   if (status === 'new') {
@@ -499,6 +536,22 @@ function formatDateTime(value: string): string {
   }).format(new Date(value));
 }
 
+function formatDateRangeSummary(from: string, to: string): string {
+  if (from && to) {
+    return `${formatDate(from)} - ${formatDate(to)}`;
+  }
+
+  if (from) {
+    return `с ${formatDate(from)}`;
+  }
+
+  if (to) {
+    return `до ${formatDate(to)}`;
+  }
+
+  return '';
+}
+
 function formatGuestCount(value: number | null): string {
   if (!value) {
     return 'Не указано';
@@ -532,7 +585,90 @@ function formatTelHref(phone: string): string {
   return `tel:${phone.replace(/[^\d+]/g, '')}`;
 }
 
-function deadlineLabel(type: string, value: string | null): string {
+function formatBranchName(
+  branch: { name: string; shortLabel: string } | null,
+): string {
+  if (!branch) {
+    return 'Не выбран';
+  }
+
+  return branch.shortLabel || branch.name;
+}
+
+function formatPackageName(
+  birthdayPackage: { name: string } | null,
+): string {
+  return birthdayPackage?.name ?? 'Не выбран';
+}
+
+function notesFallback(type: LeadType, notes: string | null): string {
+  if (notes) {
+    return notes;
+  }
+
+  return type === 'contact'
+    ? 'Клиент не оставил текст обращения.'
+    : 'Комментарий не оставлен.';
+}
+
+function canUpdateSelectedLeadStatus(status: LeadStatus): boolean {
+  if (!leadInbox.selectedLead) {
+    return false;
+  }
+
+  return isLeadStatusActionEnabled(leadInbox.selectedLead.status, status);
+}
+
+function buildFilterExplanation(options?: { includeBranchCaveat?: boolean }): string {
+  const notes: string[] = [];
+
+  if (leadInbox.filters.branchId) {
+    notes.push(`Филиал: ${selectedBranchLabel.value}.`);
+
+    if (options?.includeBranchCaveat) {
+      notes.push('Контактные обращения без привязки к филиалу этим фильтром скрываются.');
+    }
+  }
+
+  if (leadInbox.filters.status) {
+    notes.push(`Статус: ${formatStatus(leadInbox.filters.status)}.`);
+  }
+
+  const dateRangeSummary = formatDateRangeSummary(
+    leadInbox.filters.createdFrom,
+    leadInbox.filters.createdTo,
+  );
+  if (dateRangeSummary) {
+    notes.push(`Период: ${dateRangeSummary}.`);
+  }
+
+  return notes.join(' ');
+}
+
+function quickActionForLead(
+  status: LeadStatus,
+): { status: LeadStatus; label: string } | null {
+  if (status === 'new') {
+    return { status: 'in_progress', label: 'В работу' };
+  }
+
+  if (status === 'in_progress') {
+    return { status: 'closed', label: 'Закрыть' };
+  }
+
+  return null;
+}
+
+function triggerQuickAction(leadId: string, status: LeadStatus): void {
+  const action = quickActionForLead(status);
+  if (!action) {
+    return;
+  }
+
+  void leadInbox.quickUpdateLeadStatus(leadId, action.status);
+}
+
+function deadlineLabel(type: LeadType, value: string | null): string {
   if (type === 'contact') {
     return 'Контактное обращение';
   }
@@ -545,7 +681,7 @@ function deadlineLabel(type: string, value: string | null): string {
 }
 
 function deadlineTone(
-  type: string,
+  type: LeadType,
   value: string | null,
 ): 'neutral' | 'warning' | 'danger' {
   if (type === 'contact') {
@@ -571,7 +707,7 @@ function deadlineTone(
   return 'neutral';
 }
 
-function deadlineClass(type: string, value: string | null): string {
+function deadlineClass(type: LeadType, value: string | null): string {
   return `lead-deadline--${deadlineTone(type, value)}`;
 }
 
@@ -677,6 +813,20 @@ function startOfDay(date: Date): Date {
 .lead-card__title {
   display: grid;
   gap: 2px;
+}
+
+.lead-card__meta,
+.lead-detail__badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.lead-card__meta span {
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .lead-card__title strong {
@@ -828,6 +978,13 @@ function startOfDay(date: Date): Date {
 .lead-status-panel {
   display: grid;
   gap: 10px;
+}
+
+.lead-status-panel__hint {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .lead-status-panel__actions {
