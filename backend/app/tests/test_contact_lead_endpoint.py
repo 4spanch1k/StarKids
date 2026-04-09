@@ -180,6 +180,33 @@ class ContactLeadEndpointTests(unittest.TestCase):
         self.assertEqual(response.json()['type'], 'contact')
         self.assertEqual(response.json()['status'], 'in_progress')
 
+    def test_contact_lead_summary_falls_back_to_phone_when_message_and_email_missing(self) -> None:
+        with self.SessionLocal() as session:
+            session.add(
+                ContactLead(
+                    id='contact-fallback',
+                    customer_name='Dana',
+                    phone='+77070000002',
+                    email=None,
+                    message='   ',
+                    status='new',
+                    source='mobile_app',
+                    created_at=datetime(2026, 4, 8, 9, 0, tzinfo=UTC),
+                )
+            )
+            session.commit()
+
+        response = self.client.get(
+            '/api/v1/admin/leads/contact-fallback',
+            headers=self._auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json()['summary'],
+            'Связь с менеджером · +77070000002',
+        )
+
     def _auth_headers(self) -> dict[str, str]:
         login_response = self.client.post(
             '/api/v1/admin/auth/login',

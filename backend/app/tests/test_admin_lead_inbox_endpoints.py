@@ -212,7 +212,7 @@ class AdminLeadInboxEndpointTests(unittest.TestCase):
             {
                 'id': 'lead-new',
                 'type': 'birthday_request',
-                'summary': 'Заявка на день рождения · Main · Spark Party',
+                'summary': 'Заявка на день рождения · Main · Spark Party · 18.04.2026 · 12 гостей',
                 'status': 'new',
                 'source': 'mobile_app',
                 'customerName': 'Amina',
@@ -244,7 +244,7 @@ class AdminLeadInboxEndpointTests(unittest.TestCase):
             {
                 'id': 'lead-in-progress',
                 'type': 'birthday_request',
-                'summary': 'Заявка на день рождения · Main',
+                'summary': 'Заявка на день рождения · Main · 19.04.2026 · 8 гостей',
                 'status': 'in_progress',
                 'source': 'mobile_app',
                 'customerName': 'Dana',
