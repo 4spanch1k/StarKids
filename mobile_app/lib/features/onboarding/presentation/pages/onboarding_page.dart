@@ -28,7 +28,8 @@ class OnboardingPage extends StatelessWidget {
               const SizedBox(height: 32),
               FilledButton(
                 onPressed: () {
-                  Navigator.of(context).pushReplacementNamed(AppRoutes.branchSelection);
+                  Navigator.of(context)
+                      .pushReplacementNamed(AppRoutes.branchSelection);
                 },
                 child: const Text('Continue'),
               ),
