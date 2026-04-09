@@ -12,6 +12,11 @@ import '../../features/content/data/api_public_content_repository.dart';
 import '../../features/content/domain/public_content_repository.dart';
 import '../../features/contacts/data/api_contact_links_repository.dart';
 import '../../features/contacts/domain/contact_links_repository.dart';
+import '../../features/notifications/data/device_notification_settings_repository.dart';
+import '../../features/notifications/data/notification_permission_storage.dart';
+import '../../features/notifications/data/permission_handler_notification_permission_gateway.dart';
+import '../../features/notifications/domain/notification_settings_repository.dart';
+import '../../features/notifications/presentation/controllers/mobile_notifications_controller.dart';
 import '../../features/prices_rules/data/api_prices_rules_repository.dart';
 import '../../features/prices_rules/domain/prices_rules_repository.dart';
 import '../../features/promotions/data/api_promotion_repository.dart';
@@ -57,6 +62,17 @@ abstract final class ServiceRegistry {
       ApiContactLinksRepository(
     apiClient: apiClient,
   );
+  static final notificationPermissionStorage = NotificationPermissionStorage();
+  static final notificationPermissionGateway =
+      PermissionHandlerNotificationPermissionGateway();
+  static final NotificationSettingsRepository notificationSettingsRepository =
+      DeviceNotificationSettingsRepository(
+    storage: notificationPermissionStorage,
+    permissionGateway: notificationPermissionGateway,
+  );
+  static final mobileNotificationsController = MobileNotificationsController(
+    repository: notificationSettingsRepository,
+  );
   static final PublicContentRepository publicContentRepository =
       ApiPublicContentRepository(
     apiClient: apiClient,
@@ -77,6 +93,7 @@ abstract final class ServiceRegistry {
 
   static Future<void> bootstrap() async {
     await mobileAuthController.bootstrap();
+    await mobileNotificationsController.bootstrap();
     await selectedBranchController.load();
   }
 }
