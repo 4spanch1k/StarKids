@@ -13,4 +13,3 @@ class HomePromotion {
   final String imagePath;
   final String badgeLabel;
 }
-

@@ -4,19 +4,76 @@ type RequestOptions = RequestInit & {
   path: string;
 };
 
-export async function httpClient<T>({ path, ...options }: RequestOptions): Promise<T> {
-  const response = await fetch(`${env.apiBaseUrl}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-    ...options,
-  });
+export class HttpError extends Error {
+  status: number;
+  payload: unknown;
 
-  if (!response.ok) {
-    throw new Error(`Request failed with status ${response.status}`);
+  constructor(message: string, status: number, payload: unknown) {
+    super(message);
+    this.name = 'HttpError';
+    this.status = status;
+    this.payload = payload;
   }
-
-  return (await response.json()) as T;
 }
 
+export async function httpClient<T>({ path, ...options }: RequestOptions): Promise<T> {
+  let response: Response;
+
+  try {
+    response = await fetch(`${env.apiBaseUrl}${path}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      ...options,
+    });
+  } catch (error) {
+    throw new Error(resolveNetworkErrorMessage(error));
+  }
+
+  if (!response.ok) {
+    const payload = await readResponseBody(response);
+    throw new HttpError(resolveErrorMessage(response.status, payload), response.status, payload);
+  }
+
+  return (await readResponseBody(response)) as T;
+}
+
+async function readResponseBody(response: Response): Promise<unknown> {
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    return response.json();
+  }
+
+  const text = await response.text();
+  return text || null;
+}
+
+function resolveErrorMessage(status: number, payload: unknown): string {
+  if (typeof payload === 'object' && payload !== null) {
+    const typedPayload = payload as {
+      error?: { message?: unknown };
+      message?: unknown;
+    };
+
+    if (typeof typedPayload.error?.message === 'string') {
+      return typedPayload.error.message;
+    }
+    if (typeof typedPayload.message === 'string') {
+      return typedPayload.message;
+    }
+  }
+
+  return `Запрос завершился с ошибкой (${status})`;
+}
+
+function resolveNetworkErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    const normalizedMessage = error.message.trim().toLowerCase();
+    if (normalizedMessage === 'load failed' || normalizedMessage === 'failed to fetch') {
+      return 'Не удалось подключиться к серверу. Проверьте, что локальный API запущен.';
+    }
+  }
+
+  return 'Не удалось подключиться к серверу. Попробуйте еще раз.';
+}

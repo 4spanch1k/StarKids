@@ -2,6 +2,7 @@ from ...core.exceptions.http import DomainHTTPException, NotFoundException
 from ...db.repositories.branch_repository import BranchRepository
 from ...db.repositories.birthday_package_repository import BirthdayPackageRepository
 from ...db.repositories.lead_repository import LeadRepository
+from .constants import LEAD_TYPE_CONTACT
 from .schemas import (
     BirthdayLeadCreate,
     BirthdayLeadSubmittedResponse,
@@ -21,13 +22,32 @@ class LeadService:
         self.branch_repository = branch_repository or BranchRepository()
         self.package_repository = package_repository or BirthdayPackageRepository()
 
-    def create_contact_lead(self, payload: ContactLeadCreate) -> LeadCreatedResponse:
-        lead = self.repository.create({'type': 'contact', 'phone': payload.phone})
-        return LeadCreatedResponse.model_validate(lead)
+    def create_contact_lead(
+        self,
+        payload: ContactLeadCreate,
+        *,
+        mobile_user_id: str | None = None,
+    ) -> LeadCreatedResponse:
+        lead = self.repository.create_contact_lead(
+            {
+                'mobile_user_id': mobile_user_id,
+                'customer_name': payload.name,
+                'phone': payload.phone,
+                'email': payload.email,
+                'message': payload.message,
+            }
+        )
+        return LeadCreatedResponse(
+            id=lead.id,
+            type=LEAD_TYPE_CONTACT,
+            status=lead.status,
+        )
 
     def create_birthday_lead(
         self,
         payload: BirthdayLeadCreate,
+        *,
+        mobile_user_id: str | None = None,
     ) -> BirthdayLeadSubmittedResponse:
         branch = self.branch_repository.get_active_by_id(payload.branchId)
         if branch is None:
@@ -60,6 +80,7 @@ class LeadService:
 
         request = self.repository.create_birthday_lead(
             {
+                'mobile_user_id': mobile_user_id,
                 'branch_id': payload.branchId,
                 'birthday_package_id': payload.packageId,
                 'customer_name': payload.name,

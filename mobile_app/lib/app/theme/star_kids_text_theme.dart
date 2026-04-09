@@ -67,4 +67,3 @@ abstract final class StarKidsTextTheme {
     );
   }
 }
-

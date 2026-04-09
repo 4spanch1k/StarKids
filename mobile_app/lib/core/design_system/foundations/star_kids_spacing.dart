@@ -10,4 +10,3 @@ abstract final class StarKidsSpacing {
   static const double x5l = 48;
   static const double x6l = 64;
 }
-

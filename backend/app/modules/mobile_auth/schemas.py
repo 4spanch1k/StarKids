@@ -1,8 +1,8 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class OTPRequest(BaseModel):
-    phone: str
+    phone: str = Field(min_length=8, max_length=20)
 
 
 class OTPRequestResponse(BaseModel):
@@ -11,12 +11,24 @@ class OTPRequestResponse(BaseModel):
 
 
 class OTPVerifyRequest(BaseModel):
+    phone: str = Field(min_length=8, max_length=20)
+    code: str = Field(min_length=4, max_length=8, pattern=r'^\d{4,8}$')
+    verification_id: str = Field(min_length=1)
+
+
+class MobileRefreshRequest(BaseModel):
+    refresh_token: str = Field(min_length=1)
+
+
+class MobileCurrentUserResponse(BaseModel):
+    id: str
     phone: str
-    code: str
-    verification_id: str
 
 
-class TokenResponse(BaseModel):
+class MobileAuthResponse(BaseModel):
     access_token: str
     refresh_token: str
-
+    token_type: str = 'bearer'
+    expires_in_seconds: int
+    refresh_expires_in_seconds: int
+    user: MobileCurrentUserResponse

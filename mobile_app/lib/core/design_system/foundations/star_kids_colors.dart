@@ -37,4 +37,3 @@ abstract final class StarKidsColors {
   static const Color overlayImageTop = Color(0x33171316);
   static const Color overlayImageBottom = Color(0x80171316);
 }
-

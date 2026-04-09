@@ -25,4 +25,3 @@ abstract final class StarKidsShadows {
     ),
   ];
 }
-
