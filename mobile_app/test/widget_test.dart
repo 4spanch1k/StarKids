@@ -1,30 +1,66 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:star_kids_mobile/main.dart';
+import 'package:star_kids_mobile/app/app.dart';
+import 'package:star_kids_mobile/app/router/app_routes.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  TestWidgetsFlutterBinding.ensureInitialized();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  testWidgets('commercial surfaces are reachable from home', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    await tester.pumpWidget(const StarKidsApp());
+    expect(find.text('Star Kids Shymkent'), findsOneWidget);
+
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Star Kids Al-Farabi'));
+    await tester.tap(find.text('Star Kids Al-Farabi'));
+    await tester.pumpAndSettle();
+
+    final navigator = Navigator.of(
+      tester.element(find.byType(Scaffold).first),
+    );
+
+    navigator.pushNamed(AppRoutes.promotions);
+    await tester.pumpAndSettle();
+    expect(find.text('Акции'), findsWidgets);
+
+    navigator.pop();
+    await tester.pumpAndSettle();
+
+    navigator.pushNamed(AppRoutes.pricesRules);
+    await tester.pumpAndSettle();
+    expect(find.text('Цены и правила'), findsWidgets);
+
+    navigator.pop();
+    await tester.pumpAndSettle();
+
+    navigator.pushNamed(AppRoutes.contacts);
+    await tester.pumpAndSettle();
+    expect(find.text('Контакты и маршрут'), findsOneWidget);
+
+    navigator.pop();
+    await tester.pumpAndSettle();
+
+    navigator.pushNamed(AppRoutes.profile);
+    await tester.pumpAndSettle();
+    expect(find.text('Войдите по номеру телефона'), findsOneWidget);
+    expect(find.text('Мои заявки'), findsOneWidget);
+
+    await tester.tap(find.text('Мои заявки'));
+    await tester.pumpAndSettle();
+    expect(find.text('История доступна после входа'), findsOneWidget);
   });
 }

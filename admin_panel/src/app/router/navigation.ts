@@ -4,18 +4,25 @@ export type NavigationItem = {
   to: string;
 };
 
-export const navigationItems: NavigationItem[] = [
-  { name: 'dashboard', label: 'Dashboard', to: '/' },
-  { name: 'leads', label: 'Leads', to: '/leads' },
-  { name: 'branches', label: 'Branches', to: '/branches' },
-  { name: 'birthday-packages', label: 'Birthday Packages', to: '/birthday-packages' },
-  { name: 'tariffs', label: 'Tariffs', to: '/tariffs' },
-  { name: 'promotions', label: 'Promotions', to: '/promotions' },
-  { name: 'content', label: 'Content', to: '/content' },
-  { name: 'gallery', label: 'Gallery', to: '/gallery' },
-  { name: 'faq', label: 'FAQ', to: '/faq' },
-  { name: 'customers', label: 'Customers', to: '/customers' },
-  { name: 'push-campaigns', label: 'Push Campaigns', to: '/push-campaigns' },
-  { name: 'audit-logs', label: 'Audit Logs', to: '/audit-logs' }
+export const primaryNavigationItems: NavigationItem[] = [
+  { name: 'leads', label: 'Заявки', to: '/leads' },
+  { name: 'branches', label: 'Филиалы', to: '/branches' },
+  { name: 'birthday-packages', label: 'Пакеты дней рождения', to: '/birthday-packages' },
+  { name: 'promotions', label: 'Акции', to: '/promotions' },
+  { name: 'content', label: 'Контент', to: '/content' },
+  { name: 'gallery', label: 'Галерея', to: '/gallery' },
+  { name: 'faq', label: 'Частые вопросы', to: '/faq' },
 ];
 
+export const secondaryNavigationItems: NavigationItem[] = [
+  { name: 'dashboard', label: 'Сводка', to: '/dashboard' },
+  { name: 'tariffs', label: 'Тарифы и правила', to: '/tariffs' },
+  { name: 'customers', label: 'Клиенты', to: '/customers' },
+  { name: 'push-campaigns', label: 'Пуш-кампании', to: '/push-campaigns' },
+  { name: 'audit-logs', label: 'Журнал аудита', to: '/audit-logs' },
+];
+
+export const navigationItems: NavigationItem[] = [
+  ...primaryNavigationItems,
+  ...secondaryNavigationItems,
+];

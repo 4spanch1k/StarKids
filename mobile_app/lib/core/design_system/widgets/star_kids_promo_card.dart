@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../foundations/star_kids_colors.dart';
 import '../foundations/star_kids_radii.dart';
 import '../foundations/star_kids_spacing.dart';
+import 'star_kids_media_image.dart';
 import 'star_kids_button.dart';
 
 class StarKidsPromoCard extends StatelessWidget {
@@ -34,7 +35,7 @@ class StarKidsPromoCard extends StatelessWidget {
         children: [
           AspectRatio(
             aspectRatio: 19 / 10,
-            child: Image.asset(imagePath, fit: BoxFit.cover),
+            child: StarKidsMediaImage(source: imagePath),
           ),
           Padding(
             padding: const EdgeInsets.all(StarKidsSpacing.lg),

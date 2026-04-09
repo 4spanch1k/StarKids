@@ -4,4 +4,3 @@ abstract final class StarKidsIconSizes {
   static const double md = 24;
   static const double lg = 32;
 }
-

@@ -6,4 +6,3 @@ abstract final class StarKidsRadii {
   static const double hero = 32;
   static const double full = 999;
 }
-

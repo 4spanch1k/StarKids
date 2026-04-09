@@ -9,6 +9,8 @@ from pydantic import (
     field_validator,
 )
 
+from .constants import LeadStatus, LeadType
+
 PHONE_PATTERN = r'^\+?[0-9()\- ]{10,20}$'
 
 
@@ -38,8 +40,8 @@ class BirthdayLeadCreate(BaseModel):
 
 class LeadCreatedResponse(BaseModel):
     id: str
-    type: str
-    status: str
+    type: LeadType
+    status: LeadStatus
 
 
 class BirthdayLeadSubmittedResponse(BaseModel):

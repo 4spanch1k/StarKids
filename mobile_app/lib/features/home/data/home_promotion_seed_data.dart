@@ -18,4 +18,3 @@ const homePromotionSeedData = <HomePromotion>[
     badgeLabel: 'Weekend',
   ),
 ];
-
