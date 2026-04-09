@@ -91,6 +91,12 @@ class MobileAuthService:
         user, _ = self._authenticate_access_token(access_token)
         return user
 
+    def authenticate_access_context(
+        self,
+        access_token: str,
+    ) -> tuple[MobileUser, MobileSession]:
+        return self._authenticate_access_token(access_token)
+
     @staticmethod
     def authentication_required_exception() -> DomainHTTPException:
         return DomainHTTPException(
