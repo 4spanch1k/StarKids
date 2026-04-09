@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -14,10 +16,17 @@ import '../../../auth/domain/mobile_auth_session.dart';
 import '../../../auth/domain/otp_challenge.dart';
 import '../../../auth/presentation/controllers/mobile_auth_controller.dart';
 import '../../../branches/domain/branch_option.dart';
+import '../../../notifications/domain/notification_permission_status.dart';
+import '../../../notifications/presentation/controllers/mobile_notifications_controller.dart';
 import '../../../requests/presentation/formatters/kz_phone_input_formatter.dart';
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
+  const ProfilePage({
+    super.key,
+    this.notificationsController,
+  });
+
+  final MobileNotificationsController? notificationsController;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -32,8 +41,13 @@ class _ProfilePageState extends State<ProfilePage> {
   MobileAuthController get _authController =>
       ServiceRegistry.mobileAuthController;
 
+  MobileNotificationsController get _notificationsController =>
+      widget.notificationsController ??
+      ServiceRegistry.mobileNotificationsController;
+
   Listenable get _pageListenable => Listenable.merge([
         _authController,
+        _notificationsController,
         ServiceRegistry.selectedBranchController,
       ]);
 
@@ -41,6 +55,7 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     _authController.addListener(_syncControllers);
+    unawaited(_notificationsController.bootstrap());
     _syncControllers();
   }
 
@@ -199,6 +214,13 @@ class _ProfilePageState extends State<ProfilePage> {
                     onOpenHistory: () => Navigator.of(
                       context,
                     ).pushNamed(AppRoutes.myRequests),
+                  ),
+                  const SizedBox(height: StarKidsSpacing.lg),
+                  _NotificationsStatusCard(
+                    status: _notificationsController.status,
+                    onOpenStatus: () => Navigator.of(
+                      context,
+                    ).pushNamed(AppRoutes.notifications),
                   ),
                 ],
               ),
@@ -597,6 +619,78 @@ class _ProfileNextStepCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _NotificationsStatusCard extends StatelessWidget {
+  const _NotificationsStatusCard({
+    required this.status,
+    required this.onOpenStatus,
+  });
+
+  final NotificationPermissionStatus status;
+  final VoidCallback onOpenStatus;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      decoration: BoxDecoration(
+        color: StarKidsColors.surfaceSecondary,
+        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+        border: Border.all(color: StarKidsColors.borderDefault),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Уведомления', style: textTheme.titleLarge),
+          const SizedBox(height: StarKidsSpacing.sm),
+          Text(
+            _descriptionForStatus(status),
+            style: textTheme.bodyMedium,
+          ),
+          const SizedBox(height: StarKidsSpacing.md),
+          _ProfileFactRow(
+            label: 'Состояние',
+            value: _labelForStatus(status),
+          ),
+          const SizedBox(height: StarKidsSpacing.md),
+          StarKidsButton.secondary(
+            label: 'Статус уведомлений',
+            onPressed: onOpenStatus,
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _labelForStatus(NotificationPermissionStatus status) {
+    return switch (status) {
+      NotificationPermissionStatus.unknown => 'Не запрашивалось',
+      NotificationPermissionStatus.granted => 'Разрешено',
+      NotificationPermissionStatus.denied => 'Отключено',
+      NotificationPermissionStatus.unavailable => 'Недоступно',
+    };
+  }
+
+  String _descriptionForStatus(NotificationPermissionStatus status) {
+    return switch (status) {
+      NotificationPermissionStatus.unknown =>
+        'Разрешение на уведомления еще не запрашивалось. Сейчас доступна '
+            'только foundation-подготовка: backend registration устройства '
+            'еще не подключена.',
+      NotificationPermissionStatus.granted =>
+        'Разрешение на уведомления уже выдано, но push delivery пока не '
+            'активна: backend не регистрирует устройство.',
+      NotificationPermissionStatus.denied =>
+        'Разрешение на уведомления отключено. Его можно проверить и '
+            'изменить отдельно, но push delivery пока еще не подключена.',
+      NotificationPermissionStatus.unavailable =>
+        'В этой сборке управление уведомлениями недоступно, а backend '
+            'registration устройства пока отсутствует.',
+    };
   }
 }
 
