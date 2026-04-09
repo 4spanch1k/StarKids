@@ -1,10 +1,11 @@
 from datetime import date, datetime, timezone
-from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, field_serializer
 
-RequestHistoryType = Literal['birthday_request', 'contact']
-RequestHistoryStatus = Literal['new', 'in_progress', 'closed']
+from ..leads.constants import LeadStatus, LeadType
+
+RequestHistoryType = LeadType
+RequestHistoryStatus = LeadStatus
 
 
 class MobileRequestHistoryBranchSummary(BaseModel):

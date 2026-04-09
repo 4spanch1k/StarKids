@@ -228,7 +228,7 @@ class _RequestHistoryCard extends StatelessWidget {
           ],
           const SizedBox(height: StarKidsSpacing.lg),
           Text(
-            item.hasNotes ? item.notes!.trim() : _fallbackNotes(item.type),
+            item.hasNotes ? item.notes!.trim() : item.type.fallbackHistoryNotes,
             style: textTheme.bodyMedium,
           ),
         ],
@@ -296,15 +296,6 @@ class _RequestHistoryCard extends StatelessWidget {
     final localizations = MaterialLocalizations.of(context);
     final localDateTime = createdAt.toLocal();
     return '${localizations.formatMediumDate(localDateTime)} • ${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(localDateTime), alwaysUse24HourFormat: true)}';
-  }
-
-  String _fallbackNotes(RequestHistoryType type) {
-    switch (type) {
-      case RequestHistoryType.birthdayRequest:
-        return 'Заявка на день рождения отправлена. Менеджер свяжется с вами для уточнения деталей.';
-      case RequestHistoryType.contact:
-        return 'Запрос на обратную связь отправлен. Менеджер свяжется с вами по указанному номеру.';
-    }
   }
 }
 

@@ -5,6 +5,8 @@ import 'package:star_kids_mobile/features/request_history/domain/request_history
 import 'package:star_kids_mobile/features/request_history/domain/request_history_repository.dart';
 import 'package:star_kids_mobile/features/request_history/presentation/controllers/request_history_controller.dart';
 import 'package:star_kids_mobile/features/request_history/presentation/pages/request_history_page.dart';
+import 'package:star_kids_mobile/features/requests/domain/request_status.dart';
+import 'package:star_kids_mobile/features/requests/domain/request_type.dart';
 
 void main() {
   group('RequestHistoryPage', () {
@@ -68,8 +70,8 @@ void main() {
               items: [
                 RequestHistoryItem(
                   id: 'request-1',
-                  type: RequestHistoryType.birthdayRequest,
-                  status: RequestHistoryStatus.inProgress,
+                  type: RequestType.birthdayRequest,
+                  status: RequestStatus.inProgress,
                   createdAt: DateTime.parse('2026-04-09T10:00:00Z'),
                   requestedDate: DateTime(2026, 4, 15),
                   guestCount: 10,
@@ -139,8 +141,8 @@ void main() {
             items: [
               RequestHistoryItem(
                 id: 'request-1',
-                type: RequestHistoryType.birthdayRequest,
-                status: RequestHistoryStatus.newRequest,
+                type: RequestType.birthdayRequest,
+                status: RequestStatus.newRequest,
                 createdAt: DateTime.parse('2026-04-09T10:00:00Z'),
                 notes: 'Первая загрузка',
               ),
@@ -151,8 +153,8 @@ void main() {
             items: [
               RequestHistoryItem(
                 id: 'request-2',
-                type: RequestHistoryType.contact,
-                status: RequestHistoryStatus.inProgress,
+                type: RequestType.contact,
+                status: RequestStatus.inProgress,
                 createdAt: DateTime.parse('2026-04-09T11:00:00Z'),
                 notes: 'Данные после обновления',
               ),
@@ -174,6 +176,41 @@ void main() {
 
       expect(find.text('Данные после обновления'), findsOneWidget);
       expect(repository.callCount, 2);
+    });
+
+    testWidgets('shows contact fallback notes from shared request type model', (
+      WidgetTester tester,
+    ) async {
+      final controller = RequestHistoryController(
+        repository: _FakeRequestHistoryRepository(
+          results: [
+            RequestHistoryFetchSuccess(
+              total: 1,
+              items: [
+                RequestHistoryItem(
+                  id: 'request-3',
+                  type: RequestType.contact,
+                  status: RequestStatus.newRequest,
+                  createdAt: DateTime.parse('2026-04-09T12:00:00Z'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: RequestHistoryPage(controller: controller)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Связь с менеджером'), findsOneWidget);
+      expect(
+        find.text(
+          'Запрос на обратную связь отправлен. Менеджер свяжется с вами по указанному номеру.',
+        ),
+        findsOneWidget,
+      );
     });
   });
 }

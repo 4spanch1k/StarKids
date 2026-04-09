@@ -1,11 +1,11 @@
 from datetime import date, datetime, timezone
-from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
+from ..leads.constants import LeadStatus, LeadType
 
-LeadInboxStatus = Literal['new', 'in_progress', 'closed']
-LeadInboxType = Literal['birthday_request', 'contact']
+LeadInboxStatus = LeadStatus
+LeadInboxType = LeadType
 
 
 class AdminLeadBranchSummary(BaseModel):

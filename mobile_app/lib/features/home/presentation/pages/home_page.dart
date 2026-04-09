@@ -19,6 +19,7 @@ import '../../../branches/domain/branch_option.dart';
 import '../../../content/domain/public_content_block.dart';
 import '../../../content/domain/public_faq_item.dart';
 import '../../../promotions/domain/promotion_offer.dart';
+import '../../../requests/domain/request_type.dart';
 import '../../../requests/presentation/models/request_page_args.dart';
 
 class HomePage extends StatelessWidget {
@@ -259,7 +260,9 @@ class HomePage extends StatelessWidget {
                               subtitle: 'Связаться с менеджером',
                               onTap: () => Navigator.of(context).pushNamed(
                                 AppRoutes.requests,
-                                arguments: const RequestPageArgs(),
+                                arguments: const RequestPageArgs(
+                                  initialType: RequestType.contact,
+                                ),
                               ),
                             ),
                           ],
@@ -321,6 +324,8 @@ class HomePage extends StatelessWidget {
                                         Navigator.of(context).pushNamed(
                                       AppRoutes.requests,
                                       arguments: RequestPageArgs(
+                                        initialType:
+                                            RequestType.birthdayRequest,
                                         initialPackageId:
                                             content.featuredPackage!.id,
                                         initialPackage: content.featuredPackage,
