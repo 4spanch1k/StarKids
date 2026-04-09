@@ -32,7 +32,8 @@ void main() {
               jsonEncode({
                 'requestId': 'request-1',
                 'submittedAt': '2026-04-09T01:00:00Z',
-                'nextStep': 'Менеджер свяжется с вами для подтверждения деталей',
+                'nextStep':
+                    'Менеджер свяжется с вами для подтверждения деталей',
               }),
               201,
               headers: const {'content-type': 'application/json'},
@@ -67,7 +68,8 @@ void main() {
       expect(authorizationHeader, 'Bearer access-token');
     });
 
-    test('keeps anonymous submit behavior when no mobile auth session exists', () async {
+    test('keeps anonymous submit behavior when no mobile auth session exists',
+        () async {
       String? authorizationHeader;
       final sessionStorage = MobileAuthSessionStorage();
       final repository = ApiBirthdayRequestRepository(
@@ -79,7 +81,8 @@ void main() {
               jsonEncode({
                 'requestId': 'request-2',
                 'submittedAt': '2026-04-09T01:00:00Z',
-                'nextStep': 'Менеджер свяжется с вами для подтверждения деталей',
+                'nextStep':
+                    'Менеджер свяжется с вами для подтверждения деталей',
               }),
               201,
               headers: const {'content-type': 'application/json'},

@@ -13,4 +13,3 @@ class Failure<T> extends Result<T> {
 
   final String message;
 }
-

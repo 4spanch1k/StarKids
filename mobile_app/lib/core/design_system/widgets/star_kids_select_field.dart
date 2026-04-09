@@ -31,9 +31,8 @@ class StarKidsSelectField extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasError = errorText != null;
     final textTheme = Theme.of(context).textTheme;
-    final borderColor = hasError
-        ? StarKidsColors.borderError
-        : StarKidsColors.borderDefault;
+    final borderColor =
+        hasError ? StarKidsColors.borderError : StarKidsColors.borderDefault;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

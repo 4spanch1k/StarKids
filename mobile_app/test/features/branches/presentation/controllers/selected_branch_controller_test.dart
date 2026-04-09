@@ -13,7 +13,8 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  test('selecting the default branch still persists the branch choice', () async {
+  test('selecting the default branch still persists the branch choice',
+      () async {
     final controller = SelectedBranchController(
       localStorage: LocalStorage(),
       branchRepository: _FakeBranchRepository(),
