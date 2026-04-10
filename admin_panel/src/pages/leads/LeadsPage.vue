@@ -2,7 +2,7 @@
   <PageShell
     eyebrow="Операционный контур"
     title="Заявки"
-    description="Очередь входящих обращений и рабочие статусы."
+    description="Очередь входящих обращений, рабочие статусы и детали клиента на одном экране."
   >
     <template #actions>
       <button
@@ -81,12 +81,10 @@
     </section>
 
     <div class="admin-split-layout">
-      <section
-        class="admin-panel admin-panel--stack lead-queue leads-mobile-section"
-        :class="{ 'leads-mobile-section--hidden': mobileView === 'detail' }"
-      >
+      <section class="admin-panel admin-panel--stack lead-queue">
         <div class="admin-section-heading">
           <h2>Очередь заявок</h2>
+          <p>Выберите обращение слева. Детали и действия откроются справа без дополнительных переходов.</p>
         </div>
 
         <StatePanel
@@ -139,7 +137,7 @@
             <button
               type="button"
               class="lead-card__main"
-              @click="handleSelectLead(lead.id)"
+              @click="leadInbox.selectLead(lead.id)"
             >
               <div class="lead-card__header">
                 <div class="lead-card__title">
@@ -205,19 +203,11 @@
         </div>
       </section>
 
-      <aside
-        class="admin-panel admin-panel--stack lead-detail leads-mobile-section"
-        :class="{ 'leads-mobile-section--hidden': mobileView === 'list' }"
-      >
-        <AdminMobilePanelHeader
-          :title="selectedLeadTitle"
-          eyebrow="Рабочая карточка"
-          @back="handleBackToList"
-        />
+      <aside class="admin-panel admin-panel--stack lead-detail">
         <template v-if="!leadInbox.selectedLeadId">
           <StatePanel
-            title="Выберите заявку"
-            description="Откройте обращение, чтобы увидеть детали и изменить статус."
+            title="Выберите заявку слева"
+            description="Детали клиента, комментарий и управление статусом появятся здесь."
           />
         </template>
 
@@ -249,6 +239,7 @@
         <template v-else-if="leadInbox.selectedLead">
           <header class="lead-detail__header">
             <div class="lead-detail__copy">
+              <p class="lead-detail__eyebrow">Выбранная заявка</p>
               <div class="lead-detail__title-row">
                 <h2>{{ leadInbox.selectedLead.customerName }}</h2>
                 <div class="lead-detail__badges">
@@ -398,7 +389,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, reactive } from 'vue';
 
 import {
   describeLeadStatusFlow,
@@ -410,7 +401,6 @@ import {
   type LeadType,
 } from '@/entities/lead/model/lead';
 import { useLeadInbox } from '@/features/leads/model/useLeadInbox';
-import AdminMobilePanelHeader from '@/shared/ui/AdminMobilePanelHeader.vue';
 import AppDateRangeField from '@/shared/ui/AppDateRangeField.vue';
 import AppSelectField from '@/shared/ui/AppSelectField.vue';
 import PageShell from '@/shared/ui/PageShell.vue';
@@ -418,7 +408,6 @@ import StatePanel from '@/shared/ui/StatePanel.vue';
 import StatusBadge from '@/shared/ui/StatusBadge.vue';
 
 const leadInbox = reactive(useLeadInbox());
-const mobileView = ref<'list' | 'detail'>('list');
 
 const totalLabel = computed(() => {
   const count = leadInbox.total;
@@ -496,10 +485,6 @@ const statusFilterOptions = computed(() => {
   ];
 });
 
-const selectedLeadTitle = computed(() => {
-  return leadInbox.selectedLead?.customerName || 'Карточка заявки';
-});
-
 const createdRange = computed({
   get() {
     return {
@@ -516,24 +501,6 @@ const createdRange = computed({
 onMounted(() => {
   void leadInbox.initialize();
 });
-
-watch(
-  () => leadInbox.selectedLeadId,
-  (leadId) => {
-    if (!leadId) {
-      mobileView.value = 'list';
-    }
-  },
-);
-
-async function handleSelectLead(leadId: string) {
-  await leadInbox.selectLead(leadId);
-  mobileView.value = 'detail';
-}
-
-function handleBackToList() {
-  mobileView.value = 'list';
-}
 
 function statusTone(status: LeadStatus): 'new' | 'in-progress' | 'closed' {
   if (status === 'new') {
@@ -797,10 +764,6 @@ function startOfDay(date: Date): Date {
 }
 
 .lead-queue {
-  min-height: 0;
-}
-
-.leads-mobile-section {
   min-height: 0;
 }
 
@@ -1090,10 +1053,6 @@ function startOfDay(date: Date): Date {
 }
 
 @media (max-width: 900px) {
-  .leads-mobile-section--hidden {
-    display: none;
-  }
-
   .lead-card__timeline,
   .lead-card__actions,
   .lead-detail__header,

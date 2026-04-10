@@ -1,17 +1,11 @@
 <template>
-  <label
-    ref="rootRef"
-    class="admin-field app-select"
-    :class="{ 'admin-field--error': Boolean(error) }"
-    :data-field="name || undefined"
-  >
+  <label ref="rootRef" class="admin-field app-select">
     <span class="admin-field__label">{{ label }}</span>
 
     <button
       type="button"
       class="app-select__trigger"
       :class="{ 'app-select__trigger--open': isOpen }"
-      :name="name"
       :disabled="disabled"
       @click="toggleOpen"
     >
@@ -31,8 +25,6 @@
         {{ option.label }}
       </button>
     </div>
-
-    <p v-if="error" class="admin-field__error">{{ error }}</p>
   </label>
 </template>
 
@@ -51,14 +43,10 @@ const props = withDefaults(
     options: SelectOption[];
     placeholder?: string;
     disabled?: boolean;
-    name?: string;
-    error?: string;
   }>(),
   {
     placeholder: 'Выберите значение',
     disabled: false,
-    name: '',
-    error: '',
   },
 );
 

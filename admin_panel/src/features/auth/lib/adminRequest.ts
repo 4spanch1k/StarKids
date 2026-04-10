@@ -1,5 +1,4 @@
 import { useSessionStore } from '@/features/auth/stores/useSessionStore';
-import { resolveAdminApiErrorMessage } from '@/shared/lib/adminApiErrors';
 import { HttpError } from '@/shared/api/httpClient';
 
 export async function executeAuthorizedAdminRequest<T>(
@@ -29,5 +28,13 @@ export function resolveAdminRequestError(
   error: unknown,
   fallbackMessage: string,
 ): string {
-  return resolveAdminApiErrorMessage(error, fallbackMessage);
+  if (error instanceof HttpError) {
+    return error.message;
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallbackMessage;
 }
