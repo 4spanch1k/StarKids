@@ -85,6 +85,7 @@ class PricesRulesPage extends StatelessWidget {
               final birthdayNote = data.birthdayNote.trim().isNotEmpty
                   ? data.birthdayNote.trim()
                   : 'Детали по формату дня рождения можно уточнить у менеджера после выбора пакета.';
+              final tariffGroups = _groupTariffs(data.visitTariffs);
 
               return ListView(
                 padding: const EdgeInsets.fromLTRB(
@@ -133,23 +134,86 @@ class PricesRulesPage extends StatelessWidget {
                   const StarKidsSectionHeader(
                     title: 'Тарифы посещения',
                     description:
-                        'Компактный экран вместо тяжелой таблицы. Достаточно, чтобы быстро понять базовый бюджет.',
+                        'Полный прайс без сокращений и без формулировок вида «от ...».',
                   ),
                   const SizedBox(height: StarKidsSpacing.lg),
                   if (data.visitTariffs.isNotEmpty)
-                    ...data.visitTariffs.map(
-                      (tariff) => Padding(
-                        padding:
-                            const EdgeInsets.only(bottom: StarKidsSpacing.md),
-                        child: _TariffCard(tariff: tariff),
-                      ),
-                    )
+                    if (tariffGroups.length > 1)
+                      ...tariffGroups.map(
+                        (group) => Padding(
+                          padding:
+                              const EdgeInsets.only(bottom: StarKidsSpacing.md),
+                          child: _TariffGroupCard(group: group),
+                        ),
+                      )
+                    else
+                      ...data.visitTariffs.map(
+                        (tariff) => Padding(
+                          padding:
+                              const EdgeInsets.only(bottom: StarKidsSpacing.md),
+                          child: _TariffCard(tariff: tariff),
+                        ),
+                      )
                   else
                     const _InlineInfoCard(
                       title: 'Тарифы скоро появятся',
                       description:
                           'Для этого филиала еще не опубликован список тарифов. Базовые детали можно уточнить у менеджера.',
                     ),
+                  if (data.menuSections.isNotEmpty) ...[
+                    const SizedBox(height: StarKidsSpacing.x2l),
+                    const StarKidsSectionHeader(
+                      title: 'Меню',
+                      description:
+                          'Большой блок меню прямо внутри экрана: заметные категории, понятные цены и аккуратные изображения.',
+                    ),
+                    const SizedBox(height: StarKidsSpacing.lg),
+                    const _FeatureIntroCard(
+                      title: 'Меню кафе',
+                      description:
+                          'Секции не спрятаны в мелкие элементы: каждая категория раскрыта сразу, а цены видны без дополнительных переходов.',
+                      icon: Icons.restaurant_menu_rounded,
+                      tintColor: StarKidsColors.surfaceSecondary,
+                    ),
+                    const SizedBox(height: StarKidsSpacing.lg),
+                    ...data.menuSections.map(
+                      (section) => Padding(
+                        padding:
+                            const EdgeInsets.only(bottom: StarKidsSpacing.lg),
+                        child: _MenuSectionCard(section: section),
+                      ),
+                    ),
+                  ],
+                  if (data.birthdayPackages.isNotEmpty) ...[
+                    const SizedBox(height: StarKidsSpacing.x2l),
+                    const StarKidsSectionHeader(
+                      title: 'Пакеты дней рождения',
+                      description:
+                          'Отдельный важный блок с точной ценой в тенге, старой ценой и полным составом каждого пакета.',
+                    ),
+                    const SizedBox(height: StarKidsSpacing.lg),
+                    const _FeatureIntroCard(
+                      title: 'Праздничные пакеты',
+                      description:
+                          'Здесь показаны все ключевые услуги внутри пакета, чтобы родитель сразу видел разницу между сценариями.',
+                      icon: Icons.celebration_rounded,
+                      tintColor: StarKidsColors.surfaceTertiary,
+                    ),
+                    const SizedBox(height: StarKidsSpacing.lg),
+                    ...data.birthdayPackages.map(
+                      (package) => Padding(
+                        padding:
+                            const EdgeInsets.only(bottom: StarKidsSpacing.lg),
+                        child: _BirthdayPackageOfferCard(package: package),
+                      ),
+                    ),
+                    StarKidsButton.secondary(
+                      label: 'Открыть отдельный раздел праздников',
+                      icon: Icons.cake_rounded,
+                      onPressed: () =>
+                          Navigator.of(context).pushNamed(AppRoutes.birthdays),
+                    ),
+                  ],
                   const SizedBox(height: StarKidsSpacing.x2l),
                   const StarKidsSectionHeader(
                     title: 'Льготы и важные условия',
@@ -171,22 +235,6 @@ class PricesRulesPage extends StatelessWidget {
                       description:
                           'Основные правила посещения для этого филиала обновляются. Их можно уточнить перед визитом.',
                     ),
-                  if (data.menuSections.isNotEmpty) ...[
-                    const SizedBox(height: StarKidsSpacing.x2l),
-                    const StarKidsSectionHeader(
-                      title: 'Меню',
-                      description:
-                          'Категории и цены собраны в одном месте. Изображения подключены через текущую поддержку сетевых картинок в приложении.',
-                    ),
-                    const SizedBox(height: StarKidsSpacing.lg),
-                    ...data.menuSections.map(
-                      (section) => Padding(
-                        padding:
-                            const EdgeInsets.only(bottom: StarKidsSpacing.lg),
-                        child: _MenuSectionCard(section: section),
-                      ),
-                    ),
-                  ],
                   const SizedBox(height: StarKidsSpacing.xl),
                   Container(
                     padding: const EdgeInsets.all(StarKidsSpacing.lg),
@@ -197,7 +245,10 @@ class PricesRulesPage extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Для дня рождения', style: textTheme.titleLarge),
+                        Text(
+                          'Если нужен другой формат праздника',
+                          style: textTheme.titleLarge,
+                        ),
                         const SizedBox(height: StarKidsSpacing.sm),
                         Text(birthdayNote, style: textTheme.bodyLarge),
                       ],
@@ -237,6 +288,40 @@ class PricesRulesPage extends StatelessWidget {
         source: pricesRules,
       ),
     );
+  }
+
+  List<_TariffGroupData> _groupTariffs(List<VisitTariff> tariffs) {
+    if (tariffs.isEmpty) {
+      return const [];
+    }
+
+    final grouped = <String, List<_TariffGroupItemData>>{};
+
+    for (final tariff in tariffs) {
+      final parts = tariff.title.split('·');
+      if (parts.length < 2) {
+        return const [];
+      }
+
+      final groupTitle = parts.first.trim();
+      final itemTitle = parts.sublist(1).join('·').trim();
+      grouped.putIfAbsent(groupTitle, () => <_TariffGroupItemData>[]).add(
+            _TariffGroupItemData(
+              title: itemTitle,
+              priceLabel: tariff.priceLabel,
+              description: tariff.description,
+            ),
+          );
+    }
+
+    return grouped.entries
+        .map(
+          (entry) => _TariffGroupData(
+            title: entry.key,
+            items: entry.value,
+          ),
+        )
+        .toList(growable: false);
   }
 }
 
@@ -413,6 +498,63 @@ class _InlineInfoCard extends StatelessWidget {
   }
 }
 
+class _FeatureIntroCard extends StatelessWidget {
+  const _FeatureIntroCard({
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.tintColor,
+  });
+
+  final String title;
+  final String description;
+  final IconData icon;
+  final Color tintColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      decoration: BoxDecoration(
+        color: tintColor,
+        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: StarKidsColors.surfacePrimary,
+              borderRadius: BorderRadius.circular(StarKidsRadii.full),
+            ),
+            child: Icon(icon, color: StarKidsColors.brandPrimary),
+          ),
+          const SizedBox(width: StarKidsSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: textTheme.titleLarge),
+                const SizedBox(height: StarKidsSpacing.xs),
+                Text(
+                  description,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: StarKidsColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _MenuSectionCard extends StatelessWidget {
   const _MenuSectionCard({
     required this.section,
@@ -429,6 +571,7 @@ class _MenuSectionCard extends StatelessWidget {
         color: StarKidsColors.surfacePrimary,
         borderRadius: BorderRadius.circular(StarKidsRadii.xl),
         border: Border.all(color: StarKidsColors.borderDefault),
+        boxShadow: StarKidsShadows.depth1,
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -436,7 +579,7 @@ class _MenuSectionCard extends StatelessWidget {
         children: [
           if (section.imageUrl != null)
             AspectRatio(
-              aspectRatio: 16 / 9,
+              aspectRatio: 16 / 8,
               child: StarKidsMediaImage(source: section.imageUrl),
             ),
           Padding(
@@ -444,37 +587,91 @@ class _MenuSectionCard extends StatelessWidget {
               StarKidsSpacing.lg,
               StarKidsSpacing.lg,
               StarKidsSpacing.lg,
-              StarKidsSpacing.md,
+              StarKidsSpacing.lg,
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    section.title,
-                    style: textTheme.titleLarge,
-                  ),
-                ),
-                if (section.subtitle != null) ...[
-                  const SizedBox(width: StarKidsSpacing.md),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: StarKidsSpacing.md,
-                      vertical: StarKidsSpacing.sm,
-                    ),
-                    decoration: BoxDecoration(
-                      color: StarKidsColors.surfaceTertiary,
-                      borderRadius: BorderRadius.circular(StarKidsRadii.full),
-                    ),
-                    child: Text(
-                      section.subtitle!,
-                      style: textTheme.labelMedium?.copyWith(
-                        color: StarKidsColors.brandPrimary,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final useVerticalHeader = constraints.maxWidth < 360;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (useVerticalHeader)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            section.title,
+                            style: textTheme.headlineSmall,
+                          ),
+                          if (section.subtitle != null) ...[
+                            const SizedBox(height: StarKidsSpacing.sm),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: StarKidsSpacing.md,
+                                vertical: StarKidsSpacing.sm,
+                              ),
+                              decoration: BoxDecoration(
+                                color: StarKidsColors.surfaceTertiary,
+                                borderRadius: BorderRadius.circular(
+                                  StarKidsRadii.full,
+                                ),
+                              ),
+                              child: Text(
+                                section.subtitle!,
+                                style: textTheme.labelMedium?.copyWith(
+                                  color: StarKidsColors.brandPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      )
+                    else
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              section.title,
+                              style: textTheme.headlineSmall,
+                            ),
+                          ),
+                          if (section.subtitle != null) ...[
+                            const SizedBox(width: StarKidsSpacing.md),
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: StarKidsSpacing.md,
+                                  vertical: StarKidsSpacing.sm,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: StarKidsColors.surfaceTertiary,
+                                  borderRadius: BorderRadius.circular(
+                                    StarKidsRadii.full,
+                                  ),
+                                ),
+                                child: Text(
+                                  section.subtitle!,
+                                  style: textTheme.labelMedium?.copyWith(
+                                    color: StarKidsColors.brandPrimary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    const SizedBox(height: StarKidsSpacing.sm),
+                    Text(
+                      'Все позиции показаны сразу: можно быстро сравнить блюда и цены в одной категории.',
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: StarKidsColors.textSecondary,
                       ),
                     ),
-                  ),
-                ],
-              ],
+                  ],
+                );
+              },
             ),
           ),
           Padding(
@@ -484,16 +681,26 @@ class _MenuSectionCard extends StatelessWidget {
               StarKidsSpacing.lg,
               StarKidsSpacing.lg,
             ),
-            child: Column(
-              children: [
-                for (var index = 0; index < section.items.length; index += 1)
-                  Padding(
-                    padding: EdgeInsets.only(
-                      top: index == 0 ? 0 : StarKidsSpacing.md,
-                    ),
-                    child: _MenuItemRow(item: section.items[index]),
-                  ),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final useTwoColumns = constraints.maxWidth >= 720;
+                final cardWidth = useTwoColumns
+                    ? (constraints.maxWidth - StarKidsSpacing.md) / 2
+                    : constraints.maxWidth;
+
+                return Wrap(
+                  spacing: StarKidsSpacing.md,
+                  runSpacing: StarKidsSpacing.md,
+                  children: section.items
+                      .map(
+                        (item) => SizedBox(
+                          width: cardWidth,
+                          child: _MenuItemCard(item: item),
+                        ),
+                      )
+                      .toList(growable: false),
+                );
+              },
             ),
           ),
         ],
@@ -502,8 +709,8 @@ class _MenuSectionCard extends StatelessWidget {
   }
 }
 
-class _MenuItemRow extends StatelessWidget {
-  const _MenuItemRow({
+class _MenuItemCard extends StatelessWidget {
+  const _MenuItemCard({
     required this.item,
   });
 
@@ -520,15 +727,279 @@ class _MenuItemRow extends StatelessWidget {
         color: StarKidsColors.surfaceSecondary,
         borderRadius: BorderRadius.circular(StarKidsRadii.lg),
       ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(StarKidsRadii.md),
+            child: SizedBox(
+              width: 76,
+              height: 76,
+              child: StarKidsMediaImage(source: item.imageUrl),
+            ),
+          ),
+          const SizedBox(width: StarKidsSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title,
+                  style: textTheme.titleMedium,
+                ),
+                const SizedBox(height: StarKidsSpacing.sm),
+                _PriceChip(label: item.priceLabel),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BirthdayPackageOfferCard extends StatelessWidget {
+  const _BirthdayPackageOfferCard({
+    required this.package,
+  });
+
+  final BirthdayPackageOffer package;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final isFeatured = package.badgeLabel == 'Самый популярный';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: StarKidsColors.surfacePrimary,
+        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+        border: Border.all(
+          color: isFeatured
+              ? StarKidsColors.brandPrimary
+              : StarKidsColors.borderDefault,
+        ),
+        boxShadow: StarKidsShadows.depth1,
+      ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            item.title,
-            style: textTheme.titleMedium,
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: StarKidsMediaImage(source: package.imagePath),
           ),
-          const SizedBox(height: StarKidsSpacing.sm),
-          _PriceChip(label: item.priceLabel),
+          Padding(
+            padding: const EdgeInsets.all(StarKidsSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: StarKidsSpacing.md,
+                    vertical: StarKidsSpacing.sm,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isFeatured
+                        ? StarKidsColors.surfaceTertiary
+                        : StarKidsColors.surfaceSecondary,
+                    borderRadius: BorderRadius.circular(StarKidsRadii.full),
+                  ),
+                  child: Text(
+                    package.badgeLabel,
+                    style: textTheme.labelMedium?.copyWith(
+                      color: isFeatured
+                          ? StarKidsColors.brandPrimary
+                          : StarKidsColors.textPrimary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: StarKidsSpacing.md),
+                Text(package.title, style: textTheme.headlineSmall),
+                const SizedBox(height: StarKidsSpacing.xs),
+                Text(
+                  package.subtitle,
+                  style: textTheme.bodyLarge?.copyWith(
+                    color: StarKidsColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: StarKidsSpacing.lg),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(StarKidsSpacing.lg),
+                  decoration: BoxDecoration(
+                    color: StarKidsColors.surfaceSecondary,
+                    borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Старая цена',
+                        style: textTheme.labelMedium?.copyWith(
+                          color: StarKidsColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: StarKidsSpacing.xs),
+                      Text(
+                        package.oldPriceLabel,
+                        style: textTheme.titleLarge?.copyWith(
+                          color: StarKidsColors.textSecondary,
+                          decoration: TextDecoration.lineThrough,
+                        ),
+                      ),
+                      const SizedBox(height: StarKidsSpacing.md),
+                      Text(
+                        'В рабочие дни',
+                        style: textTheme.labelMedium?.copyWith(
+                          color: StarKidsColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: StarKidsSpacing.xs),
+                      _PriceChip(label: package.weekdayPriceLabel),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: StarKidsSpacing.lg),
+                ...package.features.map(
+                  (feature) => Padding(
+                    padding: const EdgeInsets.only(bottom: StarKidsSpacing.md),
+                    child: _BirthdayPackageFeatureRow(feature: feature),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BirthdayPackageFeatureRow extends StatelessWidget {
+  const _BirthdayPackageFeatureRow({
+    required this.feature,
+  });
+
+  final BirthdayPackageFeature feature;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(top: 3),
+          child: Icon(
+            Icons.check_circle_rounded,
+            size: 18,
+            color: StarKidsColors.brandSecondary,
+          ),
+        ),
+        const SizedBox(width: StarKidsSpacing.sm),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(feature.title, style: textTheme.titleMedium),
+              if (feature.details != null) ...[
+                const SizedBox(height: StarKidsSpacing.xs),
+                Text(
+                  feature.details!,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: StarKidsColors.textSecondary,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TariffGroupCard extends StatelessWidget {
+  const _TariffGroupCard({
+    required this.group,
+  });
+
+  final _TariffGroupData group;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      decoration: BoxDecoration(
+        color: StarKidsColors.surfacePrimary,
+        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+        border: Border.all(color: StarKidsColors.borderDefault),
+        boxShadow: StarKidsShadows.depth1,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(group.title, style: textTheme.headlineSmall),
+          const SizedBox(height: StarKidsSpacing.md),
+          ...group.items.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: StarKidsSpacing.md),
+              child: _TariffGroupItemCard(item: item),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TariffGroupItemCard extends StatelessWidget {
+  const _TariffGroupItemCard({
+    required this.item,
+  });
+
+  final _TariffGroupItemData item;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(StarKidsSpacing.md),
+      decoration: BoxDecoration(
+        color: StarKidsColors.surfaceSecondary,
+        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  item.title,
+                  style: textTheme.titleMedium,
+                ),
+              ),
+              const SizedBox(width: StarKidsSpacing.md),
+              _PriceChip(label: item.priceLabel),
+            ],
+          ),
+          if (item.description.trim().isNotEmpty) ...[
+            const SizedBox(height: StarKidsSpacing.sm),
+            Text(
+              item.description,
+              style: textTheme.bodyMedium?.copyWith(
+                color: StarKidsColors.textSecondary,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -561,4 +1032,26 @@ class _PriceChip extends StatelessWidget {
       ),
     );
   }
+}
+
+class _TariffGroupData {
+  const _TariffGroupData({
+    required this.title,
+    required this.items,
+  });
+
+  final String title;
+  final List<_TariffGroupItemData> items;
+}
+
+class _TariffGroupItemData {
+  const _TariffGroupItemData({
+    required this.title,
+    required this.priceLabel,
+    required this.description,
+  });
+
+  final String title;
+  final String priceLabel;
+  final String description;
 }
