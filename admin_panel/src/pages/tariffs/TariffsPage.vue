@@ -2,7 +2,11 @@
   <AdminCrudWorkspace
     eyebrow="Коммерческие условия"
     title="Тарифы и правила"
-    description="Цены посещения, правила и пояснения для мобильных surfaces по каждому филиалу."
+    description="Цены посещения и правила по филиалам."
+    :mobile-view="mobileView"
+    :mobile-detail-title="detailPanelTitle"
+    mobile-detail-eyebrow="Рабочая карточка"
+    @back="handleBack"
   >
     <template #actions>
       <button
@@ -17,7 +21,6 @@
     <template #list>
       <div class="admin-section-heading">
         <h2>Филиалы</h2>
-        <p>Выберите филиал слева, чтобы настроить тарифы и правила, которые увидят родители в приложении.</p>
       </div>
 
       <AdminSearchField
@@ -63,7 +66,7 @@
           :class="{
             'admin-list-record--active': branch.id === pricesRulesManager.selectedBranchId,
           }"
-          @click="pricesRulesManager.selectBranch(branch.id)"
+          @click="handleSelectBranch(branch.id)"
         >
           <span class="admin-list-record__accent" aria-hidden="true"></span>
           <div class="admin-list-record__copy">
@@ -318,8 +321,8 @@
 
       <StatePanel
         v-else
-        title="Выберите филиал слева"
-        description="Тарифы и правила откроются справа после выбора филиала."
+        title="Выберите филиал"
+        description="Откройте филиал, чтобы изменить тарифы и правила."
       />
     </template>
   </AdminCrudWorkspace>
@@ -338,6 +341,7 @@ import StatusBadge from '@/shared/ui/StatusBadge.vue';
 
 const pricesRulesManager = reactive(useBranchPricesRulesManager());
 const searchQuery = ref('');
+const mobileView = ref<'list' | 'detail'>('list');
 
 const filteredBranches = computed(() => {
   const query = searchQuery.value.trim().toLowerCase();
@@ -358,7 +362,20 @@ const selectedBranch = computed(() => {
   }) ?? null;
 });
 
+const detailPanelTitle = computed(() => {
+  return selectedBranch.value?.name || 'Карточка филиала';
+});
+
 onMounted(() => {
   void pricesRulesManager.initialize();
 });
+
+async function handleSelectBranch(branchId: string) {
+  await pricesRulesManager.selectBranch(branchId);
+  mobileView.value = 'detail';
+}
+
+function handleBack() {
+  mobileView.value = 'list';
+}
 </script>

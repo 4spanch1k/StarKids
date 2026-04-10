@@ -2,13 +2,17 @@
   <AdminCrudWorkspace
     eyebrow="Контент"
     title="Контент приложения"
-    description="Тексты, CTA и порядок контентных блоков для мобильных поверхностей."
+    description="Тексты и CTA для мобильных экранов."
+    :mobile-view="mobileView"
+    :mobile-detail-title="detailPanelTitle"
+    mobile-detail-eyebrow="Рабочая карточка"
+    @back="handleBack"
   >
     <template #actions>
       <button
         type="button"
         class="admin-button admin-button--primary"
-        @click="contentBlocksManager.startCreate"
+        @click="handleStartCreate"
       >
         Добавить блок
       </button>
@@ -17,7 +21,6 @@
     <template #list>
       <div class="admin-section-heading">
         <h2>Контентные блоки</h2>
-        <p>Слева — существующие блоки, справа — создание и редактирование без отдельного мастера.</p>
       </div>
 
       <div class="admin-crud-filters">
@@ -73,18 +76,8 @@
       <StatePanel
         v-else-if="contentBlocksManager.filteredBlocks.length === 0"
         title="Контентные блоки не найдены"
-        description="Проверьте фильтры или создайте первый блок для нужной поверхности."
-      >
-        <template #actions>
-          <button
-            type="button"
-            class="admin-button admin-button--primary"
-            @click="contentBlocksManager.startCreate"
-          >
-            Добавить блок
-          </button>
-        </template>
-      </StatePanel>
+        description="Проверьте фильтры или строку поиска."
+      />
 
       <div v-else class="admin-list-records">
         <button
@@ -93,7 +86,7 @@
           type="button"
           class="admin-list-record"
           :class="{ 'admin-list-record--active': block.id === contentBlocksManager.selectedBlockId }"
-          @click="contentBlocksManager.selectBlock(block.id)"
+          @click="handleSelectBlock(block.id)"
         >
           <span class="admin-list-record__accent" aria-hidden="true"></span>
           <div class="admin-list-record__copy">
@@ -113,13 +106,13 @@
       <StatePanel
         v-if="contentBlocksManager.isCreating"
         title="Новый контентный блок"
-        description="Создайте блок и выберите поверхность, на которой он должен появиться."
+        description="Создайте блок и выберите поверхность показа."
       />
 
       <StatePanel
         v-else-if="contentBlocksManager.isDetailLoading"
         title="Открываем блок"
-        description="Подтягиваем текущий текст и параметры показа."
+        description="Подтягиваем текст и параметры публикации."
       />
 
       <StatePanel
@@ -131,63 +124,116 @@
 
       <form
         v-if="contentBlocksManager.isCreating"
+        ref="createFormRef"
         class="admin-form-stack"
-        @submit.prevent="contentBlocksManager.saveCreate"
+        novalidate
+        @submit.prevent="handleCreateSubmit"
       >
         <div class="admin-section-heading">
           <h2>Создать блок</h2>
-          <p>Один экран — один блок. Держим форму короткой и понятной для оператора.</p>
         </div>
 
         <div class="admin-form-grid--two">
-          <AppSelectField
-            v-model="contentBlocksManager.createForm.surface"
-            label="Поверхность"
-            :options="surfaceSelectOptions"
-          />
+          <div
+            class="admin-field"
+            :class="{ 'admin-field--error': Boolean(createFieldErrors.surface) }"
+            data-field="surface"
+          >
+            <AppSelectField
+              v-model="contentBlocksManager.createForm.surface"
+              label="Поверхность"
+              :options="surfaceSelectOptions"
+            />
+            <p v-if="createFieldErrors.surface" class="admin-field__error">
+              {{ createFieldErrors.surface }}
+            </p>
+          </div>
 
-          <label class="admin-field">
+          <label
+            class="admin-field"
+            :class="{ 'admin-field--error': Boolean(createFieldErrors.key) }"
+            data-field="key"
+          >
             <span class="admin-field__label">Ключ блока</span>
             <input
               v-model="contentBlocksManager.createForm.key"
-              required
+              name="key"
               class="admin-control"
+              @input="clearCreateFieldError('key')"
             />
+            <p v-if="createFieldErrors.key" class="admin-field__error">
+              {{ createFieldErrors.key }}
+            </p>
           </label>
 
-          <label class="admin-field admin-field--full">
+          <label
+            class="admin-field admin-field--full"
+            :class="{ 'admin-field--error': Boolean(createFieldErrors.title) }"
+            data-field="title"
+          >
             <span class="admin-field__label">Заголовок</span>
             <input
               v-model="contentBlocksManager.createForm.title"
-              required
+              name="title"
               class="admin-control"
+              @input="clearCreateFieldError('title')"
             />
+            <p v-if="createFieldErrors.title" class="admin-field__error">
+              {{ createFieldErrors.title }}
+            </p>
           </label>
 
-          <label class="admin-field admin-field--full">
+          <label
+            class="admin-field admin-field--full"
+            :class="{ 'admin-field--error': Boolean(createFieldErrors.body) }"
+            data-field="body"
+          >
             <span class="admin-field__label">Текст</span>
             <textarea
               v-model="contentBlocksManager.createForm.body"
+              name="body"
               class="admin-control admin-control--textarea"
+              @input="clearCreateFieldError('body')"
             ></textarea>
+            <p v-if="createFieldErrors.body" class="admin-field__error">
+              {{ createFieldErrors.body }}
+            </p>
           </label>
 
-          <label class="admin-field">
+          <label
+            class="admin-field"
+            :class="{ 'admin-field--error': Boolean(createFieldErrors.ctaLabel) }"
+            data-field="ctaLabel"
+          >
             <span class="admin-field__label">Текст кнопки</span>
             <input
               v-model="contentBlocksManager.createForm.ctaLabel"
+              name="ctaLabel"
               class="admin-control"
+              @input="clearCreateFieldError('ctaLabel')"
             />
+            <p v-if="createFieldErrors.ctaLabel" class="admin-field__error">
+              {{ createFieldErrors.ctaLabel }}
+            </p>
           </label>
 
-          <label class="admin-field">
+          <label
+            class="admin-field"
+            :class="{ 'admin-field--error': Boolean(createFieldErrors.displayOrder) }"
+            data-field="displayOrder"
+          >
             <span class="admin-field__label">Порядок показа</span>
             <input
               v-model.number="contentBlocksManager.createForm.displayOrder"
+              name="displayOrder"
               min="0"
               type="number"
               class="admin-control"
+              @input="clearCreateFieldError('displayOrder')"
             />
+            <p v-if="createFieldErrors.displayOrder" class="admin-field__error">
+              {{ createFieldErrors.displayOrder }}
+            </p>
           </label>
         </div>
 
@@ -204,12 +250,11 @@
           />
         </div>
 
-        <p
-          v-if="contentBlocksManager.createErrorMessage"
-          class="admin-inline-message admin-inline-message--error"
-        >
-          {{ contentBlocksManager.createErrorMessage }}
-        </p>
+        <AdminFormErrorBanner
+          v-if="createSummaryMessage"
+          :message="createSummaryMessage"
+          :errors="createFieldErrors"
+        />
         <p
           v-if="contentBlocksManager.createSuccessMessage"
           class="admin-inline-message admin-inline-message--success"
@@ -217,7 +262,7 @@
           {{ contentBlocksManager.createSuccessMessage }}
         </p>
 
-        <div class="admin-form-actions">
+        <AdminStickyActions>
           <button
             type="submit"
             class="admin-button admin-button--primary"
@@ -228,11 +273,11 @@
           <button
             type="button"
             class="admin-button admin-button--secondary"
-            @click="contentBlocksManager.cancelCreate"
+            @click="handleBack"
           >
             Отменить
           </button>
-        </div>
+        </AdminStickyActions>
       </form>
 
       <template v-else-if="contentBlocksManager.selectedBlock">
@@ -255,61 +300,117 @@
           </div>
         </header>
 
-        <form class="admin-form-stack" @submit.prevent="contentBlocksManager.save">
+        <form
+          ref="editFormRef"
+          class="admin-form-stack"
+          novalidate
+          @submit.prevent="handleSave"
+        >
           <div class="admin-section-heading">
             <h3>Текст и публикация</h3>
-            <p>Правьте сам блок, порядок показа и доступность без выхода со страницы.</p>
           </div>
 
           <div class="admin-form-grid--two">
-            <AppSelectField
-              v-model="blockSurface"
-              label="Поверхность"
-              :options="surfaceSelectOptions"
-            />
+            <div
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(editFieldErrors.surface) }"
+              data-field="surface"
+            >
+              <AppSelectField
+                v-model="blockSurface"
+                label="Поверхность"
+                :options="surfaceSelectOptions"
+              />
+              <p v-if="editFieldErrors.surface" class="admin-field__error">
+                {{ editFieldErrors.surface }}
+              </p>
+            </div>
 
-            <label class="admin-field">
+            <label
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(editFieldErrors.key) }"
+              data-field="key"
+            >
               <span class="admin-field__label">Ключ блока</span>
               <input
                 v-model="contentBlocksManager.form.key"
-                required
+                name="key"
                 class="admin-control"
+                @input="clearEditFieldError('key')"
               />
+              <p v-if="editFieldErrors.key" class="admin-field__error">
+                {{ editFieldErrors.key }}
+              </p>
             </label>
 
-            <label class="admin-field admin-field--full">
+            <label
+              class="admin-field admin-field--full"
+              :class="{ 'admin-field--error': Boolean(editFieldErrors.title) }"
+              data-field="title"
+            >
               <span class="admin-field__label">Заголовок</span>
               <input
                 v-model="contentBlocksManager.form.title"
-                required
+                name="title"
                 class="admin-control"
+                @input="clearEditFieldError('title')"
               />
+              <p v-if="editFieldErrors.title" class="admin-field__error">
+                {{ editFieldErrors.title }}
+              </p>
             </label>
 
-            <label class="admin-field admin-field--full">
+            <label
+              class="admin-field admin-field--full"
+              :class="{ 'admin-field--error': Boolean(editFieldErrors.body) }"
+              data-field="body"
+            >
               <span class="admin-field__label">Текст</span>
               <textarea
                 v-model="contentBlocksManager.form.body"
+                name="body"
                 class="admin-control admin-control--textarea"
+                @input="clearEditFieldError('body')"
               ></textarea>
+              <p v-if="editFieldErrors.body" class="admin-field__error">
+                {{ editFieldErrors.body }}
+              </p>
             </label>
 
-            <label class="admin-field">
+            <label
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(editFieldErrors.ctaLabel) }"
+              data-field="ctaLabel"
+            >
               <span class="admin-field__label">Текст кнопки</span>
               <input
                 v-model="contentBlocksManager.form.ctaLabel"
+                name="ctaLabel"
                 class="admin-control"
+                @input="clearEditFieldError('ctaLabel')"
               />
+              <p v-if="editFieldErrors.ctaLabel" class="admin-field__error">
+                {{ editFieldErrors.ctaLabel }}
+              </p>
             </label>
 
-            <label class="admin-field">
+            <label
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(editFieldErrors.displayOrder) }"
+              data-field="displayOrder"
+            >
               <span class="admin-field__label">Порядок показа</span>
               <input
                 v-model.number="contentBlocksManager.form.displayOrder"
+                name="displayOrder"
                 min="0"
                 type="number"
                 class="admin-control"
+                @input="clearEditFieldError('displayOrder')"
               />
+              <p v-if="editFieldErrors.displayOrder" class="admin-field__error">
+                {{ editFieldErrors.displayOrder }}
+              </p>
             </label>
           </div>
 
@@ -326,12 +427,11 @@
             />
           </div>
 
-          <p
-            v-if="contentBlocksManager.saveErrorMessage"
-            class="admin-inline-message admin-inline-message--error"
-          >
-            {{ contentBlocksManager.saveErrorMessage }}
-          </p>
+          <AdminFormErrorBanner
+            v-if="editSummaryMessage"
+            :message="editSummaryMessage"
+            :errors="editFieldErrors"
+          />
           <p
             v-if="contentBlocksManager.saveSuccessMessage"
             class="admin-inline-message admin-inline-message--success"
@@ -339,7 +439,7 @@
             {{ contentBlocksManager.saveSuccessMessage }}
           </p>
 
-          <div class="admin-form-actions">
+          <AdminStickyActions>
             <button
               type="submit"
               class="admin-button admin-button--primary"
@@ -347,36 +447,58 @@
             >
               {{ contentBlocksManager.isSaving ? 'Сохраняем…' : 'Сохранить блок' }}
             </button>
-          </div>
+          </AdminStickyActions>
         </form>
       </template>
 
       <StatePanel
         v-else
-        title="Выберите блок слева"
-        description="Текст, порядок показа и статус публикации откроются здесь."
+        title="Выберите блок"
+        description="Откройте блок, чтобы изменить текст и публикацию."
       />
     </template>
   </AdminCrudWorkspace>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 
 import {
   contentSurfaceOptions,
   getContentSurfaceLabel,
 } from '@/features/content/model/contentSurface';
 import { useAdminContentBlocks } from '@/features/content/model/useAdminContentBlocks';
+import type { AdminFieldErrors } from '@/shared/lib/adminApiErrors';
+import {
+  resolveAdminApiErrorMessage,
+  resolveAdminApiFieldErrors,
+} from '@/shared/lib/adminApiErrors';
+import {
+  clearFieldError,
+  focusFirstFieldError,
+  replaceFieldErrors,
+  validateNonNegativeNumber,
+  validateOptionalText,
+  validateRequiredText,
+} from '@/shared/lib/adminFormValidation';
 import { resolvePublicationStatus } from '@/shared/lib/adminStatus';
+import AdminFormErrorBanner from '@/shared/ui/AdminFormErrorBanner.vue';
 import AdminCrudWorkspace from '@/shared/ui/AdminCrudWorkspace.vue';
 import AdminSearchField from '@/shared/ui/AdminSearchField.vue';
+import AdminStickyActions from '@/shared/ui/AdminStickyActions.vue';
 import AdminSwitchField from '@/shared/ui/AdminSwitchField.vue';
 import AppSelectField from '@/shared/ui/AppSelectField.vue';
 import StatePanel from '@/shared/ui/StatePanel.vue';
 import StatusBadge from '@/shared/ui/StatusBadge.vue';
 
 const contentBlocksManager = reactive(useAdminContentBlocks());
+const mobileView = ref<'list' | 'detail'>('list');
+const createFormRef = ref<HTMLFormElement | null>(null);
+const editFormRef = ref<HTMLFormElement | null>(null);
+const createSummaryMessage = ref('');
+const editSummaryMessage = ref('');
+const createFieldErrors = reactive<AdminFieldErrors>({});
+const editFieldErrors = reactive<AdminFieldErrors>({});
 
 const toggleFilterOptions = [
   { label: 'Все состояния', value: 'all' },
@@ -436,6 +558,14 @@ const blockSurface = computed({
   },
 });
 
+const detailPanelTitle = computed(() => {
+  if (contentBlocksManager.isCreating) {
+    return 'Новый блок';
+  }
+
+  return contentBlocksManager.selectedBlock?.title || 'Карточка блока';
+});
+
 function contentSurfaceLabel(surface: string): string {
   return getContentSurfaceLabel(surface);
 }
@@ -443,6 +573,137 @@ function contentSurfaceLabel(surface: string): string {
 onMounted(() => {
   void contentBlocksManager.initialize();
 });
+
+function handleStartCreate() {
+  clearFormFeedback();
+  contentBlocksManager.startCreate();
+  mobileView.value = 'detail';
+}
+
+async function handleSelectBlock(blockId: string) {
+  await contentBlocksManager.selectBlock(blockId);
+  mobileView.value = 'detail';
+}
+
+function handleBack() {
+  if (contentBlocksManager.isCreating) {
+    contentBlocksManager.cancelCreate();
+  }
+
+  clearFormFeedback();
+  mobileView.value = 'list';
+}
+
+async function handleCreateSubmit() {
+  const errors = compactErrors({
+    surface: validateRequiredText(
+      contentBlocksManager.createForm.surface,
+      'Выберите поверхность.',
+      1,
+    ),
+    key: validateRequiredText(contentBlocksManager.createForm.key, 'Введите ключ блока.', 1),
+    title: validateRequiredText(
+      contentBlocksManager.createForm.title,
+      'Введите заголовок блока.',
+      2,
+    ),
+    body: validateRequiredText(
+      contentBlocksManager.createForm.body,
+      'Введите текст блока.',
+      2,
+    ),
+    ctaLabel: validateOptionalText(
+      contentBlocksManager.createForm.ctaLabel,
+      'Текст кнопки слишком длинный.',
+      64,
+    ),
+    displayOrder: validateNonNegativeNumber(
+      contentBlocksManager.createForm.displayOrder,
+      'Введите порядок не меньше 0.',
+    ),
+  });
+
+  replaceFieldErrors(createFieldErrors, errors);
+  createSummaryMessage.value = Object.keys(errors).length ? 'Проверьте обязательные поля.' : '';
+
+  if (Object.keys(errors).length > 0) {
+    await focusFirstFieldError(createFormRef.value, createFieldErrors);
+    return;
+  }
+
+  try {
+    createSummaryMessage.value = '';
+    await contentBlocksManager.saveCreate();
+  } catch (error) {
+    replaceFieldErrors(createFieldErrors, resolveAdminApiFieldErrors(error));
+    createSummaryMessage.value = resolveAdminApiErrorMessage(
+      error,
+      'Не удалось создать контентный блок.',
+    );
+    await focusFirstFieldError(createFormRef.value, createFieldErrors);
+  }
+}
+
+async function handleSave() {
+  const errors = compactErrors({
+    surface: validateRequiredText(contentBlocksManager.form.surface || '', 'Выберите поверхность.', 1),
+    key: validateRequiredText(contentBlocksManager.form.key || '', 'Введите ключ блока.', 1),
+    title: validateRequiredText(contentBlocksManager.form.title || '', 'Введите заголовок блока.', 2),
+    body: validateRequiredText(contentBlocksManager.form.body || '', 'Введите текст блока.', 2),
+    ctaLabel: validateOptionalText(
+      contentBlocksManager.form.ctaLabel || '',
+      'Текст кнопки слишком длинный.',
+      64,
+    ),
+    displayOrder: validateNonNegativeNumber(
+      contentBlocksManager.form.displayOrder ?? 0,
+      'Введите порядок не меньше 0.',
+    ),
+  });
+
+  replaceFieldErrors(editFieldErrors, errors);
+  editSummaryMessage.value = Object.keys(errors).length ? 'Проверьте обязательные поля.' : '';
+
+  if (Object.keys(errors).length > 0) {
+    await focusFirstFieldError(editFormRef.value, editFieldErrors);
+    return;
+  }
+
+  try {
+    editSummaryMessage.value = '';
+    await contentBlocksManager.save();
+  } catch (error) {
+    replaceFieldErrors(editFieldErrors, resolveAdminApiFieldErrors(error));
+    editSummaryMessage.value = resolveAdminApiErrorMessage(
+      error,
+      'Не удалось сохранить контентный блок.',
+    );
+    await focusFirstFieldError(editFormRef.value, editFieldErrors);
+  }
+}
+
+function clearCreateFieldError(field: string) {
+  clearFieldError(createFieldErrors, field);
+  createSummaryMessage.value = '';
+}
+
+function clearEditFieldError(field: string) {
+  clearFieldError(editFieldErrors, field);
+  editSummaryMessage.value = '';
+}
+
+function clearFormFeedback() {
+  replaceFieldErrors(createFieldErrors, {});
+  replaceFieldErrors(editFieldErrors, {});
+  createSummaryMessage.value = '';
+  editSummaryMessage.value = '';
+}
+
+function compactErrors(errors: AdminFieldErrors): AdminFieldErrors {
+  return Object.fromEntries(
+    Object.entries(errors).filter((entry): entry is [string, string] => Boolean(entry[1])),
+  );
+}
 </script>
 
 <style scoped>

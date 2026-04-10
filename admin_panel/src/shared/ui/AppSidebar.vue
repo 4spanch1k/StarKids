@@ -17,6 +17,7 @@
           :to="item.to"
           class="sidebar__link"
           active-class="sidebar__link--active"
+          @click="$emit('navigate')"
         >
           <span class="sidebar__icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -37,6 +38,7 @@
           :to="item.to"
           class="sidebar__link sidebar__link--secondary"
           active-class="sidebar__link--active"
+          @click="$emit('navigate')"
         >
           <span class="sidebar__icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -79,6 +81,10 @@ withDefaults(
     secondaryItems: () => [],
   },
 );
+
+defineEmits<{
+  navigate: [];
+}>();
 
 function resolveIconPath(name: string) {
   return iconPaths[name] ?? 'M6 12h12';
@@ -213,21 +219,24 @@ function resolveIconPath(name: string) {
 
 @media (max-width: 1100px) {
   .sidebar {
-    position: static;
-    height: auto;
-    border-right: none;
-    border-bottom: 1px solid var(--color-border);
-    box-shadow: none;
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 40;
+    width: min(86vw, 320px);
+    overflow-y: auto;
+    border-right: 1px solid var(--color-border);
+    border-bottom: none;
+    box-shadow: var(--shadow-sidebar);
+    transform: translateX(-100%);
+    transition: transform 160ms ease;
+  }
+
+  .sidebar.sidebar--open {
+    transform: translateX(0);
   }
 
   .sidebar__group--secondary {
-    margin-top: 0;
-  }
-
-  .sidebar__nav {
-    grid-auto-flow: column;
-    grid-auto-columns: max-content;
-    overflow-x: auto;
+    margin-top: auto;
   }
 }
 </style>
