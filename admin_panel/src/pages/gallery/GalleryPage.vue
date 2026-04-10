@@ -2,7 +2,11 @@
   <AdminCrudWorkspace
     eyebrow="Медиаданные"
     title="Галерея"
-    description="Управление hero-изображением и набором gallery URL по филиалам."
+    description="Hero-изображение и gallery URL по филиалам."
+    :mobile-view="mobileView"
+    :mobile-detail-title="detailPanelTitle"
+    mobile-detail-eyebrow="Рабочая карточка"
+    @back="handleBack"
   >
     <template #actions>
       <button
@@ -17,7 +21,6 @@
     <template #list>
       <div class="admin-section-heading">
         <h2>Филиалы</h2>
-        <p>Выберите филиал, чтобы обновить hero-изображение и метаданные галереи.</p>
       </div>
 
       <AdminSearchField
@@ -61,7 +64,7 @@
           type="button"
           class="admin-list-record"
           :class="{ 'admin-list-record--active': branch.id === galleryManager.selectedBranchId }"
-          @click="galleryManager.selectBranch(branch.id)"
+          @click="handleSelectBranch(branch.id)"
         >
           <span class="admin-list-record__accent" aria-hidden="true"></span>
           <div class="admin-list-record__copy">
@@ -164,8 +167,8 @@
 
       <StatePanel
         v-else
-        title="Выберите филиал слева"
-        description="Hero и галерея выбранного филиала откроются здесь."
+        title="Выберите филиал"
+        description="Откройте филиал, чтобы изменить hero и галерею."
       />
     </template>
   </AdminCrudWorkspace>
@@ -184,6 +187,7 @@ import StatusBadge from '@/shared/ui/StatusBadge.vue';
 
 const galleryManager = reactive(useBranchGalleryManager());
 const searchQuery = ref('');
+const mobileView = ref<'list' | 'detail'>('list');
 
 const filteredBranches = computed(() => {
   const query = searchQuery.value.trim().toLowerCase();
@@ -213,7 +217,20 @@ const galleryUrlsText = computed({
   },
 });
 
+const detailPanelTitle = computed(() => {
+  return selectedBranch.value?.name || 'Карточка филиала';
+});
+
 onMounted(() => {
   void galleryManager.initialize();
 });
+
+async function handleSelectBranch(branchId: string) {
+  await galleryManager.selectBranch(branchId);
+  mobileView.value = 'detail';
+}
+
+function handleBack() {
+  mobileView.value = 'list';
+}
 </script>

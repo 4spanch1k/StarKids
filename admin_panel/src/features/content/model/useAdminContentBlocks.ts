@@ -183,6 +183,7 @@ export function useAdminContentBlocks() {
         error,
         'Не удалось создать контентный блок.',
       );
+      throw error;
     } finally {
       isCreateSaving.value = false;
     }
@@ -216,6 +217,7 @@ export function useAdminContentBlocks() {
         error,
         'Не удалось сохранить контентный блок.',
       );
+      throw error;
     } finally {
       isSaving.value = false;
     }

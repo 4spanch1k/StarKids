@@ -166,10 +166,24 @@ a {
   gap: 6px;
 }
 
+.admin-field--error .admin-control,
+.admin-field--error .app-select__trigger,
+.admin-field--error .date-range-field__trigger {
+  border-color: rgba(180, 35, 24, 0.4);
+  box-shadow: 0 0 0 2px rgba(180, 35, 24, 0.08);
+}
+
 .admin-field__label {
   font-size: 12px;
   font-weight: 600;
   color: var(--color-text);
+}
+
+.admin-field__error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .admin-control {
@@ -442,11 +456,40 @@ select.admin-control {
 }
 
 @media (max-width: 720px) {
+  .admin-panel--stack {
+    gap: 10px;
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .admin-section-heading p {
+    display: none;
+  }
+
+  .admin-inline-message {
+    font-size: 13px;
+  }
+
+  .admin-list-record {
+    gap: 10px;
+    min-height: 64px;
+    padding: 12px 12px 12px 14px;
+  }
+
+  .admin-detail-header__title-row h2 {
+    font-size: 20px;
+  }
+
   .admin-form-grid,
   .admin-info-grid,
   .admin-form-grid--two,
   .admin-repeater__grid,
   .admin-checkbox-grid {
     grid-template-columns: 1fr;
+  }
+
+  .admin-form-actions {
+    width: 100%;
+    flex-wrap: wrap;
   }
 }

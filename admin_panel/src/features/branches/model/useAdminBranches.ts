@@ -235,6 +235,7 @@ export function useAdminBranches() {
         error,
         'Не удалось создать филиал.',
       );
+      throw error;
     } finally {
       isCreateSaving.value = false;
     }
@@ -267,6 +268,7 @@ export function useAdminBranches() {
         error,
         'Не удалось сохранить филиал.',
       );
+      throw error;
     } finally {
       isBranchSaving.value = false;
     }
@@ -309,6 +311,7 @@ export function useAdminBranches() {
         error,
         'Не удалось сохранить контакты филиала.',
       );
+      throw error;
     } finally {
       isContactsSaving.value = false;
     }
