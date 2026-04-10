@@ -134,12 +134,17 @@ class _ButtonContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = Text(label);
+    final text = Text(
+      label,
+      textAlign: TextAlign.center,
+    );
 
     if (isLoading) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
+      return Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: StarKidsSpacing.sm,
+        runSpacing: StarKidsSpacing.xs,
         children: [
           SizedBox(
             width: StarKidsIconSizes.sm,
@@ -149,7 +154,6 @@ class _ButtonContent extends StatelessWidget {
               valueColor: AlwaysStoppedAnimation<Color>(foregroundColor),
             ),
           ),
-          const SizedBox(width: StarKidsSpacing.sm),
           text,
         ],
       );
@@ -159,12 +163,13 @@ class _ButtonContent extends StatelessWidget {
       return text;
     }
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: StarKidsSpacing.sm,
+      runSpacing: StarKidsSpacing.xs,
       children: [
         Icon(icon, size: StarKidsIconSizes.sm),
-        const SizedBox(width: StarKidsSpacing.sm),
         text,
       ],
     );

@@ -45,6 +45,7 @@ class BranchPricesRulesDto {
       rules: rules,
       birthdayNote: birthdayNote,
       disclaimer: disclaimer,
+      menuSections: const [],
     );
   }
 }

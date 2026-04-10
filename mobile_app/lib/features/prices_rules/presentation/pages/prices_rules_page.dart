@@ -8,8 +8,10 @@ import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
+import '../../../../core/design_system/widgets/star_kids_media_image.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../../branches/domain/branch_option.dart';
+import '../../data/prices_rules_curated_content.dart';
 import '../../domain/branch_prices_rules.dart';
 
 class PricesRulesPage extends StatelessWidget {
@@ -150,9 +152,9 @@ class PricesRulesPage extends StatelessWidget {
                     ),
                   const SizedBox(height: StarKidsSpacing.x2l),
                   const StarKidsSectionHeader(
-                    title: 'Что важно знать перед визитом',
+                    title: 'Льготы и важные условия',
                     description:
-                        'Правила собраны коротко и без мелкого текста, чтобы не ломать коммерческий flow.',
+                        'Короткий список важных условий и бесплатных льгот без перегруза длинным регламентом.',
                   ),
                   const SizedBox(height: StarKidsSpacing.md),
                   if (data.rules.isNotEmpty)
@@ -169,6 +171,22 @@ class PricesRulesPage extends StatelessWidget {
                       description:
                           'Основные правила посещения для этого филиала обновляются. Их можно уточнить перед визитом.',
                     ),
+                  if (data.menuSections.isNotEmpty) ...[
+                    const SizedBox(height: StarKidsSpacing.x2l),
+                    const StarKidsSectionHeader(
+                      title: 'Меню',
+                      description:
+                          'Категории и цены собраны в одном месте. Изображения подключены через текущую поддержку сетевых картинок в приложении.',
+                    ),
+                    const SizedBox(height: StarKidsSpacing.lg),
+                    ...data.menuSections.map(
+                      (section) => Padding(
+                        padding:
+                            const EdgeInsets.only(bottom: StarKidsSpacing.lg),
+                        child: _MenuSectionCard(section: section),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: StarKidsSpacing.xl),
                   Container(
                     padding: const EdgeInsets.all(StarKidsSpacing.lg),
@@ -214,7 +232,10 @@ class PricesRulesPage extends StatelessWidget {
 
     return _PricesRulesScreenData(
       branch: branch,
-      pricesRules: pricesRules,
+      pricesRules: applyCuratedPricesRulesContent(
+        branch: branch,
+        source: pricesRules,
+      ),
     );
   }
 }
@@ -230,43 +251,44 @@ class _TariffCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-    return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
-      decoration: BoxDecoration(
-        color: StarKidsColors.surfacePrimary,
-        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-        border: Border.all(color: StarKidsColors.borderDefault),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 420;
+
+        return Container(
+          padding: const EdgeInsets.all(StarKidsSpacing.lg),
+          decoration: BoxDecoration(
+            color: StarKidsColors.surfacePrimary,
+            borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+            border: Border.all(color: StarKidsColors.borderDefault),
+          ),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: Text(tariff.title, style: textTheme.titleLarge)),
-              const SizedBox(width: StarKidsSpacing.md),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: StarKidsSpacing.md,
-                  vertical: StarKidsSpacing.sm,
+              if (isCompact) ...[
+                Text(tariff.title, style: textTheme.titleLarge),
+                const SizedBox(height: StarKidsSpacing.sm),
+                _PriceChip(label: tariff.priceLabel),
+              ] else
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        tariff.title,
+                        style: textTheme.titleLarge,
+                      ),
+                    ),
+                    const SizedBox(width: StarKidsSpacing.md),
+                    _PriceChip(label: tariff.priceLabel),
+                  ],
                 ),
-                decoration: BoxDecoration(
-                  color: StarKidsColors.brandHighlight,
-                  borderRadius: BorderRadius.circular(StarKidsRadii.full),
-                ),
-                child: Text(
-                  tariff.priceLabel,
-                  style: textTheme.labelMedium?.copyWith(
-                    color: StarKidsColors.textPrimary,
-                  ),
-                ),
-              ),
+              const SizedBox(height: StarKidsSpacing.sm),
+              Text(tariff.description, style: textTheme.bodyMedium),
             ],
           ),
-          const SizedBox(height: StarKidsSpacing.sm),
-          Text(tariff.description, style: textTheme.bodyMedium),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -386,6 +408,156 @@ class _InlineInfoCard extends StatelessWidget {
           const SizedBox(height: StarKidsSpacing.sm),
           Text(description, style: Theme.of(context).textTheme.bodyLarge),
         ],
+      ),
+    );
+  }
+}
+
+class _MenuSectionCard extends StatelessWidget {
+  const _MenuSectionCard({
+    required this.section,
+  });
+
+  final MenuSection section;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: StarKidsColors.surfacePrimary,
+        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+        border: Border.all(color: StarKidsColors.borderDefault),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (section.imageUrl != null)
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: StarKidsMediaImage(source: section.imageUrl),
+            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              StarKidsSpacing.lg,
+              StarKidsSpacing.lg,
+              StarKidsSpacing.lg,
+              StarKidsSpacing.md,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    section.title,
+                    style: textTheme.titleLarge,
+                  ),
+                ),
+                if (section.subtitle != null) ...[
+                  const SizedBox(width: StarKidsSpacing.md),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: StarKidsSpacing.md,
+                      vertical: StarKidsSpacing.sm,
+                    ),
+                    decoration: BoxDecoration(
+                      color: StarKidsColors.surfaceTertiary,
+                      borderRadius: BorderRadius.circular(StarKidsRadii.full),
+                    ),
+                    child: Text(
+                      section.subtitle!,
+                      style: textTheme.labelMedium?.copyWith(
+                        color: StarKidsColors.brandPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              StarKidsSpacing.lg,
+              0,
+              StarKidsSpacing.lg,
+              StarKidsSpacing.lg,
+            ),
+            child: Column(
+              children: [
+                for (var index = 0; index < section.items.length; index += 1)
+                  Padding(
+                    padding: EdgeInsets.only(
+                      top: index == 0 ? 0 : StarKidsSpacing.md,
+                    ),
+                    child: _MenuItemRow(item: section.items[index]),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MenuItemRow extends StatelessWidget {
+  const _MenuItemRow({
+    required this.item,
+  });
+
+  final MenuItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(StarKidsSpacing.md),
+      decoration: BoxDecoration(
+        color: StarKidsColors.surfaceSecondary,
+        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            item.title,
+            style: textTheme.titleMedium,
+          ),
+          const SizedBox(height: StarKidsSpacing.sm),
+          _PriceChip(label: item.priceLabel),
+        ],
+      ),
+    );
+  }
+}
+
+class _PriceChip extends StatelessWidget {
+  const _PriceChip({
+    required this.label,
+  });
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: StarKidsSpacing.md,
+        vertical: StarKidsSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: StarKidsColors.brandHighlight,
+        borderRadius: BorderRadius.circular(StarKidsRadii.full),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: StarKidsColors.textPrimary,
+            ),
       ),
     );
   }

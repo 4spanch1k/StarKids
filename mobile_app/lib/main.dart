@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
-import 'app/app.dart';
+import 'app/bootstrap/star_kids_bootstrap_app.dart';
 import 'app/di/service_registry.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await ServiceRegistry.bootstrap();
-  runApp(const StarKidsApp());
+  runApp(
+    const StarKidsBootstrapApp(
+      initialize: ServiceRegistry.bootstrap,
+    ),
+  );
 }
