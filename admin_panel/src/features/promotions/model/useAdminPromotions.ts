@@ -198,7 +198,6 @@ export function useAdminPromotions() {
         error,
         'Не удалось создать акцию.',
       );
-      throw error;
     } finally {
       isCreateSaving.value = false;
     }
@@ -232,7 +231,6 @@ export function useAdminPromotions() {
         error,
         'Не удалось сохранить акцию.',
       );
-      throw error;
     } finally {
       isSaving.value = false;
     }

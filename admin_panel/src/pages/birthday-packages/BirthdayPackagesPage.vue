@@ -2,17 +2,13 @@
   <AdminCrudWorkspace
     eyebrow="Коммерческое предложение"
     title="Пакеты дней рождения"
-    description="Пакеты, цены и вместимость по филиалам."
-    :mobile-view="mobileView"
-    :mobile-detail-title="detailPanelTitle"
-    mobile-detail-eyebrow="Рабочая карточка"
-    @back="handleBack"
+    description="Состав пакетов, цены, вместимость и доступность по филиалам."
   >
     <template #actions>
       <button
         type="button"
         class="admin-button admin-button--primary"
-        @click="handleStartCreate"
+        @click="packagesManager.startCreate"
       >
         Добавить пакет
       </button>
@@ -20,7 +16,8 @@
 
     <template #list>
       <div class="admin-section-heading">
-        <h2>Пакеты</h2>
+        <h2>Список пакетов</h2>
+        <p>Слева — актуальное предложение по филиалам. Справа — создание и редактирование выбранного пакета.</p>
       </div>
 
       <div class="admin-crud-filters">
@@ -77,9 +74,19 @@
 
       <StatePanel
         v-else-if="packagesManager.filteredPackages.length === 0"
-        title="Пакеты не найдены"
-        description="Проверьте фильтры или строку поиска."
-      />
+        title="Пакетов пока нет"
+        description="Проверьте фильтры или создайте новый пакет для выбранного филиала."
+      >
+        <template #actions>
+          <button
+            type="button"
+            class="admin-button admin-button--primary"
+            @click="packagesManager.startCreate"
+          >
+            Добавить пакет
+          </button>
+        </template>
+      </StatePanel>
 
       <div v-else class="admin-list-records">
         <button
@@ -90,7 +97,7 @@
           :class="{
             'admin-list-record--active': item.id === packagesManager.selectedPackageId,
           }"
-          @click="handleSelectPackage(item.id)"
+          @click="packagesManager.selectPackage(item.id)"
         >
           <span class="admin-list-record__accent" aria-hidden="true"></span>
           <div class="admin-list-record__copy">
@@ -119,13 +126,13 @@
       <StatePanel
         v-if="packagesManager.isCreating"
         title="Новый пакет"
-        description="Создайте коммерческое предложение для мобильного приложения."
+        description="Создайте коммерческое предложение для мобильного приложения и операторов."
       />
 
       <StatePanel
         v-else-if="packagesManager.isDetailLoading"
         title="Открываем пакет"
-        description="Подтягиваем описание, параметры и публикацию."
+        description="Подтягиваем описание, параметры и текущее состояние публикации."
       />
 
       <StatePanel
@@ -137,153 +144,84 @@
 
       <form
         v-if="packagesManager.isCreating"
-        ref="createFormRef"
         class="admin-form-stack"
-        novalidate
-        @submit.prevent="handleCreateSubmit"
+        @submit.prevent="packagesManager.saveCreate"
       >
         <div class="admin-section-heading">
           <h2>Создать пакет</h2>
+          <p>Сначала заполните базовое предложение. Позже его можно дополнить без смены структуры.</p>
         </div>
 
         <div class="admin-form-grid--two">
-          <div
-            class="admin-field"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.branchId) }"
-            data-field="branchId"
-          >
-            <AppSelectField
-              v-model="packagesManager.createForm.branchId"
-              label="Филиал"
-              :options="branchSelectionOptions"
-              :disabled="packagesManager.isBranchesLoading"
-            />
-            <p v-if="createFieldErrors.branchId" class="admin-field__error">
-              {{ createFieldErrors.branchId }}
-            </p>
-          </div>
+          <AppSelectField
+            v-model="packagesManager.createForm.branchId"
+            label="Филиал"
+            :options="branchSelectionOptions"
+            :disabled="packagesManager.isBranchesLoading"
+          />
 
-          <label
-            class="admin-field"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.slug) }"
-            data-field="slug"
-          >
+          <label class="admin-field">
             <span class="admin-field__label">Служебный код</span>
             <input
               v-model="packagesManager.createForm.slug"
-              name="slug"
+              required
               class="admin-control"
-              @input="clearCreateFieldError('slug')"
             />
-            <p v-if="createFieldErrors.slug" class="admin-field__error">
-              {{ createFieldErrors.slug }}
-            </p>
           </label>
 
-          <label
-            class="admin-field admin-field--full"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.name) }"
-            data-field="name"
-          >
+          <label class="admin-field admin-field--full">
             <span class="admin-field__label">Название пакета</span>
             <input
               v-model="packagesManager.createForm.name"
-              name="name"
+              required
               class="admin-control"
-              @input="clearCreateFieldError('name')"
             />
-            <p v-if="createFieldErrors.name" class="admin-field__error">
-              {{ createFieldErrors.name }}
-            </p>
           </label>
 
-          <label
-            class="admin-field"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.priceFrom) }"
-            data-field="priceFrom"
-          >
+          <label class="admin-field">
             <span class="admin-field__label">Цена от</span>
             <input
               v-model.number="packagesManager.createForm.priceFrom"
-              name="priceFrom"
               min="0"
               type="number"
               class="admin-control"
-              @input="clearCreateFieldError('priceFrom')"
             />
-            <p v-if="createFieldErrors.priceFrom" class="admin-field__error">
-              {{ createFieldErrors.priceFrom }}
-            </p>
           </label>
 
-          <label
-            class="admin-field"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.priceLabel) }"
-            data-field="priceLabel"
-          >
+          <label class="admin-field">
             <span class="admin-field__label">Подпись цены</span>
             <input
               v-model="packagesManager.createForm.priceLabel"
-              name="priceLabel"
+              required
               class="admin-control"
-              @input="clearCreateFieldError('priceLabel')"
             />
-            <p v-if="createFieldErrors.priceLabel" class="admin-field__error">
-              {{ createFieldErrors.priceLabel }}
-            </p>
           </label>
 
-          <label
-            class="admin-field"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.guestCapacityLabel) }"
-            data-field="guestCapacityLabel"
-          >
+          <label class="admin-field">
             <span class="admin-field__label">Вместимость</span>
             <input
               v-model="packagesManager.createForm.guestCapacityLabel"
-              name="guestCapacityLabel"
+              required
               class="admin-control"
-              @input="clearCreateFieldError('guestCapacityLabel')"
             />
-            <p v-if="createFieldErrors.guestCapacityLabel" class="admin-field__error">
-              {{ createFieldErrors.guestCapacityLabel }}
-            </p>
           </label>
 
-          <label
-            class="admin-field"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.displayOrder) }"
-            data-field="displayOrder"
-          >
+          <label class="admin-field">
             <span class="admin-field__label">Порядок показа</span>
             <input
               v-model.number="packagesManager.createForm.displayOrder"
-              name="displayOrder"
               min="0"
               type="number"
               class="admin-control"
-              @input="clearCreateFieldError('displayOrder')"
             />
-            <p v-if="createFieldErrors.displayOrder" class="admin-field__error">
-              {{ createFieldErrors.displayOrder }}
-            </p>
           </label>
 
-          <label
-            class="admin-field admin-field--full"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.description) }"
-            data-field="description"
-          >
+          <label class="admin-field admin-field--full">
             <span class="admin-field__label">Описание</span>
             <textarea
               v-model="packagesManager.createForm.description"
-              name="description"
               class="admin-control admin-control--textarea"
-              @input="clearCreateFieldError('description')"
             ></textarea>
-            <p v-if="createFieldErrors.description" class="admin-field__error">
-              {{ createFieldErrors.description }}
-            </p>
           </label>
 
           <label class="admin-field admin-field--full">
@@ -295,22 +233,13 @@
             ></textarea>
           </label>
 
-          <label
-            class="admin-field admin-field--full"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.imageUrl) }"
-            data-field="imageUrl"
-          >
+          <label class="admin-field admin-field--full">
             <span class="admin-field__label">Ссылка на изображение</span>
             <input
               v-model="packagesManager.createForm.imageUrl"
-              name="imageUrl"
               class="admin-control"
               placeholder="https://..."
-              @input="clearCreateFieldError('imageUrl')"
             />
-            <p v-if="createFieldErrors.imageUrl" class="admin-field__error">
-              {{ createFieldErrors.imageUrl }}
-            </p>
           </label>
         </div>
 
@@ -318,7 +247,7 @@
           <AdminSwitchField
             v-model="packagesManager.createForm.isFeatured"
             label="Показывать как флагманский пакет"
-            hint="Используется для акцентного показа в мобильном приложении."
+            hint="Используется для акцентного показа в мобильных surfaces."
           />
           <AdminSwitchField
             v-model="packagesManager.createForm.isActive"
@@ -327,11 +256,12 @@
           />
         </div>
 
-        <AdminFormErrorBanner
-          v-if="createSummaryMessage"
-          :message="createSummaryMessage"
-          :errors="createFieldErrors"
-        />
+        <p
+          v-if="packagesManager.createErrorMessage"
+          class="admin-inline-message admin-inline-message--error"
+        >
+          {{ packagesManager.createErrorMessage }}
+        </p>
         <p
           v-if="packagesManager.createSuccessMessage"
           class="admin-inline-message admin-inline-message--success"
@@ -339,7 +269,7 @@
           {{ packagesManager.createSuccessMessage }}
         </p>
 
-        <AdminStickyActions>
+        <div class="admin-form-actions">
           <button
             type="submit"
             class="admin-button admin-button--primary"
@@ -350,11 +280,11 @@
           <button
             type="button"
             class="admin-button admin-button--secondary"
-            @click="handleBack"
+            @click="packagesManager.cancelCreate"
           >
             Отменить
           </button>
-        </AdminStickyActions>
+        </div>
       </form>
 
       <template v-else-if="packagesManager.selectedPackage">
@@ -377,154 +307,82 @@
           </div>
         </header>
 
-        <form
-          ref="editFormRef"
-          class="admin-form-stack"
-          novalidate
-          @submit.prevent="handleSave"
-        >
+        <form class="admin-form-stack" @submit.prevent="packagesManager.save">
           <div class="admin-section-heading">
             <h3>Основные данные</h3>
+            <p>Редактируйте описание пакета, цену, визуал и порядок показа без лишних переходов.</p>
           </div>
 
           <div class="admin-form-grid--two">
-            <div
-              class="admin-field"
-              :class="{ 'admin-field--error': Boolean(editFieldErrors.branchId) }"
-              data-field="branchId"
-            >
-              <AppSelectField
-                v-model="packageBranchId"
-                label="Филиал"
-                :options="branchSelectionOptions"
-                :disabled="packagesManager.isBranchesLoading"
-              />
-              <p v-if="editFieldErrors.branchId" class="admin-field__error">
-                {{ editFieldErrors.branchId }}
-              </p>
-            </div>
+            <AppSelectField
+              v-model="packageBranchId"
+              label="Филиал"
+              :options="branchSelectionOptions"
+              :disabled="packagesManager.isBranchesLoading"
+            />
 
-            <label
-              class="admin-field"
-              :class="{ 'admin-field--error': Boolean(editFieldErrors.slug) }"
-              data-field="slug"
-            >
+            <label class="admin-field">
               <span class="admin-field__label">Служебный код</span>
               <input
                 v-model="packagesManager.form.slug"
-                name="slug"
+                required
                 class="admin-control"
-                @input="clearEditFieldError('slug')"
               />
-              <p v-if="editFieldErrors.slug" class="admin-field__error">
-                {{ editFieldErrors.slug }}
-              </p>
             </label>
 
-            <label
-              class="admin-field admin-field--full"
-              :class="{ 'admin-field--error': Boolean(editFieldErrors.name) }"
-              data-field="name"
-            >
+            <label class="admin-field admin-field--full">
               <span class="admin-field__label">Название пакета</span>
               <input
                 v-model="packagesManager.form.name"
-                name="name"
+                required
                 class="admin-control"
-                @input="clearEditFieldError('name')"
               />
-              <p v-if="editFieldErrors.name" class="admin-field__error">
-                {{ editFieldErrors.name }}
-              </p>
             </label>
 
-            <label
-              class="admin-field"
-              :class="{ 'admin-field--error': Boolean(editFieldErrors.priceFrom) }"
-              data-field="priceFrom"
-            >
+            <label class="admin-field">
               <span class="admin-field__label">Цена от</span>
               <input
                 v-model.number="packagesManager.form.priceFrom"
-                name="priceFrom"
                 min="0"
                 type="number"
                 class="admin-control"
-                @input="clearEditFieldError('priceFrom')"
               />
-              <p v-if="editFieldErrors.priceFrom" class="admin-field__error">
-                {{ editFieldErrors.priceFrom }}
-              </p>
             </label>
 
-            <label
-              class="admin-field"
-              :class="{ 'admin-field--error': Boolean(editFieldErrors.priceLabel) }"
-              data-field="priceLabel"
-            >
+            <label class="admin-field">
               <span class="admin-field__label">Подпись цены</span>
               <input
                 v-model="packagesManager.form.priceLabel"
-                name="priceLabel"
+                required
                 class="admin-control"
-                @input="clearEditFieldError('priceLabel')"
               />
-              <p v-if="editFieldErrors.priceLabel" class="admin-field__error">
-                {{ editFieldErrors.priceLabel }}
-              </p>
             </label>
 
-            <label
-              class="admin-field"
-              :class="{ 'admin-field--error': Boolean(editFieldErrors.guestCapacityLabel) }"
-              data-field="guestCapacityLabel"
-            >
+            <label class="admin-field">
               <span class="admin-field__label">Вместимость</span>
               <input
                 v-model="packagesManager.form.guestCapacityLabel"
-                name="guestCapacityLabel"
+                required
                 class="admin-control"
-                @input="clearEditFieldError('guestCapacityLabel')"
               />
-              <p v-if="editFieldErrors.guestCapacityLabel" class="admin-field__error">
-                {{ editFieldErrors.guestCapacityLabel }}
-              </p>
             </label>
 
-            <label
-              class="admin-field"
-              :class="{ 'admin-field--error': Boolean(editFieldErrors.displayOrder) }"
-              data-field="displayOrder"
-            >
+            <label class="admin-field">
               <span class="admin-field__label">Порядок показа</span>
               <input
                 v-model.number="packagesManager.form.displayOrder"
-                name="displayOrder"
                 min="0"
                 type="number"
                 class="admin-control"
-                @input="clearEditFieldError('displayOrder')"
               />
-              <p v-if="editFieldErrors.displayOrder" class="admin-field__error">
-                {{ editFieldErrors.displayOrder }}
-              </p>
             </label>
 
-            <label
-              class="admin-field admin-field--full"
-              :class="{ 'admin-field--error': Boolean(editFieldErrors.description) }"
-              data-field="description"
-            >
+            <label class="admin-field admin-field--full">
               <span class="admin-field__label">Описание</span>
               <textarea
                 v-model="packagesManager.form.description"
-                name="description"
                 class="admin-control admin-control--textarea"
-                @input="clearEditFieldError('description')"
               ></textarea>
-              <p v-if="editFieldErrors.description" class="admin-field__error">
-                {{ editFieldErrors.description }}
-              </p>
             </label>
 
             <label class="admin-field admin-field--full">
@@ -536,22 +394,13 @@
               ></textarea>
             </label>
 
-            <label
-              class="admin-field admin-field--full"
-              :class="{ 'admin-field--error': Boolean(editFieldErrors.imageUrl) }"
-              data-field="imageUrl"
-            >
+            <label class="admin-field admin-field--full">
               <span class="admin-field__label">Ссылка на изображение</span>
               <input
                 v-model="packagesManager.form.imageUrl"
-                name="imageUrl"
                 class="admin-control"
                 placeholder="https://..."
-                @input="clearEditFieldError('imageUrl')"
               />
-              <p v-if="editFieldErrors.imageUrl" class="admin-field__error">
-                {{ editFieldErrors.imageUrl }}
-              </p>
             </label>
           </div>
 
@@ -564,15 +413,16 @@
             <AdminSwitchField
               v-model="packageIsActive"
               label="Пакет активен"
-              hint="Неактивный пакет скрывается из клиентских экранов."
+              hint="Неактивный пакет скрывается из клиентских surfaces."
             />
           </div>
 
-          <AdminFormErrorBanner
-            v-if="editSummaryMessage"
-            :message="editSummaryMessage"
-            :errors="editFieldErrors"
-          />
+          <p
+            v-if="packagesManager.saveErrorMessage"
+            class="admin-inline-message admin-inline-message--error"
+          >
+            {{ packagesManager.saveErrorMessage }}
+          </p>
           <p
             v-if="packagesManager.saveSuccessMessage"
             class="admin-inline-message admin-inline-message--success"
@@ -580,7 +430,7 @@
             {{ packagesManager.saveSuccessMessage }}
           </p>
 
-          <AdminStickyActions>
+          <div class="admin-form-actions">
             <button
               type="submit"
               class="admin-button admin-button--primary"
@@ -588,55 +438,33 @@
             >
               {{ packagesManager.isSaving ? 'Сохраняем…' : 'Сохранить пакет' }}
             </button>
-          </AdminStickyActions>
+          </div>
         </form>
       </template>
 
       <StatePanel
         v-else
-        title="Выберите пакет"
-        description="Откройте пакет, чтобы изменить описание и цену."
+        title="Выберите пакет слева"
+        description="Подробности пакета и рабочие действия откроются здесь."
       />
     </template>
   </AdminCrudWorkspace>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive } from 'vue';
 
 import { useAdminBirthdayPackages } from '@/features/birthday-packages/model/useAdminBirthdayPackages';
-import type { AdminFieldErrors } from '@/shared/lib/adminApiErrors';
-import {
-  resolveAdminApiErrorMessage,
-  resolveAdminApiFieldErrors,
-} from '@/shared/lib/adminApiErrors';
-import {
-  clearFieldError,
-  focusFirstFieldError,
-  replaceFieldErrors,
-  validateNonNegativeNumber,
-  validateOptionalUrl,
-  validateRequiredText,
-} from '@/shared/lib/adminFormValidation';
 import { resolveActiveStatus } from '@/shared/lib/adminStatus';
 import { parseTextList, stringifyTextList } from '@/shared/lib/textList';
-import AdminFormErrorBanner from '@/shared/ui/AdminFormErrorBanner.vue';
 import AdminCrudWorkspace from '@/shared/ui/AdminCrudWorkspace.vue';
 import AdminSearchField from '@/shared/ui/AdminSearchField.vue';
-import AdminStickyActions from '@/shared/ui/AdminStickyActions.vue';
 import AdminSwitchField from '@/shared/ui/AdminSwitchField.vue';
 import AppSelectField from '@/shared/ui/AppSelectField.vue';
 import StatePanel from '@/shared/ui/StatePanel.vue';
 import StatusBadge from '@/shared/ui/StatusBadge.vue';
 
 const packagesManager = reactive(useAdminBirthdayPackages());
-const mobileView = ref<'list' | 'detail'>('list');
-const createFormRef = ref<HTMLFormElement | null>(null);
-const editFormRef = ref<HTMLFormElement | null>(null);
-const createSummaryMessage = ref('');
-const editSummaryMessage = ref('');
-const createFieldErrors = reactive<AdminFieldErrors>({});
-const editFieldErrors = reactive<AdminFieldErrors>({});
 
 const statusOptions = [
   { label: 'Все статусы', value: 'all' },
@@ -709,14 +537,6 @@ const packageIsFeatured = computed({
   },
 });
 
-const detailPanelTitle = computed(() => {
-  if (packagesManager.isCreating) {
-    return 'Новый пакет';
-  }
-
-  return packagesManager.selectedPackage?.name || 'Карточка пакета';
-});
-
 function branchLabel(branchId: string): string {
   return branchNameMap.value.get(branchId) ?? 'Филиал не найден';
 }
@@ -724,163 +544,6 @@ function branchLabel(branchId: string): string {
 onMounted(() => {
   void packagesManager.initialize();
 });
-
-function handleStartCreate() {
-  clearFormFeedback();
-  packagesManager.startCreate();
-  mobileView.value = 'detail';
-}
-
-async function handleSelectPackage(packageId: string) {
-  await packagesManager.selectPackage(packageId);
-  mobileView.value = 'detail';
-}
-
-function handleBack() {
-  if (packagesManager.isCreating) {
-    packagesManager.cancelCreate();
-  }
-
-  clearFormFeedback();
-  mobileView.value = 'list';
-}
-
-async function handleCreateSubmit() {
-  const errors = compactErrors({
-    branchId: validateRequiredText(
-      packagesManager.createForm.branchId,
-      'Выберите филиал.',
-      1,
-    ),
-    slug: validateRequiredText(packagesManager.createForm.slug, 'Введите служебный код.', 2),
-    name: validateRequiredText(packagesManager.createForm.name, 'Введите название пакета.', 2),
-    priceFrom: validateNonNegativeNumber(
-      packagesManager.createForm.priceFrom,
-      'Введите цену не меньше 0.',
-    ),
-    priceLabel: validateRequiredText(
-      packagesManager.createForm.priceLabel,
-      'Введите подпись цены.',
-      1,
-    ),
-    guestCapacityLabel: validateRequiredText(
-      packagesManager.createForm.guestCapacityLabel,
-      'Введите вместимость.',
-      1,
-    ),
-    description: validateRequiredText(
-      packagesManager.createForm.description,
-      'Добавьте описание пакета.',
-      10,
-    ),
-    imageUrl: validateOptionalUrl(
-      packagesManager.createForm.imageUrl || '',
-      'Введите корректную ссылку на изображение.',
-    ),
-    displayOrder: validateNonNegativeNumber(
-      packagesManager.createForm.displayOrder,
-      'Введите порядок не меньше 0.',
-    ),
-  });
-
-  replaceFieldErrors(createFieldErrors, errors);
-  createSummaryMessage.value = Object.keys(errors).length ? 'Проверьте обязательные поля.' : '';
-
-  if (Object.keys(errors).length > 0) {
-    await focusFirstFieldError(createFormRef.value, createFieldErrors);
-    return;
-  }
-
-  try {
-    createSummaryMessage.value = '';
-    await packagesManager.saveCreate();
-  } catch (error) {
-    replaceFieldErrors(createFieldErrors, resolveAdminApiFieldErrors(error));
-    createSummaryMessage.value = resolveAdminApiErrorMessage(
-      error,
-      'Не удалось создать пакет.',
-    );
-    await focusFirstFieldError(createFormRef.value, createFieldErrors);
-  }
-}
-
-async function handleSave() {
-  const errors = compactErrors({
-    branchId: validateRequiredText(packagesManager.form.branchId || '', 'Выберите филиал.', 1),
-    slug: validateRequiredText(packagesManager.form.slug || '', 'Введите служебный код.', 2),
-    name: validateRequiredText(packagesManager.form.name || '', 'Введите название пакета.', 2),
-    priceFrom: validateNonNegativeNumber(
-      packagesManager.form.priceFrom ?? 0,
-      'Введите цену не меньше 0.',
-    ),
-    priceLabel: validateRequiredText(
-      packagesManager.form.priceLabel || '',
-      'Введите подпись цены.',
-      1,
-    ),
-    guestCapacityLabel: validateRequiredText(
-      packagesManager.form.guestCapacityLabel || '',
-      'Введите вместимость.',
-      1,
-    ),
-    description: validateRequiredText(
-      packagesManager.form.description || '',
-      'Добавьте описание пакета.',
-      10,
-    ),
-    imageUrl: validateOptionalUrl(
-      packagesManager.form.imageUrl || '',
-      'Введите корректную ссылку на изображение.',
-    ),
-    displayOrder: validateNonNegativeNumber(
-      packagesManager.form.displayOrder ?? 0,
-      'Введите порядок не меньше 0.',
-    ),
-  });
-
-  replaceFieldErrors(editFieldErrors, errors);
-  editSummaryMessage.value = Object.keys(errors).length ? 'Проверьте обязательные поля.' : '';
-
-  if (Object.keys(errors).length > 0) {
-    await focusFirstFieldError(editFormRef.value, editFieldErrors);
-    return;
-  }
-
-  try {
-    editSummaryMessage.value = '';
-    await packagesManager.save();
-  } catch (error) {
-    replaceFieldErrors(editFieldErrors, resolveAdminApiFieldErrors(error));
-    editSummaryMessage.value = resolveAdminApiErrorMessage(
-      error,
-      'Не удалось сохранить пакет.',
-    );
-    await focusFirstFieldError(editFormRef.value, editFieldErrors);
-  }
-}
-
-function clearCreateFieldError(field: string) {
-  clearFieldError(createFieldErrors, field);
-  createSummaryMessage.value = '';
-}
-
-function clearEditFieldError(field: string) {
-  clearFieldError(editFieldErrors, field);
-  editSummaryMessage.value = '';
-}
-
-function clearFormFeedback() {
-  replaceFieldErrors(createFieldErrors, {});
-  replaceFieldErrors(editFieldErrors, {});
-  createSummaryMessage.value = '';
-  editSummaryMessage.value = '';
-}
-
-function compactErrors(errors: AdminFieldErrors): AdminFieldErrors {
-  return Object.fromEntries(
-    Object.entries(errors).filter((entry): entry is [string, string] => Boolean(entry[1])),
-  );
-}
 </script>
 
 <style scoped>

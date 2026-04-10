@@ -165,7 +165,6 @@ export function useAdminFaqs() {
         error,
         'Не удалось создать FAQ.',
       );
-      throw error;
     } finally {
       isCreateSaving.value = false;
     }
@@ -194,7 +193,6 @@ export function useAdminFaqs() {
       saveSuccessMessage.value = 'FAQ сохранен.';
     } catch (error) {
       saveErrorMessage.value = resolveAdminRequestError(error, 'Не удалось сохранить FAQ.');
-      throw error;
     } finally {
       isSaving.value = false;
     }

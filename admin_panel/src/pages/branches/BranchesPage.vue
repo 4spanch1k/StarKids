@@ -2,17 +2,13 @@
   <AdminCrudWorkspace
     eyebrow="Контент филиалов"
     title="Филиалы"
-    description="Филиалы, контакты и базовые параметры."
-    :mobile-view="mobileView"
-    :mobile-detail-title="detailPanelTitle"
-    mobile-detail-eyebrow="Рабочая карточка"
-    @back="handleBack"
+    description="Список филиалов, основные параметры и контакты для мобильного приложения."
   >
     <template #actions>
       <button
         type="button"
         class="admin-button admin-button--primary"
-        @click="handleStartCreate"
+        @click="branchesManager.startCreate"
       >
         Добавить филиал
       </button>
@@ -20,7 +16,8 @@
 
     <template #list>
       <div class="admin-section-heading">
-        <h2>Филиалы</h2>
+        <h2>Список филиалов</h2>
+        <p>Выберите филиал слева или создайте новый, чтобы открыть рабочую карточку.</p>
       </div>
 
       <div class="branches-list__filters">
@@ -62,8 +59,18 @@
       <StatePanel
         v-else-if="branchesManager.filteredBranches.length === 0"
         title="Филиалы не найдены"
-        description="Проверьте строку поиска или очистите фильтр по статусу."
-      />
+        description="Проверьте строку поиска или создайте новый филиал."
+      >
+        <template #actions>
+          <button
+            type="button"
+            class="admin-button admin-button--primary"
+            @click="branchesManager.startCreate"
+          >
+            Добавить филиал
+          </button>
+        </template>
+      </StatePanel>
 
       <div v-else class="branches-list__items">
         <button
@@ -74,7 +81,7 @@
           :class="{
             'branches-list__item--active': branch.id === branchesManager.selectedBranchId,
           }"
-          @click="handleSelectBranch(branch.id)"
+          @click="branchesManager.selectBranch(branch.id)"
         >
           <span class="branches-list__item-accent" aria-hidden="true"></span>
           <div class="branches-list__item-copy">
@@ -111,160 +118,72 @@
       />
 
       <template v-if="branchesManager.isCreating">
-        <form
-          ref="createFormRef"
-          class="admin-form-stack"
-          novalidate
-          @submit.prevent="handleCreateSubmit"
-        >
+        <form class="admin-form-stack" @submit.prevent="branchesManager.saveCreate">
           <div class="admin-section-heading">
             <h2>Создать филиал</h2>
+            <p>Эта форма создает карточку филиала и базовую контактную информацию.</p>
           </div>
 
           <div class="branches-form-grid">
-            <label
-              class="admin-field"
-              :class="{ 'admin-field--error': Boolean(createFieldErrors.slug) }"
-              data-field="slug"
-            >
+            <label class="admin-field">
               <span class="admin-field__label">Служебный код</span>
-              <input
-                v-model="branchesManager.createForm.slug"
-                name="slug"
-                class="admin-control"
-                @input="clearCreateFieldError('slug')"
-              />
-              <p v-if="createFieldErrors.slug" class="admin-field__error">
-                {{ createFieldErrors.slug }}
-              </p>
+              <input v-model="branchesManager.createForm.slug" required class="admin-control" />
             </label>
-            <label
-              class="admin-field"
-              :class="{ 'admin-field--error': Boolean(createFieldErrors.shortLabel) }"
-              data-field="shortLabel"
-            >
+            <label class="admin-field">
               <span class="admin-field__label">Короткая подпись</span>
               <input
                 v-model="branchesManager.createForm.shortLabel"
-                name="shortLabel"
+                required
                 class="admin-control"
-                @input="clearCreateFieldError('shortLabel')"
               />
-              <p v-if="createFieldErrors.shortLabel" class="admin-field__error">
-                {{ createFieldErrors.shortLabel }}
-              </p>
             </label>
-            <label
-              class="admin-field branches-form-grid__full"
-              :class="{ 'admin-field--error': Boolean(createFieldErrors.name) }"
-              data-field="name"
-            >
+            <label class="admin-field branches-form-grid__full">
               <span class="admin-field__label">Название филиала</span>
-              <input
-                v-model="branchesManager.createForm.name"
-                name="name"
-                class="admin-control"
-                @input="clearCreateFieldError('name')"
-              />
-              <p v-if="createFieldErrors.name" class="admin-field__error">
-                {{ createFieldErrors.name }}
-              </p>
+              <input v-model="branchesManager.createForm.name" required class="admin-control" />
             </label>
-            <label
-              class="admin-field"
-              :class="{ 'admin-field--error': Boolean(createFieldErrors.city) }"
-              data-field="city"
-            >
+            <label class="admin-field">
               <span class="admin-field__label">Город</span>
-              <input
-                v-model="branchesManager.createForm.city"
-                name="city"
-                class="admin-control"
-                @input="clearCreateFieldError('city')"
-              />
-              <p v-if="createFieldErrors.city" class="admin-field__error">
-                {{ createFieldErrors.city }}
-              </p>
+              <input v-model="branchesManager.createForm.city" required class="admin-control" />
             </label>
-            <label
-              class="admin-field"
-              :class="{ 'admin-field--error': Boolean(createFieldErrors.workingHours) }"
-              data-field="workingHours"
-            >
+            <label class="admin-field">
               <span class="admin-field__label">Режим работы</span>
               <input
                 v-model="branchesManager.createForm.workingHours"
-                name="workingHours"
+                required
                 class="admin-control"
-                @input="clearCreateFieldError('workingHours')"
               />
-              <p v-if="createFieldErrors.workingHours" class="admin-field__error">
-                {{ createFieldErrors.workingHours }}
-              </p>
             </label>
-            <label
-              class="admin-field branches-form-grid__full"
-              :class="{ 'admin-field--error': Boolean(createFieldErrors.address) }"
-              data-field="address"
-            >
+            <label class="admin-field branches-form-grid__full">
               <span class="admin-field__label">Адрес</span>
               <input
                 v-model="branchesManager.createForm.address"
-                name="address"
+                required
                 class="admin-control"
-                @input="clearCreateFieldError('address')"
               />
-              <p v-if="createFieldErrors.address" class="admin-field__error">
-                {{ createFieldErrors.address }}
-              </p>
             </label>
-            <label
-              class="admin-field"
-              :class="{ 'admin-field--error': Boolean(createFieldErrors.phone) }"
-              data-field="phone"
-            >
+            <label class="admin-field">
               <span class="admin-field__label">Телефон</span>
               <input
                 v-model="branchesManager.createForm.phone"
-                name="phone"
+                required
                 class="admin-control"
-                @input="clearCreateFieldError('phone')"
               />
-              <p v-if="createFieldErrors.phone" class="admin-field__error">
-                {{ createFieldErrors.phone }}
-              </p>
             </label>
-            <label
-              class="admin-field"
-              :class="{ 'admin-field--error': Boolean(createFieldErrors.whatsappPhone) }"
-              data-field="whatsappPhone"
-            >
+            <label class="admin-field">
               <span class="admin-field__label">WhatsApp</span>
               <input
                 v-model="branchesManager.createForm.whatsappPhone"
-                name="whatsappPhone"
+                required
                 class="admin-control"
-                @input="clearCreateFieldError('whatsappPhone')"
               />
-              <p v-if="createFieldErrors.whatsappPhone" class="admin-field__error">
-                {{ createFieldErrors.whatsappPhone }}
-              </p>
             </label>
-            <label
-              class="admin-field branches-form-grid__full"
-              :class="{ 'admin-field--error': Boolean(createFieldErrors.description) }"
-              data-field="description"
-            >
+            <label class="admin-field branches-form-grid__full">
               <span class="admin-field__label">Описание</span>
               <textarea
                 v-model="branchesManager.createForm.description"
-                name="description"
+                required
                 class="admin-control admin-control--textarea"
-                @input="clearCreateFieldError('description')"
               ></textarea>
-              <p v-if="createFieldErrors.description" class="admin-field__error">
-                {{ createFieldErrors.description }}
-              </p>
             </label>
             <label class="admin-field branches-form-grid__full">
               <span class="admin-field__label">Удобства</span>
@@ -274,23 +193,14 @@
                 placeholder="Каждая строка — отдельное удобство"
               ></textarea>
             </label>
-            <label
-              class="admin-field"
-              :class="{ 'admin-field--error': Boolean(createFieldErrors.displayOrder) }"
-              data-field="displayOrder"
-            >
+            <label class="admin-field">
               <span class="admin-field__label">Порядок</span>
               <input
                 v-model.number="branchesManager.createForm.displayOrder"
-                name="displayOrder"
                 min="0"
                 type="number"
                 class="admin-control"
-                @input="clearCreateFieldError('displayOrder')"
               />
-              <p v-if="createFieldErrors.displayOrder" class="admin-field__error">
-                {{ createFieldErrors.displayOrder }}
-              </p>
             </label>
           </div>
 
@@ -300,11 +210,12 @@
             hint="Неактивный филиал не будет виден в мобильном приложении."
           />
 
-          <AdminFormErrorBanner
-            v-if="createSummaryMessage"
-            :message="createSummaryMessage"
-            :errors="createFieldErrors"
-          />
+          <p
+            v-if="branchesManager.createErrorMessage"
+            class="admin-inline-message admin-inline-message--error"
+          >
+            {{ branchesManager.createErrorMessage }}
+          </p>
           <p
             v-if="branchesManager.createSuccessMessage"
             class="admin-inline-message admin-inline-message--success"
@@ -312,7 +223,7 @@
             {{ branchesManager.createSuccessMessage }}
           </p>
 
-          <AdminStickyActions>
+          <div class="admin-form-actions">
             <button
               type="submit"
               class="admin-button admin-button--primary"
@@ -320,14 +231,14 @@
             >
               {{ branchesManager.isCreateSaving ? 'Сохраняем…' : 'Создать филиал' }}
             </button>
-          <button
-            type="button"
-            class="admin-button admin-button--secondary"
-            @click="handleBack"
-          >
-            Отменить
-          </button>
-          </AdminStickyActions>
+            <button
+              type="button"
+              class="admin-button admin-button--secondary"
+              @click="branchesManager.cancelCreate"
+            >
+              Отменить
+            </button>
+          </div>
         </form>
       </template>
 
@@ -349,112 +260,47 @@
           </div>
         </div>
 
-        <form
-          ref="branchFormRef"
-          class="admin-form-stack"
-          novalidate
-          @submit.prevent="handleBranchSave"
-        >
+        <form class="admin-form-stack" @submit.prevent="branchesManager.saveBranch">
           <div class="admin-section-heading">
             <h3>Основные данные</h3>
+            <p>Название, служебный код, порядок и описание филиала для операторов и мобильного приложения.</p>
           </div>
 
           <div class="branches-form-grid">
-            <label
-              class="admin-field"
-              :class="{ 'admin-field--error': Boolean(branchFieldErrors.slug) }"
-              data-field="slug"
-            >
+            <label class="admin-field">
               <span class="admin-field__label">Служебный код</span>
-              <input
-                v-model="branchesManager.branchForm.slug"
-                name="slug"
-                class="admin-control"
-                @input="clearBranchFieldError('slug')"
-              />
-              <p v-if="branchFieldErrors.slug" class="admin-field__error">
-                {{ branchFieldErrors.slug }}
-              </p>
+              <input v-model="branchesManager.branchForm.slug" required class="admin-control" />
             </label>
-            <label
-              class="admin-field"
-              :class="{ 'admin-field--error': Boolean(branchFieldErrors.shortLabel) }"
-              data-field="shortLabel"
-            >
+            <label class="admin-field">
               <span class="admin-field__label">Короткая подпись</span>
               <input
                 v-model="branchesManager.branchForm.shortLabel"
-                name="shortLabel"
+                required
                 class="admin-control"
-                @input="clearBranchFieldError('shortLabel')"
               />
-              <p v-if="branchFieldErrors.shortLabel" class="admin-field__error">
-                {{ branchFieldErrors.shortLabel }}
-              </p>
             </label>
-            <label
-              class="admin-field branches-form-grid__full"
-              :class="{ 'admin-field--error': Boolean(branchFieldErrors.name) }"
-              data-field="name"
-            >
+            <label class="admin-field branches-form-grid__full">
               <span class="admin-field__label">Название филиала</span>
-              <input
-                v-model="branchesManager.branchForm.name"
-                name="name"
-                class="admin-control"
-                @input="clearBranchFieldError('name')"
-              />
-              <p v-if="branchFieldErrors.name" class="admin-field__error">
-                {{ branchFieldErrors.name }}
-              </p>
+              <input v-model="branchesManager.branchForm.name" required class="admin-control" />
             </label>
-            <label
-              class="admin-field"
-              :class="{ 'admin-field--error': Boolean(branchFieldErrors.city) }"
-              data-field="city"
-            >
+            <label class="admin-field">
               <span class="admin-field__label">Город</span>
-              <input
-                v-model="branchesManager.branchForm.city"
-                name="city"
-                class="admin-control"
-                @input="clearBranchFieldError('city')"
-              />
-              <p v-if="branchFieldErrors.city" class="admin-field__error">
-                {{ branchFieldErrors.city }}
-              </p>
+              <input v-model="branchesManager.branchForm.city" required class="admin-control" />
             </label>
-            <label
-              class="admin-field"
-              :class="{ 'admin-field--error': Boolean(branchFieldErrors.workingHours) }"
-              data-field="workingHours"
-            >
+            <label class="admin-field">
               <span class="admin-field__label">Режим работы</span>
               <input
                 v-model="branchesManager.branchForm.workingHours"
-                name="workingHours"
+                required
                 class="admin-control"
-                @input="clearBranchFieldError('workingHours')"
               />
-              <p v-if="branchFieldErrors.workingHours" class="admin-field__error">
-                {{ branchFieldErrors.workingHours }}
-              </p>
             </label>
-            <label
-              class="admin-field branches-form-grid__full"
-              :class="{ 'admin-field--error': Boolean(branchFieldErrors.description) }"
-              data-field="description"
-            >
+            <label class="admin-field branches-form-grid__full">
               <span class="admin-field__label">Описание</span>
               <textarea
                 v-model="branchesManager.branchForm.description"
-                name="description"
                 class="admin-control admin-control--textarea"
-                @input="clearBranchFieldError('description')"
               ></textarea>
-              <p v-if="branchFieldErrors.description" class="admin-field__error">
-                {{ branchFieldErrors.description }}
-              </p>
             </label>
             <label class="admin-field branches-form-grid__full">
               <span class="admin-field__label">Удобства</span>
@@ -464,23 +310,14 @@
                 placeholder="Каждая строка — отдельное удобство"
               ></textarea>
             </label>
-            <label
-              class="admin-field"
-              :class="{ 'admin-field--error': Boolean(branchFieldErrors.displayOrder) }"
-              data-field="displayOrder"
-            >
+            <label class="admin-field">
               <span class="admin-field__label">Порядок</span>
               <input
                 v-model.number="branchesManager.branchForm.displayOrder"
-                name="displayOrder"
                 min="0"
                 type="number"
                 class="admin-control"
-                @input="clearBranchFieldError('displayOrder')"
               />
-              <p v-if="branchFieldErrors.displayOrder" class="admin-field__error">
-                {{ branchFieldErrors.displayOrder }}
-              </p>
             </label>
           </div>
 
@@ -490,11 +327,12 @@
             hint="Неактивный филиал скрывается из мобильного приложения."
           />
 
-          <AdminFormErrorBanner
-            v-if="branchSummaryMessage"
-            :message="branchSummaryMessage"
-            :errors="branchFieldErrors"
-          />
+          <p
+            v-if="branchesManager.branchErrorMessage"
+            class="admin-inline-message admin-inline-message--error"
+          >
+            {{ branchesManager.branchErrorMessage }}
+          </p>
           <p
             v-if="branchesManager.branchSuccessMessage"
             class="admin-inline-message admin-inline-message--success"
@@ -502,7 +340,7 @@
             {{ branchesManager.branchSuccessMessage }}
           </p>
 
-          <AdminStickyActions>
+          <div class="admin-form-actions">
             <button
               type="submit"
               class="admin-button admin-button--primary"
@@ -510,99 +348,47 @@
             >
               {{ branchesManager.isBranchSaving ? 'Сохраняем…' : 'Сохранить данные' }}
             </button>
-          </AdminStickyActions>
+          </div>
         </form>
 
-        <form
-          ref="contactsFormRef"
-          class="admin-form-stack"
-          novalidate
-          @submit.prevent="handleContactsSave"
-        >
+        <form class="admin-form-stack" @submit.prevent="branchesManager.saveContacts">
           <div class="admin-section-heading">
             <h3>Контакты и маршрут</h3>
+            <p>То, что увидит родитель на экране контактов в мобильном приложении.</p>
           </div>
 
           <div class="branches-form-grid">
-            <label
-              class="admin-field branches-form-grid__full"
-              :class="{ 'admin-field--error': Boolean(contactsFieldErrors.address) }"
-              data-field="address"
-            >
+            <label class="admin-field branches-form-grid__full">
               <span class="admin-field__label">Адрес</span>
-              <input
-                v-model="branchesManager.contactsForm.address"
-                name="address"
-                class="admin-control"
-                @input="clearContactsFieldError('address')"
-              />
-              <p v-if="contactsFieldErrors.address" class="admin-field__error">
-                {{ contactsFieldErrors.address }}
-              </p>
+              <input v-model="branchesManager.contactsForm.address" required class="admin-control" />
             </label>
-            <label
-              class="admin-field"
-              :class="{ 'admin-field--error': Boolean(contactsFieldErrors.phone) }"
-              data-field="phone"
-            >
+            <label class="admin-field">
               <span class="admin-field__label">Телефон</span>
-              <input
-                v-model="branchesManager.contactsForm.phone"
-                name="phone"
-                class="admin-control"
-                @input="clearContactsFieldError('phone')"
-              />
-              <p v-if="contactsFieldErrors.phone" class="admin-field__error">
-                {{ contactsFieldErrors.phone }}
-              </p>
+              <input v-model="branchesManager.contactsForm.phone" required class="admin-control" />
             </label>
-            <label
-              class="admin-field"
-              :class="{ 'admin-field--error': Boolean(contactsFieldErrors.whatsappPhone) }"
-              data-field="whatsappPhone"
-            >
+            <label class="admin-field">
               <span class="admin-field__label">WhatsApp</span>
               <input
                 v-model="branchesManager.contactsForm.whatsappPhone"
-                name="whatsappPhone"
+                required
                 class="admin-control"
-                @input="clearContactsFieldError('whatsappPhone')"
               />
-              <p v-if="contactsFieldErrors.whatsappPhone" class="admin-field__error">
-                {{ contactsFieldErrors.whatsappPhone }}
-              </p>
             </label>
-            <label
-              class="admin-field branches-form-grid__full"
-              :class="{ 'admin-field--error': Boolean(contactsFieldErrors.mapUrl) }"
-              data-field="mapUrl"
-            >
+            <label class="admin-field branches-form-grid__full">
               <span class="admin-field__label">Ссылка на карту</span>
               <input
                 v-model="branchesManager.contactsForm.mapUrl"
-                name="mapUrl"
+                required
                 class="admin-control"
-                @input="clearContactsFieldError('mapUrl')"
               />
-              <p v-if="contactsFieldErrors.mapUrl" class="admin-field__error">
-                {{ contactsFieldErrors.mapUrl }}
-              </p>
             </label>
-            <label
-              class="admin-field"
-              :class="{ 'admin-field--error': Boolean(contactsFieldErrors.routeLabel) }"
-              data-field="routeLabel"
-            >
+            <label class="admin-field">
               <span class="admin-field__label">Подпись маршрута</span>
               <input
                 v-model="branchesManager.contactsForm.routeLabel"
-                name="routeLabel"
+                required
                 class="admin-control"
-                @input="clearContactsFieldError('routeLabel')"
               />
-              <p v-if="contactsFieldErrors.routeLabel" class="admin-field__error">
-                {{ contactsFieldErrors.routeLabel }}
-              </p>
             </label>
             <label class="admin-field branches-form-grid__full">
               <span class="admin-field__label">Подсказка по парковке</span>
@@ -620,11 +406,12 @@
             </label>
           </div>
 
-          <AdminFormErrorBanner
-            v-if="contactsSummaryMessage"
-            :message="contactsSummaryMessage"
-            :errors="contactsFieldErrors"
-          />
+          <p
+            v-if="branchesManager.contactsErrorMessage"
+            class="admin-inline-message admin-inline-message--error"
+          >
+            {{ branchesManager.contactsErrorMessage }}
+          </p>
           <p
             v-if="branchesManager.contactsSuccessMessage"
             class="admin-inline-message admin-inline-message--success"
@@ -632,7 +419,7 @@
             {{ branchesManager.contactsSuccessMessage }}
           </p>
 
-          <AdminStickyActions>
+          <div class="admin-form-actions">
             <button
               type="submit"
               class="admin-button admin-button--primary"
@@ -640,58 +427,32 @@
             >
               {{ branchesManager.isContactsSaving ? 'Сохраняем…' : 'Сохранить контакты' }}
             </button>
-          </AdminStickyActions>
+          </div>
         </form>
       </template>
 
       <StatePanel
         v-else
-        title="Выберите филиал"
-        description="Откройте карточку филиала, чтобы изменить данные и контакты."
+        title="Выберите филиал слева"
+        description="Карточка филиала и его контакты откроются здесь."
       />
     </template>
   </AdminCrudWorkspace>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive } from 'vue';
 
 import { useAdminBranches } from '@/features/branches/model/useAdminBranches';
-import type { AdminFieldErrors } from '@/shared/lib/adminApiErrors';
-import {
-  resolveAdminApiErrorMessage,
-  resolveAdminApiFieldErrors,
-} from '@/shared/lib/adminApiErrors';
-import {
-  clearFieldError,
-  focusFirstFieldError,
-  replaceFieldErrors,
-  validateNonNegativeNumber,
-  validateRequiredPhone,
-  validateRequiredText,
-  validateRequiredUrl,
-} from '@/shared/lib/adminFormValidation';
 import { parseTextList, stringifyTextList } from '@/shared/lib/textList';
-import AdminFormErrorBanner from '@/shared/ui/AdminFormErrorBanner.vue';
 import AdminCrudWorkspace from '@/shared/ui/AdminCrudWorkspace.vue';
 import AdminSearchField from '@/shared/ui/AdminSearchField.vue';
-import AdminStickyActions from '@/shared/ui/AdminStickyActions.vue';
 import AdminSwitchField from '@/shared/ui/AdminSwitchField.vue';
 import AppSelectField from '@/shared/ui/AppSelectField.vue';
 import StatePanel from '@/shared/ui/StatePanel.vue';
 import StatusBadge from '@/shared/ui/StatusBadge.vue';
 
 const branchesManager = reactive(useAdminBranches());
-const mobileView = ref<'list' | 'detail'>('list');
-const createFormRef = ref<HTMLFormElement | null>(null);
-const branchFormRef = ref<HTMLFormElement | null>(null);
-const contactsFormRef = ref<HTMLFormElement | null>(null);
-const createSummaryMessage = ref('');
-const branchSummaryMessage = ref('');
-const contactsSummaryMessage = ref('');
-const createFieldErrors = reactive<AdminFieldErrors>({});
-const branchFieldErrors = reactive<AdminFieldErrors>({});
-const contactsFieldErrors = reactive<AdminFieldErrors>({});
 
 const statusOptions = [
   { label: 'Все статусы', value: 'all' },
@@ -726,245 +487,9 @@ const branchIsActive = computed({
   },
 });
 
-const detailPanelTitle = computed(() => {
-  if (branchesManager.isCreating) {
-    return 'Новый филиал';
-  }
-
-  return branchesManager.selectedBranch?.name || 'Карточка филиала';
-});
-
 onMounted(() => {
   void branchesManager.initialize();
 });
-
-function handleStartCreate() {
-  clearBranchFormFeedback();
-  branchesManager.startCreate();
-  mobileView.value = 'detail';
-}
-
-async function handleSelectBranch(branchId: string) {
-  await branchesManager.selectBranch(branchId);
-  mobileView.value = 'detail';
-}
-
-function handleBack() {
-  if (branchesManager.isCreating) {
-    branchesManager.cancelCreate();
-  }
-
-  clearBranchFormFeedback();
-  mobileView.value = 'list';
-}
-
-async function handleCreateSubmit() {
-  const errors: AdminFieldErrors = {
-    slug: validateRequiredText(
-      branchesManager.createForm.slug,
-      'Введите служебный код филиала.',
-      2,
-    ),
-    shortLabel: validateRequiredText(
-      branchesManager.createForm.shortLabel,
-      'Введите короткую подпись.',
-      2,
-    ),
-    name: validateRequiredText(
-      branchesManager.createForm.name,
-      'Введите название филиала.',
-      2,
-    ),
-    city: validateRequiredText(branchesManager.createForm.city, 'Введите город.', 2),
-    workingHours: validateRequiredText(
-      branchesManager.createForm.workingHours,
-      'Введите режим работы.',
-      2,
-    ),
-    address: validateRequiredText(
-      branchesManager.createForm.address,
-      'Введите адрес филиала.',
-      4,
-    ),
-    phone: validateRequiredPhone(
-      branchesManager.createForm.phone,
-      'Введите номер телефона.',
-      'Введите корректный номер телефона.',
-    ),
-    whatsappPhone: validateRequiredPhone(
-      branchesManager.createForm.whatsappPhone,
-      'Введите номер WhatsApp.',
-      'Введите корректный номер WhatsApp.',
-    ),
-    description: validateRequiredText(
-      branchesManager.createForm.description,
-      'Добавьте описание филиала.',
-      10,
-    ),
-    displayOrder: validateNonNegativeNumber(
-      branchesManager.createForm.displayOrder,
-      'Введите порядок не меньше 0.',
-    ),
-  };
-
-  replaceFieldErrors(createFieldErrors, compactErrors(errors));
-  createSummaryMessage.value = Object.keys(createFieldErrors).length
-    ? 'Проверьте обязательные поля.'
-    : '';
-
-  if (Object.keys(createFieldErrors).length > 0) {
-    await focusFirstFieldError(createFormRef.value, createFieldErrors);
-    return;
-  }
-
-  try {
-    createSummaryMessage.value = '';
-    await branchesManager.saveCreate();
-  } catch (error) {
-    replaceFieldErrors(createFieldErrors, resolveAdminApiFieldErrors(error));
-    createSummaryMessage.value = resolveAdminApiErrorMessage(
-      error,
-      'Не удалось создать филиал.',
-    );
-    await focusFirstFieldError(createFormRef.value, createFieldErrors);
-  }
-}
-
-async function handleBranchSave() {
-  const errors: AdminFieldErrors = {
-    slug: validateRequiredText(branchesManager.branchForm.slug || '', 'Введите служебный код филиала.', 2),
-    shortLabel: validateRequiredText(
-      branchesManager.branchForm.shortLabel || '',
-      'Введите короткую подпись.',
-      2,
-    ),
-    name: validateRequiredText(branchesManager.branchForm.name || '', 'Введите название филиала.', 2),
-    city: validateRequiredText(branchesManager.branchForm.city || '', 'Введите город.', 2),
-    workingHours: validateRequiredText(
-      branchesManager.branchForm.workingHours || '',
-      'Введите режим работы.',
-      2,
-    ),
-    description: validateRequiredText(
-      branchesManager.branchForm.description || '',
-      'Добавьте описание филиала.',
-      10,
-    ),
-    displayOrder: validateNonNegativeNumber(
-      branchesManager.branchForm.displayOrder ?? 0,
-      'Введите порядок не меньше 0.',
-    ),
-  };
-
-  replaceFieldErrors(branchFieldErrors, compactErrors(errors));
-  branchSummaryMessage.value = Object.keys(branchFieldErrors).length
-    ? 'Проверьте обязательные поля.'
-    : '';
-
-  if (Object.keys(branchFieldErrors).length > 0) {
-    await focusFirstFieldError(branchFormRef.value, branchFieldErrors);
-    return;
-  }
-
-  try {
-    branchSummaryMessage.value = '';
-    await branchesManager.saveBranch();
-  } catch (error) {
-    replaceFieldErrors(branchFieldErrors, resolveAdminApiFieldErrors(error));
-    branchSummaryMessage.value = resolveAdminApiErrorMessage(
-      error,
-      'Не удалось сохранить филиал.',
-    );
-    await focusFirstFieldError(branchFormRef.value, branchFieldErrors);
-  }
-}
-
-async function handleContactsSave() {
-  const errors: AdminFieldErrors = {
-    address: validateRequiredText(branchesManager.contactsForm.address, 'Введите адрес филиала.', 4),
-    phone: validateRequiredPhone(
-      branchesManager.contactsForm.phone,
-      'Введите номер телефона.',
-      'Введите корректный номер телефона.',
-    ),
-    whatsappPhone: validateRequiredPhone(
-      branchesManager.contactsForm.whatsappPhone,
-      'Введите номер WhatsApp.',
-      'Введите корректный номер WhatsApp.',
-    ),
-    mapUrl: validateRequiredUrl(
-      branchesManager.contactsForm.mapUrl,
-      'Добавьте ссылку на карту.',
-      'Введите корректную ссылку на карту.',
-    ),
-    routeLabel: validateRequiredText(
-      branchesManager.contactsForm.routeLabel,
-      'Введите подпись маршрута.',
-      2,
-    ),
-  };
-
-  replaceFieldErrors(contactsFieldErrors, compactErrors(errors));
-  contactsSummaryMessage.value = Object.keys(contactsFieldErrors).length
-    ? 'Проверьте обязательные поля.'
-    : '';
-
-  if (Object.keys(contactsFieldErrors).length > 0) {
-    await focusFirstFieldError(contactsFormRef.value, contactsFieldErrors);
-    return;
-  }
-
-  try {
-    contactsSummaryMessage.value = '';
-    await branchesManager.saveContacts();
-  } catch (error) {
-    replaceFieldErrors(contactsFieldErrors, resolveAdminApiFieldErrors(error));
-    contactsSummaryMessage.value = resolveAdminApiErrorMessage(
-      error,
-      'Не удалось сохранить контакты филиала.',
-    );
-    await focusFirstFieldError(contactsFormRef.value, contactsFieldErrors);
-  }
-}
-
-function clearCreateFieldError(field: string) {
-  clearFieldError(createFieldErrors, field);
-  if (Object.keys(createFieldErrors).length === 0) {
-    createSummaryMessage.value = '';
-  }
-}
-
-function clearBranchFieldError(field: string) {
-  clearFieldError(branchFieldErrors, field);
-  if (Object.keys(branchFieldErrors).length === 0) {
-    branchSummaryMessage.value = '';
-  }
-}
-
-function clearContactsFieldError(field: string) {
-  clearFieldError(contactsFieldErrors, field);
-  if (Object.keys(contactsFieldErrors).length === 0) {
-    contactsSummaryMessage.value = '';
-  }
-}
-
-function clearBranchFormFeedback() {
-  replaceFieldErrors(createFieldErrors, {});
-  replaceFieldErrors(branchFieldErrors, {});
-  replaceFieldErrors(contactsFieldErrors, {});
-  createSummaryMessage.value = '';
-  branchSummaryMessage.value = '';
-  contactsSummaryMessage.value = '';
-}
-
-function compactErrors(errors: AdminFieldErrors): AdminFieldErrors {
-  return Object.entries(errors).reduce<AdminFieldErrors>((accumulator, [field, message]) => {
-    if (message) {
-      accumulator[field] = message;
-    }
-    return accumulator;
-  }, {});
-}
 </script>
 
 <style scoped>

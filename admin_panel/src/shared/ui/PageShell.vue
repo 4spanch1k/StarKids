@@ -21,7 +21,7 @@
 defineProps<{
   eyebrow?: string;
   title: string;
-  description?: string;
+  description: string;
 }>();
 </script>
 
@@ -77,37 +77,6 @@ defineProps<{
 @media (max-width: 900px) {
   .page-shell__header {
     flex-direction: column;
-  }
-}
-
-@media (max-width: 720px) {
-  .page-shell {
-    gap: 12px;
-  }
-
-  .page-shell__header {
-    gap: 10px;
-  }
-
-  .page-shell__copy {
-    gap: 2px;
-  }
-
-  .page-shell__eyebrow,
-  .page-shell__description {
-    display: none;
-  }
-
-  .page-shell__title {
-    font-size: 24px;
-  }
-
-  .page-shell__actions {
-    width: 100%;
-  }
-
-  .page-shell__actions > * {
-    flex: 1 1 auto;
   }
 }
 </style>

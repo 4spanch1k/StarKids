@@ -11,7 +11,6 @@ import {
   loadPersistedSession,
   savePersistedSession,
 } from '@/features/auth/lib/sessionPersistence';
-import { resolveAdminApiErrorMessage } from '@/shared/lib/adminApiErrors';
 import type {
   AdminAuthResponse,
   AdminCurrentUser,
@@ -155,7 +154,13 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   function resolveErrorMessage(error: unknown): string {
-    return resolveAdminApiErrorMessage(error, 'Не удалось выполнить запрос.');
+    if (error instanceof HttpError) {
+      return error.message;
+    }
+    if (error instanceof Error) {
+      return error.message;
+    }
+    return 'Не удалось выполнить запрос.';
   }
 
   return {
