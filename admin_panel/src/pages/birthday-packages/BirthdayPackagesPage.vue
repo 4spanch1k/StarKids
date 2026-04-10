@@ -3,16 +3,19 @@
     eyebrow="Коммерческое предложение"
     title="Пакеты дней рождения"
     description="Пакеты, цены и вместимость по филиалам."
-    :mobile-view="mobileView"
-    :mobile-detail-title="detailPanelTitle"
-    mobile-detail-eyebrow="Рабочая карточка"
-    @back="handleBack"
+    :show-detail="showInlineDetail"
+    :route-panel-open="isRoutePanelOpen"
+    :route-panel-title="routePanelTitle"
+    :route-panel-eyebrow="routePanelEyebrow"
+    :route-panel-variant="routePanelVariant"
+    :route-panel-close-label="routePanelCloseLabel"
+    @back="handlePanelClose"
   >
     <template #actions>
       <button
         type="button"
         class="admin-button admin-button--primary"
-        @click="handleStartCreate"
+        @click="void routeState.goToCreate()"
       >
         Добавить пакет
       </button>
@@ -23,13 +26,15 @@
         <h2>Пакеты</h2>
       </div>
 
-      <div class="admin-crud-filters">
-        <AdminSearchField
-          v-model="packagesManager.searchQuery"
-          placeholder="Найти пакет по названию или цене"
-        />
+      <AdminCompactFilters>
+        <template #primary>
+          <AdminSearchField
+            v-model="packagesManager.searchQuery"
+            placeholder="Найти пакет"
+          />
+        </template>
 
-        <div class="birthday-packages-page__filter-grid">
+        <template #secondary>
           <AppSelectField
             v-model="packagesManager.branchFilter"
             label="Филиал"
@@ -42,8 +47,8 @@
             label="Статус"
             :options="statusOptions"
           />
-        </div>
-      </div>
+        </template>
+      </AdminCompactFilters>
 
       <p
         v-if="packagesManager.branchesErrorMessage"
@@ -55,7 +60,7 @@
       <StatePanel
         v-if="packagesManager.isListLoading"
         title="Загружаем пакеты"
-        description="Подождите немного, список обновляется с сервера."
+        description="Обновляем список коммерческих предложений."
       />
 
       <StatePanel
@@ -78,7 +83,7 @@
       <StatePanel
         v-else-if="packagesManager.filteredPackages.length === 0"
         title="Пакеты не найдены"
-        description="Проверьте фильтры или строку поиска."
+        description="Измените фильтры или очистите строку поиска."
       />
 
       <div v-else class="admin-list-records">
@@ -90,7 +95,7 @@
           :class="{
             'admin-list-record--active': item.id === packagesManager.selectedPackageId,
           }"
-          @click="handleSelectPackage(item.id)"
+          @click="void routeState.goToDetail(item.id)"
         >
           <span class="admin-list-record__accent" aria-hidden="true"></span>
           <div class="admin-list-record__copy">
@@ -117,274 +122,308 @@
 
     <template #detail>
       <StatePanel
-        v-if="packagesManager.isCreating"
-        title="Новый пакет"
-        description="Создайте коммерческое предложение для мобильного приложения."
-      />
-
-      <StatePanel
-        v-else-if="packagesManager.isDetailLoading"
+        v-if="packagesManager.isDetailLoading && routeMode !== 'create'"
         title="Открываем пакет"
-        description="Подтягиваем описание, параметры и публикацию."
+        description="Загружаем описание, цену и параметры показа."
       />
 
       <StatePanel
-        v-else-if="packagesManager.detailErrorMessage"
+        v-else-if="packagesManager.detailErrorMessage && routeMode !== 'create'"
         title="Не удалось открыть пакет"
         :description="packagesManager.detailErrorMessage"
         tone="error"
       />
 
-      <form
-        v-if="packagesManager.isCreating"
-        ref="createFormRef"
-        class="admin-form-stack"
-        novalidate
-        @submit.prevent="handleCreateSubmit"
-      >
-        <div class="admin-section-heading">
-          <h2>Создать пакет</h2>
-        </div>
-
-        <div class="admin-form-grid--two">
-          <div
-            class="admin-field"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.branchId) }"
-            data-field="branchId"
-          >
-            <AppSelectField
-              v-model="packagesManager.createForm.branchId"
-              label="Филиал"
-              :options="branchSelectionOptions"
-              :disabled="packagesManager.isBranchesLoading"
-            />
-            <p v-if="createFieldErrors.branchId" class="admin-field__error">
-              {{ createFieldErrors.branchId }}
-            </p>
+      <template v-else-if="routeMode === 'create'">
+        <form
+          ref="createFormRef"
+          class="admin-form-stack"
+          novalidate
+          @submit.prevent="handleCreateSubmit"
+        >
+          <div class="admin-section-heading">
+            <h2>Создать пакет</h2>
           </div>
 
-          <label
-            class="admin-field"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.slug) }"
-            data-field="slug"
-          >
-            <span class="admin-field__label">Служебный код</span>
-            <input
-              v-model="packagesManager.createForm.slug"
-              name="slug"
-              class="admin-control"
-              @input="clearCreateFieldError('slug')"
+          <div class="admin-form-grid--two">
+            <div
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.branchId) }"
+              data-field="branchId"
+            >
+              <AppSelectField
+                v-model="packagesManager.createForm.branchId"
+                label="Филиал"
+                :options="branchSelectionOptions"
+                :disabled="packagesManager.isBranchesLoading"
+              />
+              <p v-if="createFieldErrors.branchId" class="admin-field__error">
+                {{ createFieldErrors.branchId }}
+              </p>
+            </div>
+
+            <label
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.slug) }"
+              data-field="slug"
+            >
+              <span class="admin-field__label">Служебный код</span>
+              <input
+                v-model="packagesManager.createForm.slug"
+                name="slug"
+                class="admin-control"
+                @input="clearCreateFieldError('slug')"
+              />
+              <p v-if="createFieldErrors.slug" class="admin-field__error">
+                {{ createFieldErrors.slug }}
+              </p>
+            </label>
+
+            <label
+              class="admin-field admin-field--full"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.name) }"
+              data-field="name"
+            >
+              <span class="admin-field__label">Название пакета</span>
+              <input
+                v-model="packagesManager.createForm.name"
+                name="name"
+                class="admin-control"
+                @input="clearCreateFieldError('name')"
+              />
+              <p v-if="createFieldErrors.name" class="admin-field__error">
+                {{ createFieldErrors.name }}
+              </p>
+            </label>
+
+            <label
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.priceFrom) }"
+              data-field="priceFrom"
+            >
+              <span class="admin-field__label">Цена от</span>
+              <input
+                v-model.number="packagesManager.createForm.priceFrom"
+                name="priceFrom"
+                min="0"
+                type="number"
+                class="admin-control"
+                @input="clearCreateFieldError('priceFrom')"
+              />
+              <p v-if="createFieldErrors.priceFrom" class="admin-field__error">
+                {{ createFieldErrors.priceFrom }}
+              </p>
+            </label>
+
+            <label
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.priceLabel) }"
+              data-field="priceLabel"
+            >
+              <span class="admin-field__label">Подпись цены</span>
+              <input
+                v-model="packagesManager.createForm.priceLabel"
+                name="priceLabel"
+                class="admin-control"
+                @input="clearCreateFieldError('priceLabel')"
+              />
+              <p v-if="createFieldErrors.priceLabel" class="admin-field__error">
+                {{ createFieldErrors.priceLabel }}
+              </p>
+            </label>
+
+            <label
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.guestCapacityLabel) }"
+              data-field="guestCapacityLabel"
+            >
+              <span class="admin-field__label">Вместимость</span>
+              <input
+                v-model="packagesManager.createForm.guestCapacityLabel"
+                name="guestCapacityLabel"
+                class="admin-control"
+                @input="clearCreateFieldError('guestCapacityLabel')"
+              />
+              <p v-if="createFieldErrors.guestCapacityLabel" class="admin-field__error">
+                {{ createFieldErrors.guestCapacityLabel }}
+              </p>
+            </label>
+
+            <label
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.displayOrder) }"
+              data-field="displayOrder"
+            >
+              <span class="admin-field__label">Порядок показа</span>
+              <input
+                v-model.number="packagesManager.createForm.displayOrder"
+                name="displayOrder"
+                min="0"
+                type="number"
+                class="admin-control"
+                @input="clearCreateFieldError('displayOrder')"
+              />
+              <p v-if="createFieldErrors.displayOrder" class="admin-field__error">
+                {{ createFieldErrors.displayOrder }}
+              </p>
+            </label>
+
+            <label
+              class="admin-field admin-field--full"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.description) }"
+              data-field="description"
+            >
+              <span class="admin-field__label">Описание</span>
+              <textarea
+                v-model="packagesManager.createForm.description"
+                name="description"
+                class="admin-control admin-control--textarea"
+                @input="clearCreateFieldError('description')"
+              ></textarea>
+              <p v-if="createFieldErrors.description" class="admin-field__error">
+                {{ createFieldErrors.description }}
+              </p>
+            </label>
+
+            <label class="admin-field admin-field--full">
+              <span class="admin-field__label">Короткие преимущества</span>
+              <textarea
+                v-model="createHighlightsText"
+                class="admin-control admin-control--textarea"
+                placeholder="Каждая строка — отдельный тезис"
+              ></textarea>
+            </label>
+
+            <label
+              class="admin-field admin-field--full"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.imageUrl) }"
+              data-field="imageUrl"
+            >
+              <span class="admin-field__label">Ссылка на изображение</span>
+              <input
+                v-model="packagesManager.createForm.imageUrl"
+                name="imageUrl"
+                class="admin-control"
+                placeholder="https://..."
+                @input="clearCreateFieldError('imageUrl')"
+              />
+              <p v-if="createFieldErrors.imageUrl" class="admin-field__error">
+                {{ createFieldErrors.imageUrl }}
+              </p>
+            </label>
+          </div>
+
+          <div class="birthday-packages-page__switches">
+            <AdminSwitchField
+              v-model="packagesManager.createForm.isFeatured"
+              label="Показывать как флагманский пакет"
+              hint="Используется для акцентного показа в мобильном приложении."
             />
-            <p v-if="createFieldErrors.slug" class="admin-field__error">
-              {{ createFieldErrors.slug }}
-            </p>
-          </label>
-
-          <label
-            class="admin-field admin-field--full"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.name) }"
-            data-field="name"
-          >
-            <span class="admin-field__label">Название пакета</span>
-            <input
-              v-model="packagesManager.createForm.name"
-              name="name"
-              class="admin-control"
-              @input="clearCreateFieldError('name')"
+            <AdminSwitchField
+              v-model="packagesManager.createForm.isActive"
+              label="Пакет активен"
+              hint="Неактивный пакет скрывается из мобильного приложения."
             />
-            <p v-if="createFieldErrors.name" class="admin-field__error">
-              {{ createFieldErrors.name }}
-            </p>
-          </label>
+          </div>
 
-          <label
-            class="admin-field"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.priceFrom) }"
-            data-field="priceFrom"
-          >
-            <span class="admin-field__label">Цена от</span>
-            <input
-              v-model.number="packagesManager.createForm.priceFrom"
-              name="priceFrom"
-              min="0"
-              type="number"
-              class="admin-control"
-              @input="clearCreateFieldError('priceFrom')"
-            />
-            <p v-if="createFieldErrors.priceFrom" class="admin-field__error">
-              {{ createFieldErrors.priceFrom }}
-            </p>
-          </label>
-
-          <label
-            class="admin-field"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.priceLabel) }"
-            data-field="priceLabel"
-          >
-            <span class="admin-field__label">Подпись цены</span>
-            <input
-              v-model="packagesManager.createForm.priceLabel"
-              name="priceLabel"
-              class="admin-control"
-              @input="clearCreateFieldError('priceLabel')"
-            />
-            <p v-if="createFieldErrors.priceLabel" class="admin-field__error">
-              {{ createFieldErrors.priceLabel }}
-            </p>
-          </label>
-
-          <label
-            class="admin-field"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.guestCapacityLabel) }"
-            data-field="guestCapacityLabel"
-          >
-            <span class="admin-field__label">Вместимость</span>
-            <input
-              v-model="packagesManager.createForm.guestCapacityLabel"
-              name="guestCapacityLabel"
-              class="admin-control"
-              @input="clearCreateFieldError('guestCapacityLabel')"
-            />
-            <p v-if="createFieldErrors.guestCapacityLabel" class="admin-field__error">
-              {{ createFieldErrors.guestCapacityLabel }}
-            </p>
-          </label>
-
-          <label
-            class="admin-field"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.displayOrder) }"
-            data-field="displayOrder"
-          >
-            <span class="admin-field__label">Порядок показа</span>
-            <input
-              v-model.number="packagesManager.createForm.displayOrder"
-              name="displayOrder"
-              min="0"
-              type="number"
-              class="admin-control"
-              @input="clearCreateFieldError('displayOrder')"
-            />
-            <p v-if="createFieldErrors.displayOrder" class="admin-field__error">
-              {{ createFieldErrors.displayOrder }}
-            </p>
-          </label>
-
-          <label
-            class="admin-field admin-field--full"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.description) }"
-            data-field="description"
-          >
-            <span class="admin-field__label">Описание</span>
-            <textarea
-              v-model="packagesManager.createForm.description"
-              name="description"
-              class="admin-control admin-control--textarea"
-              @input="clearCreateFieldError('description')"
-            ></textarea>
-            <p v-if="createFieldErrors.description" class="admin-field__error">
-              {{ createFieldErrors.description }}
-            </p>
-          </label>
-
-          <label class="admin-field admin-field--full">
-            <span class="admin-field__label">Короткие преимущества</span>
-            <textarea
-              v-model="createHighlightsText"
-              class="admin-control admin-control--textarea"
-              placeholder="Каждая строка — отдельный тезис"
-            ></textarea>
-          </label>
-
-          <label
-            class="admin-field admin-field--full"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.imageUrl) }"
-            data-field="imageUrl"
-          >
-            <span class="admin-field__label">Ссылка на изображение</span>
-            <input
-              v-model="packagesManager.createForm.imageUrl"
-              name="imageUrl"
-              class="admin-control"
-              placeholder="https://..."
-              @input="clearCreateFieldError('imageUrl')"
-            />
-            <p v-if="createFieldErrors.imageUrl" class="admin-field__error">
-              {{ createFieldErrors.imageUrl }}
-            </p>
-          </label>
-        </div>
-
-        <div class="birthday-packages-page__switches">
-          <AdminSwitchField
-            v-model="packagesManager.createForm.isFeatured"
-            label="Показывать как флагманский пакет"
-            hint="Используется для акцентного показа в мобильном приложении."
+          <AdminFormErrorBanner
+            v-if="createSummaryMessage"
+            :message="createSummaryMessage"
+            :errors="createFieldErrors"
           />
-          <AdminSwitchField
-            v-model="packagesManager.createForm.isActive"
-            label="Пакет активен"
-            hint="Неактивный пакет скрывается из мобильного приложения."
-          />
-        </div>
-
-        <AdminFormErrorBanner
-          v-if="createSummaryMessage"
-          :message="createSummaryMessage"
-          :errors="createFieldErrors"
-        />
-        <p
-          v-if="packagesManager.createSuccessMessage"
-          class="admin-inline-message admin-inline-message--success"
-        >
-          {{ packagesManager.createSuccessMessage }}
-        </p>
-
-        <AdminStickyActions>
-          <button
-            type="submit"
-            class="admin-button admin-button--primary"
-            :disabled="packagesManager.isCreateSaving"
+          <p
+            v-if="packagesManager.createSuccessMessage"
+            class="admin-inline-message admin-inline-message--success"
           >
-            {{ packagesManager.isCreateSaving ? 'Сохраняем…' : 'Создать пакет' }}
-          </button>
-          <button
-            type="button"
-            class="admin-button admin-button--secondary"
-            @click="handleBack"
-          >
-            Отменить
-          </button>
-        </AdminStickyActions>
-      </form>
+            {{ packagesManager.createSuccessMessage }}
+          </p>
+
+          <AdminStickyActions>
+            <button
+              type="submit"
+              class="admin-button admin-button--primary"
+              :disabled="packagesManager.isCreateSaving"
+            >
+              {{ packagesManager.isCreateSaving ? 'Сохраняем…' : 'Создать пакет' }}
+            </button>
+            <button
+              type="button"
+              class="admin-button admin-button--secondary"
+              @click="void handlePanelClose()"
+            >
+              Отменить
+            </button>
+          </AdminStickyActions>
+        </form>
+      </template>
 
       <template v-else-if="packagesManager.selectedPackage">
-        <header class="admin-detail-header">
-          <div class="admin-detail-header__copy">
-            <p class="admin-detail-header__eyebrow">
-              Код: {{ packagesManager.selectedPackage.id }}
-            </p>
-            <div class="admin-detail-header__title-row">
-              <h2>{{ packagesManager.selectedPackage.name }}</h2>
-              <StatusBadge
-                :label="resolveActiveStatus(packagesManager.selectedPackage.isActive).label"
-                :tone="resolveActiveStatus(packagesManager.selectedPackage.isActive).tone"
-              />
-            </div>
-            <p class="admin-detail-header__summary">
-              {{ branchLabel(packagesManager.selectedPackage.branchId) }} ·
-              {{ packagesManager.selectedPackage.priceLabel }}
-            </p>
+        <template v-if="routeMode === 'detail'">
+          <div class="birthday-packages-detail-view">
+            <header class="admin-detail-header">
+              <div class="admin-detail-header__copy">
+                <p class="admin-detail-header__eyebrow">
+                  Код: {{ packagesManager.selectedPackage.id }}
+                </p>
+                <div class="admin-detail-header__title-row">
+                  <h2>{{ packagesManager.selectedPackage.name }}</h2>
+                  <StatusBadge
+                    :label="resolveActiveStatus(packagesManager.selectedPackage.isActive).label"
+                    :tone="resolveActiveStatus(packagesManager.selectedPackage.isActive).tone"
+                  />
+                </div>
+                <p class="admin-detail-header__summary">
+                  {{ branchLabel(packagesManager.selectedPackage.branchId) }} ·
+                  {{ packagesManager.selectedPackage.priceLabel }}
+                </p>
+              </div>
+
+              <div class="birthday-packages-detail-view__actions">
+                <button
+                  type="button"
+                  class="admin-button admin-button--primary"
+                  @click="void routeState.goToEdit(packagesManager.selectedPackage.id)"
+                >
+                  Редактировать
+                </button>
+              </div>
+            </header>
+
+            <AdminSummaryList
+              title="Основные данные"
+              :items="packageSummaryItems"
+            />
+
+            <AdminSummaryList
+              title="Показы и статус"
+              :items="packagePublicationItems"
+            />
+
+            <AdminSummaryList
+              v-if="packageHighlightsItems.length"
+              title="Преимущества"
+            >
+              <ul class="birthday-packages-detail-view__list">
+                <li
+                  v-for="highlight in packageHighlightsItems"
+                  :key="highlight"
+                >
+                  {{ highlight }}
+                </li>
+              </ul>
+            </AdminSummaryList>
           </div>
-        </header>
+        </template>
 
         <form
+          v-else
           ref="editFormRef"
           class="admin-form-stack"
           novalidate
           @submit.prevent="handleSave"
         >
           <div class="admin-section-heading">
-            <h3>Основные данные</h3>
+            <h2>Редактировать пакет</h2>
           </div>
 
           <div class="admin-form-grid--two">
@@ -588,6 +627,13 @@
             >
               {{ packagesManager.isSaving ? 'Сохраняем…' : 'Сохранить пакет' }}
             </button>
+            <button
+              type="button"
+              class="admin-button admin-button--secondary"
+              @click="void handlePanelClose()"
+            >
+              Закрыть
+            </button>
           </AdminStickyActions>
         </form>
       </template>
@@ -595,15 +641,16 @@
       <StatePanel
         v-else
         title="Выберите пакет"
-        description="Откройте пакет, чтобы изменить описание и цену."
+        description="Откройте пакет, чтобы посмотреть детали или изменить его параметры."
       />
     </template>
   </AdminCrudWorkspace>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 
+import { adminCrudRouteNames } from '@/app/router/adminCrudRoutes';
 import { useAdminBirthdayPackages } from '@/features/birthday-packages/model/useAdminBirthdayPackages';
 import type { AdminFieldErrors } from '@/shared/lib/adminApiErrors';
 import {
@@ -620,23 +667,57 @@ import {
 } from '@/shared/lib/adminFormValidation';
 import { resolveActiveStatus } from '@/shared/lib/adminStatus';
 import { parseTextList, stringifyTextList } from '@/shared/lib/textList';
-import AdminFormErrorBanner from '@/shared/ui/AdminFormErrorBanner.vue';
+import { useAdminCrudRouteState } from '@/shared/composables/useAdminCrudRouteState';
+import { useFormSnapshotDirty } from '@/shared/composables/useFormSnapshotDirty';
+import { useUnsavedChangesGuard } from '@/shared/composables/useUnsavedChangesGuard';
+import AdminCompactFilters from '@/shared/ui/AdminCompactFilters.vue';
 import AdminCrudWorkspace from '@/shared/ui/AdminCrudWorkspace.vue';
+import AdminFormErrorBanner from '@/shared/ui/AdminFormErrorBanner.vue';
 import AdminSearchField from '@/shared/ui/AdminSearchField.vue';
 import AdminStickyActions from '@/shared/ui/AdminStickyActions.vue';
+import AdminSummaryList from '@/shared/ui/AdminSummaryList.vue';
 import AdminSwitchField from '@/shared/ui/AdminSwitchField.vue';
 import AppSelectField from '@/shared/ui/AppSelectField.vue';
 import StatePanel from '@/shared/ui/StatePanel.vue';
 import StatusBadge from '@/shared/ui/StatusBadge.vue';
 
 const packagesManager = reactive(useAdminBirthdayPackages());
-const mobileView = ref<'list' | 'detail'>('list');
+const routeState = useAdminCrudRouteState({
+  listRouteName: adminCrudRouteNames.birthdayPackages.list,
+  detailRouteName: adminCrudRouteNames.birthdayPackages.detail,
+  createRouteName: adminCrudRouteNames.birthdayPackages.create,
+  editRouteName: adminCrudRouteNames.birthdayPackages.edit,
+  idParam: adminCrudRouteNames.birthdayPackages.idParam,
+});
+
 const createFormRef = ref<HTMLFormElement | null>(null);
 const editFormRef = ref<HTMLFormElement | null>(null);
 const createSummaryMessage = ref('');
 const editSummaryMessage = ref('');
 const createFieldErrors = reactive<AdminFieldErrors>({});
 const editFieldErrors = reactive<AdminFieldErrors>({});
+
+const createDirty = useFormSnapshotDirty(() => ({
+  ...packagesManager.createForm,
+  highlights: [...packagesManager.createForm.highlights],
+}));
+
+const editDirty = useFormSnapshotDirty(() => ({
+  ...packagesManager.form,
+  highlights: [...(packagesManager.form.highlights ?? [])],
+}));
+
+const { confirmLeave } = useUnsavedChangesGuard(() => {
+  if (routeMode.value === 'create') {
+    return createDirty.isDirty.value;
+  }
+
+  if (routeMode.value === 'edit') {
+    return editDirty.isDirty.value;
+  }
+
+  return false;
+});
 
 const statusOptions = [
   { label: 'Все статусы', value: 'all' },
@@ -652,16 +733,55 @@ const branchSelectionOptions = computed(() => {
 });
 
 const branchFilterOptions = computed(() => {
-  return [
-    { label: 'Все филиалы', value: '' },
-    ...branchSelectionOptions.value,
-  ];
+  return [{ label: 'Все филиалы', value: '' }, ...branchSelectionOptions.value];
 });
 
 const branchNameMap = computed(() => {
   return new Map(
     packagesManager.branchOptions.map((branch) => [branch.id, branch.name]),
   );
+});
+
+const routeMode = computed(() => routeState.mode.value);
+
+const showInlineDetail = computed(() => {
+  return (
+    routeState.isDesktop.value &&
+    routeMode.value === 'detail' &&
+    Boolean(packagesManager.selectedPackage)
+  );
+});
+
+const isRoutePanelOpen = computed(() => {
+  return (
+    routeState.showDetailRoutePanel.value ||
+    routeMode.value === 'create' ||
+    routeMode.value === 'edit'
+  );
+});
+
+const routePanelTitle = computed(() => {
+  if (routeMode.value === 'create') {
+    return 'Создать пакет';
+  }
+
+  if (routeMode.value === 'edit') {
+    return packagesManager.selectedPackage?.name || 'Редактировать пакет';
+  }
+
+  return packagesManager.selectedPackage?.name || 'Карточка пакета';
+});
+
+const routePanelEyebrow = computed(() => {
+  return routeMode.value === 'detail' ? 'Карточка пакета' : 'Редактирование';
+});
+
+const routePanelVariant = computed<'detail' | 'form'>(() => {
+  return routeMode.value === 'detail' ? 'detail' : 'form';
+});
+
+const routePanelCloseLabel = computed(() => {
+  return routeMode.value === 'detail' ? 'К списку' : 'Закрыть';
 });
 
 const createHighlightsText = computed({
@@ -709,49 +829,92 @@ const packageIsFeatured = computed({
   },
 });
 
-const detailPanelTitle = computed(() => {
-  if (packagesManager.isCreating) {
-    return 'Новый пакет';
+const packageSummaryItems = computed(() => {
+  const selectedPackage = packagesManager.selectedPackage;
+  if (!selectedPackage) {
+    return [];
   }
 
-  return packagesManager.selectedPackage?.name || 'Карточка пакета';
+  return [
+    { label: 'Филиал', value: branchLabel(selectedPackage.branchId) },
+    { label: 'Служебный код', value: selectedPackage.slug },
+    { label: 'Цена от', value: String(selectedPackage.priceFrom) },
+    { label: 'Подпись цены', value: selectedPackage.priceLabel },
+    { label: 'Вместимость', value: selectedPackage.guestCapacityLabel },
+    { label: 'Порядок показа', value: String(selectedPackage.displayOrder) },
+    { label: 'Описание', value: selectedPackage.description, fullWidth: true },
+  ];
+});
+
+const packagePublicationItems = computed(() => {
+  const selectedPackage = packagesManager.selectedPackage;
+  if (!selectedPackage) {
+    return [];
+  }
+
+  return [
+    { label: 'Активность', value: selectedPackage.isActive ? 'Активен' : 'Неактивен' },
+    { label: 'Флагман', value: selectedPackage.isFeatured ? 'Да' : 'Нет' },
+    { label: 'Изображение', value: selectedPackage.imageUrl || 'Не задано', fullWidth: true },
+  ];
+});
+
+const packageHighlightsItems = computed(() => {
+  return packagesManager.selectedPackage?.highlights ?? [];
+});
+
+watch(
+  () => [routeMode.value, routeState.activeId.value] as const,
+  async ([mode, packageId]) => {
+    if (mode === 'create') {
+      clearFormFeedback();
+      packagesManager.startCreate();
+      await nextTick();
+      createDirty.markClean();
+      return;
+    }
+
+    if ((mode === 'detail' || mode === 'edit') && packageId) {
+      if (packagesManager.selectedPackageId !== packageId || !packagesManager.selectedPackage) {
+        await packagesManager.selectPackage(packageId);
+      }
+      await nextTick();
+      editDirty.markClean();
+    }
+  },
+  { immediate: true },
+);
+
+onMounted(() => {
+  void packagesManager.initialize();
 });
 
 function branchLabel(branchId: string): string {
   return branchNameMap.value.get(branchId) ?? 'Филиал не найден';
 }
 
-onMounted(() => {
-  void packagesManager.initialize();
-});
-
-function handleStartCreate() {
-  clearFormFeedback();
-  packagesManager.startCreate();
-  mobileView.value = 'detail';
-}
-
-async function handleSelectPackage(packageId: string) {
-  await packagesManager.selectPackage(packageId);
-  mobileView.value = 'detail';
-}
-
-function handleBack() {
-  if (packagesManager.isCreating) {
-    packagesManager.cancelCreate();
+async function handlePanelClose() {
+  if ((routeMode.value === 'create' || routeMode.value === 'edit') && !confirmLeave()) {
+    return;
   }
 
   clearFormFeedback();
-  mobileView.value = 'list';
+
+  if (routeMode.value === 'detail') {
+    await routeState.closeDetail();
+    return;
+  }
+
+  if (routeMode.value === 'create' && packagesManager.isCreating) {
+    packagesManager.cancelCreate();
+  }
+
+  await routeState.closeEditor();
 }
 
 async function handleCreateSubmit() {
   const errors = compactErrors({
-    branchId: validateRequiredText(
-      packagesManager.createForm.branchId,
-      'Выберите филиал.',
-      1,
-    ),
+    branchId: validateRequiredText(packagesManager.createForm.branchId, 'Выберите филиал.', 1),
     slug: validateRequiredText(packagesManager.createForm.slug, 'Введите служебный код.', 2),
     name: validateRequiredText(packagesManager.createForm.name, 'Введите название пакета.', 2),
     priceFrom: validateNonNegativeNumber(
@@ -794,6 +957,11 @@ async function handleCreateSubmit() {
   try {
     createSummaryMessage.value = '';
     await packagesManager.saveCreate();
+    createDirty.markClean();
+
+    if (packagesManager.selectedPackageId) {
+      await routeState.goToDetail(packagesManager.selectedPackageId);
+    }
   } catch (error) {
     replaceFieldErrors(createFieldErrors, resolveAdminApiFieldErrors(error));
     createSummaryMessage.value = resolveAdminApiErrorMessage(
@@ -849,6 +1017,8 @@ async function handleSave() {
   try {
     editSummaryMessage.value = '';
     await packagesManager.save();
+    editDirty.markClean();
+    await routeState.goToDetail(packagesManager.selectedPackageId);
   } catch (error) {
     replaceFieldErrors(editFieldErrors, resolveAdminApiFieldErrors(error));
     editSummaryMessage.value = resolveAdminApiErrorMessage(
@@ -884,14 +1054,9 @@ function compactErrors(errors: AdminFieldErrors): AdminFieldErrors {
 </script>
 
 <style scoped>
-.birthday-packages-page__filter-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
 .birthday-packages-page__record-meta,
-.birthday-packages-page__switches {
+.birthday-packages-page__switches,
+.birthday-packages-detail-view {
   display: grid;
   gap: 8px;
 }
@@ -900,15 +1065,22 @@ function compactErrors(errors: AdminFieldErrors): AdminFieldErrors {
   justify-items: end;
 }
 
+.birthday-packages-detail-view__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.birthday-packages-detail-view__list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+}
+
 .birthday-packages-page__featured {
   color: var(--color-muted);
   font-size: 12px;
   font-weight: 600;
-}
-
-@media (max-width: 720px) {
-  .birthday-packages-page__filter-grid {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

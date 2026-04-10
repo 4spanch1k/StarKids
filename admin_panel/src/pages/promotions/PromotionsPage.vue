@@ -2,17 +2,20 @@
   <AdminCrudWorkspace
     eyebrow="Акции"
     title="Акции"
-    description="Акции и их публикация."
-    :mobile-view="mobileView"
-    :mobile-detail-title="detailPanelTitle"
-    mobile-detail-eyebrow="Рабочая карточка"
-    @back="handleBack"
+    description="Офферы, публикация и филиалы показа."
+    :show-detail="showInlineDetail"
+    :route-panel-open="isRoutePanelOpen"
+    :route-panel-title="routePanelTitle"
+    :route-panel-eyebrow="routePanelEyebrow"
+    :route-panel-variant="routePanelVariant"
+    :route-panel-close-label="routePanelCloseLabel"
+    @back="handlePanelClose"
   >
     <template #actions>
       <button
         type="button"
         class="admin-button admin-button--primary"
-        @click="handleStartCreate"
+        @click="void routeState.goToCreate()"
       >
         Добавить акцию
       </button>
@@ -23,13 +26,15 @@
         <h2>Акции</h2>
       </div>
 
-      <div class="admin-crud-filters">
-        <AdminSearchField
-          v-model="promotionsManager.searchQuery"
-          placeholder="Найти акцию по названию или бейджу"
-        />
+      <AdminCompactFilters>
+        <template #primary>
+          <AdminSearchField
+            v-model="promotionsManager.searchQuery"
+            placeholder="Найти акцию"
+          />
+        </template>
 
-        <div class="promotions-page__filter-grid">
+        <template #secondary>
           <AppSelectField
             v-model="promotionsManager.branchFilter"
             label="Филиал"
@@ -39,7 +44,7 @@
 
           <AppSelectField
             v-model="promotionsManager.activeFilter"
-            label="Состояние"
+            label="Статус"
             :options="activeFilterOptions"
           />
 
@@ -48,8 +53,8 @@
             label="Публикация"
             :options="publicationFilterOptions"
           />
-        </div>
-      </div>
+        </template>
+      </AdminCompactFilters>
 
       <p
         v-if="promotionsManager.branchesErrorMessage"
@@ -61,7 +66,7 @@
       <StatePanel
         v-if="promotionsManager.isListLoading"
         title="Загружаем акции"
-        description="Подождите немного, список обновляется с сервера."
+        description="Обновляем список офферов с сервера."
       />
 
       <StatePanel
@@ -84,7 +89,7 @@
       <StatePanel
         v-else-if="promotionsManager.filteredPromotions.length === 0"
         title="Акции не найдены"
-        description="Проверьте фильтры или строку поиска."
+        description="Измените фильтры или очистите строку поиска."
       />
 
       <div v-else class="admin-list-records">
@@ -96,7 +101,7 @@
           :class="{
             'admin-list-record--active': promotion.id === promotionsManager.selectedPromotionId,
           }"
-          @click="handleSelectPromotion(promotion.id)"
+          @click="void routeState.goToDetail(promotion.id)"
         >
           <span class="admin-list-record__accent" aria-hidden="true"></span>
 
@@ -116,239 +121,259 @@
 
     <template #detail>
       <StatePanel
-        v-if="promotionsManager.isCreating"
-        title="Новая акция"
-        description="Создайте оффер, выберите филиалы показа и задайте понятный CTA."
-      />
-
-      <StatePanel
-        v-else-if="promotionsManager.isDetailLoading"
+        v-if="promotionsManager.isDetailLoading && routeMode !== 'create'"
         title="Открываем акцию"
-        description="Подтягиваем описание, филиалы и статус публикации."
+        description="Загружаем оффер и статус публикации."
       />
 
       <StatePanel
-        v-else-if="promotionsManager.detailErrorMessage"
+        v-else-if="promotionsManager.detailErrorMessage && routeMode !== 'create'"
         title="Не удалось открыть акцию"
         :description="promotionsManager.detailErrorMessage"
         tone="error"
       />
 
-      <form
-        v-if="promotionsManager.isCreating"
-        class="admin-form-stack"
-        ref="createFormRef"
-        novalidate
-        @submit.prevent="handleCreateSubmit"
-      >
-        <div class="admin-section-heading">
-          <h2>Создать акцию</h2>
-        </div>
-
-        <div class="admin-form-grid--two">
-          <label
-            class="admin-field admin-field--full"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.title) }"
-            data-field="title"
-          >
-            <span class="admin-field__label">Название акции</span>
-            <input
-              v-model="promotionsManager.createForm.title"
-              name="title"
-              class="admin-control"
-              @input="clearCreateFieldError('title')"
-            />
-            <p v-if="createFieldErrors.title" class="admin-field__error">
-              {{ createFieldErrors.title }}
-            </p>
-          </label>
-
-          <label
-            class="admin-field"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.badgeLabel) }"
-            data-field="badgeLabel"
-          >
-            <span class="admin-field__label">Бейдж</span>
-            <input
-              v-model="promotionsManager.createForm.badgeLabel"
-              name="badgeLabel"
-              class="admin-control"
-              placeholder="Например, Новинка"
-              @input="clearCreateFieldError('badgeLabel')"
-            />
-            <p v-if="createFieldErrors.badgeLabel" class="admin-field__error">
-              {{ createFieldErrors.badgeLabel }}
-            </p>
-          </label>
-
-          <label
-            class="admin-field"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.ctaLabel) }"
-            data-field="ctaLabel"
-          >
-            <span class="admin-field__label">Текст кнопки</span>
-            <input
-              v-model="promotionsManager.createForm.ctaLabel"
-              name="ctaLabel"
-              class="admin-control"
-              placeholder="Оставить заявку"
-              @input="clearCreateFieldError('ctaLabel')"
-            />
-            <p v-if="createFieldErrors.ctaLabel" class="admin-field__error">
-              {{ createFieldErrors.ctaLabel }}
-            </p>
-          </label>
-
-          <label
-            class="admin-field"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.displayOrder) }"
-            data-field="displayOrder"
-          >
-            <span class="admin-field__label">Порядок показа</span>
-            <input
-              v-model.number="promotionsManager.createForm.displayOrder"
-              name="displayOrder"
-              min="0"
-              type="number"
-              class="admin-control"
-              @input="clearCreateFieldError('displayOrder')"
-            />
-            <p v-if="createFieldErrors.displayOrder" class="admin-field__error">
-              {{ createFieldErrors.displayOrder }}
-            </p>
-          </label>
-
-          <label
-            class="admin-field"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.imageUrl) }"
-            data-field="imageUrl"
-          >
-            <span class="admin-field__label">Ссылка на изображение</span>
-            <input
-              v-model="promotionsManager.createForm.imageUrl"
-              name="imageUrl"
-              class="admin-control"
-              placeholder="https://..."
-              @input="clearCreateFieldError('imageUrl')"
-            />
-            <p v-if="createFieldErrors.imageUrl" class="admin-field__error">
-              {{ createFieldErrors.imageUrl }}
-            </p>
-          </label>
-
-          <label
-            class="admin-field admin-field--full"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.description) }"
-            data-field="description"
-          >
-            <span class="admin-field__label">Описание</span>
-            <textarea
-              v-model="promotionsManager.createForm.description"
-              name="description"
-              class="admin-control admin-control--textarea"
-              @input="clearCreateFieldError('description')"
-            ></textarea>
-            <p v-if="createFieldErrors.description" class="admin-field__error">
-              {{ createFieldErrors.description }}
-            </p>
-          </label>
-        </div>
-
-        <section class="admin-panel admin-panel--stack admin-panel--muted">
+      <template v-else-if="routeMode === 'create'">
+        <form
+          ref="createFormRef"
+          class="admin-form-stack"
+          novalidate
+          @submit.prevent="handleCreateSubmit"
+        >
           <div class="admin-section-heading">
-            <h3>Филиалы показа</h3>
-            <p>Пустой список означает общую акцию для всех филиалов.</p>
+            <h2>Создать акцию</h2>
           </div>
 
-          <div class="admin-checkbox-grid">
+          <div class="admin-form-grid--two">
             <label
-              v-for="branch in promotionsManager.branchOptions"
-              :key="branch.id"
-              class="admin-checkbox-card"
+              class="admin-field admin-field--full"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.title) }"
+              data-field="title"
             >
+              <span class="admin-field__label">Название акции</span>
               <input
-                v-model="promotionsManager.createForm.branchIds"
-                type="checkbox"
-                :value="branch.id"
+                v-model="promotionsManager.createForm.title"
+                name="title"
+                class="admin-control"
+                @input="clearCreateFieldError('title')"
               />
-              <span>
-                <strong>{{ branch.name }}</strong>
-                <span>{{ branch.city }} · {{ branch.shortLabel }}</span>
-              </span>
+              <p v-if="createFieldErrors.title" class="admin-field__error">
+                {{ createFieldErrors.title }}
+              </p>
+            </label>
+
+            <label
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.badgeLabel) }"
+              data-field="badgeLabel"
+            >
+              <span class="admin-field__label">Бейдж</span>
+              <input
+                v-model="promotionsManager.createForm.badgeLabel"
+                name="badgeLabel"
+                class="admin-control"
+                placeholder="Например, Новинка"
+                @input="clearCreateFieldError('badgeLabel')"
+              />
+              <p v-if="createFieldErrors.badgeLabel" class="admin-field__error">
+                {{ createFieldErrors.badgeLabel }}
+              </p>
+            </label>
+
+            <label
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.ctaLabel) }"
+              data-field="ctaLabel"
+            >
+              <span class="admin-field__label">Текст кнопки</span>
+              <input
+                v-model="promotionsManager.createForm.ctaLabel"
+                name="ctaLabel"
+                class="admin-control"
+                placeholder="Оставить заявку"
+                @input="clearCreateFieldError('ctaLabel')"
+              />
+              <p v-if="createFieldErrors.ctaLabel" class="admin-field__error">
+                {{ createFieldErrors.ctaLabel }}
+              </p>
+            </label>
+
+            <label
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.displayOrder) }"
+              data-field="displayOrder"
+            >
+              <span class="admin-field__label">Порядок показа</span>
+              <input
+                v-model.number="promotionsManager.createForm.displayOrder"
+                name="displayOrder"
+                min="0"
+                type="number"
+                class="admin-control"
+                @input="clearCreateFieldError('displayOrder')"
+              />
+              <p v-if="createFieldErrors.displayOrder" class="admin-field__error">
+                {{ createFieldErrors.displayOrder }}
+              </p>
+            </label>
+
+            <label
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.imageUrl) }"
+              data-field="imageUrl"
+            >
+              <span class="admin-field__label">Ссылка на изображение</span>
+              <input
+                v-model="promotionsManager.createForm.imageUrl"
+                name="imageUrl"
+                class="admin-control"
+                placeholder="https://..."
+                @input="clearCreateFieldError('imageUrl')"
+              />
+              <p v-if="createFieldErrors.imageUrl" class="admin-field__error">
+                {{ createFieldErrors.imageUrl }}
+              </p>
+            </label>
+
+            <label
+              class="admin-field admin-field--full"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.description) }"
+              data-field="description"
+            >
+              <span class="admin-field__label">Описание</span>
+              <textarea
+                v-model="promotionsManager.createForm.description"
+                name="description"
+                class="admin-control admin-control--textarea"
+                @input="clearCreateFieldError('description')"
+              ></textarea>
+              <p v-if="createFieldErrors.description" class="admin-field__error">
+                {{ createFieldErrors.description }}
+              </p>
             </label>
           </div>
-        </section>
 
-        <div class="promotions-page__switches">
-          <AdminSwitchField
-            v-model="promotionsManager.createForm.isPublished"
-            label="Опубликовать в приложении"
-            hint="Выключите, если оффер еще готовится к запуску."
+          <section class="admin-panel admin-panel--stack admin-panel--muted">
+            <div class="admin-section-heading">
+              <h3>Филиалы показа</h3>
+              <p>Пустой список означает общую акцию для всех филиалов.</p>
+            </div>
+
+            <div class="admin-checkbox-grid">
+              <label
+                v-for="branch in promotionsManager.branchOptions"
+                :key="branch.id"
+                class="admin-checkbox-card"
+              >
+                <input
+                  v-model="promotionsManager.createForm.branchIds"
+                  type="checkbox"
+                  :value="branch.id"
+                />
+                <span>
+                  <strong>{{ branch.name }}</strong>
+                  <span>{{ branch.city }} · {{ branch.shortLabel }}</span>
+                </span>
+              </label>
+            </div>
+          </section>
+
+          <div class="promotions-page__switches">
+            <AdminSwitchField
+              v-model="promotionsManager.createForm.isPublished"
+              label="Опубликовать в приложении"
+              hint="Выключите, если оффер еще готовится к запуску."
+            />
+            <AdminSwitchField
+              v-model="promotionsManager.createForm.isActive"
+              label="Акция активна"
+              hint="Выключенная акция не будет показываться даже при публикации."
+            />
+          </div>
+
+          <AdminFormErrorBanner
+            v-if="createSummaryMessage"
+            :message="createSummaryMessage"
+            :errors="createFieldErrors"
           />
-          <AdminSwitchField
-            v-model="promotionsManager.createForm.isActive"
-            label="Акция активна"
-            hint="Выключенная акция не будет показываться даже при публикации."
-          />
-        </div>
-
-        <AdminFormErrorBanner
-          v-if="createSummaryMessage"
-          :message="createSummaryMessage"
-          :errors="createFieldErrors"
-        />
-        <p
-          v-if="promotionsManager.createSuccessMessage"
-          class="admin-inline-message admin-inline-message--success"
-        >
-          {{ promotionsManager.createSuccessMessage }}
-        </p>
-
-        <AdminStickyActions>
-          <button
-            type="submit"
-            class="admin-button admin-button--primary"
-            :disabled="promotionsManager.isCreateSaving"
+          <p
+            v-if="promotionsManager.createSuccessMessage"
+            class="admin-inline-message admin-inline-message--success"
           >
-            {{ promotionsManager.isCreateSaving ? 'Сохраняем…' : 'Создать акцию' }}
-          </button>
-          <button
-            type="button"
-            class="admin-button admin-button--secondary"
-            @click="handleBack"
-          >
-            Отменить
-          </button>
-        </AdminStickyActions>
-      </form>
+            {{ promotionsManager.createSuccessMessage }}
+          </p>
+
+          <AdminStickyActions>
+            <button
+              type="submit"
+              class="admin-button admin-button--primary"
+              :disabled="promotionsManager.isCreateSaving"
+            >
+              {{ promotionsManager.isCreateSaving ? 'Сохраняем…' : 'Создать акцию' }}
+            </button>
+            <button
+              type="button"
+              class="admin-button admin-button--secondary"
+              @click="void handlePanelClose()"
+            >
+              Отменить
+            </button>
+          </AdminStickyActions>
+        </form>
+      </template>
 
       <template v-else-if="promotionsManager.selectedPromotion">
-        <header class="admin-detail-header">
-          <div class="admin-detail-header__copy">
-            <p class="admin-detail-header__eyebrow">
-              Код: {{ promotionsManager.selectedPromotion.id }}
-            </p>
-            <div class="admin-detail-header__title-row">
-              <h2>{{ promotionsManager.selectedPromotion.title }}</h2>
-              <StatusBadge
-                :label="resolvePublicationStatus(promotionsManager.selectedPromotion).label"
-                :tone="resolvePublicationStatus(promotionsManager.selectedPromotion).tone"
-              />
-            </div>
-            <p class="admin-detail-header__summary">
-              {{ promotionScopeLabel(promotionsManager.selectedPromotion.branchIds) }}
-            </p>
+        <template v-if="routeMode === 'detail'">
+          <div class="promotions-detail-view">
+            <header class="admin-detail-header">
+              <div class="admin-detail-header__copy">
+                <p class="admin-detail-header__eyebrow">
+                  Код: {{ promotionsManager.selectedPromotion.id }}
+                </p>
+                <div class="admin-detail-header__title-row">
+                  <h2>{{ promotionsManager.selectedPromotion.title }}</h2>
+                  <StatusBadge
+                    :label="resolvePublicationStatus(promotionsManager.selectedPromotion).label"
+                    :tone="resolvePublicationStatus(promotionsManager.selectedPromotion).tone"
+                  />
+                </div>
+                <p class="admin-detail-header__summary">
+                  {{ promotionScopeLabel(promotionsManager.selectedPromotion.branchIds) }}
+                </p>
+              </div>
+
+              <div class="promotions-detail-view__actions">
+                <button
+                  type="button"
+                  class="admin-button admin-button--primary"
+                  @click="void routeState.goToEdit(promotionsManager.selectedPromotion.id)"
+                >
+                  Редактировать
+                </button>
+              </div>
+            </header>
+
+            <AdminSummaryList
+              title="Оффер"
+              :items="promotionSummaryItems"
+            />
+
+            <AdminSummaryList
+              title="Публикация"
+              :items="promotionPublicationItems"
+            />
           </div>
-        </header>
+        </template>
 
         <form
+          v-else
           ref="editFormRef"
           class="admin-form-stack"
           novalidate
           @submit.prevent="handleSave"
         >
           <div class="admin-section-heading">
-            <h3>Оффер и публикация</h3>
+            <h2>Редактировать акцию</h2>
           </div>
 
           <div class="admin-form-grid--two">
@@ -517,6 +542,13 @@
             >
               {{ promotionsManager.isSaving ? 'Сохраняем…' : 'Сохранить акцию' }}
             </button>
+            <button
+              type="button"
+              class="admin-button admin-button--secondary"
+              @click="void handlePanelClose()"
+            >
+              Закрыть
+            </button>
           </AdminStickyActions>
         </form>
       </template>
@@ -524,22 +556,26 @@
       <StatePanel
         v-else
         title="Выберите акцию"
-        description="Откройте акцию, чтобы изменить оффер и состояние публикации."
+        description="Откройте оффер, чтобы посмотреть детали или перейти к редактированию."
       />
     </template>
   </AdminCrudWorkspace>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 
+import { adminCrudRouteNames } from '@/app/router/adminCrudRoutes';
 import { useAdminPromotions } from '@/features/promotions/model/useAdminPromotions';
-import { resolvePublicationStatus } from '@/shared/lib/adminStatus';
 import type { AdminFieldErrors } from '@/shared/lib/adminApiErrors';
 import {
   resolveAdminApiErrorMessage,
   resolveAdminApiFieldErrors,
 } from '@/shared/lib/adminApiErrors';
+import { resolvePublicationStatus } from '@/shared/lib/adminStatus';
+import { useAdminCrudRouteState } from '@/shared/composables/useAdminCrudRouteState';
+import { useFormSnapshotDirty } from '@/shared/composables/useFormSnapshotDirty';
+import { useUnsavedChangesGuard } from '@/shared/composables/useUnsavedChangesGuard';
 import {
   clearFieldError,
   focusFirstFieldError,
@@ -548,23 +584,54 @@ import {
   validateOptionalUrl,
   validateRequiredText,
 } from '@/shared/lib/adminFormValidation';
-import AdminFormErrorBanner from '@/shared/ui/AdminFormErrorBanner.vue';
+import AdminCompactFilters from '@/shared/ui/AdminCompactFilters.vue';
 import AdminCrudWorkspace from '@/shared/ui/AdminCrudWorkspace.vue';
+import AdminFormErrorBanner from '@/shared/ui/AdminFormErrorBanner.vue';
 import AdminSearchField from '@/shared/ui/AdminSearchField.vue';
 import AdminStickyActions from '@/shared/ui/AdminStickyActions.vue';
+import AdminSummaryList from '@/shared/ui/AdminSummaryList.vue';
 import AdminSwitchField from '@/shared/ui/AdminSwitchField.vue';
 import AppSelectField from '@/shared/ui/AppSelectField.vue';
 import StatePanel from '@/shared/ui/StatePanel.vue';
 import StatusBadge from '@/shared/ui/StatusBadge.vue';
 
 const promotionsManager = reactive(useAdminPromotions());
-const mobileView = ref<'list' | 'detail'>('list');
+const routeState = useAdminCrudRouteState({
+  listRouteName: adminCrudRouteNames.promotions.list,
+  detailRouteName: adminCrudRouteNames.promotions.detail,
+  createRouteName: adminCrudRouteNames.promotions.create,
+  editRouteName: adminCrudRouteNames.promotions.edit,
+  idParam: adminCrudRouteNames.promotions.idParam,
+});
+
 const createFormRef = ref<HTMLFormElement | null>(null);
 const editFormRef = ref<HTMLFormElement | null>(null);
 const createSummaryMessage = ref('');
 const editSummaryMessage = ref('');
 const createFieldErrors = reactive<AdminFieldErrors>({});
 const editFieldErrors = reactive<AdminFieldErrors>({});
+
+const createDirty = useFormSnapshotDirty(() => ({
+  ...promotionsManager.createForm,
+  branchIds: [...promotionsManager.createForm.branchIds],
+}));
+
+const editDirty = useFormSnapshotDirty(() => ({
+  ...promotionsManager.form,
+  branchIds: [...(promotionsManager.form.branchIds ?? [])],
+}));
+
+const { confirmLeave } = useUnsavedChangesGuard(() => {
+  if (routeMode.value === 'create') {
+    return createDirty.isDirty.value;
+  }
+
+  if (routeMode.value === 'edit') {
+    return editDirty.isDirty.value;
+  }
+
+  return false;
+});
 
 const activeFilterOptions = [
   { label: 'Все состояния', value: 'all' },
@@ -594,6 +661,48 @@ const branchNameMap = computed(() => {
   );
 });
 
+const routeMode = computed(() => routeState.mode.value);
+
+const showInlineDetail = computed(() => {
+  return (
+    routeState.isDesktop.value &&
+    routeMode.value === 'detail' &&
+    Boolean(promotionsManager.selectedPromotion)
+  );
+});
+
+const isRoutePanelOpen = computed(() => {
+  return (
+    routeState.showDetailRoutePanel.value ||
+    routeMode.value === 'create' ||
+    routeMode.value === 'edit'
+  );
+});
+
+const routePanelTitle = computed(() => {
+  if (routeMode.value === 'create') {
+    return 'Создать акцию';
+  }
+
+  if (routeMode.value === 'edit') {
+    return promotionsManager.selectedPromotion?.title || 'Редактировать акцию';
+  }
+
+  return promotionsManager.selectedPromotion?.title || 'Карточка акции';
+});
+
+const routePanelEyebrow = computed(() => {
+  return routeMode.value === 'detail' ? 'Карточка акции' : 'Редактирование';
+});
+
+const routePanelVariant = computed<'detail' | 'form'>(() => {
+  return routeMode.value === 'detail' ? 'detail' : 'form';
+});
+
+const routePanelCloseLabel = computed(() => {
+  return routeMode.value === 'detail' ? 'К списку' : 'Закрыть';
+});
+
 const promotionBranchIds = computed({
   get() {
     return promotionsManager.form.branchIds ?? [];
@@ -621,12 +730,65 @@ const promotionIsPublished = computed({
   },
 });
 
-const detailPanelTitle = computed(() => {
-  if (promotionsManager.isCreating) {
-    return 'Новая акция';
+const promotionSummaryItems = computed(() => {
+  const promotion = promotionsManager.selectedPromotion;
+  if (!promotion) {
+    return [];
   }
 
-  return promotionsManager.selectedPromotion?.title || 'Карточка акции';
+  return [
+    { label: 'Бейдж', value: promotion.badgeLabel || 'Без бейджа' },
+    { label: 'Кнопка', value: promotion.ctaLabel },
+    { label: 'Порядок показа', value: String(promotion.displayOrder) },
+    {
+      label: 'Филиалы показа',
+      value: promotionScopeLabel(promotion.branchIds),
+      fullWidth: true,
+    },
+    { label: 'Описание', value: promotion.description, fullWidth: true },
+  ];
+});
+
+const promotionPublicationItems = computed(() => {
+  const promotion = promotionsManager.selectedPromotion;
+  if (!promotion) {
+    return [];
+  }
+
+  return [
+    { label: 'Активность', value: promotion.isActive ? 'Активна' : 'Выключена' },
+    { label: 'Публикация', value: promotion.isPublished ? 'Опубликована' : 'Черновик' },
+    { label: 'Изображение', value: promotion.imageUrl || 'Не задано', fullWidth: true },
+  ];
+});
+
+watch(
+  () => [routeMode.value, routeState.activeId.value] as const,
+  async ([mode, promotionId]) => {
+    if (mode === 'create') {
+      clearPromotionFeedback();
+      promotionsManager.startCreate();
+      await nextTick();
+      createDirty.markClean();
+      return;
+    }
+
+    if ((mode === 'detail' || mode === 'edit') && promotionId) {
+      if (
+        promotionsManager.selectedPromotionId !== promotionId ||
+        !promotionsManager.selectedPromotion
+      ) {
+        await promotionsManager.selectPromotion(promotionId);
+      }
+      await nextTick();
+      editDirty.markClean();
+    }
+  },
+  { immediate: true },
+);
+
+onMounted(() => {
+  void promotionsManager.initialize();
 });
 
 function promotionScopeLabel(branchIds: string[]): string {
@@ -639,28 +801,23 @@ function promotionScopeLabel(branchIds: string[]): string {
     .join(', ');
 }
 
-onMounted(() => {
-  void promotionsManager.initialize();
-});
-
-function handleStartCreate() {
-  clearPromotionFeedback();
-  promotionsManager.startCreate();
-  mobileView.value = 'detail';
-}
-
-async function handleSelectPromotion(promotionId: string) {
-  await promotionsManager.selectPromotion(promotionId);
-  mobileView.value = 'detail';
-}
-
-function handleBack() {
-  if (promotionsManager.isCreating) {
-    promotionsManager.cancelCreate();
+async function handlePanelClose() {
+  if ((routeMode.value === 'create' || routeMode.value === 'edit') && !confirmLeave()) {
+    return;
   }
 
   clearPromotionFeedback();
-  mobileView.value = 'list';
+
+  if (routeMode.value === 'detail') {
+    await routeState.closeDetail();
+    return;
+  }
+
+  if (routeMode.value === 'create' && promotionsManager.isCreating) {
+    promotionsManager.cancelCreate();
+  }
+
+  await routeState.closeEditor();
 }
 
 async function handleCreateSubmit() {
@@ -702,6 +859,11 @@ async function handleCreateSubmit() {
   try {
     createSummaryMessage.value = '';
     await promotionsManager.saveCreate();
+    createDirty.markClean();
+
+    if (promotionsManager.selectedPromotionId) {
+      await routeState.goToDetail(promotionsManager.selectedPromotionId);
+    }
   } catch (error) {
     replaceFieldErrors(createFieldErrors, resolveAdminApiFieldErrors(error));
     createSummaryMessage.value = resolveAdminApiErrorMessage(
@@ -751,6 +913,8 @@ async function handleSave() {
   try {
     editSummaryMessage.value = '';
     await promotionsManager.save();
+    editDirty.markClean();
+    await routeState.goToDetail(promotionsManager.selectedPromotionId);
   } catch (error) {
     replaceFieldErrors(editFieldErrors, resolveAdminApiFieldErrors(error));
     editSummaryMessage.value = resolveAdminApiErrorMessage(
@@ -763,16 +927,12 @@ async function handleSave() {
 
 function clearCreateFieldError(field: string) {
   clearFieldError(createFieldErrors, field);
-  if (Object.keys(createFieldErrors).length === 0) {
-    createSummaryMessage.value = '';
-  }
+  createSummaryMessage.value = '';
 }
 
 function clearEditFieldError(field: string) {
   clearFieldError(editFieldErrors, field);
-  if (Object.keys(editFieldErrors).length === 0) {
-    editSummaryMessage.value = '';
-  }
+  editSummaryMessage.value = '';
 }
 
 function clearPromotionFeedback() {
@@ -793,20 +953,15 @@ function compactErrors(errors: AdminFieldErrors): AdminFieldErrors {
 </script>
 
 <style scoped>
-.promotions-page__filter-grid {
+.promotions-page__switches,
+.promotions-detail-view {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
 
-.promotions-page__switches {
-  display: grid;
+.promotions-detail-view__actions {
+  display: flex;
   gap: 8px;
-}
-
-@media (max-width: 960px) {
-  .promotions-page__filter-grid {
-    grid-template-columns: 1fr;
-  }
+  flex-wrap: wrap;
 }
 </style>

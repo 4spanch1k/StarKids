@@ -83,7 +83,7 @@
     <div class="admin-split-layout">
       <section
         class="admin-panel admin-panel--stack lead-queue leads-mobile-section"
-        :class="{ 'leads-mobile-section--hidden': mobileView === 'detail' }"
+        :class="{ 'leads-mobile-section--hidden': showDetailRoutePanel }"
       >
         <div class="admin-section-heading">
           <h2>Очередь заявок</h2>
@@ -139,7 +139,7 @@
             <button
               type="button"
               class="lead-card__main"
-              @click="handleSelectLead(lead.id)"
+              @click="void handleSelectLead(lead.id)"
             >
               <div class="lead-card__header">
                 <div class="lead-card__title">
@@ -206,14 +206,9 @@
       </section>
 
       <aside
+        v-if="isDesktopView"
         class="admin-panel admin-panel--stack lead-detail leads-mobile-section"
-        :class="{ 'leads-mobile-section--hidden': mobileView === 'list' }"
       >
-        <AdminMobilePanelHeader
-          :title="selectedLeadTitle"
-          eyebrow="Рабочая карточка"
-          @back="handleBackToList"
-        />
         <template v-if="!leadInbox.selectedLeadId">
           <StatePanel
             title="Выберите заявку"
@@ -247,170 +242,77 @@
         </template>
 
         <template v-else-if="leadInbox.selectedLead">
-          <header class="lead-detail__header">
-            <div class="lead-detail__copy">
-              <div class="lead-detail__title-row">
-                <h2>{{ leadInbox.selectedLead.customerName }}</h2>
-                <div class="lead-detail__badges">
-                  <StatusBadge :label="formatType(leadInbox.selectedLead.type)" tone="neutral" />
-                  <StatusBadge
-                    :label="formatStatus(leadInbox.selectedLead.status)"
-                    :tone="statusTone(leadInbox.selectedLead.status)"
-                  />
-                </div>
-              </div>
-              <p class="lead-detail__description">
-                {{ leadInbox.selectedLead.summary }}
-              </p>
-            </div>
-
-            <div
-              class="lead-detail__deadline"
-              :class="deadlineClass(leadInbox.selectedLead.type, leadInbox.selectedLead.requestedDate)"
-            >
-              {{ deadlineLabel(leadInbox.selectedLead.type, leadInbox.selectedLead.requestedDate) }}
-            </div>
-          </header>
-
-          <section class="lead-status-panel">
-            <div class="admin-section-heading">
-              <h3>Статус заявки</h3>
-              <p>
-                {{
-                  leadInbox.isStatusUpdating
-                    ? 'Сохраняем новый статус…'
-                    : 'Выберите следующий рабочий этап для этой заявки.'
-                }}
-              </p>
-            </div>
-
-            <div class="lead-status-panel__actions">
-              <button
-                v-for="status in leadStatuses"
-                :key="status"
-                type="button"
-                class="lead-status-button"
-                :class="{
-                  'lead-status-button--active': status === leadInbox.selectedLead.status,
-                }"
-                :disabled="leadInbox.isStatusUpdating || !canUpdateSelectedLeadStatus(status)"
-                @click="leadInbox.updateLeadStatus(status)"
-              >
-                {{ formatStatus(status) }}
-              </button>
-            </div>
-
-            <p class="lead-status-panel__hint">
-              {{ statusFlowHint }}
-            </p>
-
-            <p
-              v-if="leadInbox.statusSuccessMessage"
-              class="admin-inline-message admin-inline-message--success"
-            >
-              {{ leadInbox.statusSuccessMessage }}
-            </p>
-            <p
-              v-if="leadInbox.statusErrorMessage"
-              class="admin-inline-message admin-inline-message--error"
-            >
-              {{ leadInbox.statusErrorMessage }}
-            </p>
-          </section>
-
-          <div class="admin-info-grid">
-            <article class="lead-detail-card">
-              <div class="admin-section-heading">
-                <h3>Контакт</h3>
-              </div>
-              <dl class="lead-detail-card__list">
-                <div>
-                  <dt>Телефон</dt>
-                  <dd>
-                    <a
-                      class="lead-detail-card__link"
-                      :href="formatTelHref(leadInbox.selectedLead.phone)"
-                    >
-                      {{ leadInbox.selectedLead.phone }}
-                    </a>
-                  </dd>
-                </div>
-                <div>
-                  <dt>Способ связи</dt>
-                  <dd>{{ formatContactMethod(leadInbox.selectedLead.contactMethod) }}</dd>
-                </div>
-                <div v-if="leadInbox.selectedLead.email">
-                  <dt>Email</dt>
-                  <dd>{{ leadInbox.selectedLead.email }}</dd>
-                </div>
-                <div>
-                  <dt>Источник</dt>
-                  <dd>{{ formatSource(leadInbox.selectedLead.source) }}</dd>
-                </div>
-              </dl>
-            </article>
-
-            <article class="lead-detail-card">
-              <div class="admin-section-heading">
-                <h3>{{ leadInbox.selectedLead.type === 'contact' ? 'Параметры обращения' : 'Параметры заявки' }}</h3>
-              </div>
-              <dl class="lead-detail-card__list">
-                <div>
-                  <dt>Тип</dt>
-                  <dd>{{ formatType(leadInbox.selectedLead.type) }}</dd>
-                </div>
-                <div v-if="leadInbox.selectedLead.type === 'birthday_request'">
-                  <dt>Филиал</dt>
-                  <dd>{{ formatBranchName(leadInbox.selectedLead.branch) }}</dd>
-                </div>
-                <div v-if="leadInbox.selectedLead.type === 'birthday_request'">
-                  <dt>Пакет</dt>
-                  <dd>{{ formatPackageName(leadInbox.selectedLead.package) }}</dd>
-                </div>
-                <div v-if="leadInbox.selectedLead.type === 'birthday_request'">
-                  <dt>Гостей</dt>
-                  <dd>{{ formatGuestCount(leadInbox.selectedLead.guestCount) }}</dd>
-                </div>
-                <div v-if="leadInbox.selectedLead.type === 'birthday_request'">
-                  <dt>Дата праздника</dt>
-                  <dd>{{ formatDate(leadInbox.selectedLead.requestedDate) }}</dd>
-                </div>
-                <div>
-                  <dt>Создана</dt>
-                  <dd>{{ formatDateTime(leadInbox.selectedLead.createdAt) }}</dd>
-                </div>
-              </dl>
-            </article>
-
-            <article class="lead-detail-card lead-detail-card--full">
-              <div class="admin-section-heading">
-                <h3>{{ leadInbox.selectedLead.type === 'contact' ? 'Контекст обращения' : 'Комментарий клиента' }}</h3>
-              </div>
-              <p class="lead-detail-card__notes">
-                {{ notesFallback(leadInbox.selectedLead.type, leadInbox.selectedLead.notes) }}
-              </p>
-            </article>
-          </div>
+          <LeadDetailView
+            :lead="leadInbox.selectedLead"
+            :is-status-updating="leadInbox.isStatusUpdating"
+            :status-success-message="leadInbox.statusSuccessMessage"
+            :status-error-message="leadInbox.statusErrorMessage"
+            @update-status="leadInbox.updateLeadStatus"
+          />
         </template>
       </aside>
     </div>
+
+    <AdminRoutePanel
+      :open="showDetailRoutePanel"
+      :title="selectedLeadTitle"
+      eyebrow="Карточка заявки"
+      close-label="К списку"
+      variant="detail"
+      @close="void handleBackToList()"
+    >
+      <template v-if="leadInbox.isDetailLoading && !leadInbox.selectedLead">
+        <StatePanel
+          title="Загружаем детали заявки"
+          description="Собираем контакты, пакет и комментарий по выбранному обращению."
+        />
+      </template>
+
+      <template v-else-if="leadInbox.detailErrorMessage">
+        <StatePanel
+          title="Не удалось открыть заявку"
+          :description="leadInbox.detailErrorMessage"
+          tone="error"
+        >
+          <template #actions>
+            <button
+              type="button"
+              class="admin-button admin-button--secondary"
+              @click="leadInbox.selectLead(leadInbox.selectedLeadId)"
+            >
+              Повторить
+            </button>
+          </template>
+        </StatePanel>
+      </template>
+
+      <LeadDetailView
+        v-else-if="leadInbox.selectedLead"
+        :lead="leadInbox.selectedLead"
+        :is-status-updating="leadInbox.isStatusUpdating"
+        :status-success-message="leadInbox.statusSuccessMessage"
+        :status-error-message="leadInbox.statusErrorMessage"
+        @update-status="leadInbox.updateLeadStatus"
+      />
+    </AdminRoutePanel>
   </PageShell>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, reactive, watch } from 'vue';
 
+import { adminCrudRouteNames } from '@/app/router/adminCrudRoutes';
 import {
-  describeLeadStatusFlow,
   formatLeadStatus as formatStatus,
   formatLeadType as formatType,
-  isLeadStatusActionEnabled,
   leadStatuses,
   type LeadStatus,
   type LeadType,
 } from '@/entities/lead/model/lead';
 import { useLeadInbox } from '@/features/leads/model/useLeadInbox';
-import AdminMobilePanelHeader from '@/shared/ui/AdminMobilePanelHeader.vue';
+import LeadDetailView from '@/features/leads/ui/LeadDetailView.vue';
+import { useAdminCrudRouteState } from '@/shared/composables/useAdminCrudRouteState';
+import AdminRoutePanel from '@/shared/ui/AdminRoutePanel.vue';
 import AppDateRangeField from '@/shared/ui/AppDateRangeField.vue';
 import AppSelectField from '@/shared/ui/AppSelectField.vue';
 import PageShell from '@/shared/ui/PageShell.vue';
@@ -418,7 +320,11 @@ import StatePanel from '@/shared/ui/StatePanel.vue';
 import StatusBadge from '@/shared/ui/StatusBadge.vue';
 
 const leadInbox = reactive(useLeadInbox());
-const mobileView = ref<'list' | 'detail'>('list');
+const routeState = useAdminCrudRouteState({
+  listRouteName: adminCrudRouteNames.leads.list,
+  detailRouteName: adminCrudRouteNames.leads.detail,
+  idParam: adminCrudRouteNames.leads.idParam,
+});
 
 const totalLabel = computed(() => {
   const count = leadInbox.total;
@@ -478,14 +384,6 @@ const emptyStateDescription = computed(() => {
   return 'Измените период, филиал или статус, чтобы вернуть обращения в очередь.';
 });
 
-const statusFlowHint = computed(() => {
-  if (!leadInbox.selectedLead) {
-    return '';
-  }
-
-  return describeLeadStatusFlow(leadInbox.selectedLead.status);
-});
-
 const statusFilterOptions = computed(() => {
   return [
     { label: 'Все статусы', value: '' },
@@ -499,6 +397,10 @@ const statusFilterOptions = computed(() => {
 const selectedLeadTitle = computed(() => {
   return leadInbox.selectedLead?.customerName || 'Карточка заявки';
 });
+
+const routeMode = computed(() => routeState.mode.value);
+const showDetailRoutePanel = computed(() => routeState.showDetailRoutePanel.value);
+const isDesktopView = computed(() => routeState.isDesktop.value);
 
 const createdRange = computed({
   get() {
@@ -518,21 +420,30 @@ onMounted(() => {
 });
 
 watch(
+  () => [routeMode.value, routeState.activeId.value] as const,
+  async ([mode, leadId]) => {
+    if (mode === 'detail' && leadId) {
+      await leadInbox.selectLead(leadId);
+    }
+  },
+  { immediate: true },
+);
+
+watch(
   () => leadInbox.selectedLeadId,
-  (leadId) => {
-    if (!leadId) {
-      mobileView.value = 'list';
+  async (leadId) => {
+    if (!leadId && routeMode.value === 'detail') {
+      await routeState.goToList();
     }
   },
 );
 
 async function handleSelectLead(leadId: string) {
-  await leadInbox.selectLead(leadId);
-  mobileView.value = 'detail';
+  await routeState.goToDetail(leadId);
 }
 
-function handleBackToList() {
-  mobileView.value = 'list';
+async function handleBackToList() {
+  await routeState.closeDetail();
 }
 
 function statusTone(status: LeadStatus): 'new' | 'in-progress' | 'closed' {
@@ -597,15 +508,6 @@ function formatGuestCount(value: number | null): string {
   return `${value} гостей`;
 }
 
-function formatContactMethod(value: string): string {
-  const labels: Record<string, string> = {
-    phone: 'Телефон',
-    whatsapp: 'WhatsApp',
-  };
-
-  return labels[value] ?? value;
-}
-
 function formatSource(value: string): string {
   const labels: Record<string, string> = {
     mobile_app: 'Мобильное приложение',
@@ -616,40 +518,6 @@ function formatSource(value: string): string {
 
 function formatTelHref(phone: string): string {
   return `tel:${phone.replace(/[^\d+]/g, '')}`;
-}
-
-function formatBranchName(
-  branch: { name: string; shortLabel: string } | null,
-): string {
-  if (!branch) {
-    return 'Не выбран';
-  }
-
-  return branch.shortLabel || branch.name;
-}
-
-function formatPackageName(
-  birthdayPackage: { name: string } | null,
-): string {
-  return birthdayPackage?.name ?? 'Не выбран';
-}
-
-function notesFallback(type: LeadType, notes: string | null): string {
-  if (notes) {
-    return notes;
-  }
-
-  return type === 'contact'
-    ? 'Клиент не оставил текст обращения.'
-    : 'Комментарий не оставлен.';
-}
-
-function canUpdateSelectedLeadStatus(status: LeadStatus): boolean {
-  if (!leadInbox.selectedLead) {
-    return false;
-  }
-
-  return isLeadStatusActionEnabled(leadInbox.selectedLead.status, status);
 }
 
 function buildFilterExplanation(options?: { includeBranchCaveat?: boolean }): string {
