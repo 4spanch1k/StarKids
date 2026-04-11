@@ -40,9 +40,9 @@ void main() {
     navigator.pop();
     await tester.pumpAndSettle();
 
-    navigator.pushNamed(AppRoutes.pricesRules);
+    navigator.pushNamed(AppRoutes.menu);
     await tester.pumpAndSettle();
-    expect(find.text('Цены и правила'), findsWidgets);
+    expect(find.text('Меню'), findsWidgets);
 
     navigator.pop();
     await tester.pumpAndSettle();

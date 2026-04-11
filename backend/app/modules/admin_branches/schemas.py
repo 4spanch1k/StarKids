@@ -152,3 +152,38 @@ class AdminBranchPricesRulesUpsertRequest(BaseModel):
     disclaimer: str | None = Field(default=None, max_length=2000)
     visit_tariffs: list[AdminBranchTariffInput] = Field(default_factory=list)
     rules: list[AdminBranchRuleInput] = Field(default_factory=list)
+
+
+class AdminBranchMenuCategoryInput(BaseModel):
+    key: str = Field(min_length=1, max_length=64)
+    title: str = Field(min_length=2, max_length=255)
+    display_order: int = Field(default=0, ge=0, le=1000)
+    is_active: bool = True
+
+
+class AdminBranchMenuItemInput(BaseModel):
+    title: str = Field(min_length=2, max_length=255)
+    price_tenge: int = Field(ge=0, le=1000000)
+    image_url: str = Field(min_length=8, max_length=1024)
+    category_key: str = Field(min_length=1, max_length=64)
+    display_order: int = Field(default=0, ge=0, le=1000)
+    is_active: bool = True
+
+
+class AdminBranchMenuCategoryResponse(AdminBranchMenuCategoryInput):
+    id: str
+
+
+class AdminBranchMenuItemResponse(AdminBranchMenuItemInput):
+    id: str
+
+
+class AdminBranchMenuResponse(BaseModel):
+    branch_id: str
+    categories: list[AdminBranchMenuCategoryResponse] = Field(default_factory=list)
+    items: list[AdminBranchMenuItemResponse] = Field(default_factory=list)
+
+
+class AdminBranchMenuUpsertRequest(BaseModel):
+    categories: list[AdminBranchMenuCategoryInput] = Field(default_factory=list)
+    items: list[AdminBranchMenuItemInput] = Field(default_factory=list)

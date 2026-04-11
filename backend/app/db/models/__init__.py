@@ -2,6 +2,8 @@ from .admin_session import AdminSession
 from .admin_user import AdminUser
 from .base import Base
 from .branch_pricing_profile import BranchPricingProfile
+from .branch_menu_category import BranchMenuCategory
+from .branch_menu_item import BranchMenuItem
 from .branch_rule import BranchRule
 from .branch_tariff import BranchTariff
 from .birthday_package import BirthdayPackage
@@ -22,6 +24,8 @@ __all__ = [
     'AdminUser',
     'Branch',
     'BranchPricingProfile',
+    'BranchMenuCategory',
+    'BranchMenuItem',
     'BranchTariff',
     'BranchRule',
     'BirthdayPackage',

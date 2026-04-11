@@ -1,10 +1,15 @@
+from ...core.exceptions.http import NotFoundException
+from ...db.repositories.branch_menu_repository import BranchMenuRepository
 from ...db.repositories.branch_pricing_repository import BranchPricingRepository
 from ...db.repositories.branch_repository import BranchRepository
-from ...core.exceptions.http import NotFoundException
+from .menu_seed import DEFAULT_BRANCH_MENU
 from .schemas import (
     BranchContactsResponse,
     BranchDetail,
     BranchGalleryResponse,
+    BranchMenuCategoryResponse,
+    BranchMenuItemResponse,
+    BranchMenuResponse,
     BranchPricesRulesResponse,
     BranchSummary,
     BranchVisitTariffResponse,
@@ -16,9 +21,11 @@ class BranchService:
         self,
         repository: BranchRepository | None = None,
         pricing_repository: BranchPricingRepository | None = None,
+        menu_repository: BranchMenuRepository | None = None,
     ) -> None:
         self.repository = repository or BranchRepository()
         self.pricing_repository = pricing_repository or BranchPricingRepository()
+        self.menu_repository = menu_repository or BranchMenuRepository()
 
     def list_branches(self) -> list[BranchSummary]:
         return [
@@ -90,6 +97,36 @@ class BranchService:
             disclaimer=profile.disclaimer,
         )
 
+    def get_branch_menu(self, branch_id_or_slug: str) -> BranchMenuResponse:
+        branch = self._get_active_branch_or_404(branch_id_or_slug)
+        self._ensure_branch_menu_seeded(branch.id)
+        categories = self.menu_repository.list_categories(branch.id, active_only=True)
+        items = self.menu_repository.list_items(branch.id, active_only=True)
+        items_by_category_id: dict[str, list[BranchMenuItemResponse]] = {}
+
+        for item in items:
+            items_by_category_id.setdefault(item.category_id, []).append(
+                BranchMenuItemResponse(
+                    id=item.id,
+                    title=item.title,
+                    price_tenge=item.price_tenge,
+                    image_url=item.image_url,
+                )
+            )
+
+        return BranchMenuResponse(
+            branch_id=branch.id,
+            categories=[
+                BranchMenuCategoryResponse(
+                    id=category.id,
+                    title=category.title,
+                    items=items_by_category_id.get(category.id, []),
+                )
+                for category in categories
+                if items_by_category_id.get(category.id)
+            ],
+        )
+
     def _get_active_branch_or_404(self, branch_id_or_slug: str):
         branch = self.repository.get_active_by_id_or_slug(branch_id_or_slug)
         if branch is None:
@@ -98,3 +135,12 @@ class BranchService:
                 message='Branch was not found.',
             )
         return branch
+
+    def _ensure_branch_menu_seeded(self, branch_id: str) -> None:
+        if self.menu_repository.has_menu(branch_id):
+            return
+        self.menu_repository.replace_branch_menu(
+            branch_id=branch_id,
+            category_payloads=DEFAULT_BRANCH_MENU['categories'],
+            item_payloads=DEFAULT_BRANCH_MENU['items'],
+        )

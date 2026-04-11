@@ -116,10 +116,10 @@ export const adminCrudRouteNames = {
     edit: 'faq-edit',
     idParam: 'faqId',
   },
-  tariffs: {
-    list: 'tariffs',
-    detail: 'tariffs-detail',
-    edit: 'tariffs-edit',
+  menu: {
+    list: 'menu',
+    detail: 'menu-detail',
+    edit: 'menu-edit',
     idParam: 'branchId',
   },
 } as const;

@@ -97,3 +97,29 @@ export type AdminBranchPricesRulesPayload = Omit<
   AdminBranchPricesRules,
   'branchId'
 >;
+
+export type AdminBranchMenuCategory = {
+  id?: string;
+  key: string;
+  title: string;
+  displayOrder: number;
+  isActive: boolean;
+};
+
+export type AdminBranchMenuItem = {
+  id?: string;
+  title: string;
+  priceTenge: number;
+  imageUrl: string;
+  categoryKey: string;
+  displayOrder: number;
+  isActive: boolean;
+};
+
+export type AdminBranchMenu = {
+  branchId: string;
+  categories: AdminBranchMenuCategory[];
+  items: AdminBranchMenuItem[];
+};
+
+export type AdminBranchMenuPayload = Omit<AdminBranchMenu, 'branchId'>;
