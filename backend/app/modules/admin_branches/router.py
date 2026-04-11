@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from ...core.database.session import get_db_session
 from ...core.exceptions.schemas import ErrorResponse
+from ...db.repositories.branch_menu_repository import BranchMenuRepository
 from ...db.repositories.branch_pricing_repository import BranchPricingRepository
 from ...db.repositories.branch_repository import BranchRepository
 from ..admin_auth.dependencies import require_admin_roles
@@ -16,6 +17,8 @@ from .schemas import (
     AdminBranchGalleryResponse,
     AdminBranchGalleryUpdateRequest,
     AdminBranchListQuery,
+    AdminBranchMenuResponse,
+    AdminBranchMenuUpsertRequest,
     AdminBranchPricesRulesResponse,
     AdminBranchPricesRulesUpsertRequest,
     AdminBranchSummaryResponse,
@@ -34,6 +37,7 @@ def get_admin_branch_service(
     return AdminBranchService(
         repository=BranchRepository(session),
         pricing_repository=BranchPricingRepository(session),
+        menu_repository=BranchMenuRepository(session),
     )
 
 
@@ -203,3 +207,37 @@ def upsert_admin_branch_prices_rules(
     service: AdminBranchService = Depends(get_admin_branch_service),
 ) -> AdminBranchPricesRulesResponse:
     return service.upsert_branch_prices_rules(branch_id, payload)
+
+
+@router.get(
+    '/branches/{branch_id}/menu',
+    response_model=AdminBranchMenuResponse,
+    responses={
+        401: {'model': ErrorResponse},
+        403: {'model': ErrorResponse},
+        404: {'model': ErrorResponse},
+    },
+)
+def get_admin_branch_menu(
+    branch_id: str,
+    service: AdminBranchService = Depends(get_admin_branch_service),
+) -> AdminBranchMenuResponse:
+    return service.get_branch_menu(branch_id)
+
+
+@router.put(
+    '/branches/{branch_id}/menu',
+    response_model=AdminBranchMenuResponse,
+    responses={
+        401: {'model': ErrorResponse},
+        403: {'model': ErrorResponse},
+        404: {'model': ErrorResponse},
+        422: {'model': ErrorResponse},
+    },
+)
+def upsert_admin_branch_menu(
+    branch_id: str,
+    payload: AdminBranchMenuUpsertRequest,
+    service: AdminBranchService = Depends(get_admin_branch_service),
+) -> AdminBranchMenuResponse:
+    return service.upsert_branch_menu(branch_id, payload)

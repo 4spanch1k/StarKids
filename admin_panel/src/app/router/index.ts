@@ -15,9 +15,9 @@ import FAQPage from '@/pages/faq/FAQPage.vue';
 import GalleryPage from '@/pages/gallery/GalleryPage.vue';
 import LeadsPage from '@/pages/leads/LeadsPage.vue';
 import LoginPage from '@/pages/login/LoginPage.vue';
+import MenuPage from '@/pages/menu/MenuPage.vue';
 import PromotionsPage from '@/pages/promotions/PromotionsPage.vue';
 import PushCampaignsPage from '@/pages/push-campaigns/PushCampaignsPage.vue';
-import TariffsPage from '@/pages/tariffs/TariffsPage.vue';
 import { useSessionStore } from '@/features/auth/stores/useSessionStore';
 
 const routes: RouteRecordRaw[] = [
@@ -59,10 +59,10 @@ const routes: RouteRecordRaw[] = [
         idParam: adminCrudRouteNames.birthdayPackages.idParam,
       }).routes,
       ...buildAdminCrudRouteGroup({
-        path: 'tariffs',
-        name: adminCrudRouteNames.tariffs.list,
-        component: TariffsPage,
-        idParam: adminCrudRouteNames.tariffs.idParam,
+        path: 'menu',
+        name: adminCrudRouteNames.menu.list,
+        component: MenuPage,
+        idParam: adminCrudRouteNames.menu.idParam,
         allowCreate: false,
       }).routes,
       ...buildAdminCrudRouteGroup({

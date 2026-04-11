@@ -55,3 +55,21 @@ class BranchPricesRulesResponse(BaseModel):
     rules: list[str] = Field(default_factory=list)
     birthday_note: str
     disclaimer: str | None = None
+
+
+class BranchMenuItemResponse(BaseModel):
+    id: str
+    title: str
+    price_tenge: int
+    image_url: str
+
+
+class BranchMenuCategoryResponse(BaseModel):
+    id: str
+    title: str
+    items: list[BranchMenuItemResponse] = Field(default_factory=list)
+
+
+class BranchMenuResponse(BaseModel):
+    branch_id: str
+    categories: list[BranchMenuCategoryResponse] = Field(default_factory=list)

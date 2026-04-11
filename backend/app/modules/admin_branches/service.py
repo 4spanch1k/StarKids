@@ -1,7 +1,9 @@
 from ...core.exceptions.http import DomainHTTPException, NotFoundException
 from ...db.models.branch import Branch
+from ...db.repositories.branch_menu_repository import BranchMenuRepository
 from ...db.repositories.branch_pricing_repository import BranchPricingRepository
 from ...db.repositories.branch_repository import BranchRepository
+from ..branches.menu_seed import DEFAULT_BRANCH_MENU
 from .schemas import (
     AdminBranchContactsResponse,
     AdminBranchContactsUpdateRequest,
@@ -10,6 +12,10 @@ from .schemas import (
     AdminBranchGalleryResponse,
     AdminBranchGalleryUpdateRequest,
     AdminBranchListQuery,
+    AdminBranchMenuCategoryResponse,
+    AdminBranchMenuItemResponse,
+    AdminBranchMenuResponse,
+    AdminBranchMenuUpsertRequest,
     AdminBranchPricesRulesResponse,
     AdminBranchPricesRulesUpsertRequest,
     AdminBranchRuleResponse,
@@ -27,9 +33,11 @@ class AdminBranchService:
         *,
         repository: BranchRepository | None = None,
         pricing_repository: BranchPricingRepository | None = None,
+        menu_repository: BranchMenuRepository | None = None,
     ) -> None:
         self.repository = repository or BranchRepository()
         self.pricing_repository = pricing_repository or BranchPricingRepository()
+        self.menu_repository = menu_repository or BranchMenuRepository()
 
     def list_branches(self, query: AdminBranchListQuery) -> list[AdminBranchSummaryResponse]:
         return [
@@ -44,6 +52,7 @@ class AdminBranchService:
     def create_branch(self, payload: AdminBranchCreateRequest) -> AdminBranchDetailResponse:
         self._ensure_slug_available(payload.slug)
         branch = self.repository.create(payload.model_dump())
+        self._ensure_branch_menu_seeded(branch.id)
         return AdminBranchDetailResponse.model_validate(branch)
 
     def update_branch(
@@ -157,6 +166,25 @@ class AdminBranchService:
         )
         return self.get_branch_prices_rules(branch.id)
 
+    def get_branch_menu(self, branch_id: str) -> AdminBranchMenuResponse:
+        branch = self._get_branch_or_404(branch_id)
+        self._ensure_branch_menu_seeded(branch.id)
+        return self._serialize_admin_menu(branch.id)
+
+    def upsert_branch_menu(
+        self,
+        branch_id: str,
+        payload: AdminBranchMenuUpsertRequest,
+    ) -> AdminBranchMenuResponse:
+        branch = self._get_branch_or_404(branch_id)
+        self._validate_branch_menu(payload)
+        self.menu_repository.replace_branch_menu(
+            branch_id=branch.id,
+            category_payloads=[item.model_dump() for item in payload.categories],
+            item_payloads=[item.model_dump() for item in payload.items],
+        )
+        return self._serialize_admin_menu(branch.id)
+
     def _get_branch_or_404(self, branch_id: str) -> Branch:
         branch = self.repository.get_by_id(branch_id)
         if branch is None:
@@ -198,3 +226,80 @@ class AdminBranchService:
             hero_image_url=branch.hero_image_url,
             gallery_image_urls=branch.gallery_image_urls,
         )
+
+    def _serialize_admin_menu(self, branch_id: str) -> AdminBranchMenuResponse:
+        categories = self.menu_repository.list_categories(branch_id, active_only=False)
+        items = self.menu_repository.list_items(branch_id, active_only=False)
+        categories_by_id = {category.id: category for category in categories}
+
+        return AdminBranchMenuResponse(
+            branch_id=branch_id,
+            categories=[
+                AdminBranchMenuCategoryResponse(
+                    id=category.id,
+                    key=category.key,
+                    title=category.title,
+                    display_order=category.display_order,
+                    is_active=category.is_active,
+                )
+                for category in categories
+            ],
+            items=[
+                AdminBranchMenuItemResponse(
+                    id=item.id,
+                    title=item.title,
+                    price_tenge=item.price_tenge,
+                    image_url=item.image_url,
+                    category_key=categories_by_id[item.category_id].key,
+                    display_order=item.display_order,
+                    is_active=item.is_active,
+                )
+                for item in items
+                if item.category_id in categories_by_id
+            ],
+        )
+
+    def _ensure_branch_menu_seeded(self, branch_id: str) -> None:
+        if self.menu_repository.has_menu(branch_id):
+            return
+        self.menu_repository.replace_branch_menu(
+            branch_id=branch_id,
+            category_payloads=DEFAULT_BRANCH_MENU['categories'],
+            item_payloads=DEFAULT_BRANCH_MENU['items'],
+        )
+
+    def _validate_branch_menu(self, payload: AdminBranchMenuUpsertRequest) -> None:
+        normalized_keys = [item.key.strip() for item in payload.categories]
+        unique_keys = {item for item in normalized_keys if item}
+        if len(unique_keys) != len(normalized_keys):
+            raise DomainHTTPException(
+                code='branch_menu_duplicate_category_key',
+                message='Branch menu category keys must be unique.',
+                status_code=422,
+                details=[
+                    {
+                        'field': 'categories',
+                        'message': 'Категории меню должны иметь уникальные ключи.',
+                    }
+                ],
+            )
+
+        missing_keys = sorted(
+            {
+                item.category_key
+                for item in payload.items
+                if item.category_key not in unique_keys
+            }
+        )
+        if missing_keys:
+            raise DomainHTTPException(
+                code='branch_menu_invalid_category_key',
+                message='Branch menu item references an unknown category key.',
+                status_code=422,
+                details=[
+                    {
+                        'field': 'items',
+                        'message': 'Для позиции меню выбрана несуществующая категория.',
+                    }
+                ],
+            )

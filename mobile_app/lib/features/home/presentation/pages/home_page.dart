@@ -229,11 +229,11 @@ class HomePage extends StatelessWidget {
                                   .pushNamed(AppRoutes.birthdays),
                             ),
                             _QuickActionTile(
-                              icon: Icons.receipt_long_rounded,
-                              title: 'Цены и правила',
-                              subtitle: 'Тарифы и важные условия',
+                              icon: Icons.restaurant_menu_rounded,
+                              title: 'Меню',
+                              subtitle: 'Еда и напитки в филиале',
                               onTap: () => Navigator.of(context)
-                                  .pushNamed(AppRoutes.pricesRules),
+                                  .pushNamed(AppRoutes.menu),
                             ),
                             _QuickActionTile(
                               icon: Icons.pin_drop_rounded,
