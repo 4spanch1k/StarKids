@@ -310,7 +310,7 @@ function startOfDay(date: Date): Date {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 
 .lead-detail__copy {
@@ -330,6 +330,11 @@ function startOfDay(date: Date): Date {
   margin: 0;
 }
 
+.lead-detail__title-row h2 {
+  font-size: 20px;
+  line-height: 1.15;
+}
+
 .lead-detail__badges {
   display: flex;
   flex-wrap: wrap;
@@ -341,7 +346,7 @@ function startOfDay(date: Date): Date {
 .lead-status-panel__hint,
 .lead-detail-card__notes {
   margin: 0;
-  line-height: 1.45;
+  line-height: 1.4;
 }
 
 .lead-detail__description,
@@ -377,18 +382,19 @@ function startOfDay(date: Date): Date {
 
 .lead-status-panel {
   display: grid;
-  gap: 10px;
+  gap: 8px;
+  padding-block: 2px;
 }
 
 .lead-status-panel__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .lead-status-button {
-  min-height: 36px;
-  padding: 0 12px;
+  min-height: 32px;
+  padding: 0 10px;
   border: 1px solid var(--color-border);
   border-radius: 12px;
   background: var(--color-surface);
@@ -416,10 +422,10 @@ function startOfDay(date: Date): Date {
 
 .lead-detail-card {
   display: grid;
-  gap: 10px;
-  padding: 14px;
+  gap: 8px;
+  padding: 12px;
   border: 1px solid var(--color-border);
-  border-radius: 16px;
+  border-radius: 14px;
   background: var(--color-surface-subtle);
 }
 
@@ -429,7 +435,7 @@ function startOfDay(date: Date): Date {
 
 .lead-detail-card__list {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   margin: 0;
 }
 
@@ -442,7 +448,7 @@ function startOfDay(date: Date): Date {
 
 .lead-detail-card__list dd {
   margin: 0;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.35;
 }
 
@@ -454,6 +460,10 @@ function startOfDay(date: Date): Date {
 
 .lead-detail-card__link:hover {
   color: var(--color-accent);
+}
+
+.admin-info-grid {
+  gap: 10px;
 }
 
 @media (max-width: 900px) {

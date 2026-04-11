@@ -879,6 +879,21 @@ const combinedEditErrors = computed(() => {
   };
 });
 
+const branchFieldLabels: Record<string, string> = {
+  slug: 'служебный код',
+  shortLabel: 'короткая подпись',
+  name: 'название филиала',
+  city: 'город',
+  workingHours: 'режим работы',
+  address: 'адрес',
+  phone: 'телефон',
+  whatsappPhone: 'WhatsApp',
+  description: 'описание',
+  displayOrder: 'порядок',
+  mapUrl: 'ссылка на карту',
+  routeLabel: 'подпись маршрута',
+};
+
 watch(
   () => [routeMode.value, routeState.activeId.value] as const,
   async ([mode, branchId]) => {
@@ -974,7 +989,7 @@ async function handleCreateSubmit() {
   });
 
   replaceFieldErrors(createFieldErrors, errors);
-  createSummaryMessage.value = Object.keys(errors).length ? 'Проверьте обязательные поля.' : '';
+  createSummaryMessage.value = formatValidationSummary(errors);
 
   if (Object.keys(errors).length > 0) {
     await focusFirstFieldError(createFormRef.value, createFieldErrors);
@@ -991,10 +1006,9 @@ async function handleCreateSubmit() {
     }
   } catch (error) {
     replaceFieldErrors(createFieldErrors, resolveAdminApiFieldErrors(error));
-    createSummaryMessage.value = resolveAdminApiErrorMessage(
-      error,
-      'Не удалось создать филиал.',
-    );
+    createSummaryMessage.value = hasFieldErrors(createFieldErrors)
+      ? formatValidationSummary(createFieldErrors)
+      : resolveAdminApiErrorMessage(error, 'Не удалось создать филиал.');
     await focusFirstFieldError(createFormRef.value, createFieldErrors);
   }
 }
@@ -1063,10 +1077,10 @@ async function handleBranchSave() {
 
   replaceFieldErrors(branchFieldErrors, branchErrors);
   replaceFieldErrors(contactsFieldErrors, contactErrors);
-  editSummaryMessage.value =
-    Object.keys(branchErrors).length || Object.keys(contactErrors).length
-      ? 'Проверьте обязательные поля.'
-      : '';
+  editSummaryMessage.value = formatValidationSummary({
+    ...branchErrors,
+    ...contactErrors,
+  });
 
   if (editSummaryMessage.value) {
     await focusFirstFieldError(branchFormRef.value, combinedEditErrors.value);
@@ -1089,10 +1103,12 @@ async function handleBranchSave() {
       ...contactsFieldErrors,
       ...fieldErrors,
     });
-    editSummaryMessage.value = resolveAdminApiErrorMessage(
-      error,
-      'Не удалось сохранить филиал.',
-    );
+    editSummaryMessage.value = hasFieldErrors(branchFieldErrors) || hasFieldErrors(contactsFieldErrors)
+      ? formatValidationSummary({
+          ...branchFieldErrors,
+          ...contactsFieldErrors,
+        })
+      : resolveAdminApiErrorMessage(error, 'Не удалось сохранить филиал.');
     await focusFirstFieldError(branchFormRef.value, {
       ...branchFieldErrors,
       ...contactsFieldErrors,
@@ -1127,6 +1143,32 @@ function compactErrors(errors: AdminFieldErrors): AdminFieldErrors {
   return Object.fromEntries(
     Object.entries(errors).filter((entry): entry is [string, string] => Boolean(entry[1])),
   );
+}
+
+function hasFieldErrors(errors: AdminFieldErrors): boolean {
+  return Object.keys(errors).length > 0;
+}
+
+function formatValidationSummary(errors: AdminFieldErrors): string {
+  const labels = Object.keys(errors)
+    .map((field) => branchFieldLabels[field])
+    .filter(Boolean);
+
+  if (!labels.length) {
+    return '';
+  }
+
+  if (labels.length === 1) {
+    return `Проверьте поле: ${labels[0]}.`;
+  }
+
+  const preview = labels.slice(0, 3).join(', ');
+
+  if (labels.length <= 3) {
+    return `Проверьте поля: ${preview}.`;
+  }
+
+  return `Проверьте поля: ${preview} и еще ${labels.length - 3}.`;
 }
 </script>
 

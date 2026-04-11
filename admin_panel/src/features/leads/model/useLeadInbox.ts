@@ -62,7 +62,9 @@ export function useLeadInbox() {
     branchesErrorMessage.value = '';
 
     try {
-      branchOptions.value = await fetchLeadInboxBranchOptions();
+      branchOptions.value = await executeAuthorizedAdminRequest((accessToken) => {
+        return fetchLeadInboxBranchOptions({ accessToken });
+      });
     } catch (error) {
       branchesErrorMessage.value = resolveAdminRequestError(
         error,

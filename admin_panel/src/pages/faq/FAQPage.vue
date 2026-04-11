@@ -540,6 +540,12 @@ const faqStateItems = computed(() => {
   ];
 });
 
+const faqFieldLabels: Record<string, string> = {
+  question: 'вопрос',
+  answer: 'ответ',
+  displayOrder: 'порядок показа',
+};
+
 watch(
   () => [routeMode.value, routeState.activeId.value] as const,
   async ([mode, faqId]) => {
@@ -596,7 +602,7 @@ async function handleCreateSubmit() {
   });
 
   replaceFieldErrors(createFieldErrors, errors);
-  createSummaryMessage.value = Object.keys(errors).length ? 'Проверьте обязательные поля.' : '';
+  createSummaryMessage.value = formatValidationSummary(errors);
 
   if (Object.keys(errors).length > 0) {
     await focusFirstFieldError(createFormRef.value, createFieldErrors);
@@ -613,10 +619,9 @@ async function handleCreateSubmit() {
     }
   } catch (error) {
     replaceFieldErrors(createFieldErrors, resolveAdminApiFieldErrors(error));
-    createSummaryMessage.value = resolveAdminApiErrorMessage(
-      error,
-      'Не удалось создать вопрос.',
-    );
+    createSummaryMessage.value = hasFieldErrors(createFieldErrors)
+      ? formatValidationSummary(createFieldErrors)
+      : resolveAdminApiErrorMessage(error, 'Не удалось создать вопрос.');
     await focusFirstFieldError(createFormRef.value, createFieldErrors);
   }
 }
@@ -632,7 +637,7 @@ async function handleSave() {
   });
 
   replaceFieldErrors(editFieldErrors, errors);
-  editSummaryMessage.value = Object.keys(errors).length ? 'Проверьте обязательные поля.' : '';
+  editSummaryMessage.value = formatValidationSummary(errors);
 
   if (Object.keys(errors).length > 0) {
     await focusFirstFieldError(editFormRef.value, editFieldErrors);
@@ -646,10 +651,9 @@ async function handleSave() {
     await routeState.goToDetail(faqManager.selectedFaqId);
   } catch (error) {
     replaceFieldErrors(editFieldErrors, resolveAdminApiFieldErrors(error));
-    editSummaryMessage.value = resolveAdminApiErrorMessage(
-      error,
-      'Не удалось сохранить вопрос.',
-    );
+    editSummaryMessage.value = hasFieldErrors(editFieldErrors)
+      ? formatValidationSummary(editFieldErrors)
+      : resolveAdminApiErrorMessage(error, 'Не удалось сохранить вопрос.');
     await focusFirstFieldError(editFormRef.value, editFieldErrors);
   }
 }
@@ -675,6 +679,26 @@ function compactErrors(errors: AdminFieldErrors): AdminFieldErrors {
   return Object.fromEntries(
     Object.entries(errors).filter((entry): entry is [string, string] => Boolean(entry[1])),
   );
+}
+
+function hasFieldErrors(errors: AdminFieldErrors): boolean {
+  return Object.keys(errors).length > 0;
+}
+
+function formatValidationSummary(errors: AdminFieldErrors): string {
+  const labels = Object.keys(errors)
+    .map((field) => faqFieldLabels[field])
+    .filter(Boolean);
+
+  if (!labels.length) {
+    return '';
+  }
+
+  if (labels.length === 1) {
+    return `Проверьте поле: ${labels[0]}.`;
+  }
+
+  return `Проверьте поля: ${labels.join(', ')}.`;
 }
 </script>
 

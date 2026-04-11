@@ -40,7 +40,7 @@
             </div>
           </header>
 
-          <div class="admin-route-panel__content">
+          <div ref="contentRef" class="admin-route-panel__content">
             <slot />
           </div>
         </section>
@@ -50,7 +50,9 @@
 </template>
 
 <script setup lang="ts">
-withDefaults(
+import { nextTick, ref, watch } from 'vue';
+
+const props = withDefaults(
   defineProps<{
     open: boolean;
     title: string;
@@ -72,6 +74,23 @@ withDefaults(
 defineEmits<{
   close: [];
 }>();
+
+const contentRef = ref<HTMLDivElement | null>(null);
+
+watch(
+  () => [props.open, props.title, props.variant] as const,
+  async ([isOpen]) => {
+    if (!isOpen) {
+      return;
+    }
+
+    await nextTick();
+    contentRef.value?.scrollTo({
+      top: 0,
+      behavior: 'auto',
+    });
+  },
+);
 </script>
 
 <style scoped>
