@@ -41,24 +41,80 @@
     body {
       margin: 0;
       min-height: 100%;
-      background: #fff7f2;
+      background: #fff8f1;
     }
 
     body {
       display: grid;
       place-items: center;
       font-family: Arial, sans-serif;
-      color: #40241d;
+      color: #171316;
     }
 
     .app-loading {
-      text-align: center;
+      min-height: 100vh;
+      width: 100%;
+      display: grid;
+      place-items: center;
       padding: 24px;
+      box-sizing: border-box;
+    }
+
+    .app-loading__shell {
+      position: relative;
+      width: min(176px, 52vw);
+      aspect-ratio: 1;
+      display: grid;
+      place-items: center;
+    }
+
+    .app-loading__ring {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      border: 6px solid #fce3ef;
+      border-top-color: #eb0876;
+      animation: app-loading-spin 1s linear infinite;
+      box-sizing: border-box;
+    }
+
+    .app-loading__logo {
+      width: calc(100% - 28px);
+      aspect-ratio: 1;
+      background: #fff;
+      border-radius: 999px;
+      padding: 6px;
+      box-sizing: border-box;
+      box-shadow: 0 10px 24px rgba(23, 19, 22, 0.08);
+    }
+
+    .app-loading__logo img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border-radius: 999px;
+      object-fit: cover;
+    }
+
+    @keyframes app-loading-spin {
+      to {
+        transform: rotate(360deg);
+      }
     }
   </style>
 </head>
 <body>
-  <div class="app-loading">Loading Star Kids...</div>
+  <div class="app-loading" aria-label="Loading Star Kids">
+    <div class="app-loading__shell">
+      <div class="app-loading__ring"></div>
+      <div class="app-loading__logo">
+        <img
+          src="assets/assets/images/645959303_17890733316429584_1469844678684572952_n.jpg"
+          alt="Star Kids logo"
+        >
+      </div>
+    </div>
+  </div>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader

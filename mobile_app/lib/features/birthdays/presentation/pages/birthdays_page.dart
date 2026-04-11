@@ -256,17 +256,17 @@ class BirthdaysPage extends StatelessWidget {
                         children: [
                           _ComparisonRow(
                             title: 'Нужен быстрый семейный праздник',
-                            value: 'Выбирайте Spark Party',
+                            value: 'Выбирайте WOW PARTY',
                           ),
                           SizedBox(height: StarKidsSpacing.md),
                           _ComparisonRow(
                             title: 'Нужен wow-эффект и шоу',
-                            value: 'Лучше всего подойдет Star Show',
+                            value: 'Лучше всего подойдет STAR PARTY',
                           ),
                           SizedBox(height: StarKidsSpacing.md),
                           _ComparisonRow(
                             title: 'Большая компания и семейный формат',
-                            value: 'Идите в Family Day',
+                            value: 'Берите MAGIC PARTY',
                           ),
                         ],
                       ),

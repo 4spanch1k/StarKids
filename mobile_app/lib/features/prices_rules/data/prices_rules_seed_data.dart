@@ -10,14 +10,14 @@ const pricesRulesSeedData = <BranchPricesRules>[
       VisitTariff(
         id: 'mega-weekday',
         title: 'Будний день',
-        priceLabel: 'от 4 500 ₸',
+        priceLabel: '4 500 тг',
         description:
             'Безлимитный вход в парк в спокойный день для семейного визита.',
       ),
       VisitTariff(
         id: 'mega-weekend',
         title: 'Выходной день',
-        priceLabel: 'от 5 500 ₸',
+        priceLabel: '5 500 тг',
         description:
             'Полный семейный сценарий с максимальной активностью и праздничной атмосферой.',
       ),
@@ -40,14 +40,14 @@ const pricesRulesSeedData = <BranchPricesRules>[
       VisitTariff(
         id: 'center-family',
         title: 'Семейный визит',
-        priceLabel: 'от 4 000 ₸',
+        priceLabel: '4 000 тг',
         description:
             'Подходит для спокойного выходного сценария и повторных посещений.',
       ),
       VisitTariff(
         id: 'center-event',
         title: 'Праздничный день',
-        priceLabel: 'от 5 000 ₸',
+        priceLabel: '5 000 тг',
         description:
             'Больше активности, фотозоны и удобная база для небольшого праздника.',
       ),
