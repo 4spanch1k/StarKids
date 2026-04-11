@@ -3,10 +3,13 @@
     eyebrow="Коммерческие условия"
     title="Тарифы и правила"
     description="Цены посещения и правила по филиалам."
-    :mobile-view="mobileView"
-    :mobile-detail-title="detailPanelTitle"
-    mobile-detail-eyebrow="Рабочая карточка"
-    @back="handleBack"
+    :show-detail="showInlineDetail"
+    :route-panel-open="isRoutePanelOpen"
+    :route-panel-title="routePanelTitle"
+    :route-panel-eyebrow="routePanelEyebrow"
+    :route-panel-variant="routePanelVariant"
+    :route-panel-close-label="routePanelCloseLabel"
+    @back="handlePanelClose"
   >
     <template #actions>
       <button
@@ -23,10 +26,14 @@
         <h2>Филиалы</h2>
       </div>
 
-      <AdminSearchField
-        v-model="searchQuery"
-        placeholder="Найти филиал"
-      />
+      <AdminCompactFilters>
+        <template #primary>
+          <AdminSearchField
+            v-model="searchQuery"
+            placeholder="Найти филиал"
+          />
+        </template>
+      </AdminCompactFilters>
 
       <StatePanel
         v-if="pricesRulesManager.isBranchesLoading"
@@ -66,7 +73,7 @@
           :class="{
             'admin-list-record--active': branch.id === pricesRulesManager.selectedBranchId,
           }"
-          @click="handleSelectBranch(branch.id)"
+          @click="void routeState.goToDetail(branch.id)"
         >
           <span class="admin-list-record__accent" aria-hidden="true"></span>
           <div class="admin-list-record__copy">
@@ -90,50 +97,90 @@
       />
 
       <StatePanel
-        v-else-if="pricesRulesManager.contentErrorMessage"
+        v-else-if="pricesRulesManager.contentErrorMessage && routeMode === 'detail'"
         title="Не удалось открыть тарифы и правила"
         :description="pricesRulesManager.contentErrorMessage"
         tone="error"
-      >
-        <template #actions>
-          <button
-            v-if="pricesRulesManager.selectedBranchId"
-            type="button"
-            class="admin-button admin-button--secondary"
-            @click="pricesRulesManager.selectBranch(pricesRulesManager.selectedBranchId)"
-          >
-            Повторить
-          </button>
-        </template>
-      </StatePanel>
+      />
 
       <template v-else-if="selectedBranch">
-        <header class="admin-detail-header">
-          <div class="admin-detail-header__copy">
-            <p class="admin-detail-header__eyebrow">Код: {{ selectedBranch.id }}</p>
-            <div class="admin-detail-header__title-row">
-              <h2>{{ selectedBranch.name }}</h2>
-              <StatusBadge
-                :label="resolveActiveStatus(selectedBranch.isActive).label"
-                :tone="resolveActiveStatus(selectedBranch.isActive).tone"
-              />
-            </div>
-            <p class="admin-detail-header__summary">
-              {{ selectedBranch.city }} · {{ selectedBranch.shortLabel }}
-            </p>
+        <template v-if="routeMode === 'detail'">
+          <div class="tariffs-detail-view">
+            <header class="admin-detail-header">
+              <div class="admin-detail-header__copy">
+                <p class="admin-detail-header__eyebrow">Код: {{ selectedBranch.id }}</p>
+                <div class="admin-detail-header__title-row">
+                  <h2>{{ selectedBranch.name }}</h2>
+                  <StatusBadge
+                    :label="resolveActiveStatus(selectedBranch.isActive).label"
+                    :tone="resolveActiveStatus(selectedBranch.isActive).tone"
+                  />
+                </div>
+                <p class="admin-detail-header__summary">
+                  {{ selectedBranch.city }} · {{ selectedBranch.shortLabel }}
+                </p>
+              </div>
+
+              <div class="tariffs-detail-view__actions">
+                <button
+                  type="button"
+                  class="admin-button admin-button--primary"
+                  @click="void routeState.goToEdit(selectedBranch.id)"
+                >
+                  Редактировать
+                </button>
+              </div>
+            </header>
+
+            <StatePanel
+              v-if="!pricesRulesManager.hasExistingProfile"
+              title="Профиль цен еще не создан"
+              description="Заполните поля ниже и сохраните. Первый профиль для этого филиала будет создан автоматически."
+            />
+
+            <AdminSummaryList
+              title="Верхний блок"
+              :items="tariffsHeaderItems"
+            />
+
+            <AdminSummaryList
+              title="Тарифы посещения"
+              :items="tariffsCountItems"
+            >
+              <ul class="tariffs-detail-view__list">
+                <li
+                  v-for="(tariff, index) in pricesRulesManager.form.visitTariffs"
+                  :key="`detail-tariff-${index}`"
+                >
+                  <strong>{{ tariff.title || `Тариф ${index + 1}` }}</strong>
+                  <span> · {{ tariff.priceLabel || 'Без подписи цены' }}</span>
+                </li>
+              </ul>
+            </AdminSummaryList>
+
+            <AdminSummaryList
+              title="Правила посещения"
+              :items="rulesCountItems"
+            >
+              <ul class="tariffs-detail-view__list">
+                <li
+                  v-for="(rule, index) in pricesRulesManager.form.rules"
+                  :key="`detail-rule-${index}`"
+                >
+                  {{ rule.text || `Правило ${index + 1}` }}
+                </li>
+              </ul>
+            </AdminSummaryList>
           </div>
-        </header>
+        </template>
 
-        <StatePanel
-          v-if="!pricesRulesManager.hasExistingProfile"
-          title="Профиль цен еще не создан"
-          description="Заполните поля ниже и сохраните. Первый профиль для этого филиала будет создан автоматически."
-        />
-
-        <form class="admin-form-stack" @submit.prevent="pricesRulesManager.save">
+        <form
+          v-else
+          class="admin-form-stack"
+          @submit.prevent="handleSave"
+        >
           <div class="admin-section-heading">
-            <h3>Верхний блок</h3>
-            <p>Короткое описание, подводка к тарифам и заметка про дни рождения.</p>
+            <h2>Редактировать тарифы и правила</h2>
           </div>
 
           <div class="admin-form-grid--two">
@@ -243,7 +290,7 @@
           <section class="admin-panel admin-panel--stack admin-panel--muted">
             <div class="admin-section-heading">
               <h3>Правила посещения</h3>
-              <p>Добавляйте и выключайте отдельные правила без правок в коде мобильного приложения.</p>
+              <p>Управляйте отдельными правилами без правок в коде приложения.</p>
             </div>
 
             <div class="admin-repeater">
@@ -286,7 +333,7 @@
                 <AdminSwitchField
                   v-model="rule.isActive"
                   label="Правило активно"
-                  hint="Неактивное правило не показывается в мобильном приложении."
+                  hint="Неактивное правило остается в админке, но не показывается клиенту."
                 />
               </article>
             </div>
@@ -306,8 +353,14 @@
           >
             {{ pricesRulesManager.successMessage }}
           </p>
+          <p
+            v-if="pricesRulesManager.contentErrorMessage"
+            class="admin-inline-message admin-inline-message--error"
+          >
+            {{ pricesRulesManager.contentErrorMessage }}
+          </p>
 
-          <div class="admin-form-actions">
+          <AdminStickyActions>
             <button
               type="submit"
               class="admin-button admin-button--primary"
@@ -315,33 +368,98 @@
             >
               {{ pricesRulesManager.isSaving ? 'Сохраняем…' : 'Сохранить тарифы и правила' }}
             </button>
-          </div>
+            <button
+              type="button"
+              class="admin-button admin-button--secondary"
+              @click="void handlePanelClose()"
+            >
+              Закрыть
+            </button>
+          </AdminStickyActions>
         </form>
       </template>
 
       <StatePanel
         v-else
         title="Выберите филиал"
-        description="Откройте филиал, чтобы изменить тарифы и правила."
+        description="Откройте филиал, чтобы посмотреть или изменить тарифы и правила."
       />
     </template>
   </AdminCrudWorkspace>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 
+import { adminCrudRouteNames } from '@/app/router/adminCrudRoutes';
 import { useBranchPricesRulesManager } from '@/features/branches/model/useBranchPricesRulesManager';
 import { resolveActiveStatus } from '@/shared/lib/adminStatus';
+import { useAdminCrudRouteState } from '@/shared/composables/useAdminCrudRouteState';
+import { useFormSnapshotDirty } from '@/shared/composables/useFormSnapshotDirty';
+import { useUnsavedChangesGuard } from '@/shared/composables/useUnsavedChangesGuard';
+import AdminCompactFilters from '@/shared/ui/AdminCompactFilters.vue';
 import AdminCrudWorkspace from '@/shared/ui/AdminCrudWorkspace.vue';
 import AdminSearchField from '@/shared/ui/AdminSearchField.vue';
+import AdminStickyActions from '@/shared/ui/AdminStickyActions.vue';
+import AdminSummaryList from '@/shared/ui/AdminSummaryList.vue';
 import AdminSwitchField from '@/shared/ui/AdminSwitchField.vue';
 import StatePanel from '@/shared/ui/StatePanel.vue';
 import StatusBadge from '@/shared/ui/StatusBadge.vue';
 
 const pricesRulesManager = reactive(useBranchPricesRulesManager());
+const routeState = useAdminCrudRouteState({
+  listRouteName: adminCrudRouteNames.tariffs.list,
+  detailRouteName: adminCrudRouteNames.tariffs.detail,
+  editRouteName: adminCrudRouteNames.tariffs.edit,
+  idParam: adminCrudRouteNames.tariffs.idParam,
+});
+
 const searchQuery = ref('');
-const mobileView = ref<'list' | 'detail'>('list');
+
+const editDirty = useFormSnapshotDirty(() => {
+  return {
+    introTitle: pricesRulesManager.form.introTitle,
+    introDescription: pricesRulesManager.form.introDescription,
+    birthdayNote: pricesRulesManager.form.birthdayNote,
+    disclaimer: pricesRulesManager.form.disclaimer,
+    visitTariffs: pricesRulesManager.form.visitTariffs.map((tariff) => ({ ...tariff })),
+    rules: pricesRulesManager.form.rules.map((rule) => ({ ...rule })),
+  };
+});
+
+const { confirmLeave } = useUnsavedChangesGuard(() => {
+  return routeMode.value === 'edit' && editDirty.isDirty.value;
+});
+
+const routeMode = computed(() => routeState.mode.value);
+
+const showInlineDetail = computed(() => {
+  return routeState.isDesktop.value && routeMode.value === 'detail' && Boolean(selectedBranch.value);
+});
+
+const isRoutePanelOpen = computed(() => {
+  return routeState.showDetailRoutePanel.value || routeMode.value === 'edit';
+});
+
+const routePanelTitle = computed(() => {
+  if (routeMode.value === 'edit') {
+    return selectedBranch.value?.name || 'Редактировать тарифы и правила';
+  }
+
+  return selectedBranch.value?.name || 'Карточка филиала';
+});
+
+const routePanelEyebrow = computed(() => {
+  return routeMode.value === 'detail' ? 'Карточка тарифов' : 'Редактирование';
+});
+
+const routePanelVariant = computed<'detail' | 'form'>(() => {
+  return routeMode.value === 'detail' ? 'detail' : 'form';
+});
+
+const routePanelCloseLabel = computed(() => {
+  return routeMode.value === 'detail' ? 'К списку' : 'Закрыть';
+});
 
 const filteredBranches = computed(() => {
   const query = searchQuery.value.trim().toLowerCase();
@@ -362,20 +480,92 @@ const selectedBranch = computed(() => {
   }) ?? null;
 });
 
-const detailPanelTitle = computed(() => {
-  return selectedBranch.value?.name || 'Карточка филиала';
+const tariffsHeaderItems = computed(() => {
+  return [
+    { label: 'Заголовок', value: pricesRulesManager.form.introTitle || 'Не задан' },
+    {
+      label: 'Описание',
+      value: pricesRulesManager.form.introDescription || 'Не задано',
+      fullWidth: true,
+    },
+    {
+      label: 'Блок про день рождения',
+      value: pricesRulesManager.form.birthdayNote || 'Не задан',
+      fullWidth: true,
+    },
+    {
+      label: 'Дисклеймер',
+      value: pricesRulesManager.form.disclaimer || 'Не задан',
+      fullWidth: true,
+    },
+  ];
 });
+
+const tariffsCountItems = computed(() => {
+  return [{ label: 'Количество тарифов', value: String(pricesRulesManager.form.visitTariffs.length) }];
+});
+
+const rulesCountItems = computed(() => {
+  return [{ label: 'Количество правил', value: String(pricesRulesManager.form.rules.length) }];
+});
+
+watch(
+  () => [routeMode.value, routeState.activeId.value] as const,
+  async ([mode, branchId]) => {
+    if ((mode === 'detail' || mode === 'edit') && branchId) {
+      if (pricesRulesManager.selectedBranchId !== branchId) {
+        await pricesRulesManager.selectBranch(branchId);
+      }
+      await nextTick();
+      editDirty.markClean();
+    }
+  },
+  { immediate: true },
+);
 
 onMounted(() => {
   void pricesRulesManager.initialize();
 });
 
-async function handleSelectBranch(branchId: string) {
-  await pricesRulesManager.selectBranch(branchId);
-  mobileView.value = 'detail';
+async function handlePanelClose() {
+  if (routeMode.value === 'edit' && !confirmLeave()) {
+    return;
+  }
+
+  if (routeMode.value === 'detail') {
+    await routeState.closeDetail();
+    return;
+  }
+
+  await routeState.closeEditor();
 }
 
-function handleBack() {
-  mobileView.value = 'list';
+async function handleSave() {
+  await pricesRulesManager.save();
+
+  if (!pricesRulesManager.contentErrorMessage) {
+    editDirty.markClean();
+    await routeState.goToDetail(pricesRulesManager.selectedBranchId);
+  }
 }
 </script>
+
+<style scoped>
+.tariffs-detail-view {
+  display: grid;
+  gap: 12px;
+}
+
+.tariffs-detail-view__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tariffs-detail-view__list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+}
+</style>

@@ -2,17 +2,20 @@
   <AdminCrudWorkspace
     eyebrow="Справочный контент"
     title="Частые вопросы"
-    description="FAQ для мобильного приложения и операторов."
-    :mobile-view="mobileView"
-    :mobile-detail-title="detailPanelTitle"
-    mobile-detail-eyebrow="Рабочая карточка"
-    @back="handleBack"
+    description="Вопросы и ответы для клиентских экранов."
+    :show-detail="showInlineDetail"
+    :route-panel-open="isRoutePanelOpen"
+    :route-panel-title="routePanelTitle"
+    :route-panel-eyebrow="routePanelEyebrow"
+    :route-panel-variant="routePanelVariant"
+    :route-panel-close-label="routePanelCloseLabel"
+    @back="handlePanelClose"
   >
     <template #actions>
       <button
         type="button"
         class="admin-button admin-button--primary"
-        @click="handleStartCreate"
+        @click="void routeState.goToCreate()"
       >
         Добавить вопрос
       </button>
@@ -23,16 +26,18 @@
         <h2>FAQ</h2>
       </div>
 
-      <div class="admin-crud-filters">
-        <AdminSearchField
-          v-model="faqManager.searchQuery"
-          placeholder="Найти вопрос"
-        />
+      <AdminCompactFilters>
+        <template #primary>
+          <AdminSearchField
+            v-model="faqManager.searchQuery"
+            placeholder="Найти вопрос"
+          />
+        </template>
 
-        <div class="faq-page__filter-grid">
+        <template #secondary>
           <AppSelectField
             v-model="faqManager.activeFilter"
-            label="Состояние"
+            label="Статус"
             :options="toggleFilterOptions"
           />
 
@@ -41,8 +46,8 @@
             label="Публикация"
             :options="publicationFilterOptions"
           />
-        </div>
-      </div>
+        </template>
+      </AdminCompactFilters>
 
       <StatePanel
         v-if="faqManager.isListLoading"
@@ -70,7 +75,7 @@
       <StatePanel
         v-else-if="faqManager.filteredFaqs.length === 0"
         title="Вопросы не найдены"
-        description="Проверьте фильтры или строку поиска."
+        description="Измените фильтры или очистите поиск."
       />
 
       <div v-else class="admin-list-records">
@@ -80,7 +85,7 @@
           type="button"
           class="admin-list-record"
           :class="{ 'admin-list-record--active': faq.id === faqManager.selectedFaqId }"
-          @click="handleSelectFaq(faq.id)"
+          @click="void routeState.goToDetail(faq.id)"
         >
           <span class="admin-list-record__accent" aria-hidden="true"></span>
           <div class="admin-list-record__copy">
@@ -98,158 +103,178 @@
 
     <template #detail>
       <StatePanel
-        v-if="faqManager.isCreating"
-        title="Новый вопрос"
-        description="Создайте запись, чтобы пользователь сразу видел готовый ответ."
-      />
-
-      <StatePanel
-        v-else-if="faqManager.isDetailLoading"
+        v-if="faqManager.isDetailLoading && routeMode !== 'create'"
         title="Открываем вопрос"
-        description="Подтягиваем текст ответа и статус публикации."
+        description="Загружаем текст ответа и статус публикации."
       />
 
       <StatePanel
-        v-else-if="faqManager.detailErrorMessage"
+        v-else-if="faqManager.detailErrorMessage && routeMode !== 'create'"
         title="Не удалось открыть вопрос"
         :description="faqManager.detailErrorMessage"
         tone="error"
       />
 
-      <form
-        v-if="faqManager.isCreating"
-        ref="createFormRef"
-        class="admin-form-stack"
-        novalidate
-        @submit.prevent="handleCreateSubmit"
-      >
-        <div class="admin-section-heading">
-          <h2>Создать вопрос</h2>
-        </div>
-
-        <div class="admin-form-grid--two">
-          <label
-            class="admin-field admin-field--full"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.question) }"
-            data-field="question"
-          >
-            <span class="admin-field__label">Вопрос</span>
-            <input
-              v-model="faqManager.createForm.question"
-              name="question"
-              class="admin-control"
-              @input="clearCreateFieldError('question')"
-            />
-            <p v-if="createFieldErrors.question" class="admin-field__error">
-              {{ createFieldErrors.question }}
-            </p>
-          </label>
-
-          <label
-            class="admin-field admin-field--full"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.answer) }"
-            data-field="answer"
-          >
-            <span class="admin-field__label">Ответ</span>
-            <textarea
-              v-model="faqManager.createForm.answer"
-              name="answer"
-              class="admin-control admin-control--textarea"
-              @input="clearCreateFieldError('answer')"
-            ></textarea>
-            <p v-if="createFieldErrors.answer" class="admin-field__error">
-              {{ createFieldErrors.answer }}
-            </p>
-          </label>
-
-          <label
-            class="admin-field"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.displayOrder) }"
-            data-field="displayOrder"
-          >
-            <span class="admin-field__label">Порядок показа</span>
-            <input
-              v-model.number="faqManager.createForm.displayOrder"
-              name="displayOrder"
-              min="0"
-              type="number"
-              class="admin-control"
-              @input="clearCreateFieldError('displayOrder')"
-            />
-            <p v-if="createFieldErrors.displayOrder" class="admin-field__error">
-              {{ createFieldErrors.displayOrder }}
-            </p>
-          </label>
-        </div>
-
-        <div class="faq-page__switches">
-          <AdminSwitchField
-            v-model="faqManager.createForm.isPublished"
-            label="Опубликовать в приложении"
-            hint="Черновик остается доступным только внутри админки."
-          />
-          <AdminSwitchField
-            v-model="faqManager.createForm.isActive"
-            label="Вопрос активен"
-            hint="Неактивная запись скрывается из выдачи."
-          />
-        </div>
-
-        <AdminFormErrorBanner
-          v-if="createSummaryMessage"
-          :message="createSummaryMessage"
-          :errors="createFieldErrors"
-        />
-        <p
-          v-if="faqManager.createSuccessMessage"
-          class="admin-inline-message admin-inline-message--success"
+      <template v-else-if="routeMode === 'create'">
+        <form
+          ref="createFormRef"
+          class="admin-form-stack"
+          novalidate
+          @submit.prevent="handleCreateSubmit"
         >
-          {{ faqManager.createSuccessMessage }}
-        </p>
+          <div class="admin-section-heading">
+            <h2>Создать вопрос</h2>
+          </div>
 
-        <AdminStickyActions>
-          <button
-            type="submit"
-            class="admin-button admin-button--primary"
-            :disabled="faqManager.isCreateSaving"
+          <div class="admin-form-grid--two">
+            <label
+              class="admin-field admin-field--full"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.question) }"
+              data-field="question"
+            >
+              <span class="admin-field__label">Вопрос</span>
+              <input
+                v-model="faqManager.createForm.question"
+                name="question"
+                class="admin-control"
+                @input="clearCreateFieldError('question')"
+              />
+              <p v-if="createFieldErrors.question" class="admin-field__error">
+                {{ createFieldErrors.question }}
+              </p>
+            </label>
+
+            <label
+              class="admin-field admin-field--full"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.answer) }"
+              data-field="answer"
+            >
+              <span class="admin-field__label">Ответ</span>
+              <textarea
+                v-model="faqManager.createForm.answer"
+                name="answer"
+                class="admin-control admin-control--textarea"
+                @input="clearCreateFieldError('answer')"
+              ></textarea>
+              <p v-if="createFieldErrors.answer" class="admin-field__error">
+                {{ createFieldErrors.answer }}
+              </p>
+            </label>
+
+            <label
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.displayOrder) }"
+              data-field="displayOrder"
+            >
+              <span class="admin-field__label">Порядок показа</span>
+              <input
+                v-model.number="faqManager.createForm.displayOrder"
+                name="displayOrder"
+                min="0"
+                type="number"
+                class="admin-control"
+                @input="clearCreateFieldError('displayOrder')"
+              />
+              <p v-if="createFieldErrors.displayOrder" class="admin-field__error">
+                {{ createFieldErrors.displayOrder }}
+              </p>
+            </label>
+          </div>
+
+          <div class="faq-page__switches">
+            <AdminSwitchField
+              v-model="faqManager.createForm.isPublished"
+              label="Опубликовать в приложении"
+              hint="Черновик остается доступным только внутри админки."
+            />
+            <AdminSwitchField
+              v-model="faqManager.createForm.isActive"
+              label="Вопрос активен"
+              hint="Неактивная запись скрывается из выдачи."
+            />
+          </div>
+
+          <AdminFormErrorBanner
+            v-if="createSummaryMessage"
+            :message="createSummaryMessage"
+            :errors="createFieldErrors"
+          />
+          <p
+            v-if="faqManager.createSuccessMessage"
+            class="admin-inline-message admin-inline-message--success"
           >
-            {{ faqManager.isCreateSaving ? 'Сохраняем…' : 'Создать вопрос' }}
-          </button>
-          <button
-            type="button"
-            class="admin-button admin-button--secondary"
-            @click="handleBack"
-          >
-            Отменить
-          </button>
-        </AdminStickyActions>
-      </form>
+            {{ faqManager.createSuccessMessage }}
+          </p>
+
+          <AdminStickyActions>
+            <button
+              type="submit"
+              class="admin-button admin-button--primary"
+              :disabled="faqManager.isCreateSaving"
+            >
+              {{ faqManager.isCreateSaving ? 'Сохраняем…' : 'Создать вопрос' }}
+            </button>
+            <button
+              type="button"
+              class="admin-button admin-button--secondary"
+              @click="void handlePanelClose()"
+            >
+              Отменить
+            </button>
+          </AdminStickyActions>
+        </form>
+      </template>
 
       <template v-else-if="faqManager.selectedFaq">
-        <header class="admin-detail-header">
-          <div class="admin-detail-header__copy">
-            <p class="admin-detail-header__eyebrow">Код: {{ faqManager.selectedFaq.id }}</p>
-            <div class="admin-detail-header__title-row">
-              <h2>{{ faqManager.selectedFaq.question }}</h2>
-              <StatusBadge
-                :label="resolvePublicationStatus(faqManager.selectedFaq).label"
-                :tone="resolvePublicationStatus(faqManager.selectedFaq).tone"
-              />
-            </div>
-            <p class="admin-detail-header__summary">
-              Порядок показа: {{ faqManager.selectedFaq.displayOrder }}
-            </p>
+        <template v-if="routeMode === 'detail'">
+          <div class="faq-detail-view">
+            <header class="admin-detail-header">
+              <div class="admin-detail-header__copy">
+                <p class="admin-detail-header__eyebrow">Код: {{ faqManager.selectedFaq.id }}</p>
+                <div class="admin-detail-header__title-row">
+                  <h2>{{ faqManager.selectedFaq.question }}</h2>
+                  <StatusBadge
+                    :label="resolvePublicationStatus(faqManager.selectedFaq).label"
+                    :tone="resolvePublicationStatus(faqManager.selectedFaq).tone"
+                  />
+                </div>
+                <p class="admin-detail-header__summary">
+                  Порядок показа: {{ faqManager.selectedFaq.displayOrder }}
+                </p>
+              </div>
+
+              <div class="faq-detail-view__actions">
+                <button
+                  type="button"
+                  class="admin-button admin-button--primary"
+                  @click="void routeState.goToEdit(faqManager.selectedFaq.id)"
+                >
+                  Редактировать
+                </button>
+              </div>
+            </header>
+
+            <AdminSummaryList
+              title="Вопрос и ответ"
+              :items="faqSummaryItems"
+            />
+
+            <AdminSummaryList
+              title="Статус"
+              :items="faqStateItems"
+            />
           </div>
-        </header>
+        </template>
 
         <form
+          v-else
           ref="editFormRef"
           class="admin-form-stack"
           novalidate
           @submit.prevent="handleSave"
         >
           <div class="admin-section-heading">
-            <h3>Вопрос и ответ</h3>
+            <h2>Редактировать вопрос</h2>
           </div>
 
           <div class="admin-form-grid--two">
@@ -340,6 +365,13 @@
             >
               {{ faqManager.isSaving ? 'Сохраняем…' : 'Сохранить вопрос' }}
             </button>
+            <button
+              type="button"
+              class="admin-button admin-button--secondary"
+              @click="void handlePanelClose()"
+            >
+              Закрыть
+            </button>
           </AdminStickyActions>
         </form>
       </template>
@@ -347,15 +379,16 @@
       <StatePanel
         v-else
         title="Выберите вопрос"
-        description="Откройте запись, чтобы изменить ответ и публикацию."
+        description="Откройте запись, чтобы посмотреть детали или изменить ответ."
       />
     </template>
   </AdminCrudWorkspace>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 
+import { adminCrudRouteNames } from '@/app/router/adminCrudRoutes';
 import { useAdminFaqs } from '@/features/content/model/useAdminFaqs';
 import type { AdminFieldErrors } from '@/shared/lib/adminApiErrors';
 import {
@@ -370,23 +403,50 @@ import {
   validateRequiredText,
 } from '@/shared/lib/adminFormValidation';
 import { resolvePublicationStatus } from '@/shared/lib/adminStatus';
-import AdminFormErrorBanner from '@/shared/ui/AdminFormErrorBanner.vue';
+import { useAdminCrudRouteState } from '@/shared/composables/useAdminCrudRouteState';
+import { useFormSnapshotDirty } from '@/shared/composables/useFormSnapshotDirty';
+import { useUnsavedChangesGuard } from '@/shared/composables/useUnsavedChangesGuard';
+import AdminCompactFilters from '@/shared/ui/AdminCompactFilters.vue';
 import AdminCrudWorkspace from '@/shared/ui/AdminCrudWorkspace.vue';
+import AdminFormErrorBanner from '@/shared/ui/AdminFormErrorBanner.vue';
 import AdminSearchField from '@/shared/ui/AdminSearchField.vue';
 import AdminStickyActions from '@/shared/ui/AdminStickyActions.vue';
+import AdminSummaryList from '@/shared/ui/AdminSummaryList.vue';
 import AdminSwitchField from '@/shared/ui/AdminSwitchField.vue';
 import AppSelectField from '@/shared/ui/AppSelectField.vue';
 import StatePanel from '@/shared/ui/StatePanel.vue';
 import StatusBadge from '@/shared/ui/StatusBadge.vue';
 
 const faqManager = reactive(useAdminFaqs());
-const mobileView = ref<'list' | 'detail'>('list');
+const routeState = useAdminCrudRouteState({
+  listRouteName: adminCrudRouteNames.faq.list,
+  detailRouteName: adminCrudRouteNames.faq.detail,
+  createRouteName: adminCrudRouteNames.faq.create,
+  editRouteName: adminCrudRouteNames.faq.edit,
+  idParam: adminCrudRouteNames.faq.idParam,
+});
+
 const createFormRef = ref<HTMLFormElement | null>(null);
 const editFormRef = ref<HTMLFormElement | null>(null);
 const createSummaryMessage = ref('');
 const editSummaryMessage = ref('');
 const createFieldErrors = reactive<AdminFieldErrors>({});
 const editFieldErrors = reactive<AdminFieldErrors>({});
+
+const createDirty = useFormSnapshotDirty(() => ({ ...faqManager.createForm }));
+const editDirty = useFormSnapshotDirty(() => ({ ...faqManager.form }));
+
+const { confirmLeave } = useUnsavedChangesGuard(() => {
+  if (routeMode.value === 'create') {
+    return createDirty.isDirty.value;
+  }
+
+  if (routeMode.value === 'edit') {
+    return editDirty.isDirty.value;
+  }
+
+  return false;
+});
 
 const toggleFilterOptions = [
   { label: 'Все состояния', value: 'all' },
@@ -399,6 +459,44 @@ const publicationFilterOptions = [
   { label: 'Опубликовано', value: 'yes' },
   { label: 'Черновик', value: 'no' },
 ];
+
+const routeMode = computed(() => routeState.mode.value);
+
+const showInlineDetail = computed(() => {
+  return routeState.isDesktop.value && routeMode.value === 'detail' && Boolean(faqManager.selectedFaq);
+});
+
+const isRoutePanelOpen = computed(() => {
+  return (
+    routeState.showDetailRoutePanel.value ||
+    routeMode.value === 'create' ||
+    routeMode.value === 'edit'
+  );
+});
+
+const routePanelTitle = computed(() => {
+  if (routeMode.value === 'create') {
+    return 'Создать вопрос';
+  }
+
+  if (routeMode.value === 'edit') {
+    return faqManager.selectedFaq?.question || 'Редактировать вопрос';
+  }
+
+  return faqManager.selectedFaq?.question || 'Карточка вопроса';
+});
+
+const routePanelEyebrow = computed(() => {
+  return routeMode.value === 'detail' ? 'Карточка вопроса' : 'Редактирование';
+});
+
+const routePanelVariant = computed<'detail' | 'form'>(() => {
+  return routeMode.value === 'detail' ? 'detail' : 'form';
+});
+
+const routePanelCloseLabel = computed(() => {
+  return routeMode.value === 'detail' ? 'К списку' : 'Закрыть';
+});
 
 const faqIsActive = computed({
   get() {
@@ -418,50 +516,85 @@ const faqIsPublished = computed({
   },
 });
 
-const detailPanelTitle = computed(() => {
-  if (faqManager.isCreating) {
-    return 'Новый вопрос';
+const faqSummaryItems = computed(() => {
+  const faq = faqManager.selectedFaq;
+  if (!faq) {
+    return [];
   }
 
-  return faqManager.selectedFaq?.question || 'Карточка вопроса';
+  return [
+    { label: 'Порядок показа', value: String(faq.displayOrder) },
+    { label: 'Ответ', value: faq.answer, fullWidth: true },
+  ];
 });
+
+const faqStateItems = computed(() => {
+  const faq = faqManager.selectedFaq;
+  if (!faq) {
+    return [];
+  }
+
+  return [
+    { label: 'Активность', value: faq.isActive ? 'Активен' : 'Выключен' },
+    { label: 'Публикация', value: faq.isPublished ? 'Опубликован' : 'Черновик' },
+  ];
+});
+
+const faqFieldLabels: Record<string, string> = {
+  question: 'вопрос',
+  answer: 'ответ',
+  displayOrder: 'порядок показа',
+};
+
+watch(
+  () => [routeMode.value, routeState.activeId.value] as const,
+  async ([mode, faqId]) => {
+    if (mode === 'create') {
+      clearFormFeedback();
+      faqManager.startCreate();
+      await nextTick();
+      createDirty.markClean();
+      return;
+    }
+
+    if ((mode === 'detail' || mode === 'edit') && faqId) {
+      if (faqManager.selectedFaqId !== faqId || !faqManager.selectedFaq) {
+        await faqManager.selectFaq(faqId);
+      }
+      await nextTick();
+      editDirty.markClean();
+    }
+  },
+  { immediate: true },
+);
 
 onMounted(() => {
   void faqManager.initialize();
 });
 
-function handleStartCreate() {
-  clearFormFeedback();
-  faqManager.startCreate();
-  mobileView.value = 'detail';
-}
-
-async function handleSelectFaq(faqId: string) {
-  await faqManager.selectFaq(faqId);
-  mobileView.value = 'detail';
-}
-
-function handleBack() {
-  if (faqManager.isCreating) {
-    faqManager.cancelCreate();
+async function handlePanelClose() {
+  if ((routeMode.value === 'create' || routeMode.value === 'edit') && !confirmLeave()) {
+    return;
   }
 
   clearFormFeedback();
-  mobileView.value = 'list';
+
+  if (routeMode.value === 'detail') {
+    await routeState.closeDetail();
+    return;
+  }
+
+  if (routeMode.value === 'create' && faqManager.isCreating) {
+    faqManager.cancelCreate();
+  }
+
+  await routeState.closeEditor();
 }
 
 async function handleCreateSubmit() {
   const errors = compactErrors({
-    question: validateRequiredText(
-      faqManager.createForm.question,
-      'Введите вопрос.',
-      4,
-    ),
-    answer: validateRequiredText(
-      faqManager.createForm.answer,
-      'Введите ответ.',
-      4,
-    ),
+    question: validateRequiredText(faqManager.createForm.question, 'Введите вопрос.', 4),
+    answer: validateRequiredText(faqManager.createForm.answer, 'Введите ответ.', 4),
     displayOrder: validateNonNegativeNumber(
       faqManager.createForm.displayOrder,
       'Введите порядок не меньше 0.',
@@ -469,7 +602,7 @@ async function handleCreateSubmit() {
   });
 
   replaceFieldErrors(createFieldErrors, errors);
-  createSummaryMessage.value = Object.keys(errors).length ? 'Проверьте обязательные поля.' : '';
+  createSummaryMessage.value = formatValidationSummary(errors);
 
   if (Object.keys(errors).length > 0) {
     await focusFirstFieldError(createFormRef.value, createFieldErrors);
@@ -479,12 +612,16 @@ async function handleCreateSubmit() {
   try {
     createSummaryMessage.value = '';
     await faqManager.saveCreate();
+    createDirty.markClean();
+
+    if (faqManager.selectedFaqId) {
+      await routeState.goToDetail(faqManager.selectedFaqId);
+    }
   } catch (error) {
     replaceFieldErrors(createFieldErrors, resolveAdminApiFieldErrors(error));
-    createSummaryMessage.value = resolveAdminApiErrorMessage(
-      error,
-      'Не удалось создать вопрос.',
-    );
+    createSummaryMessage.value = hasFieldErrors(createFieldErrors)
+      ? formatValidationSummary(createFieldErrors)
+      : resolveAdminApiErrorMessage(error, 'Не удалось создать вопрос.');
     await focusFirstFieldError(createFormRef.value, createFieldErrors);
   }
 }
@@ -500,7 +637,7 @@ async function handleSave() {
   });
 
   replaceFieldErrors(editFieldErrors, errors);
-  editSummaryMessage.value = Object.keys(errors).length ? 'Проверьте обязательные поля.' : '';
+  editSummaryMessage.value = formatValidationSummary(errors);
 
   if (Object.keys(errors).length > 0) {
     await focusFirstFieldError(editFormRef.value, editFieldErrors);
@@ -510,12 +647,13 @@ async function handleSave() {
   try {
     editSummaryMessage.value = '';
     await faqManager.save();
+    editDirty.markClean();
+    await routeState.goToDetail(faqManager.selectedFaqId);
   } catch (error) {
     replaceFieldErrors(editFieldErrors, resolveAdminApiFieldErrors(error));
-    editSummaryMessage.value = resolveAdminApiErrorMessage(
-      error,
-      'Не удалось сохранить вопрос.',
-    );
+    editSummaryMessage.value = hasFieldErrors(editFieldErrors)
+      ? formatValidationSummary(editFieldErrors)
+      : resolveAdminApiErrorMessage(error, 'Не удалось сохранить вопрос.');
     await focusFirstFieldError(editFormRef.value, editFieldErrors);
   }
 }
@@ -542,23 +680,38 @@ function compactErrors(errors: AdminFieldErrors): AdminFieldErrors {
     Object.entries(errors).filter((entry): entry is [string, string] => Boolean(entry[1])),
   );
 }
+
+function hasFieldErrors(errors: AdminFieldErrors): boolean {
+  return Object.keys(errors).length > 0;
+}
+
+function formatValidationSummary(errors: AdminFieldErrors): string {
+  const labels = Object.keys(errors)
+    .map((field) => faqFieldLabels[field])
+    .filter(Boolean);
+
+  if (!labels.length) {
+    return '';
+  }
+
+  if (labels.length === 1) {
+    return `Проверьте поле: ${labels[0]}.`;
+  }
+
+  return `Проверьте поля: ${labels.join(', ')}.`;
+}
 </script>
 
 <style scoped>
-.faq-page__filter-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.faq-page__switches {
+.faq-page__switches,
+.faq-detail-view {
   display: grid;
   gap: 8px;
 }
 
-@media (max-width: 720px) {
-  .faq-page__filter-grid {
-    grid-template-columns: 1fr;
-  }
+.faq-detail-view__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 </style>

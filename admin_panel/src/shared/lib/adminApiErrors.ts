@@ -28,6 +28,8 @@ const errorCodeMessages: Record<string, string> = {
 
 const rawMessageMap: Record<string, string> = {
   'Request validation failed.': 'Проверьте обязательные поля.',
+  'Input should be a valid dictionary or object to extract fields from':
+    'Не удалось отправить форму. Обновите страницу и попробуйте снова.',
   'Branch slug is already in use.': 'Такой служебный код уже используется.',
   'Content block key is already in use for this surface.':
     'Для этой поверхности уже есть блок с таким ключом.',
@@ -209,6 +211,10 @@ function localizeFieldMessage(field: string, rawMessage: unknown): string {
 
   if (rawMessage === 'Field required') {
     return requiredFieldMessages[field] ?? 'Заполните обязательное поле.';
+  }
+
+  if (/valid dictionary or object to extract fields from/i.test(rawMessage)) {
+    return 'Не удалось отправить форму. Обновите страницу и попробуйте снова.';
   }
 
   if (/at least (\d+) characters?/i.test(rawMessage)) {

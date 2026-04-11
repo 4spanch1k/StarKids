@@ -2,17 +2,20 @@
   <AdminCrudWorkspace
     eyebrow="Контент"
     title="Контент приложения"
-    description="Тексты и CTA для мобильных экранов."
-    :mobile-view="mobileView"
-    :mobile-detail-title="detailPanelTitle"
-    mobile-detail-eyebrow="Рабочая карточка"
-    @back="handleBack"
+    description="Тексты и CTA для клиентских экранов."
+    :show-detail="showInlineDetail"
+    :route-panel-open="isRoutePanelOpen"
+    :route-panel-title="routePanelTitle"
+    :route-panel-eyebrow="routePanelEyebrow"
+    :route-panel-variant="routePanelVariant"
+    :route-panel-close-label="routePanelCloseLabel"
+    @back="handlePanelClose"
   >
     <template #actions>
       <button
         type="button"
         class="admin-button admin-button--primary"
-        @click="handleStartCreate"
+        @click="void routeState.goToCreate()"
       >
         Добавить блок
       </button>
@@ -23,13 +26,15 @@
         <h2>Контентные блоки</h2>
       </div>
 
-      <div class="admin-crud-filters">
-        <AdminSearchField
-          v-model="contentBlocksManager.searchQuery"
-          placeholder="Найти блок по заголовку или ключу"
-        />
+      <AdminCompactFilters>
+        <template #primary>
+          <AdminSearchField
+            v-model="contentBlocksManager.searchQuery"
+            placeholder="Найти блок"
+          />
+        </template>
 
-        <div class="content-page__filter-grid">
+        <template #secondary>
           <AppSelectField
             v-model="contentBlocksManager.surfaceFilter"
             label="Поверхность"
@@ -38,7 +43,7 @@
 
           <AppSelectField
             v-model="contentBlocksManager.activeFilter"
-            label="Состояние"
+            label="Статус"
             :options="toggleFilterOptions"
           />
 
@@ -47,8 +52,8 @@
             label="Публикация"
             :options="publicationFilterOptions"
           />
-        </div>
-      </div>
+        </template>
+      </AdminCompactFilters>
 
       <StatePanel
         v-if="contentBlocksManager.isListLoading"
@@ -76,7 +81,7 @@
       <StatePanel
         v-else-if="contentBlocksManager.filteredBlocks.length === 0"
         title="Контентные блоки не найдены"
-        description="Проверьте фильтры или строку поиска."
+        description="Измените фильтры или очистите поиск."
       />
 
       <div v-else class="admin-list-records">
@@ -86,7 +91,7 @@
           type="button"
           class="admin-list-record"
           :class="{ 'admin-list-record--active': block.id === contentBlocksManager.selectedBlockId }"
-          @click="handleSelectBlock(block.id)"
+          @click="void routeState.goToDetail(block.id)"
         >
           <span class="admin-list-record__accent" aria-hidden="true"></span>
           <div class="admin-list-record__copy">
@@ -104,210 +109,230 @@
 
     <template #detail>
       <StatePanel
-        v-if="contentBlocksManager.isCreating"
-        title="Новый контентный блок"
-        description="Создайте блок и выберите поверхность показа."
-      />
-
-      <StatePanel
-        v-else-if="contentBlocksManager.isDetailLoading"
+        v-if="contentBlocksManager.isDetailLoading && routeMode !== 'create'"
         title="Открываем блок"
-        description="Подтягиваем текст и параметры публикации."
+        description="Загружаем текст и настройки публикации."
       />
 
       <StatePanel
-        v-else-if="contentBlocksManager.detailErrorMessage"
+        v-else-if="contentBlocksManager.detailErrorMessage && routeMode !== 'create'"
         title="Не удалось открыть блок"
         :description="contentBlocksManager.detailErrorMessage"
         tone="error"
       />
 
-      <form
-        v-if="contentBlocksManager.isCreating"
-        ref="createFormRef"
-        class="admin-form-stack"
-        novalidate
-        @submit.prevent="handleCreateSubmit"
-      >
-        <div class="admin-section-heading">
-          <h2>Создать блок</h2>
-        </div>
-
-        <div class="admin-form-grid--two">
-          <div
-            class="admin-field"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.surface) }"
-            data-field="surface"
-          >
-            <AppSelectField
-              v-model="contentBlocksManager.createForm.surface"
-              label="Поверхность"
-              :options="surfaceSelectOptions"
-            />
-            <p v-if="createFieldErrors.surface" class="admin-field__error">
-              {{ createFieldErrors.surface }}
-            </p>
+      <template v-else-if="routeMode === 'create'">
+        <form
+          ref="createFormRef"
+          class="admin-form-stack"
+          novalidate
+          @submit.prevent="handleCreateSubmit"
+        >
+          <div class="admin-section-heading">
+            <h2>Создать блок</h2>
           </div>
 
-          <label
-            class="admin-field"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.key) }"
-            data-field="key"
-          >
-            <span class="admin-field__label">Ключ блока</span>
-            <input
-              v-model="contentBlocksManager.createForm.key"
-              name="key"
-              class="admin-control"
-              @input="clearCreateFieldError('key')"
+          <div class="admin-form-grid--two">
+            <div
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.surface) }"
+              data-field="surface"
+            >
+              <AppSelectField
+                v-model="contentBlocksManager.createForm.surface"
+                label="Поверхность"
+                :options="surfaceSelectOptions"
+              />
+              <p v-if="createFieldErrors.surface" class="admin-field__error">
+                {{ createFieldErrors.surface }}
+              </p>
+            </div>
+
+            <label
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.key) }"
+              data-field="key"
+            >
+              <span class="admin-field__label">Ключ блока</span>
+              <input
+                v-model="contentBlocksManager.createForm.key"
+                name="key"
+                class="admin-control"
+                @input="clearCreateFieldError('key')"
+              />
+              <p v-if="createFieldErrors.key" class="admin-field__error">
+                {{ createFieldErrors.key }}
+              </p>
+            </label>
+
+            <label
+              class="admin-field admin-field--full"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.title) }"
+              data-field="title"
+            >
+              <span class="admin-field__label">Заголовок</span>
+              <input
+                v-model="contentBlocksManager.createForm.title"
+                name="title"
+                class="admin-control"
+                @input="clearCreateFieldError('title')"
+              />
+              <p v-if="createFieldErrors.title" class="admin-field__error">
+                {{ createFieldErrors.title }}
+              </p>
+            </label>
+
+            <label
+              class="admin-field admin-field--full"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.body) }"
+              data-field="body"
+            >
+              <span class="admin-field__label">Текст</span>
+              <textarea
+                v-model="contentBlocksManager.createForm.body"
+                name="body"
+                class="admin-control admin-control--textarea"
+                @input="clearCreateFieldError('body')"
+              ></textarea>
+              <p v-if="createFieldErrors.body" class="admin-field__error">
+                {{ createFieldErrors.body }}
+              </p>
+            </label>
+
+            <label
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.ctaLabel) }"
+              data-field="ctaLabel"
+            >
+              <span class="admin-field__label">Текст кнопки</span>
+              <input
+                v-model="contentBlocksManager.createForm.ctaLabel"
+                name="ctaLabel"
+                class="admin-control"
+                @input="clearCreateFieldError('ctaLabel')"
+              />
+              <p v-if="createFieldErrors.ctaLabel" class="admin-field__error">
+                {{ createFieldErrors.ctaLabel }}
+              </p>
+            </label>
+
+            <label
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.displayOrder) }"
+              data-field="displayOrder"
+            >
+              <span class="admin-field__label">Порядок показа</span>
+              <input
+                v-model.number="contentBlocksManager.createForm.displayOrder"
+                name="displayOrder"
+                min="0"
+                type="number"
+                class="admin-control"
+                @input="clearCreateFieldError('displayOrder')"
+              />
+              <p v-if="createFieldErrors.displayOrder" class="admin-field__error">
+                {{ createFieldErrors.displayOrder }}
+              </p>
+            </label>
+          </div>
+
+          <div class="content-page__switches">
+            <AdminSwitchField
+              v-model="contentBlocksManager.createForm.isPublished"
+              label="Опубликовать в приложении"
+              hint="Черновик не будет показан пользователям."
             />
-            <p v-if="createFieldErrors.key" class="admin-field__error">
-              {{ createFieldErrors.key }}
-            </p>
-          </label>
-
-          <label
-            class="admin-field admin-field--full"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.title) }"
-            data-field="title"
-          >
-            <span class="admin-field__label">Заголовок</span>
-            <input
-              v-model="contentBlocksManager.createForm.title"
-              name="title"
-              class="admin-control"
-              @input="clearCreateFieldError('title')"
+            <AdminSwitchField
+              v-model="contentBlocksManager.createForm.isActive"
+              label="Блок активен"
+              hint="Выключенный блок можно сохранить без удаления."
             />
-            <p v-if="createFieldErrors.title" class="admin-field__error">
-              {{ createFieldErrors.title }}
-            </p>
-          </label>
+          </div>
 
-          <label
-            class="admin-field admin-field--full"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.body) }"
-            data-field="body"
-          >
-            <span class="admin-field__label">Текст</span>
-            <textarea
-              v-model="contentBlocksManager.createForm.body"
-              name="body"
-              class="admin-control admin-control--textarea"
-              @input="clearCreateFieldError('body')"
-            ></textarea>
-            <p v-if="createFieldErrors.body" class="admin-field__error">
-              {{ createFieldErrors.body }}
-            </p>
-          </label>
-
-          <label
-            class="admin-field"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.ctaLabel) }"
-            data-field="ctaLabel"
-          >
-            <span class="admin-field__label">Текст кнопки</span>
-            <input
-              v-model="contentBlocksManager.createForm.ctaLabel"
-              name="ctaLabel"
-              class="admin-control"
-              @input="clearCreateFieldError('ctaLabel')"
-            />
-            <p v-if="createFieldErrors.ctaLabel" class="admin-field__error">
-              {{ createFieldErrors.ctaLabel }}
-            </p>
-          </label>
-
-          <label
-            class="admin-field"
-            :class="{ 'admin-field--error': Boolean(createFieldErrors.displayOrder) }"
-            data-field="displayOrder"
-          >
-            <span class="admin-field__label">Порядок показа</span>
-            <input
-              v-model.number="contentBlocksManager.createForm.displayOrder"
-              name="displayOrder"
-              min="0"
-              type="number"
-              class="admin-control"
-              @input="clearCreateFieldError('displayOrder')"
-            />
-            <p v-if="createFieldErrors.displayOrder" class="admin-field__error">
-              {{ createFieldErrors.displayOrder }}
-            </p>
-          </label>
-        </div>
-
-        <div class="content-page__switches">
-          <AdminSwitchField
-            v-model="contentBlocksManager.createForm.isPublished"
-            label="Опубликовать в приложении"
-            hint="Черновик не будет показан пользователям."
+          <AdminFormErrorBanner
+            v-if="createSummaryMessage"
+            :message="createSummaryMessage"
+            :errors="createFieldErrors"
           />
-          <AdminSwitchField
-            v-model="contentBlocksManager.createForm.isActive"
-            label="Блок активен"
-            hint="Выключенный блок можно сохранить без удаления."
-          />
-        </div>
-
-        <AdminFormErrorBanner
-          v-if="createSummaryMessage"
-          :message="createSummaryMessage"
-          :errors="createFieldErrors"
-        />
-        <p
-          v-if="contentBlocksManager.createSuccessMessage"
-          class="admin-inline-message admin-inline-message--success"
-        >
-          {{ contentBlocksManager.createSuccessMessage }}
-        </p>
-
-        <AdminStickyActions>
-          <button
-            type="submit"
-            class="admin-button admin-button--primary"
-            :disabled="contentBlocksManager.isCreateSaving"
+          <p
+            v-if="contentBlocksManager.createSuccessMessage"
+            class="admin-inline-message admin-inline-message--success"
           >
-            {{ contentBlocksManager.isCreateSaving ? 'Сохраняем…' : 'Создать блок' }}
-          </button>
-          <button
-            type="button"
-            class="admin-button admin-button--secondary"
-            @click="handleBack"
-          >
-            Отменить
-          </button>
-        </AdminStickyActions>
-      </form>
+            {{ contentBlocksManager.createSuccessMessage }}
+          </p>
+
+          <AdminStickyActions>
+            <button
+              type="submit"
+              class="admin-button admin-button--primary"
+              :disabled="contentBlocksManager.isCreateSaving"
+            >
+              {{ contentBlocksManager.isCreateSaving ? 'Сохраняем…' : 'Создать блок' }}
+            </button>
+            <button
+              type="button"
+              class="admin-button admin-button--secondary"
+              @click="void handlePanelClose()"
+            >
+              Отменить
+            </button>
+          </AdminStickyActions>
+        </form>
+      </template>
 
       <template v-else-if="contentBlocksManager.selectedBlock">
-        <header class="admin-detail-header">
-          <div class="admin-detail-header__copy">
-            <p class="admin-detail-header__eyebrow">
-              Код: {{ contentBlocksManager.selectedBlock.id }}
-            </p>
-            <div class="admin-detail-header__title-row">
-              <h2>{{ contentBlocksManager.selectedBlock.title }}</h2>
-              <StatusBadge
-                :label="resolvePublicationStatus(contentBlocksManager.selectedBlock).label"
-                :tone="resolvePublicationStatus(contentBlocksManager.selectedBlock).tone"
-              />
-            </div>
-            <p class="admin-detail-header__summary">
-              {{ contentSurfaceLabel(contentBlocksManager.selectedBlock.surface) }} ·
-              {{ contentBlocksManager.selectedBlock.key }}
-            </p>
+        <template v-if="routeMode === 'detail'">
+          <div class="content-detail-view">
+            <header class="admin-detail-header">
+              <div class="admin-detail-header__copy">
+                <p class="admin-detail-header__eyebrow">
+                  Код: {{ contentBlocksManager.selectedBlock.id }}
+                </p>
+                <div class="admin-detail-header__title-row">
+                  <h2>{{ contentBlocksManager.selectedBlock.title }}</h2>
+                  <StatusBadge
+                    :label="resolvePublicationStatus(contentBlocksManager.selectedBlock).label"
+                    :tone="resolvePublicationStatus(contentBlocksManager.selectedBlock).tone"
+                  />
+                </div>
+                <p class="admin-detail-header__summary">
+                  {{ contentSurfaceLabel(contentBlocksManager.selectedBlock.surface) }} ·
+                  {{ contentBlocksManager.selectedBlock.key }}
+                </p>
+              </div>
+
+              <div class="content-detail-view__actions">
+                <button
+                  type="button"
+                  class="admin-button admin-button--primary"
+                  @click="void routeState.goToEdit(contentBlocksManager.selectedBlock.id)"
+                >
+                  Редактировать
+                </button>
+              </div>
+            </header>
+
+            <AdminSummaryList
+              title="Текст и структура"
+              :items="blockSummaryItems"
+            />
+
+            <AdminSummaryList
+              title="Статус"
+              :items="blockStateItems"
+            />
           </div>
-        </header>
+        </template>
 
         <form
+          v-else
           ref="editFormRef"
           class="admin-form-stack"
           novalidate
           @submit.prevent="handleSave"
         >
           <div class="admin-section-heading">
-            <h3>Текст и публикация</h3>
+            <h2>Редактировать блок</h2>
           </div>
 
           <div class="admin-form-grid--two">
@@ -447,6 +472,13 @@
             >
               {{ contentBlocksManager.isSaving ? 'Сохраняем…' : 'Сохранить блок' }}
             </button>
+            <button
+              type="button"
+              class="admin-button admin-button--secondary"
+              @click="void handlePanelClose()"
+            >
+              Закрыть
+            </button>
           </AdminStickyActions>
         </form>
       </template>
@@ -454,15 +486,16 @@
       <StatePanel
         v-else
         title="Выберите блок"
-        description="Откройте блок, чтобы изменить текст и публикацию."
+        description="Откройте блок, чтобы посмотреть детали или перейти к редактированию."
       />
     </template>
   </AdminCrudWorkspace>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 
+import { adminCrudRouteNames } from '@/app/router/adminCrudRoutes';
 import {
   contentSurfaceOptions,
   getContentSurfaceLabel,
@@ -482,23 +515,50 @@ import {
   validateRequiredText,
 } from '@/shared/lib/adminFormValidation';
 import { resolvePublicationStatus } from '@/shared/lib/adminStatus';
-import AdminFormErrorBanner from '@/shared/ui/AdminFormErrorBanner.vue';
+import { useAdminCrudRouteState } from '@/shared/composables/useAdminCrudRouteState';
+import { useFormSnapshotDirty } from '@/shared/composables/useFormSnapshotDirty';
+import { useUnsavedChangesGuard } from '@/shared/composables/useUnsavedChangesGuard';
+import AdminCompactFilters from '@/shared/ui/AdminCompactFilters.vue';
 import AdminCrudWorkspace from '@/shared/ui/AdminCrudWorkspace.vue';
+import AdminFormErrorBanner from '@/shared/ui/AdminFormErrorBanner.vue';
 import AdminSearchField from '@/shared/ui/AdminSearchField.vue';
 import AdminStickyActions from '@/shared/ui/AdminStickyActions.vue';
+import AdminSummaryList from '@/shared/ui/AdminSummaryList.vue';
 import AdminSwitchField from '@/shared/ui/AdminSwitchField.vue';
 import AppSelectField from '@/shared/ui/AppSelectField.vue';
 import StatePanel from '@/shared/ui/StatePanel.vue';
 import StatusBadge from '@/shared/ui/StatusBadge.vue';
 
 const contentBlocksManager = reactive(useAdminContentBlocks());
-const mobileView = ref<'list' | 'detail'>('list');
+const routeState = useAdminCrudRouteState({
+  listRouteName: adminCrudRouteNames.content.list,
+  detailRouteName: adminCrudRouteNames.content.detail,
+  createRouteName: adminCrudRouteNames.content.create,
+  editRouteName: adminCrudRouteNames.content.edit,
+  idParam: adminCrudRouteNames.content.idParam,
+});
+
 const createFormRef = ref<HTMLFormElement | null>(null);
 const editFormRef = ref<HTMLFormElement | null>(null);
 const createSummaryMessage = ref('');
 const editSummaryMessage = ref('');
 const createFieldErrors = reactive<AdminFieldErrors>({});
 const editFieldErrors = reactive<AdminFieldErrors>({});
+
+const createDirty = useFormSnapshotDirty(() => ({ ...contentBlocksManager.createForm }));
+const editDirty = useFormSnapshotDirty(() => ({ ...contentBlocksManager.form }));
+
+const { confirmLeave } = useUnsavedChangesGuard(() => {
+  if (routeMode.value === 'create') {
+    return createDirty.isDirty.value;
+  }
+
+  if (routeMode.value === 'edit') {
+    return editDirty.isDirty.value;
+  }
+
+  return false;
+});
 
 const toggleFilterOptions = [
   { label: 'Все состояния', value: 'all' },
@@ -525,10 +585,49 @@ const surfaceSelectOptions = computed(() => {
 });
 
 const surfaceFilterOptions = computed(() => {
-  return [
-    { label: 'Все поверхности', value: '' },
-    ...surfaceSelectOptions.value,
-  ];
+  return [{ label: 'Все поверхности', value: '' }, ...surfaceSelectOptions.value];
+});
+
+const routeMode = computed(() => routeState.mode.value);
+
+const showInlineDetail = computed(() => {
+  return (
+    routeState.isDesktop.value &&
+    routeMode.value === 'detail' &&
+    Boolean(contentBlocksManager.selectedBlock)
+  );
+});
+
+const isRoutePanelOpen = computed(() => {
+  return (
+    routeState.showDetailRoutePanel.value ||
+    routeMode.value === 'create' ||
+    routeMode.value === 'edit'
+  );
+});
+
+const routePanelTitle = computed(() => {
+  if (routeMode.value === 'create') {
+    return 'Создать блок';
+  }
+
+  if (routeMode.value === 'edit') {
+    return contentBlocksManager.selectedBlock?.title || 'Редактировать блок';
+  }
+
+  return contentBlocksManager.selectedBlock?.title || 'Карточка блока';
+});
+
+const routePanelEyebrow = computed(() => {
+  return routeMode.value === 'detail' ? 'Карточка блока' : 'Редактирование';
+});
+
+const routePanelVariant = computed<'detail' | 'form'>(() => {
+  return routeMode.value === 'detail' ? 'detail' : 'form';
+});
+
+const routePanelCloseLabel = computed(() => {
+  return routeMode.value === 'detail' ? 'К списку' : 'Закрыть';
 });
 
 const blockIsActive = computed({
@@ -558,60 +657,88 @@ const blockSurface = computed({
   },
 });
 
-const detailPanelTitle = computed(() => {
-  if (contentBlocksManager.isCreating) {
-    return 'Новый блок';
+const blockSummaryItems = computed(() => {
+  const block = contentBlocksManager.selectedBlock;
+  if (!block) {
+    return [];
   }
 
-  return contentBlocksManager.selectedBlock?.title || 'Карточка блока';
+  return [
+    { label: 'Поверхность', value: contentSurfaceLabel(block.surface) },
+    { label: 'Ключ', value: block.key },
+    { label: 'Порядок показа', value: String(block.displayOrder) },
+    { label: 'Текст кнопки', value: block.ctaLabel || 'Не задан' },
+    { label: 'Текст', value: block.body, fullWidth: true },
+  ];
+});
+
+const blockStateItems = computed(() => {
+  const block = contentBlocksManager.selectedBlock;
+  if (!block) {
+    return [];
+  }
+
+  return [
+    { label: 'Активность', value: block.isActive ? 'Активен' : 'Выключен' },
+    { label: 'Публикация', value: block.isPublished ? 'Опубликован' : 'Черновик' },
+  ];
+});
+
+watch(
+  () => [routeMode.value, routeState.activeId.value] as const,
+  async ([mode, blockId]) => {
+    if (mode === 'create') {
+      clearFormFeedback();
+      contentBlocksManager.startCreate();
+      await nextTick();
+      createDirty.markClean();
+      return;
+    }
+
+    if ((mode === 'detail' || mode === 'edit') && blockId) {
+      if (contentBlocksManager.selectedBlockId !== blockId || !contentBlocksManager.selectedBlock) {
+        await contentBlocksManager.selectBlock(blockId);
+      }
+      await nextTick();
+      editDirty.markClean();
+    }
+  },
+  { immediate: true },
+);
+
+onMounted(() => {
+  void contentBlocksManager.initialize();
 });
 
 function contentSurfaceLabel(surface: string): string {
   return getContentSurfaceLabel(surface);
 }
 
-onMounted(() => {
-  void contentBlocksManager.initialize();
-});
-
-function handleStartCreate() {
-  clearFormFeedback();
-  contentBlocksManager.startCreate();
-  mobileView.value = 'detail';
-}
-
-async function handleSelectBlock(blockId: string) {
-  await contentBlocksManager.selectBlock(blockId);
-  mobileView.value = 'detail';
-}
-
-function handleBack() {
-  if (contentBlocksManager.isCreating) {
-    contentBlocksManager.cancelCreate();
+async function handlePanelClose() {
+  if ((routeMode.value === 'create' || routeMode.value === 'edit') && !confirmLeave()) {
+    return;
   }
 
   clearFormFeedback();
-  mobileView.value = 'list';
+
+  if (routeMode.value === 'detail') {
+    await routeState.closeDetail();
+    return;
+  }
+
+  if (routeMode.value === 'create' && contentBlocksManager.isCreating) {
+    contentBlocksManager.cancelCreate();
+  }
+
+  await routeState.closeEditor();
 }
 
 async function handleCreateSubmit() {
   const errors = compactErrors({
-    surface: validateRequiredText(
-      contentBlocksManager.createForm.surface,
-      'Выберите поверхность.',
-      1,
-    ),
+    surface: validateRequiredText(contentBlocksManager.createForm.surface, 'Выберите поверхность.', 1),
     key: validateRequiredText(contentBlocksManager.createForm.key, 'Введите ключ блока.', 1),
-    title: validateRequiredText(
-      contentBlocksManager.createForm.title,
-      'Введите заголовок блока.',
-      2,
-    ),
-    body: validateRequiredText(
-      contentBlocksManager.createForm.body,
-      'Введите текст блока.',
-      2,
-    ),
+    title: validateRequiredText(contentBlocksManager.createForm.title, 'Введите заголовок блока.', 2),
+    body: validateRequiredText(contentBlocksManager.createForm.body, 'Введите текст блока.', 2),
     ctaLabel: validateOptionalText(
       contentBlocksManager.createForm.ctaLabel,
       'Текст кнопки слишком длинный.',
@@ -634,6 +761,11 @@ async function handleCreateSubmit() {
   try {
     createSummaryMessage.value = '';
     await contentBlocksManager.saveCreate();
+    createDirty.markClean();
+
+    if (contentBlocksManager.selectedBlockId) {
+      await routeState.goToDetail(contentBlocksManager.selectedBlockId);
+    }
   } catch (error) {
     replaceFieldErrors(createFieldErrors, resolveAdminApiFieldErrors(error));
     createSummaryMessage.value = resolveAdminApiErrorMessage(
@@ -672,6 +804,8 @@ async function handleSave() {
   try {
     editSummaryMessage.value = '';
     await contentBlocksManager.save();
+    editDirty.markClean();
+    await routeState.goToDetail(contentBlocksManager.selectedBlockId);
   } catch (error) {
     replaceFieldErrors(editFieldErrors, resolveAdminApiFieldErrors(error));
     editSummaryMessage.value = resolveAdminApiErrorMessage(
@@ -707,20 +841,15 @@ function compactErrors(errors: AdminFieldErrors): AdminFieldErrors {
 </script>
 
 <style scoped>
-.content-page__filter-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.content-page__switches {
+.content-page__switches,
+.content-detail-view {
   display: grid;
   gap: 8px;
 }
 
-@media (max-width: 960px) {
-  .content-page__filter-grid {
-    grid-template-columns: 1fr;
-  }
+.content-detail-view__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 </style>

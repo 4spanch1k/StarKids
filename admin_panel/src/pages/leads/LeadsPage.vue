@@ -9,14 +9,14 @@
         type="button"
         class="admin-button admin-button--secondary"
         :disabled="leadInbox.isListLoading"
-        @click="leadInbox.loadLeads"
+        @click="handleRefreshLeads"
       >
         {{ leadInbox.isListLoading ? 'Обновляем…' : 'Обновить список' }}
       </button>
     </template>
 
     <section class="admin-panel admin-panel--stack">
-      <form class="lead-filters" @submit.prevent="leadInbox.loadLeads">
+      <form class="lead-filters" @submit.prevent="applyLeadFilters">
         <AppSelectField
           v-model="leadInbox.filters.branchId"
           label="Филиал"
@@ -49,7 +49,7 @@
             type="button"
             class="admin-button admin-button--secondary"
             :disabled="leadInbox.isListLoading || !leadInbox.hasActiveFilters"
-            @click="leadInbox.resetFilters"
+            @click="resetLeadFilters"
           >
             Сбросить
           </button>
@@ -83,7 +83,7 @@
     <div class="admin-split-layout">
       <section
         class="admin-panel admin-panel--stack lead-queue leads-mobile-section"
-        :class="{ 'leads-mobile-section--hidden': mobileView === 'detail' }"
+        :class="{ 'leads-mobile-section--hidden': showDetailRoutePanel }"
       >
         <div class="admin-section-heading">
           <h2>Очередь заявок</h2>
@@ -105,7 +105,7 @@
             <button
               type="button"
               class="admin-button admin-button--secondary"
-              @click="leadInbox.loadLeads"
+              @click="handleRefreshLeads"
             >
               Повторить
             </button>
@@ -122,98 +122,101 @@
               type="button"
               class="admin-button admin-button--primary"
               :disabled="!leadInbox.hasActiveFilters"
-              @click="leadInbox.resetFilters"
+              @click="resetLeadFilters"
             >
               Сбросить фильтры
             </button>
           </template>
         </StatePanel>
 
-        <div v-else class="admin-list-stack lead-queue__list">
+        <div v-else class="lead-queue__list">
           <article
-            v-for="lead in leadInbox.leads"
+            v-for="lead in visibleLeads"
             :key="lead.id"
-            class="lead-card"
-            :class="{ 'lead-card--active': lead.id === leadInbox.selectedLeadId }"
+            class="lead-row"
+            :class="{ 'lead-row--active': lead.id === leadInbox.selectedLeadId }"
           >
             <button
               type="button"
-              class="lead-card__main"
-              @click="handleSelectLead(lead.id)"
+              class="lead-row__main"
+              @click="void handleSelectLead(lead.id)"
             >
-              <div class="lead-card__header">
-                <div class="lead-card__title">
-                  <div class="lead-card__meta">
-                    <StatusBadge :label="formatType(lead.type)" tone="neutral" />
-                    <span>{{ formatSource(lead.source) }}</span>
-                  </div>
-                  <strong>{{ lead.customerName }}</strong>
-                  <p>
-                    {{ lead.summary }}
-                  </p>
-                </div>
-                <StatusBadge
-                  :label="formatStatus(lead.status)"
-                  :tone="statusTone(lead.status)"
-                />
-              </div>
+              <span class="lead-row__content">
+                <span class="lead-row__topline">
+                  <strong class="lead-row__name">{{ lead.customerName }}</strong>
+                  <StatusBadge
+                    :label="formatStatus(lead.status)"
+                    :tone="statusTone(lead.status)"
+                  />
+                </span>
 
-              <div class="lead-card__timeline">
-                <div
-                  class="lead-card__deadline"
-                  :class="deadlineClass(lead.type, lead.requestedDate)"
-                >
-                  {{ deadlineLabel(lead.type, lead.requestedDate) }}
-                </div>
-                <p class="lead-card__created">Создана {{ formatDateTime(lead.createdAt) }}</p>
-              </div>
+                <span class="lead-row__meta">
+                  <span class="lead-row__phone">{{ lead.phone }}</span>
+                  <span>{{ formatType(lead.type) }}</span>
+                  <span>{{ formatDateTime(lead.createdAt) }}</span>
+                </span>
 
-              <dl class="lead-card__facts">
-                <div>
-                  <dt>Телефон</dt>
-                  <dd>{{ lead.phone }}</dd>
-                </div>
-                <div v-if="lead.type === 'birthday_request'">
-                  <dt>Гостей</dt>
-                  <dd>{{ formatGuestCount(lead.guestCount) }}</dd>
-                </div>
-              </dl>
+                <span class="lead-row__subline">
+                  <span>{{ formatSource(lead.source) }}</span>
+                  <span
+                    class="lead-row__deadline"
+                    :class="deadlineClass(lead.type, lead.requestedDate)"
+                  >
+                    {{ deadlineLabel(lead.type, lead.requestedDate) }}
+                  </span>
+                  <span v-if="lead.type === 'birthday_request'">
+                    {{ formatGuestCount(lead.guestCount) }}
+                  </span>
+                </span>
+              </span>
+
+              <span class="lead-row__actions" aria-hidden="true">
+                <span class="lead-row__chevron">›</span>
+              </span>
             </button>
 
-            <div class="lead-card__actions">
-              <a
-                class="lead-card__contact"
-                :href="formatTelHref(lead.phone)"
-                @click.stop
+            <a
+              class="lead-row__call"
+              :href="formatTelHref(lead.phone)"
+              aria-label="Позвонить клиенту"
+              title="Позвонить"
+              @click.stop
+            >
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 20 20"
+                focusable="false"
               >
-                Позвонить
-              </a>
-
-              <div class="lead-card__quick-actions">
-                <button
-                  v-if="quickActionForLead(lead.status)"
-                  type="button"
-                  class="admin-button admin-button--secondary lead-card__quick-button"
-                  :disabled="leadInbox.isStatusUpdating"
-                  @click.stop="triggerQuickAction(lead.id, lead.status)"
-                >
-                  {{ quickActionForLead(lead.status)?.label }}
-                </button>
-              </div>
-            </div>
+                <path
+                  d="M6.6 3.2 8 6.5c.2.5.1 1-.3 1.3l-.8.7c.8 1.7 2.1 3 3.8 3.8l.7-.8c.3-.4.9-.5 1.3-.3l3.2 1.4c.5.2.8.8.6 1.4l-.5 1.8c-.2.7-.8 1.1-1.5 1.1C8.2 16.9 3.1 11.8 3.1 5.5c0-.7.5-1.3 1.1-1.5L6 3.5c.3-.1.5-.2.6-.3Z"
+                  fill="currentColor"
+                />
+              </svg>
+            </a>
           </article>
+
+          <div
+            v-if="hasMoreLeads"
+            class="lead-queue__load-more"
+          >
+            <button
+              type="button"
+              class="admin-button admin-button--secondary"
+              @click="loadMoreLeads"
+            >
+              Загрузить еще
+            </button>
+            <span>
+              Показано {{ visibleLeads.length }} из {{ leadInbox.leads.length }}
+            </span>
+          </div>
         </div>
       </section>
 
       <aside
+        v-if="isDesktopView"
         class="admin-panel admin-panel--stack lead-detail leads-mobile-section"
-        :class="{ 'leads-mobile-section--hidden': mobileView === 'list' }"
       >
-        <AdminMobilePanelHeader
-          :title="selectedLeadTitle"
-          eyebrow="Рабочая карточка"
-          @back="handleBackToList"
-        />
         <template v-if="!leadInbox.selectedLeadId">
           <StatePanel
             title="Выберите заявку"
@@ -247,170 +250,77 @@
         </template>
 
         <template v-else-if="leadInbox.selectedLead">
-          <header class="lead-detail__header">
-            <div class="lead-detail__copy">
-              <div class="lead-detail__title-row">
-                <h2>{{ leadInbox.selectedLead.customerName }}</h2>
-                <div class="lead-detail__badges">
-                  <StatusBadge :label="formatType(leadInbox.selectedLead.type)" tone="neutral" />
-                  <StatusBadge
-                    :label="formatStatus(leadInbox.selectedLead.status)"
-                    :tone="statusTone(leadInbox.selectedLead.status)"
-                  />
-                </div>
-              </div>
-              <p class="lead-detail__description">
-                {{ leadInbox.selectedLead.summary }}
-              </p>
-            </div>
-
-            <div
-              class="lead-detail__deadline"
-              :class="deadlineClass(leadInbox.selectedLead.type, leadInbox.selectedLead.requestedDate)"
-            >
-              {{ deadlineLabel(leadInbox.selectedLead.type, leadInbox.selectedLead.requestedDate) }}
-            </div>
-          </header>
-
-          <section class="lead-status-panel">
-            <div class="admin-section-heading">
-              <h3>Статус заявки</h3>
-              <p>
-                {{
-                  leadInbox.isStatusUpdating
-                    ? 'Сохраняем новый статус…'
-                    : 'Выберите следующий рабочий этап для этой заявки.'
-                }}
-              </p>
-            </div>
-
-            <div class="lead-status-panel__actions">
-              <button
-                v-for="status in leadStatuses"
-                :key="status"
-                type="button"
-                class="lead-status-button"
-                :class="{
-                  'lead-status-button--active': status === leadInbox.selectedLead.status,
-                }"
-                :disabled="leadInbox.isStatusUpdating || !canUpdateSelectedLeadStatus(status)"
-                @click="leadInbox.updateLeadStatus(status)"
-              >
-                {{ formatStatus(status) }}
-              </button>
-            </div>
-
-            <p class="lead-status-panel__hint">
-              {{ statusFlowHint }}
-            </p>
-
-            <p
-              v-if="leadInbox.statusSuccessMessage"
-              class="admin-inline-message admin-inline-message--success"
-            >
-              {{ leadInbox.statusSuccessMessage }}
-            </p>
-            <p
-              v-if="leadInbox.statusErrorMessage"
-              class="admin-inline-message admin-inline-message--error"
-            >
-              {{ leadInbox.statusErrorMessage }}
-            </p>
-          </section>
-
-          <div class="admin-info-grid">
-            <article class="lead-detail-card">
-              <div class="admin-section-heading">
-                <h3>Контакт</h3>
-              </div>
-              <dl class="lead-detail-card__list">
-                <div>
-                  <dt>Телефон</dt>
-                  <dd>
-                    <a
-                      class="lead-detail-card__link"
-                      :href="formatTelHref(leadInbox.selectedLead.phone)"
-                    >
-                      {{ leadInbox.selectedLead.phone }}
-                    </a>
-                  </dd>
-                </div>
-                <div>
-                  <dt>Способ связи</dt>
-                  <dd>{{ formatContactMethod(leadInbox.selectedLead.contactMethod) }}</dd>
-                </div>
-                <div v-if="leadInbox.selectedLead.email">
-                  <dt>Email</dt>
-                  <dd>{{ leadInbox.selectedLead.email }}</dd>
-                </div>
-                <div>
-                  <dt>Источник</dt>
-                  <dd>{{ formatSource(leadInbox.selectedLead.source) }}</dd>
-                </div>
-              </dl>
-            </article>
-
-            <article class="lead-detail-card">
-              <div class="admin-section-heading">
-                <h3>{{ leadInbox.selectedLead.type === 'contact' ? 'Параметры обращения' : 'Параметры заявки' }}</h3>
-              </div>
-              <dl class="lead-detail-card__list">
-                <div>
-                  <dt>Тип</dt>
-                  <dd>{{ formatType(leadInbox.selectedLead.type) }}</dd>
-                </div>
-                <div v-if="leadInbox.selectedLead.type === 'birthday_request'">
-                  <dt>Филиал</dt>
-                  <dd>{{ formatBranchName(leadInbox.selectedLead.branch) }}</dd>
-                </div>
-                <div v-if="leadInbox.selectedLead.type === 'birthday_request'">
-                  <dt>Пакет</dt>
-                  <dd>{{ formatPackageName(leadInbox.selectedLead.package) }}</dd>
-                </div>
-                <div v-if="leadInbox.selectedLead.type === 'birthday_request'">
-                  <dt>Гостей</dt>
-                  <dd>{{ formatGuestCount(leadInbox.selectedLead.guestCount) }}</dd>
-                </div>
-                <div v-if="leadInbox.selectedLead.type === 'birthday_request'">
-                  <dt>Дата праздника</dt>
-                  <dd>{{ formatDate(leadInbox.selectedLead.requestedDate) }}</dd>
-                </div>
-                <div>
-                  <dt>Создана</dt>
-                  <dd>{{ formatDateTime(leadInbox.selectedLead.createdAt) }}</dd>
-                </div>
-              </dl>
-            </article>
-
-            <article class="lead-detail-card lead-detail-card--full">
-              <div class="admin-section-heading">
-                <h3>{{ leadInbox.selectedLead.type === 'contact' ? 'Контекст обращения' : 'Комментарий клиента' }}</h3>
-              </div>
-              <p class="lead-detail-card__notes">
-                {{ notesFallback(leadInbox.selectedLead.type, leadInbox.selectedLead.notes) }}
-              </p>
-            </article>
-          </div>
+          <LeadDetailView
+            :lead="leadInbox.selectedLead"
+            :is-status-updating="leadInbox.isStatusUpdating"
+            :status-success-message="leadInbox.statusSuccessMessage"
+            :status-error-message="leadInbox.statusErrorMessage"
+            @update-status="leadInbox.updateLeadStatus"
+          />
         </template>
       </aside>
     </div>
+
+    <AdminRoutePanel
+      :open="showDetailRoutePanel"
+      :title="selectedLeadTitle"
+      eyebrow="Карточка заявки"
+      close-label="К списку"
+      variant="detail"
+      @close="void handleBackToList()"
+    >
+      <template v-if="leadInbox.isDetailLoading && !leadInbox.selectedLead">
+        <StatePanel
+          title="Загружаем детали заявки"
+          description="Собираем контакты, пакет и комментарий по выбранному обращению."
+        />
+      </template>
+
+      <template v-else-if="leadInbox.detailErrorMessage">
+        <StatePanel
+          title="Не удалось открыть заявку"
+          :description="leadInbox.detailErrorMessage"
+          tone="error"
+        >
+          <template #actions>
+            <button
+              type="button"
+              class="admin-button admin-button--secondary"
+              @click="leadInbox.selectLead(leadInbox.selectedLeadId)"
+            >
+              Повторить
+            </button>
+          </template>
+        </StatePanel>
+      </template>
+
+      <LeadDetailView
+        v-else-if="leadInbox.selectedLead"
+        :lead="leadInbox.selectedLead"
+        :is-status-updating="leadInbox.isStatusUpdating"
+        :status-success-message="leadInbox.statusSuccessMessage"
+        :status-error-message="leadInbox.statusErrorMessage"
+        @update-status="leadInbox.updateLeadStatus"
+      />
+    </AdminRoutePanel>
   </PageShell>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 
+import { adminCrudRouteNames } from '@/app/router/adminCrudRoutes';
 import {
-  describeLeadStatusFlow,
   formatLeadStatus as formatStatus,
   formatLeadType as formatType,
-  isLeadStatusActionEnabled,
   leadStatuses,
   type LeadStatus,
   type LeadType,
 } from '@/entities/lead/model/lead';
 import { useLeadInbox } from '@/features/leads/model/useLeadInbox';
-import AdminMobilePanelHeader from '@/shared/ui/AdminMobilePanelHeader.vue';
+import LeadDetailView from '@/features/leads/ui/LeadDetailView.vue';
+import { useAdminCrudRouteState } from '@/shared/composables/useAdminCrudRouteState';
+import AdminRoutePanel from '@/shared/ui/AdminRoutePanel.vue';
 import AppDateRangeField from '@/shared/ui/AppDateRangeField.vue';
 import AppSelectField from '@/shared/ui/AppSelectField.vue';
 import PageShell from '@/shared/ui/PageShell.vue';
@@ -418,7 +328,13 @@ import StatePanel from '@/shared/ui/StatePanel.vue';
 import StatusBadge from '@/shared/ui/StatusBadge.vue';
 
 const leadInbox = reactive(useLeadInbox());
-const mobileView = ref<'list' | 'detail'>('list');
+const routeState = useAdminCrudRouteState({
+  listRouteName: adminCrudRouteNames.leads.list,
+  detailRouteName: adminCrudRouteNames.leads.detail,
+  idParam: adminCrudRouteNames.leads.idParam,
+});
+const leadPageSize = 20;
+const visibleLeadLimit = ref(leadPageSize);
 
 const totalLabel = computed(() => {
   const count = leadInbox.total;
@@ -451,6 +367,14 @@ const urgentLeadCount = computed(() => {
   return leadInbox.leads.filter((lead) => deadlineTone(lead.type, lead.requestedDate) === 'danger').length;
 });
 
+const visibleLeads = computed(() => {
+  return leadInbox.leads.slice(0, visibleLeadLimit.value);
+});
+
+const hasMoreLeads = computed(() => {
+  return visibleLeadLimit.value < leadInbox.leads.length;
+});
+
 const branchFilterOptions = computed(() => {
   return [
     { label: 'Все филиалы', value: '' },
@@ -478,14 +402,6 @@ const emptyStateDescription = computed(() => {
   return 'Измените период, филиал или статус, чтобы вернуть обращения в очередь.';
 });
 
-const statusFlowHint = computed(() => {
-  if (!leadInbox.selectedLead) {
-    return '';
-  }
-
-  return describeLeadStatusFlow(leadInbox.selectedLead.status);
-});
-
 const statusFilterOptions = computed(() => {
   return [
     { label: 'Все статусы', value: '' },
@@ -499,6 +415,10 @@ const statusFilterOptions = computed(() => {
 const selectedLeadTitle = computed(() => {
   return leadInbox.selectedLead?.customerName || 'Карточка заявки';
 });
+
+const routeMode = computed(() => routeState.mode.value);
+const showDetailRoutePanel = computed(() => routeState.showDetailRoutePanel.value);
+const isDesktopView = computed(() => routeState.isDesktop.value);
 
 const createdRange = computed({
   get() {
@@ -518,21 +438,55 @@ onMounted(() => {
 });
 
 watch(
+  () => [routeMode.value, routeState.activeId.value] as const,
+  async ([mode, leadId]) => {
+    if (mode === 'detail' && leadId) {
+      await leadInbox.selectLead(leadId);
+    }
+  },
+  { immediate: true },
+);
+
+watch(
   () => leadInbox.selectedLeadId,
-  (leadId) => {
-    if (!leadId) {
-      mobileView.value = 'list';
+  async (leadId) => {
+    if (!leadId && routeMode.value === 'detail') {
+      await routeState.goToList();
     }
   },
 );
 
 async function handleSelectLead(leadId: string) {
-  await leadInbox.selectLead(leadId);
-  mobileView.value = 'detail';
+  await routeState.goToDetail(leadId);
 }
 
-function handleBackToList() {
-  mobileView.value = 'list';
+async function handleBackToList() {
+  await routeState.closeDetail();
+}
+
+async function handleRefreshLeads() {
+  await leadInbox.loadLeads();
+}
+
+async function applyLeadFilters() {
+  resetLeadPagination();
+  await leadInbox.loadLeads();
+}
+
+async function resetLeadFilters() {
+  resetLeadPagination();
+  await leadInbox.resetFilters();
+}
+
+function loadMoreLeads() {
+  visibleLeadLimit.value = Math.min(
+    visibleLeadLimit.value + leadPageSize,
+    leadInbox.leads.length,
+  );
+}
+
+function resetLeadPagination() {
+  visibleLeadLimit.value = leadPageSize;
 }
 
 function statusTone(status: LeadStatus): 'new' | 'in-progress' | 'closed' {
@@ -597,15 +551,6 @@ function formatGuestCount(value: number | null): string {
   return `${value} гостей`;
 }
 
-function formatContactMethod(value: string): string {
-  const labels: Record<string, string> = {
-    phone: 'Телефон',
-    whatsapp: 'WhatsApp',
-  };
-
-  return labels[value] ?? value;
-}
-
 function formatSource(value: string): string {
   const labels: Record<string, string> = {
     mobile_app: 'Мобильное приложение',
@@ -616,40 +561,6 @@ function formatSource(value: string): string {
 
 function formatTelHref(phone: string): string {
   return `tel:${phone.replace(/[^\d+]/g, '')}`;
-}
-
-function formatBranchName(
-  branch: { name: string; shortLabel: string } | null,
-): string {
-  if (!branch) {
-    return 'Не выбран';
-  }
-
-  return branch.shortLabel || branch.name;
-}
-
-function formatPackageName(
-  birthdayPackage: { name: string } | null,
-): string {
-  return birthdayPackage?.name ?? 'Не выбран';
-}
-
-function notesFallback(type: LeadType, notes: string | null): string {
-  if (notes) {
-    return notes;
-  }
-
-  return type === 'contact'
-    ? 'Клиент не оставил текст обращения.'
-    : 'Комментарий не оставлен.';
-}
-
-function canUpdateSelectedLeadStatus(status: LeadStatus): boolean {
-  if (!leadInbox.selectedLead) {
-    return false;
-  }
-
-  return isLeadStatusActionEnabled(leadInbox.selectedLead.status, status);
 }
 
 function buildFilterExplanation(options?: { includeBranchCaveat?: boolean }): string {
@@ -676,29 +587,6 @@ function buildFilterExplanation(options?: { includeBranchCaveat?: boolean }): st
   }
 
   return notes.join(' ');
-}
-
-function quickActionForLead(
-  status: LeadStatus,
-): { status: LeadStatus; label: string } | null {
-  if (status === 'new') {
-    return { status: 'in_progress', label: 'В работу' };
-  }
-
-  if (status === 'in_progress') {
-    return { status: 'closed', label: 'Закрыть' };
-  }
-
-  return null;
-}
-
-function triggerQuickAction(leadId: string, status: LeadStatus): void {
-  const action = quickActionForLead(status);
-  if (!action) {
-    return;
-  }
-
-  void leadInbox.quickUpdateLeadStatus(leadId, action.status);
 }
 
 function deadlineLabel(type: LeadType, value: string | null): string {
@@ -808,279 +696,183 @@ function startOfDay(date: Date): Date {
   max-height: calc(100vh - 290px);
   overflow-y: auto;
   padding-right: 2px;
-}
-
-.lead-card {
-  display: grid;
-  gap: 8px;
-  padding: 12px;
   border: 1px solid var(--color-border);
   border-radius: 16px;
   background: var(--color-surface);
+}
+
+.lead-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px;
+  align-items: stretch;
+  border-bottom: 1px solid var(--color-border);
   transition:
-    border-color 120ms ease,
-    box-shadow 120ms ease,
     background-color 120ms ease;
 }
 
-.lead-card:hover,
-.lead-card--active {
-  border-color: rgba(208, 47, 112, 0.24);
-  background: #fffafd;
-  box-shadow: 0 8px 20px rgba(208, 47, 112, 0.08);
+.lead-row:last-of-type {
+  border-bottom: 0;
 }
 
-.lead-card__main {
+.lead-row:hover,
+.lead-row--active {
+  background: #fffafd;
+}
+
+.lead-row--active::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  content: '';
+}
+
+.lead-row__main {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) 18px;
+  align-items: center;
   gap: 8px;
-  padding: 0;
+  min-width: 0;
+  padding: 10px 10px 10px 14px;
   border: 0;
   background: transparent;
+  color: inherit;
   text-align: left;
   cursor: pointer;
 }
 
-.lead-card__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
+.lead-row__main:focus-visible,
+.lead-row__call:focus-visible {
+  outline: 2px solid rgba(208, 47, 112, 0.38);
+  outline-offset: -2px;
 }
 
-.lead-card__title {
+.lead-row__content {
   display: grid;
-  gap: 2px;
+  min-width: 0;
+  gap: 4px;
 }
 
-.lead-card__meta,
-.lead-detail__badges {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
-
-.lead-card__meta span {
-  color: var(--color-muted);
-  font-size: 12px;
-  line-height: 1.35;
-}
-
-.lead-card__title strong {
-  font-size: 16px;
-  line-height: 1.2;
-}
-
-.lead-card__title p,
-.lead-card__created {
-  margin: 0;
-  color: var(--color-muted);
-  font-size: 13px;
-  line-height: 1.35;
-}
-
-.lead-card__timeline {
+.lead-row__topline,
+.lead-row__meta,
+.lead-row__subline {
   display: flex;
   align-items: center;
+  min-width: 0;
+}
+
+.lead-row__topline {
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
 }
 
-.lead-card__deadline,
-.lead-detail__deadline {
-  display: inline-flex;
-  align-items: center;
-  min-height: 30px;
-  padding: 0 10px;
-  border-radius: 999px;
+.lead-row__meta,
+.lead-row__subline {
+  gap: 2px;
+  color: var(--color-muted);
   font-size: 12px;
-  font-weight: 700;
+  line-height: 1.35;
+}
+
+.lead-row__meta > span,
+.lead-row__subline > span {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.lead-deadline--neutral {
+.lead-row__meta > span:not(:last-child)::after,
+.lead-row__subline > span:not(:last-child)::after {
+  margin: 0 6px;
+  color: var(--color-border-strong);
+  content: '•';
+}
+
+.lead-row__name {
+  overflow: hidden;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lead-row__phone {
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.lead-row__deadline {
+  font-weight: 600;
+}
+
+.lead-row__actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-muted);
+}
+
+.lead-row__chevron {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.lead-row__call {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  min-height: 100%;
+  border-left: 1px solid var(--color-border);
+  color: var(--color-muted);
+  text-decoration: none;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.lead-row__call:hover {
   background: var(--color-surface-subtle);
+  color: var(--color-accent);
+}
+
+.lead-row__call svg {
+  width: 17px;
+  height: 17px;
+}
+
+.lead-deadline--neutral {
   color: var(--color-text);
 }
 
 .lead-deadline--warning {
-  background: var(--color-warning-soft);
   color: var(--color-warning);
 }
 
 .lead-deadline--danger {
-  background: var(--color-danger-soft);
   color: var(--color-danger);
 }
 
-.lead-card__facts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 10px;
-  margin: 0;
-}
-
-.lead-card__facts dt,
-.lead-detail-card__list dt {
-  margin-bottom: 2px;
-  color: var(--color-muted);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.lead-card__facts dd,
-.lead-detail-card__list dd {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.35;
-}
-
-.lead-card__actions {
+.lead-queue__load-more {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding-top: 6px;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px;
   border-top: 1px solid var(--color-border);
-}
-
-.lead-card__contact,
-.lead-detail-card__link {
-  color: var(--color-text);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.lead-card__contact:hover,
-.lead-detail-card__link:hover {
-  color: var(--color-accent);
-}
-
-.lead-card__quick-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
-}
-
-.lead-card__quick-button {
-  min-height: 32px;
-  padding-inline: 9px;
+  color: var(--color-muted);
   font-size: 12px;
 }
 
 .lead-detail {
   position: sticky;
   top: 18px;
-}
-
-.lead-detail__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.lead-detail__copy {
-  display: grid;
-  gap: 6px;
-}
-
-.lead-detail__eyebrow {
-  margin: 0;
-  color: var(--color-muted);
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.lead-detail__title-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.lead-detail__title-row h2,
-.lead-status-panel h3 {
-  margin: 0;
-}
-
-.lead-detail__description {
-  margin: 0;
-  color: var(--color-muted);
-  line-height: 1.45;
-}
-
-.lead-status-panel {
-  display: grid;
-  gap: 10px;
-}
-
-.lead-status-panel__hint {
-  margin: 0;
-  color: var(--color-muted);
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.lead-status-panel__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.lead-status-button {
-  min-height: 36px;
-  padding: 0 12px;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  background: var(--color-surface);
-  color: var(--color-text);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition:
-    border-color 120ms ease,
-    background-color 120ms ease,
-    color 120ms ease;
-}
-
-.lead-status-button:hover:not(:disabled),
-.lead-status-button--active {
-  border-color: rgba(208, 47, 112, 0.24);
-  background: #fff3f8;
-  color: var(--color-accent);
-}
-
-.lead-status-button:disabled {
-  cursor: wait;
-  opacity: 0.65;
-}
-
-.lead-detail-card {
-  display: grid;
-  gap: 10px;
-  padding: 14px;
-  border: 1px solid var(--color-border);
-  border-radius: 16px;
-  background: var(--color-surface-subtle);
-}
-
-.lead-detail-card--full {
-  grid-column: 1 / -1;
-}
-
-.lead-detail-card__list {
-  display: grid;
-  gap: 10px;
-  margin: 0;
-}
-
-.lead-detail-card__notes {
-  margin: 0;
-  color: var(--color-text);
-  line-height: 1.55;
+  max-height: calc(100vh - 128px);
+  overflow-y: auto;
 }
 
 @media (max-width: 1280px) {
@@ -1094,20 +886,14 @@ function startOfDay(date: Date): Date {
     display: none;
   }
 
-  .lead-card__timeline,
-  .lead-card__actions,
-  .lead-detail__header,
   .leads-toolbar {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .lead-card__facts {
-    grid-template-columns: 1fr;
-  }
-
   .lead-detail {
     position: static;
+    max-height: none;
   }
 }
 
@@ -1117,10 +903,21 @@ function startOfDay(date: Date): Date {
   }
 
   .lead-filters__actions,
-  .leads-toolbar__badges,
-  .lead-card__quick-actions {
+  .leads-toolbar__badges {
     width: 100%;
     justify-content: flex-start;
+  }
+
+  .lead-queue__list {
+    max-height: none;
+  }
+
+  .lead-row {
+    grid-template-columns: minmax(0, 1fr) 40px;
+  }
+
+  .lead-row__main {
+    padding-block: 9px;
   }
 }
 </style>
