@@ -1,6 +1,10 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 
 import AdminLayout from '@/app/layouts/AdminLayout.vue';
+import {
+  adminCrudRouteNames,
+  buildAdminCrudRouteGroup,
+} from '@/app/router/adminCrudRoutes';
 import AuditLogsPage from '@/pages/audit-logs/AuditLogsPage.vue';
 import BirthdayPackagesPage from '@/pages/birthday-packages/BirthdayPackagesPage.vue';
 import BranchesPage from '@/pages/branches/BranchesPage.vue';
@@ -11,9 +15,9 @@ import FAQPage from '@/pages/faq/FAQPage.vue';
 import GalleryPage from '@/pages/gallery/GalleryPage.vue';
 import LeadsPage from '@/pages/leads/LeadsPage.vue';
 import LoginPage from '@/pages/login/LoginPage.vue';
+import MenuPage from '@/pages/menu/MenuPage.vue';
 import PromotionsPage from '@/pages/promotions/PromotionsPage.vue';
 import PushCampaignsPage from '@/pages/push-campaigns/PushCampaignsPage.vue';
-import TariffsPage from '@/pages/tariffs/TariffsPage.vue';
 import { useSessionStore } from '@/features/auth/stores/useSessionStore';
 
 const routes: RouteRecordRaw[] = [
@@ -34,18 +38,58 @@ const routes: RouteRecordRaw[] = [
     children: [
       { path: '', redirect: { name: 'leads' } },
       { path: 'dashboard', name: 'dashboard', component: DashboardPage },
-      { path: 'leads', name: 'leads', component: LeadsPage },
-      { path: 'branches', name: 'branches', component: BranchesPage },
-      {
+      ...buildAdminCrudRouteGroup({
+        path: 'leads',
+        name: adminCrudRouteNames.leads.list,
+        component: LeadsPage,
+        idParam: adminCrudRouteNames.leads.idParam,
+        allowCreate: false,
+        allowEdit: false,
+      }).routes,
+      ...buildAdminCrudRouteGroup({
+        path: 'branches',
+        name: adminCrudRouteNames.branches.list,
+        component: BranchesPage,
+        idParam: adminCrudRouteNames.branches.idParam,
+      }).routes,
+      ...buildAdminCrudRouteGroup({
         path: 'birthday-packages',
-        name: 'birthday-packages',
+        name: adminCrudRouteNames.birthdayPackages.list,
         component: BirthdayPackagesPage,
-      },
-      { path: 'tariffs', name: 'tariffs', component: TariffsPage },
-      { path: 'promotions', name: 'promotions', component: PromotionsPage },
-      { path: 'content', name: 'content', component: ContentPage },
-      { path: 'gallery', name: 'gallery', component: GalleryPage },
-      { path: 'faq', name: 'faq', component: FAQPage },
+        idParam: adminCrudRouteNames.birthdayPackages.idParam,
+      }).routes,
+      ...buildAdminCrudRouteGroup({
+        path: 'menu',
+        name: adminCrudRouteNames.menu.list,
+        component: MenuPage,
+        idParam: adminCrudRouteNames.menu.idParam,
+        allowCreate: false,
+      }).routes,
+      ...buildAdminCrudRouteGroup({
+        path: 'promotions',
+        name: adminCrudRouteNames.promotions.list,
+        component: PromotionsPage,
+        idParam: adminCrudRouteNames.promotions.idParam,
+      }).routes,
+      ...buildAdminCrudRouteGroup({
+        path: 'content',
+        name: adminCrudRouteNames.content.list,
+        component: ContentPage,
+        idParam: adminCrudRouteNames.content.idParam,
+      }).routes,
+      ...buildAdminCrudRouteGroup({
+        path: 'gallery',
+        name: adminCrudRouteNames.gallery.list,
+        component: GalleryPage,
+        idParam: adminCrudRouteNames.gallery.idParam,
+        allowCreate: false,
+      }).routes,
+      ...buildAdminCrudRouteGroup({
+        path: 'faq',
+        name: adminCrudRouteNames.faq.list,
+        component: FAQPage,
+        idParam: adminCrudRouteNames.faq.idParam,
+      }).routes,
       { path: 'customers', name: 'customers', component: CustomersPage },
       {
         path: 'push-campaigns',

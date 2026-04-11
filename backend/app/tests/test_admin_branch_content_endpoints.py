@@ -12,6 +12,8 @@ from app.db.models.admin_session import AdminSession
 from app.db.models.admin_user import AdminUser
 from app.db.models.birthday_package import BirthdayPackage
 from app.db.models.branch import Branch
+from app.db.models.branch_menu_category import BranchMenuCategory
+from app.db.models.branch_menu_item import BranchMenuItem
 from app.db.models.branch_pricing_profile import BranchPricingProfile
 from app.db.models.branch_rule import BranchRule
 from app.db.models.branch_tariff import BranchTariff
@@ -55,6 +57,8 @@ class AdminBranchContentEndpointTests(unittest.TestCase):
             session.query(AdminSession).delete()
             session.query(AdminUser).delete()
             session.query(BirthdayPackage).delete()
+            session.query(BranchMenuItem).delete()
+            session.query(BranchMenuCategory).delete()
             session.query(BranchRule).delete()
             session.query(BranchTariff).delete()
             session.query(BranchPricingProfile).delete()
@@ -255,6 +259,108 @@ class AdminBranchContentEndpointTests(unittest.TestCase):
                 ],
                 'birthday_note': 'Birthday packages are booked separately.',
                 'disclaimer': 'Prices may change on holidays.',
+            },
+        )
+
+    def test_branch_menu_flow_from_admin_to_mobile(self) -> None:
+        seeded_menu_response = self.client.get(
+            '/api/v1/admin/branches/branch-main/menu',
+            headers=self._auth_headers(),
+        )
+        self.assertEqual(seeded_menu_response.status_code, 200)
+        self.assertEqual(
+            seeded_menu_response.json()['categories'][0]['title'],
+            'Супы',
+        )
+        self.assertGreaterEqual(len(seeded_menu_response.json()['items']), 1)
+
+        update_response = self.client.put(
+            '/api/v1/admin/branches/branch-main/menu',
+            headers=self._auth_headers(),
+            json={
+                'categories': [
+                    {
+                        'key': 'soups',
+                        'title': 'Супы',
+                        'display_order': 1,
+                        'is_active': True,
+                    },
+                    {
+                        'key': 'tea',
+                        'title': 'Чай',
+                        'display_order': 2,
+                        'is_active': True,
+                    },
+                ],
+                'items': [
+                    {
+                        'title': 'Куриный суп с домашней лапшой',
+                        'price_tenge': 1590,
+                        'image_url': 'https://cdn.example/chicken-noodle-soup.jpg',
+                        'category_key': 'soups',
+                        'display_order': 1,
+                        'is_active': True,
+                    },
+                    {
+                        'title': 'Суп ребра',
+                        'price_tenge': 1890,
+                        'image_url': 'https://cdn.example/rib-soup.jpg',
+                        'category_key': 'soups',
+                        'display_order': 2,
+                        'is_active': False,
+                    },
+                    {
+                        'title': 'Чай с молоком',
+                        'price_tenge': 1090,
+                        'image_url': 'https://cdn.example/milk-tea.jpg',
+                        'category_key': 'tea',
+                        'display_order': 1,
+                        'is_active': True,
+                    },
+                ],
+            },
+        )
+        self.assertEqual(update_response.status_code, 200)
+        self.assertEqual(len(update_response.json()['categories']), 2)
+        self.assertEqual(
+            update_response.json()['items'][0]['image_url'],
+            'https://cdn.example/chicken-noodle-soup.jpg',
+        )
+
+        mobile_menu_response = self.client.get(
+            '/api/v1/mobile/branches/branch-main/menu',
+        )
+        self.assertEqual(mobile_menu_response.status_code, 200)
+        self.assertEqual(
+            mobile_menu_response.json(),
+            {
+                'branch_id': 'branch-main',
+                'categories': [
+                    {
+                        'id': mobile_menu_response.json()['categories'][0]['id'],
+                        'title': 'Супы',
+                        'items': [
+                            {
+                                'id': mobile_menu_response.json()['categories'][0]['items'][0]['id'],
+                                'title': 'Куриный суп с домашней лапшой',
+                                'price_tenge': 1590,
+                                'image_url': 'https://cdn.example/chicken-noodle-soup.jpg',
+                            }
+                        ],
+                    },
+                    {
+                        'id': mobile_menu_response.json()['categories'][1]['id'],
+                        'title': 'Чай',
+                        'items': [
+                            {
+                                'id': mobile_menu_response.json()['categories'][1]['items'][0]['id'],
+                                'title': 'Чай с молоком',
+                                'price_tenge': 1090,
+                                'image_url': 'https://cdn.example/milk-tea.jpg',
+                            }
+                        ],
+                    },
+                ],
             },
         )
 

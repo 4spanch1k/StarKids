@@ -18,14 +18,19 @@ export class HttpError extends Error {
 
 export async function httpClient<T>({ path, ...options }: RequestOptions): Promise<T> {
   let response: Response;
+  const providedHeaders = new Headers(options.headers ?? undefined);
+  const hasBody = options.body !== undefined && options.body !== null;
+  const bodyIsFormData =
+    typeof FormData !== 'undefined' && options.body instanceof FormData;
+
+  if (hasBody && !bodyIsFormData && !providedHeaders.has('Content-Type')) {
+    providedHeaders.set('Content-Type', 'application/json');
+  }
 
   try {
     response = await fetch(`${env.apiBaseUrl}${path}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
       ...options,
+      headers: providedHeaders,
     });
   } catch (error) {
     throw new Error(resolveNetworkErrorMessage(error));

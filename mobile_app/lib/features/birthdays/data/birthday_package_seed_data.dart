@@ -2,49 +2,49 @@ import '../domain/birthday_package.dart';
 
 const birthdayPackageSeedData = <BirthdayPackage>[
   BirthdayPackage(
-    id: 'spark-party',
-    name: 'Spark Party',
-    priceLabel: 'от 55 000 ₸',
-    guestLabel: 'до 10 детей',
+    id: 'magic-party',
+    name: 'MAGIC PARTY',
+    priceLabel: '27 990 тг',
+    guestLabel: 'Старая цена 39 990 тг',
     description:
-        'Быстрый и яркий формат для семейного праздника без сложной организации.',
+        'Самый популярный пакет для полного семейного праздника в рабочие дни.',
     imagePath: 'assets/images/birthday_hero.jpg',
     highlights: [
-      'Безлимитная игровая зона',
-      'Аниматор 1 час',
-      'Фотозона',
-      'Праздничный стол',
-    ],
-  ),
-  BirthdayPackage(
-    id: 'star-show',
-    name: 'Star Show',
-    priceLabel: 'от 85 000 ₸',
-    guestLabel: 'до 15 детей',
-    description:
-        'Премиальный пакет с шоу-программой и самым сильным wow-эффектом для гостей.',
-    imagePath: 'assets/images/branch_hero.jpg',
-    highlights: [
-      'Шоу или мастер-класс',
-      'Аниматоры',
-      'Праздничный стол',
-      'Фото и видео атмосфера',
+      'Кабинка на 5 часов',
+      'Аниматор 1.5 часа',
+      'Квест на выбор: Бравл Старс, Гарри Поттер, Барби, Майнкрафт, Игра в кальмара, Национальный, Роблокс, Супергеройский',
+      'Шоу, поздравление и мастер-класс по шарам',
     ],
     isFeatured: true,
   ),
   BirthdayPackage(
-    id: 'family-day',
-    name: 'Family Day',
-    priceLabel: 'от 110 000 ₸',
-    guestLabel: 'до 20 детей',
+    id: 'star-party',
+    name: 'STAR PARTY',
+    priceLabel: '55 990 тг',
+    guestLabel: 'Старая цена 79 990 тг',
     description:
-        'Формат для большого семейного события с запасом по времени и пространству.',
+        'VIP пакет с безлимитной кабинкой, двумя аниматорами и расширенной шоу-программой.',
+    imagePath: 'assets/images/branch_hero.jpg',
+    highlights: [
+      'Кабинка безлимит',
+      '2 аниматора на 2 часа',
+      '2 шоу, ростовая кукла и пиньята',
+      'Мастер-класс на выбор: антистресс, радуга в бутылке, фокусы, слайм, брелок, пенная, азотное мороженое',
+    ],
+  ),
+  BirthdayPackage(
+    id: 'wow-party',
+    name: 'WOW PARTY',
+    priceLabel: '20 990 тг',
+    guestLabel: 'Старая цена 29 990 тг',
+    description:
+        'Самый доступный пакет с понятным сценарием и без лишнего перегруза.',
     imagePath: 'assets/images/gallery_1.jpg',
     highlights: [
-      'Расширенная зона гостей',
-      'Помощь менеджера',
-      'Сценарий праздника',
-      'Подарки имениннику',
+      'Кабинка на 3 часа',
+      'Аниматор на 1 час',
+      'Анимация 30 минут',
+      'Поздравление и мастер-класс по шарам',
     ],
   ),
 ];

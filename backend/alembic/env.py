@@ -13,6 +13,8 @@ from app.db.models import (  # noqa: F401
     birthday_package,
     birthday_request,
     branch,
+    branch_menu_category,
+    branch_menu_item,
 )
 
 config = context.config

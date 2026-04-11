@@ -17,6 +17,7 @@
           :to="item.to"
           class="sidebar__link"
           active-class="sidebar__link--active"
+          @click="$emit('navigate')"
         >
           <span class="sidebar__icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -37,6 +38,7 @@
           :to="item.to"
           class="sidebar__link sidebar__link--secondary"
           active-class="sidebar__link--active"
+          @click="$emit('navigate')"
         >
           <span class="sidebar__icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -64,7 +66,7 @@ const iconPaths: Record<string, string> = {
   gallery: 'M5 6h14v12H5zM8 14l2-2 2 2 3-3 2 3',
   faq: 'M9.5 9a2.5 2.5 0 1 1 4.2 1.8c-.9.8-1.7 1.3-1.7 2.7M12 18h.01',
   dashboard: 'M5 13h5V5H5zm9 6h5V5h-5zm-9 0h5v-4H5z',
-  tariffs: 'M6 6h12M6 12h8M6 18h10M18 10v8m0 0-2-2m2 2 2-2',
+  menu: 'M6 6h12M6 12h12M6 18h8M18 7v10M15 10l3-3 3 3',
   customers: 'M12 12a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm-6 8a6 6 0 0 1 12 0',
   'push-campaigns': 'M6 17h12l-1-7 2-2H5l2 2-1 7Zm4 3h4',
   'audit-logs': 'M7 5h10v14H7zM9 9h6M9 13h6',
@@ -79,6 +81,10 @@ withDefaults(
     secondaryItems: () => [],
   },
 );
+
+defineEmits<{
+  navigate: [];
+}>();
 
 function resolveIconPath(name: string) {
   return iconPaths[name] ?? 'M6 12h12';
@@ -213,21 +219,24 @@ function resolveIconPath(name: string) {
 
 @media (max-width: 1100px) {
   .sidebar {
-    position: static;
-    height: auto;
-    border-right: none;
-    border-bottom: 1px solid var(--color-border);
-    box-shadow: none;
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 40;
+    width: min(86vw, 320px);
+    overflow-y: auto;
+    border-right: 1px solid var(--color-border);
+    border-bottom: none;
+    box-shadow: var(--shadow-sidebar);
+    transform: translateX(-100%);
+    transition: transform 160ms ease;
+  }
+
+  .sidebar.sidebar--open {
+    transform: translateX(0);
   }
 
   .sidebar__group--secondary {
-    margin-top: 0;
-  }
-
-  .sidebar__nav {
-    grid-auto-flow: column;
-    grid-auto-columns: max-content;
-    overflow-x: auto;
+    margin-top: auto;
   }
 }
 </style>

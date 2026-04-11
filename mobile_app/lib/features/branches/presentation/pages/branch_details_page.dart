@@ -93,7 +93,7 @@ class BranchDetailsPage extends StatelessWidget {
                     _displayValue(
                       branchDetail.description,
                       fallback:
-                          'Подробное описание филиала скоро появится. Пока можно посмотреть контакты, цены и пакеты праздника.',
+                          'Подробное описание филиала скоро появится. Пока можно посмотреть контакты, меню и пакеты праздника.',
                     ),
                     style: textTheme.bodyLarge,
                   ),
@@ -159,11 +159,11 @@ class BranchDetailsPage extends StatelessWidget {
                     children: [
                       Expanded(
                         child: StarKidsButton.secondary(
-                          label: 'Цены и правила',
-                          icon: Icons.receipt_long_rounded,
+                          label: 'Меню',
+                          icon: Icons.restaurant_menu_rounded,
                           onPressed: () => Navigator.of(
                             context,
-                          ).pushNamed(AppRoutes.pricesRules),
+                          ).pushNamed(AppRoutes.menu),
                         ),
                       ),
                       const SizedBox(width: StarKidsSpacing.md),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
@@ -21,6 +23,8 @@ import '../../../content/domain/public_faq_item.dart';
 import '../../../promotions/domain/promotion_offer.dart';
 import '../../../requests/domain/request_type.dart';
 import '../../../requests/presentation/models/request_page_args.dart';
+import '../../../tickets/presentation/sheets/ticket_purchase_flow_sheet.dart';
+import '../../../tickets/presentation/sheets/tickets_entry_sheet.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -32,25 +36,13 @@ class HomePage extends StatelessWidget {
       builder: (context, _) {
         final branch = ServiceRegistry.selectedBranchController.selectedBranch;
         final textTheme = Theme.of(context).textTheme;
+        final isCompactHomeLayout = MediaQuery.of(context).size.width < 430;
 
         return Scaffold(
           bottomNavigationBar: NavigationBar(
             selectedIndex: 0,
             onDestinationSelected: (index) {
-              switch (index) {
-                case 1:
-                  Navigator.of(context).pushNamed(AppRoutes.birthdays);
-                  break;
-                case 2:
-                  Navigator.of(context).pushNamed(AppRoutes.promotions);
-                  break;
-                case 3:
-                  Navigator.of(context).pushNamed(AppRoutes.profile);
-                  break;
-                case 0:
-                default:
-                  break;
-              }
+              unawaited(_handleNavigationSelection(context, index));
             },
             destinations: const [
               NavigationDestination(
@@ -64,6 +56,10 @@ class HomePage extends StatelessWidget {
               NavigationDestination(
                 icon: Icon(Icons.local_offer_rounded),
                 label: 'Акции',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.confirmation_num_rounded),
+                label: 'Билеты',
               ),
               NavigationDestination(
                 icon: Icon(Icons.person_rounded),
@@ -216,7 +212,7 @@ class HomePage extends StatelessWidget {
                           crossAxisSpacing: StarKidsSpacing.md,
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          childAspectRatio: 1.38,
+                          childAspectRatio: isCompactHomeLayout ? 1.08 : 1.38,
                           children: [
                             _QuickActionTile(
                               icon: Icons.map_rounded,
@@ -233,11 +229,11 @@ class HomePage extends StatelessWidget {
                                   .pushNamed(AppRoutes.birthdays),
                             ),
                             _QuickActionTile(
-                              icon: Icons.receipt_long_rounded,
-                              title: 'Цены и правила',
-                              subtitle: 'Тарифы и важные условия',
+                              icon: Icons.restaurant_menu_rounded,
+                              title: 'Меню',
+                              subtitle: 'Еда и напитки в филиале',
                               onTap: () => Navigator.of(context)
-                                  .pushNamed(AppRoutes.pricesRules),
+                                  .pushNamed(AppRoutes.menu),
                             ),
                             _QuickActionTile(
                               icon: Icons.pin_drop_rounded,
@@ -560,6 +556,37 @@ class HomePage extends StatelessWidget {
   }
 }
 
+Future<void> _handleNavigationSelection(BuildContext context, int index) async {
+  switch (index) {
+    case 1:
+      Navigator.of(context).pushNamed(AppRoutes.birthdays);
+      return;
+    case 2:
+      Navigator.of(context).pushNamed(AppRoutes.promotions);
+      return;
+    case 3:
+      final action = await showTicketsEntrySheet(context);
+      if (!context.mounted || action == null) {
+        return;
+      }
+
+      switch (action) {
+        case TicketsEntryAction.myTickets:
+          await showMyTicketsPlaceholderSheet(context);
+          return;
+        case TicketsEntryAction.buyTicket:
+          await showTicketPurchaseFlowSheet(context);
+          return;
+      }
+    case 4:
+      Navigator.of(context).pushNamed(AppRoutes.profile);
+      return;
+    case 0:
+    default:
+      return;
+  }
+}
+
 class _QuickActionTile extends StatelessWidget {
   const _QuickActionTile({
     required this.icon,
@@ -600,9 +627,21 @@ class _QuickActionTile extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              Text(title, style: textTheme.titleLarge),
+              Text(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.titleMedium,
+              ),
               const SizedBox(height: StarKidsSpacing.xs),
-              Text(subtitle, style: textTheme.bodyMedium),
+              Text(
+                subtitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.bodySmall?.copyWith(
+                  color: StarKidsColors.textSecondary,
+                ),
+              ),
             ],
           ),
         ),

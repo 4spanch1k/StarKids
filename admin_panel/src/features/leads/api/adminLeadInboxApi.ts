@@ -7,7 +7,7 @@ import type {
 import { httpClient } from '@/shared/api/httpClient';
 
 const ADMIN_LEADS_BASE_PATH = '/admin/leads';
-const MOBILE_BRANCHES_BASE_PATH = '/mobile/branches';
+const ADMIN_BRANCHES_BASE_PATH = '/admin/branches';
 
 type AuthorizedRequest = {
   accessToken: string;
@@ -87,12 +87,13 @@ export function updateAdminLeadStatus({
   });
 }
 
-export async function fetchLeadInboxBranchOptions(): Promise<
-  LeadInboxBranchFilterOption[]
-> {
+export async function fetchLeadInboxBranchOptions({
+  accessToken,
+}: AuthorizedRequest): Promise<LeadInboxBranchFilterOption[]> {
   const branches = await httpClient<BranchSummaryResponse[]>({
-    path: MOBILE_BRANCHES_BASE_PATH,
+    path: `${ADMIN_BRANCHES_BASE_PATH}?include_inactive=true`,
     method: 'GET',
+    headers: buildAuthorizedHeaders(accessToken),
   });
 
   return branches.map((branch) => ({

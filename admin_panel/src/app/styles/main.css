@@ -166,10 +166,24 @@ a {
   gap: 6px;
 }
 
+.admin-field--error .admin-control,
+.admin-field--error .app-select__trigger,
+.admin-field--error .date-range-field__trigger {
+  border-color: rgba(180, 35, 24, 0.4);
+  box-shadow: 0 0 0 2px rgba(180, 35, 24, 0.08);
+}
+
 .admin-field__label {
   font-size: 12px;
   font-weight: 600;
   color: var(--color-text);
+}
+
+.admin-field__error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .admin-control {
@@ -276,17 +290,17 @@ select.admin-control {
   justify-content: space-between;
   gap: 12px;
   width: 100%;
-  min-height: 72px;
-  padding: 14px 14px 14px 16px;
-  border: 1px solid var(--color-border);
-  border-radius: 16px;
-  background: var(--color-surface);
+  min-height: 60px;
+  padding: 12px 12px 12px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
+  background: transparent;
   text-align: left;
   cursor: pointer;
   transition:
     background-color 120ms ease,
-    border-color 120ms ease,
-    box-shadow 120ms ease;
+    border-color 120ms ease;
 }
 
 .admin-list-record:hover {
@@ -294,9 +308,7 @@ select.admin-control {
 }
 
 .admin-list-record--active {
-  border-color: rgba(208, 47, 112, 0.24);
-  background: #fffafd;
-  box-shadow: 0 8px 20px rgba(208, 47, 112, 0.08);
+  background: #fff7fb;
 }
 
 .admin-list-record__accent {
@@ -313,7 +325,7 @@ select.admin-control {
 
 .admin-list-record__copy {
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
 .admin-list-record__copy strong,
@@ -325,7 +337,8 @@ select.admin-control {
 .admin-list-record__copy p,
 .admin-list-record__copy span {
   color: var(--color-muted);
-  line-height: 1.45;
+  font-size: 13px;
+  line-height: 1.35;
 }
 
 .admin-detail-header,
@@ -442,11 +455,40 @@ select.admin-control {
 }
 
 @media (max-width: 720px) {
+  .admin-panel--stack {
+    gap: 10px;
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .admin-section-heading p {
+    display: none;
+  }
+
+  .admin-inline-message {
+    font-size: 13px;
+  }
+
+  .admin-list-record {
+    gap: 10px;
+    min-height: 56px;
+    padding: 10px 10px 10px 14px;
+  }
+
+  .admin-detail-header__title-row h2 {
+    font-size: 20px;
+  }
+
   .admin-form-grid,
   .admin-info-grid,
   .admin-form-grid--two,
   .admin-repeater__grid,
   .admin-checkbox-grid {
     grid-template-columns: 1fr;
+  }
+
+  .admin-form-actions {
+    width: 100%;
+    flex-wrap: wrap;
   }
 }

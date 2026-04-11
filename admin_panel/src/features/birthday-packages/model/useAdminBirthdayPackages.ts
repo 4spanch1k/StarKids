@@ -222,6 +222,7 @@ export function useAdminBirthdayPackages() {
         error,
         'Не удалось создать пакет.',
       );
+      throw error;
     } finally {
       isCreateSaving.value = false;
     }
@@ -271,6 +272,7 @@ export function useAdminBirthdayPackages() {
         error,
         'Не удалось сохранить пакет.',
       );
+      throw error;
     } finally {
       isSaving.value = false;
     }
