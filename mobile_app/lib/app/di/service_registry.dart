@@ -38,9 +38,9 @@ abstract final class ServiceRegistry {
   static final mobileAuthSessionStorage = MobileAuthSessionStorage();
   static final MobileAuthRepository mobileAuthRepository =
       ApiMobileAuthRepository(
-        apiClient: apiClient,
-        sessionStorage: mobileAuthSessionStorage,
-      );
+    apiClient: apiClient,
+    sessionStorage: mobileAuthSessionStorage,
+  );
   static final mobileAuthController = MobileAuthController(
     repository: mobileAuthRepository,
   );
@@ -68,9 +68,9 @@ abstract final class ServiceRegistry {
       PermissionHandlerNotificationPermissionGateway();
   static final NotificationSettingsRepository notificationSettingsRepository =
       DeviceNotificationSettingsRepository(
-        storage: notificationPermissionStorage,
-        permissionGateway: notificationPermissionGateway,
-      );
+    storage: notificationPermissionStorage,
+    permissionGateway: notificationPermissionGateway,
+  );
   static final mobileNotificationsController = MobileNotificationsController(
     repository: notificationSettingsRepository,
   );
@@ -78,22 +78,22 @@ abstract final class ServiceRegistry {
       ApiPublicContentRepository(apiClient: apiClient);
   static final RequestHistoryRepository requestHistoryRepository =
       ApiRequestHistoryRepository(
-        apiClient: apiClient,
-        sessionStorage: mobileAuthSessionStorage,
-        authRepository: mobileAuthRepository,
-      );
+    apiClient: apiClient,
+    sessionStorage: mobileAuthSessionStorage,
+    authRepository: mobileAuthRepository,
+  );
   static final ContactRequestRepository contactRequestRepository =
       ApiContactRequestRepository(
-        apiClient: apiClient,
-        sessionStorage: mobileAuthSessionStorage,
-      );
+    apiClient: apiClient,
+    sessionStorage: mobileAuthSessionStorage,
+  );
   static final birthdayRequestRepository =
       AppEnvironment.useMockBirthdayRequests
-      ? MockBirthdayRequestRepository()
-      : ApiBirthdayRequestRepository(
-          apiClient: apiClient,
-          sessionStorage: mobileAuthSessionStorage,
-        );
+          ? MockBirthdayRequestRepository()
+          : ApiBirthdayRequestRepository(
+              apiClient: apiClient,
+              sessionStorage: mobileAuthSessionStorage,
+            );
 
   static Future<void> bootstrap() async {
     await mobileAuthController.bootstrap();

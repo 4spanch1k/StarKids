@@ -150,12 +150,12 @@ class _NotificationsSummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: StarKidsSpacing.md),
           const _NotificationFactRow(
-            label: 'Регистрация устройства в backend',
+            label: 'Регистрация устройства',
             value: 'Не подключена',
           ),
           const SizedBox(height: StarKidsSpacing.md),
           const _NotificationFactRow(
-            label: 'Push token',
+            label: 'Токен уведомлений',
             value: 'Не используется',
           ),
           if (isLoading) ...[
@@ -188,19 +188,16 @@ class _NotificationsSummaryCard extends StatelessWidget {
     return switch (status) {
       NotificationPermissionStatus.unknown =>
         'Приложение еще не запрашивало системное разрешение на уведомления. '
-            'Сейчас можно подготовить только permission/status foundation: '
-            'регистрация устройства и push delivery в backend еще не '
-            'подключены.',
+            'Регистрация устройства и отправка уведомлений пока не подключены.',
       NotificationPermissionStatus.granted =>
-        'Системное разрешение уже выдано. При этом push-уведомления пока не '
-            'активны: в backend нет регистрации устройства и push token flow.',
+        'Системное разрешение уже выдано. Отправка уведомлений будет подключена '
+            'отдельным шагом.',
       NotificationPermissionStatus.denied =>
         'Системное разрешение отключено. Без него приложение не сможет '
-            'показывать уведомления, когда backend registration появится. '
-            'Сейчас push delivery еще не подключена.',
+            'показывать уведомления, когда отправка будет подключена.',
       NotificationPermissionStatus.unavailable =>
         'В этой сборке или на этой платформе управление уведомлениями '
-            'недоступно. Push registration в backend тоже пока отсутствует.',
+            'недоступно. Регистрация устройства пока не используется.',
     };
   }
 }

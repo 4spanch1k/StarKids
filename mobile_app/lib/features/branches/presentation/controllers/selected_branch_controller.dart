@@ -9,8 +9,8 @@ class SelectedBranchController extends ChangeNotifier {
   SelectedBranchController({
     required LocalStorage localStorage,
     required BranchRepository branchRepository,
-  }) : _localStorage = localStorage,
-       _branchRepository = branchRepository;
+  })  : _localStorage = localStorage,
+        _branchRepository = branchRepository;
 
   final LocalStorage _localStorage;
   final BranchRepository _branchRepository;

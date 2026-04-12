@@ -121,7 +121,8 @@ class MenuPage extends StatelessWidget {
                   const SizedBox(height: StarKidsSpacing.lg),
                   ...data.menu.categories.map(
                     (category) => Padding(
-                      padding: const EdgeInsets.only(bottom: StarKidsSpacing.xl),
+                      padding:
+                          const EdgeInsets.only(bottom: StarKidsSpacing.xl),
                       child: _MenuCategoryCard(category: category),
                     ),
                   ),
