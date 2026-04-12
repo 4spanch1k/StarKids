@@ -28,6 +28,8 @@ import '../../features/requests/data/api_contact_request_repository.dart';
 import '../../features/branches/presentation/controllers/selected_branch_controller.dart';
 import '../../features/requests/data/mock_birthday_request_repository.dart';
 import '../../features/requests/domain/contact_request_repository.dart';
+import '../../features/tickets/data/api_ticket_config_repository.dart';
+import '../../features/tickets/domain/ticket_config_repository.dart';
 import '../config/app_environment.dart';
 
 abstract final class ServiceRegistry {
@@ -36,9 +38,9 @@ abstract final class ServiceRegistry {
   static final mobileAuthSessionStorage = MobileAuthSessionStorage();
   static final MobileAuthRepository mobileAuthRepository =
       ApiMobileAuthRepository(
-    apiClient: apiClient,
-    sessionStorage: mobileAuthSessionStorage,
-  );
+        apiClient: apiClient,
+        sessionStorage: mobileAuthSessionStorage,
+      );
   static final mobileAuthController = MobileAuthController(
     repository: mobileAuthRepository,
   );
@@ -50,56 +52,56 @@ abstract final class ServiceRegistry {
     branchRepository: branchRepository,
   );
   static final BirthdayPackageRepository birthdayPackageRepository =
-      ApiBirthdayPackageRepository(
-    apiClient: apiClient,
-  );
+      ApiBirthdayPackageRepository(apiClient: apiClient);
   static final PromotionRepository promotionRepository = ApiPromotionRepository(
     apiClient: apiClient,
   );
   static final MenuRepository menuRepository = ApiMenuRepository(
     apiClient: apiClient,
   );
+  static TicketConfigRepository ticketConfigRepository =
+      ApiTicketConfigRepository(apiClient: apiClient);
   static final ContactLinksRepository contactLinksRepository =
-      ApiContactLinksRepository(
-    apiClient: apiClient,
-  );
+      ApiContactLinksRepository(apiClient: apiClient);
   static final notificationPermissionStorage = NotificationPermissionStorage();
   static final notificationPermissionGateway =
       PermissionHandlerNotificationPermissionGateway();
   static final NotificationSettingsRepository notificationSettingsRepository =
       DeviceNotificationSettingsRepository(
-    storage: notificationPermissionStorage,
-    permissionGateway: notificationPermissionGateway,
-  );
+        storage: notificationPermissionStorage,
+        permissionGateway: notificationPermissionGateway,
+      );
   static final mobileNotificationsController = MobileNotificationsController(
     repository: notificationSettingsRepository,
   );
   static final PublicContentRepository publicContentRepository =
-      ApiPublicContentRepository(
-    apiClient: apiClient,
-  );
+      ApiPublicContentRepository(apiClient: apiClient);
   static final RequestHistoryRepository requestHistoryRepository =
       ApiRequestHistoryRepository(
-    apiClient: apiClient,
-    sessionStorage: mobileAuthSessionStorage,
-    authRepository: mobileAuthRepository,
-  );
+        apiClient: apiClient,
+        sessionStorage: mobileAuthSessionStorage,
+        authRepository: mobileAuthRepository,
+      );
   static final ContactRequestRepository contactRequestRepository =
       ApiContactRequestRepository(
-    apiClient: apiClient,
-    sessionStorage: mobileAuthSessionStorage,
-  );
+        apiClient: apiClient,
+        sessionStorage: mobileAuthSessionStorage,
+      );
   static final birthdayRequestRepository =
       AppEnvironment.useMockBirthdayRequests
-          ? MockBirthdayRequestRepository()
-          : ApiBirthdayRequestRepository(
-              apiClient: apiClient,
-              sessionStorage: mobileAuthSessionStorage,
-            );
+      ? MockBirthdayRequestRepository()
+      : ApiBirthdayRequestRepository(
+          apiClient: apiClient,
+          sessionStorage: mobileAuthSessionStorage,
+        );
 
   static Future<void> bootstrap() async {
     await mobileAuthController.bootstrap();
     await mobileNotificationsController.bootstrap();
     await selectedBranchController.load();
+  }
+
+  static void resetTicketConfigRepository() {
+    ticketConfigRepository = ApiTicketConfigRepository(apiClient: apiClient);
   }
 }

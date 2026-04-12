@@ -9,6 +9,7 @@ import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_select_field.dart';
 import '../../../branches/domain/branch_option.dart';
+import '../../domain/branch_ticket_config.dart';
 
 Future<void> showTicketPurchaseFlowSheet(BuildContext context) {
   return showModalBottomSheet<void>(
@@ -30,10 +31,7 @@ Future<void> showMyTicketsPlaceholderSheet(BuildContext context) {
   );
 }
 
-enum _TicketPurchaseStep {
-  selectEntry,
-  chooseTickets,
-}
+enum _TicketPurchaseStep { selectEntry, chooseTickets }
 
 class _TicketPurchaseFlowSheet extends StatefulWidget {
   const _TicketPurchaseFlowSheet();
@@ -44,45 +42,36 @@ class _TicketPurchaseFlowSheet extends StatefulWidget {
 }
 
 class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
-  static const _ticketTypes = <_TicketTypeConfig>[
-    _TicketTypeConfig(
-      id: 'kids_1_3',
-      title: 'Детские билеты 1–3 лет',
-      priceInTenge: 2700,
-      helperText: 'Документ обязателен',
-    ),
-    _TicketTypeConfig(
-      id: 'kids_4_15',
-      title: 'Детские билеты 4–15 лет',
-      priceInTenge: 3700,
-    ),
-    _TicketTypeConfig(
-      id: 'adult',
-      title: 'Взрослый билет (сопровождающий)',
-      priceInTenge: 400,
-    ),
-  ];
-
   late BranchOption _selectedBranch =
       ServiceRegistry.selectedBranchController.selectedBranch;
   DateTime? _selectedDate;
   var _currentStep = _TicketPurchaseStep.selectEntry;
   var _showPaymentPlaceholder = false;
+  var _isConfigLoading = true;
+  BranchTicketConfig? _ticketConfig;
+  String? _configErrorMessage;
+  Map<String, int> _ticketCounts = <String, int>{};
 
-  final Map<String, int> _ticketCounts = {
-    for (final ticketType in _ticketTypes) ticketType.id: 0,
-  };
+  List<TicketConfigItem> get _ticketItems => _ticketConfig?.items ?? const [];
 
   int get _totalAmount {
     var total = 0;
-    for (final ticketType in _ticketTypes) {
-      total += (_ticketCounts[ticketType.id] ?? 0) * ticketType.priceInTenge;
+    for (final ticketType in _ticketItems) {
+      total += (_ticketCounts[ticketType.id] ?? 0) * ticketType.priceTenge;
     }
     return total;
   }
 
   int get _totalTickets {
     return _ticketCounts.values.fold<int>(0, (sum, count) => sum + count);
+  }
+
+  bool get _hasAvailableTickets => _ticketItems.isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTicketConfig();
   }
 
   Future<void> _selectBranch() async {
@@ -120,6 +109,8 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
     setState(() {
       _selectedBranch = selectedBranch;
     });
+
+    await _loadTicketConfig();
   }
 
   Future<void> _selectDay() async {
@@ -156,7 +147,10 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
   }
 
   void _goToNextStep() {
-    if (_selectedDate == null) {
+    if (_selectedDate == null ||
+        _isConfigLoading ||
+        _configErrorMessage != null ||
+        !_hasAvailableTickets) {
       return;
     }
 
@@ -194,6 +188,43 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
     setState(() {
       _showPaymentPlaceholder = true;
     });
+  }
+
+  Future<void> _loadTicketConfig() async {
+    setState(() {
+      _isConfigLoading = true;
+      _configErrorMessage = null;
+      _showPaymentPlaceholder = false;
+    });
+
+    try {
+      final config = await ServiceRegistry.ticketConfigRepository.getForBranch(
+        _selectedBranch.id,
+      );
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _ticketConfig = config;
+        _ticketCounts = {
+          for (final item in config.items) item.id: _ticketCounts[item.id] ?? 0,
+        };
+        _isConfigLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _ticketConfig = null;
+        _ticketCounts = <String, int>{};
+        _isConfigLoading = false;
+        _configErrorMessage =
+            'Не удалось загрузить конфигурацию билетов для выбранного филиала.';
+      });
+    }
   }
 
   @override
@@ -276,6 +307,9 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                           key: const ValueKey('ticket-step-selection'),
                           selectedBranch: _selectedBranch,
                           selectedDate: _selectedDate,
+                          ticketConfig: _ticketConfig,
+                          isConfigLoading: _isConfigLoading,
+                          configErrorMessage: _configErrorMessage,
                           onSelectBranch: _selectBranch,
                           onSelectDay: _selectDay,
                         )
@@ -283,7 +317,9 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                           key: const ValueKey('ticket-step-details'),
                           selectedBranch: _selectedBranch,
                           selectedDate: _selectedDate!,
-                          ticketTypes: _ticketTypes,
+                          ticketConfig: _ticketConfig,
+                          isConfigLoading: _isConfigLoading,
+                          configErrorMessage: _configErrorMessage,
                           ticketCounts: _ticketCounts,
                           onDecrease: (ticketTypeId) =>
                               _changeTicketCount(ticketTypeId, -1),
@@ -339,7 +375,12 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                           ? 'Продолжить'
                           : 'Оплатить',
                       onPressed: _currentStep == _TicketPurchaseStep.selectEntry
-                          ? (_selectedDate == null ? null : _goToNextStep)
+                          ? (_selectedDate == null ||
+                                    _isConfigLoading ||
+                                    _configErrorMessage != null ||
+                                    !_hasAvailableTickets
+                                ? null
+                                : _goToNextStep)
                           : (_totalAmount == 0
                                 ? null
                                 : _showPaymentStagePlaceholder),
@@ -379,12 +420,18 @@ class _StepSelectionView extends StatelessWidget {
     super.key,
     required this.selectedBranch,
     required this.selectedDate,
+    required this.ticketConfig,
+    required this.isConfigLoading,
+    required this.configErrorMessage,
     required this.onSelectBranch,
     required this.onSelectDay,
   });
 
   final BranchOption selectedBranch;
   final DateTime? selectedDate;
+  final BranchTicketConfig? ticketConfig;
+  final bool isConfigLoading;
+  final String? configErrorMessage;
   final VoidCallback onSelectBranch;
   final VoidCallback onSelectDay;
 
@@ -421,12 +468,36 @@ class _StepSelectionView extends StatelessWidget {
           StarKidsSelectField(
             key: const ValueKey('ticket-day-select'),
             label: 'День',
-            value: selectedDate == null ? null : _formatTicketDate(selectedDate!),
+            value: selectedDate == null
+                ? null
+                : _formatTicketDate(selectedDate!),
             helperText: 'Выберите дату посещения заранее.',
             leadingIcon: Icons.calendar_today_rounded,
             placeholderText: 'Выберите день посещения',
             onTap: onSelectDay,
           ),
+          const SizedBox(height: StarKidsSpacing.xl),
+          Text('Доступные билеты', style: textTheme.titleLarge),
+          const SizedBox(height: StarKidsSpacing.sm),
+          if (isConfigLoading)
+            const _TicketConfigStateCard(
+              title: 'Загружаем билеты',
+              description:
+                  'Подтягиваем билетную конфигурацию выбранного филиала.',
+            )
+          else if (configErrorMessage != null)
+            _TicketConfigStateCard(
+              title: 'Не удалось загрузить конфигурацию',
+              description: configErrorMessage!,
+            )
+          else if (ticketConfig == null || ticketConfig!.items.isEmpty)
+            const _TicketConfigStateCard(
+              title: 'Билеты пока недоступны',
+              description:
+                  'Для выбранного филиала пока нет активных билетов в конфигурации.',
+            )
+          else
+            _TicketConfigPreviewCard(config: ticketConfig!),
         ],
       ),
     );
@@ -438,7 +509,9 @@ class _StepTicketsView extends StatelessWidget {
     super.key,
     required this.selectedBranch,
     required this.selectedDate,
-    required this.ticketTypes,
+    required this.ticketConfig,
+    required this.isConfigLoading,
+    required this.configErrorMessage,
     required this.ticketCounts,
     required this.onDecrease,
     required this.onIncrease,
@@ -446,7 +519,9 @@ class _StepTicketsView extends StatelessWidget {
 
   final BranchOption selectedBranch;
   final DateTime selectedDate;
-  final List<_TicketTypeConfig> ticketTypes;
+  final BranchTicketConfig? ticketConfig;
+  final bool isConfigLoading;
+  final String? configErrorMessage;
   final Map<String, int> ticketCounts;
   final ValueChanged<String> onDecrease;
   final ValueChanged<String> onIncrease;
@@ -500,39 +575,62 @@ class _StepTicketsView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: StarKidsSpacing.lg),
-          ...ticketTypes.map(
-            (ticketType) => Padding(
-              padding: const EdgeInsets.only(bottom: StarKidsSpacing.md),
-              child: _TicketCounterCard(
-                config: ticketType,
-                count: ticketCounts[ticketType.id] ?? 0,
-                onDecrease: () => onDecrease(ticketType.id),
-                onIncrease: () => onIncrease(ticketType.id),
+          if (isConfigLoading)
+            const _TicketConfigStateCard(
+              title: 'Загружаем билеты',
+              description:
+                  'Подтягиваем билетную конфигурацию выбранного филиала.',
+            )
+          else if (configErrorMessage != null)
+            _TicketConfigStateCard(
+              title: 'Не удалось загрузить конфигурацию',
+              description: configErrorMessage!,
+            )
+          else if (ticketConfig == null || ticketConfig!.items.isEmpty)
+            const _TicketConfigStateCard(
+              title: 'Билеты пока недоступны',
+              description:
+                  'В админке для этого филиала пока не опубликованы активные билеты.',
+            )
+          else
+            ...ticketConfig!.items.map(
+              (ticketType) => Padding(
+                padding: const EdgeInsets.only(bottom: StarKidsSpacing.md),
+                child: _TicketCounterCard(
+                  config: ticketType,
+                  count: ticketCounts[ticketType.id] ?? 0,
+                  onDecrease: () => onDecrease(ticketType.id),
+                  onIncrease: () => onIncrease(ticketType.id),
+                ),
               ),
             ),
-          ),
           const SizedBox(height: StarKidsSpacing.lg),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(StarKidsSpacing.lg),
-            decoration: BoxDecoration(
-              color: StarKidsColors.surfacePrimary,
-              borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-              border: Border.all(color: StarKidsColors.borderDefault),
+          if ((ticketConfig?.notes ?? const <String>[]).isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(StarKidsSpacing.lg),
+              decoration: BoxDecoration(
+                color: StarKidsColors.surfacePrimary,
+                borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+                border: Border.all(color: StarKidsColors.borderDefault),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Важно знать', style: textTheme.titleMedium),
+                  const SizedBox(height: StarKidsSpacing.md),
+                  for (
+                    var index = 0;
+                    index < ticketConfig!.notes.length;
+                    index++
+                  ) ...[
+                    _BenefitLine(label: ticketConfig!.notes[index]),
+                    if (index < ticketConfig!.notes.length - 1)
+                      const SizedBox(height: StarKidsSpacing.sm),
+                  ],
+                ],
+              ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Важно знать', style: textTheme.titleMedium),
-                const SizedBox(height: StarKidsSpacing.md),
-                const _BenefitLine(label: 'Детям 0–1 лет — бесплатно'),
-                const SizedBox(height: StarKidsSpacing.sm),
-                const _BenefitLine(label: 'Имениннику в день рождения — бесплатно'),
-                const SizedBox(height: StarKidsSpacing.sm),
-                const _BenefitLine(label: 'Особенным детям — бесплатно'),
-              ],
-            ),
-          ),
         ],
       ),
     );
@@ -547,7 +645,7 @@ class _TicketCounterCard extends StatelessWidget {
     required this.onIncrease,
   });
 
-  final _TicketTypeConfig config;
+  final TicketConfigItem config;
   final int count;
   final VoidCallback onDecrease;
   final VoidCallback onIncrease;
@@ -574,18 +672,28 @@ class _TicketCounterCard extends StatelessWidget {
                 Text(config.title, style: textTheme.titleMedium),
                 const SizedBox(height: StarKidsSpacing.xs),
                 Text(
-                  _formatTenge(config.priceInTenge),
+                  _formatTenge(config.priceTenge),
                   style: textTheme.bodyLarge?.copyWith(
                     color: StarKidsColors.brandPrimary,
                   ),
                 ),
-                if (config.helperText != null) ...[
+                if (config.description.isNotEmpty) ...[
                   const SizedBox(height: StarKidsSpacing.sm),
                   Text(
-                    config.helperText!,
+                    config.description,
                     style: textTheme.bodySmall?.copyWith(
                       color: StarKidsColors.textSecondary,
                     ),
+                  ),
+                ],
+                if (config.badgeLabels.isNotEmpty) ...[
+                  const SizedBox(height: StarKidsSpacing.sm),
+                  Wrap(
+                    spacing: StarKidsSpacing.xs,
+                    runSpacing: StarKidsSpacing.xs,
+                    children: config.badgeLabels
+                        .map((label) => _TicketBadgeChip(label: label))
+                        .toList(),
                   ),
                 ],
               ],
@@ -686,9 +794,7 @@ class _CounterButton extends StatelessWidget {
 }
 
 class _BenefitLine extends StatelessWidget {
-  const _BenefitLine({
-    required this.label,
-  });
+  const _BenefitLine({required this.label});
 
   final String label;
 
@@ -708,10 +814,151 @@ class _BenefitLine extends StatelessWidget {
           ),
         ),
         const SizedBox(width: StarKidsSpacing.sm),
-        Expanded(
-          child: Text(label, style: textTheme.bodyMedium),
-        ),
+        Expanded(child: Text(label, style: textTheme.bodyMedium)),
       ],
+    );
+  }
+}
+
+class _TicketBadgeChip extends StatelessWidget {
+  const _TicketBadgeChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: StarKidsSpacing.sm,
+        vertical: StarKidsSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: StarKidsColors.surfaceSecondary,
+        borderRadius: BorderRadius.circular(StarKidsRadii.full),
+        border: Border.all(color: StarKidsColors.borderDefault),
+      ),
+      child: Text(
+        label,
+        style: textTheme.labelSmall?.copyWith(
+          color: StarKidsColors.textPrimary,
+        ),
+      ),
+    );
+  }
+}
+
+class _TicketConfigPreviewCard extends StatelessWidget {
+  const _TicketConfigPreviewCard({required this.config});
+
+  final BranchTicketConfig config;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      decoration: BoxDecoration(
+        color: StarKidsColors.surfacePrimary,
+        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+        border: Border.all(color: StarKidsColors.borderDefault),
+        boxShadow: StarKidsShadows.depth1,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var index = 0; index < config.items.length; index++) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        config.items[index].title,
+                        style: textTheme.titleMedium,
+                      ),
+                      if (config.items[index].description.isNotEmpty) ...[
+                        const SizedBox(height: StarKidsSpacing.xs),
+                        Text(
+                          config.items[index].description,
+                          style: textTheme.bodySmall?.copyWith(
+                            color: StarKidsColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: StarKidsSpacing.md),
+                Text(
+                  _formatTenge(config.items[index].priceTenge),
+                  style: textTheme.titleMedium?.copyWith(
+                    color: StarKidsColors.brandPrimary,
+                  ),
+                ),
+              ],
+            ),
+            if (config.items[index].badgeLabels.isNotEmpty) ...[
+              const SizedBox(height: StarKidsSpacing.xs),
+              Wrap(
+                spacing: StarKidsSpacing.xs,
+                runSpacing: StarKidsSpacing.xs,
+                children: config.items[index].badgeLabels
+                    .map((label) => _TicketBadgeChip(label: label))
+                    .toList(),
+              ),
+            ],
+            if (index < config.items.length - 1) ...[
+              const SizedBox(height: StarKidsSpacing.md),
+              const Divider(height: 1, color: StarKidsColors.borderDefault),
+              const SizedBox(height: StarKidsSpacing.md),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TicketConfigStateCard extends StatelessWidget {
+  const _TicketConfigStateCard({
+    required this.title,
+    required this.description,
+  });
+
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      decoration: BoxDecoration(
+        color: StarKidsColors.surfacePrimary,
+        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+        border: Border.all(color: StarKidsColors.borderDefault),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: textTheme.titleMedium),
+          const SizedBox(height: StarKidsSpacing.xs),
+          Text(
+            description,
+            style: textTheme.bodyMedium?.copyWith(
+              color: StarKidsColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -848,8 +1095,7 @@ class _SelectionSheet<T> extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.all(StarKidsSpacing.lg),
                         decoration: BoxDecoration(
-                          borderRadius:
-                              BorderRadius.circular(StarKidsRadii.xl),
+                          borderRadius: BorderRadius.circular(StarKidsRadii.xl),
                           border: Border.all(
                             color: isSelected
                                 ? StarKidsColors.brandPrimary
@@ -902,20 +1148,6 @@ class _SelectionSheet<T> extends StatelessWidget {
   }
 }
 
-class _TicketTypeConfig {
-  const _TicketTypeConfig({
-    required this.id,
-    required this.title,
-    required this.priceInTenge,
-    this.helperText,
-  });
-
-  final String id;
-  final String title;
-  final int priceInTenge;
-  final String? helperText;
-}
-
 String _formatTicketDate(DateTime date) {
   final normalized = DateTime(date.year, date.month, date.day);
   final weekday = _weekdaysRu[normalized.weekday - 1];
@@ -943,15 +1175,7 @@ String _formatTenge(int amount) {
   return '${buffer.toString()} тг';
 }
 
-const _weekdaysRu = <String>[
-  'Пн',
-  'Вт',
-  'Ср',
-  'Чт',
-  'Пт',
-  'Сб',
-  'Вс',
-];
+const _weekdaysRu = <String>['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
 const _monthsRu = <String>[
   'января',

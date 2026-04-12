@@ -187,3 +187,37 @@ class AdminBranchMenuResponse(BaseModel):
 class AdminBranchMenuUpsertRequest(BaseModel):
     categories: list[AdminBranchMenuCategoryInput] = Field(default_factory=list)
     items: list[AdminBranchMenuItemInput] = Field(default_factory=list)
+
+
+class AdminBranchTicketItemInput(BaseModel):
+    title: str = Field(min_length=2, max_length=255)
+    description: str | None = Field(default=None, max_length=2000)
+    price_tenge: int = Field(ge=0, le=1000000)
+    badge_labels: list[str] = Field(default_factory=list)
+    display_order: int = Field(default=0, ge=0, le=1000)
+    is_active: bool = True
+
+
+class AdminBranchTicketNoteInput(BaseModel):
+    text: str = Field(min_length=2, max_length=1000)
+    display_order: int = Field(default=0, ge=0, le=1000)
+    is_active: bool = True
+
+
+class AdminBranchTicketItemResponse(AdminBranchTicketItemInput):
+    id: str
+
+
+class AdminBranchTicketNoteResponse(AdminBranchTicketNoteInput):
+    id: str
+
+
+class AdminBranchTicketsResponse(BaseModel):
+    branch_id: str
+    items: list[AdminBranchTicketItemResponse] = Field(default_factory=list)
+    notes: list[AdminBranchTicketNoteResponse] = Field(default_factory=list)
+
+
+class AdminBranchTicketsUpsertRequest(BaseModel):
+    items: list[AdminBranchTicketItemInput] = Field(default_factory=list)
+    notes: list[AdminBranchTicketNoteInput] = Field(default_factory=list)
