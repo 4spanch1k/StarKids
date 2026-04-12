@@ -5,7 +5,7 @@ import 'ticket_config_api_models.dart';
 
 class ApiTicketConfigRepository implements TicketConfigRepository {
   ApiTicketConfigRepository({required ApiClient apiClient})
-    : _apiClient = apiClient;
+      : _apiClient = apiClient;
 
   final ApiClient _apiClient;
 

@@ -49,6 +49,30 @@ class MobileAuthController extends ChangeNotifier {
       _isRefreshingProfile ||
       _isLoggingOut;
 
+  Future<void> registerWithEmail({
+    required String email,
+    required String password,
+  }) {
+    return _authenticateWithEmail(
+      _repository.registerWithEmail(
+        email: _normalizeEmail(email),
+        password: password,
+      ),
+    );
+  }
+
+  Future<void> loginWithEmail({
+    required String email,
+    required String password,
+  }) {
+    return _authenticateWithEmail(
+      _repository.loginWithEmail(
+        email: _normalizeEmail(email),
+        password: password,
+      ),
+    );
+  }
+
   Future<void> bootstrap() async {
     _status = MobileAuthStatus.loading;
     _isRefreshingProfile = false;
@@ -225,6 +249,31 @@ class MobileAuthController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> _authenticateWithEmail(
+    Future<Result<MobileAuthSession>> request,
+  ) async {
+    _errorMessage = null;
+    _pendingChallenge = null;
+    _status = MobileAuthStatus.loading;
+    _isRefreshingProfile = false;
+    _isLoggingOut = false;
+    notifyListeners();
+
+    final result = await request;
+
+    if (result is Success<MobileAuthSession>) {
+      _session = result.data;
+      _status = MobileAuthStatus.authenticated;
+      notifyListeners();
+      return;
+    }
+
+    _session = null;
+    _errorMessage = (result as Failure<MobileAuthSession>).message;
+    _status = MobileAuthStatus.error;
+    notifyListeners();
+  }
+
   void editPhone() {
     _pendingChallenge = null;
     _errorMessage = null;
@@ -285,6 +334,52 @@ class MobileAuthController extends ChangeNotifier {
     return null;
   }
 
+  String? validateEmailInput(String? value) {
+    final email = _normalizeEmail(value ?? '');
+    if (email.isEmpty) {
+      return 'Введите email.';
+    }
+
+    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
+      return 'Введите корректный email.';
+    }
+
+    return null;
+  }
+
+  String? validatePasswordInput(String? value) {
+    final password = value ?? '';
+    if (password.isEmpty) {
+      return 'Введите пароль.';
+    }
+
+    if (password.length < 8) {
+      return 'Пароль должен быть не короче 8 символов.';
+    }
+
+    return null;
+  }
+
+  String? validatePasswordConfirmation({
+    required String? password,
+    required String? confirmation,
+  }) {
+    final repeatedPassword = confirmation ?? '';
+    if (repeatedPassword.isEmpty) {
+      return 'Повторите пароль.';
+    }
+
+    if (repeatedPassword.length < 8) {
+      return 'Пароль должен быть не короче 8 символов.';
+    }
+
+    if ((password ?? '') != repeatedPassword) {
+      return 'Пароли не совпадают.';
+    }
+
+    return null;
+  }
+
   bool _isValidPhone(String phone) {
     return RegExp(r'^\+7\d{10}$').hasMatch(phone);
   }
@@ -311,5 +406,9 @@ class MobileAuthController extends ChangeNotifier {
     }
 
     return '+$digits';
+  }
+
+  String _normalizeEmail(String value) {
+    return value.trim().toLowerCase();
   }
 }

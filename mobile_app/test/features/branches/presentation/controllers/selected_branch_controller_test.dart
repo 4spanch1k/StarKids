@@ -68,7 +68,7 @@ void main() {
 
 class _FakeBranchRepository implements BranchRepository {
   _FakeBranchRepository({List<BranchOption>? branches})
-    : _branches = branches ?? branchSeedData;
+      : _branches = branches ?? branchSeedData;
 
   final List<BranchOption> _branches;
 

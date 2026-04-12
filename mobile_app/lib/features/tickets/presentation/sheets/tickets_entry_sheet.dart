@@ -67,7 +67,8 @@ class _TicketsEntrySheet extends StatelessWidget {
               icon: Icons.confirmation_num_rounded,
               title: 'Мои билеты',
               subtitle: 'Здесь будут ваши купленные и активные билеты.',
-              onTap: () => Navigator.of(context).pop(TicketsEntryAction.myTickets),
+              onTap: () =>
+                  Navigator.of(context).pop(TicketsEntryAction.myTickets),
             ),
             const SizedBox(height: StarKidsSpacing.md),
             _TicketsEntryActionCard(
@@ -75,7 +76,8 @@ class _TicketsEntrySheet extends StatelessWidget {
               icon: Icons.shopping_bag_rounded,
               title: 'Купить входной билет',
               subtitle: 'Выберите филиал, дату и нужное количество билетов.',
-              onTap: () => Navigator.of(context).pop(TicketsEntryAction.buyTicket),
+              onTap: () =>
+                  Navigator.of(context).pop(TicketsEntryAction.buyTicket),
             ),
           ],
         ),

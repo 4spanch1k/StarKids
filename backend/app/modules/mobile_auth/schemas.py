@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 
 class OTPRequest(BaseModel):
@@ -16,13 +16,19 @@ class OTPVerifyRequest(BaseModel):
     verification_id: str = Field(min_length=1)
 
 
+class MobileEmailAuthRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+
+
 class MobileRefreshRequest(BaseModel):
     refresh_token: str = Field(min_length=1)
 
 
 class MobileCurrentUserResponse(BaseModel):
     id: str
-    phone: str
+    phone: str | None = None
+    email: EmailStr | None = None
 
 
 class MobileAuthResponse(BaseModel):

@@ -32,7 +32,7 @@ void main() {
 
       expect(find.text('История доступна после входа'), findsOneWidget);
 
-      await tester.tap(find.text('Войти по номеру'));
+      await tester.tap(find.text('Перейти ко входу'));
       await tester.pumpAndSettle();
 
       expect(didOpenProfile, isTrue);

@@ -376,14 +376,14 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                           : 'Оплатить',
                       onPressed: _currentStep == _TicketPurchaseStep.selectEntry
                           ? (_selectedDate == null ||
-                                    _isConfigLoading ||
-                                    _configErrorMessage != null ||
-                                    !_hasAvailableTickets
-                                ? null
-                                : _goToNextStep)
+                                  _isConfigLoading ||
+                                  _configErrorMessage != null ||
+                                  !_hasAvailableTickets
+                              ? null
+                              : _goToNextStep)
                           : (_totalAmount == 0
-                                ? null
-                                : _showPaymentStagePlaceholder),
+                              ? null
+                              : _showPaymentStagePlaceholder),
                     ),
                     if (_currentStep == _TicketPurchaseStep.chooseTickets &&
                         _showPaymentPlaceholder) ...[
@@ -468,9 +468,8 @@ class _StepSelectionView extends StatelessWidget {
           StarKidsSelectField(
             key: const ValueKey('ticket-day-select'),
             label: 'День',
-            value: selectedDate == null
-                ? null
-                : _formatTicketDate(selectedDate!),
+            value:
+                selectedDate == null ? null : _formatTicketDate(selectedDate!),
             helperText: 'Выберите дату посещения заранее.',
             leadingIcon: Icons.calendar_today_rounded,
             placeholderText: 'Выберите день посещения',
@@ -619,11 +618,9 @@ class _StepTicketsView extends StatelessWidget {
                 children: [
                   Text('Важно знать', style: textTheme.titleMedium),
                   const SizedBox(height: StarKidsSpacing.md),
-                  for (
-                    var index = 0;
-                    index < ticketConfig!.notes.length;
-                    index++
-                  ) ...[
+                  for (var index = 0;
+                      index < ticketConfig!.notes.length;
+                      index++) ...[
                     _BenefitLine(label: ticketConfig!.notes[index]),
                     if (index < ticketConfig!.notes.length - 1)
                       const SizedBox(height: StarKidsSpacing.sm),

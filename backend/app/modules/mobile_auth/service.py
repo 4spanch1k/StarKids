@@ -8,6 +8,7 @@ from fastapi import status
 
 from ...core.config.settings import Settings, get_settings
 from ...core.exceptions.http import DomainHTTPException
+from ...core.security.passwords import hash_password, verify_password
 from ...core.security.tokens import (
     TokenPair,
     TokenValidationError,
@@ -22,6 +23,7 @@ from ...db.repositories.mobile_user_repository import MobileUserRepository
 from .schemas import (
     MobileAuthResponse,
     MobileCurrentUserResponse,
+    MobileEmailAuthRequest,
     MobileRefreshRequest,
     OTPRequest,
     OTPRequestResponse,
@@ -57,6 +59,46 @@ class MobileAuthService:
         self._ensure_valid_placeholder_challenge(payload.verification_id)
 
         user = self._get_or_create_active_user(phone)
+        token_pair = self._create_session_for_user(user)
+        return self._build_auth_response(user, token_pair)
+
+    def register_with_email(self, payload: MobileEmailAuthRequest) -> MobileAuthResponse:
+        self._ensure_runtime_configuration()
+        email = self._normalize_email(str(payload.email))
+
+        if self.user_repository.find_by_email(email) is not None:
+            raise DomainHTTPException(
+                code='email_already_registered',
+                message='Email is already registered.',
+                status_code=status.HTTP_409_CONFLICT,
+                details=[
+                    {
+                        'field': 'email',
+                        'message': 'Этот email уже зарегистрирован.',
+                    }
+                ],
+            )
+
+        user = self.user_repository.create(
+            email=email,
+            password_hash=hash_password(payload.password),
+        )
+        token_pair = self._create_session_for_user(user)
+        return self._build_auth_response(user, token_pair)
+
+    def login_with_email(self, payload: MobileEmailAuthRequest) -> MobileAuthResponse:
+        self._ensure_runtime_configuration()
+        email = self._normalize_email(str(payload.email))
+
+        user = self.user_repository.find_by_email(email)
+        if (
+            user is None
+            or not user.is_active
+            or user.password_hash is None
+            or not verify_password(payload.password, user.password_hash)
+        ):
+            raise self.invalid_credentials_exception()
+
         token_pair = self._create_session_for_user(user)
         return self._build_auth_response(user, token_pair)
 
@@ -113,6 +155,14 @@ class MobileAuthService:
             status_code=status.HTTP_401_UNAUTHORIZED,
         )
 
+    @staticmethod
+    def invalid_credentials_exception() -> DomainHTTPException:
+        return DomainHTTPException(
+            code='invalid_credentials',
+            message='Invalid email or password.',
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+
     def _ensure_runtime_configuration(self) -> None:
         if (
             self.settings.requires_explicit_jwt_secret
@@ -146,6 +196,9 @@ class MobileAuthService:
                 ],
             )
         return normalized
+
+    def _normalize_email(self, email: str) -> str:
+        return email.lower().strip()
 
     def _ensure_valid_placeholder_challenge(self, verification_id: str) -> None:
         if not verification_id.startswith('otp_'):
@@ -249,6 +302,7 @@ class MobileAuthService:
         return MobileCurrentUserResponse(
             id=user.id,
             phone=user.phone,
+            email=user.email,
         )
 
     def _normalize_datetime(self, value: datetime) -> datetime:
