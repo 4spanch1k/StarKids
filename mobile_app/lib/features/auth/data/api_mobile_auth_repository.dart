@@ -19,6 +19,37 @@ class ApiMobileAuthRepository implements MobileAuthRepository {
   final MobileAuthSessionStorage _sessionStorage;
 
   @override
+  Future<Result<MobileAuthSession>> registerWithEmail({
+    required String email,
+    required String password,
+  }) {
+    return _submitEmailAuth(
+      path: '/auth/register',
+      email: email,
+      password: password,
+      duplicateEmailMessage:
+          'Этот email уже зарегистрирован. Войдите в аккаунт.',
+      fallbackMessage:
+          'Не удалось зарегистрироваться. Проверьте интернет и попробуйте снова.',
+    );
+  }
+
+  @override
+  Future<Result<MobileAuthSession>> loginWithEmail({
+    required String email,
+    required String password,
+  }) {
+    return _submitEmailAuth(
+      path: '/auth/login',
+      email: email,
+      password: password,
+      invalidCredentialsMessage: 'Проверьте email и пароль.',
+      fallbackMessage:
+          'Не удалось войти. Проверьте интернет и попробуйте снова.',
+    );
+  }
+
+  @override
   Future<Result<OtpChallenge>> requestOtp(String phone) async {
     try {
       final response = await _apiClient.postJson(
@@ -115,6 +146,7 @@ class ApiMobileAuthRepository implements MobileAuthRepository {
           final updatedSession = session.copyWith(
             user: currentUser,
             phone: currentUser.phone,
+            email: currentUser.email,
           );
           await _sessionStorage.saveSession(updatedSession);
           return Success<MobileAuthSession?>(updatedSession);
@@ -267,6 +299,50 @@ class ApiMobileAuthRepository implements MobileAuthRepository {
     ).toDomain(verifiedAt: DateTime.now());
     await _sessionStorage.saveSession(session);
     return session;
+  }
+
+  Future<Result<MobileAuthSession>> _submitEmailAuth({
+    required String path,
+    required String email,
+    required String password,
+    String? duplicateEmailMessage,
+    String? invalidCredentialsMessage,
+    required String fallbackMessage,
+  }) async {
+    try {
+      final response = await _apiClient.postJson(
+        path,
+        body: {
+          'email': email.trim(),
+          'password': password,
+        },
+      );
+
+      if (response.isSuccess) {
+        final session = await _storeTokenResponse(response.jsonBody);
+        if (session != null) {
+          return Success<MobileAuthSession>(session);
+        }
+      }
+
+      if (response.statusCode == 409 && duplicateEmailMessage != null) {
+        return Failure<MobileAuthSession>(duplicateEmailMessage);
+      }
+
+      if (response.statusCode == 401 && invalidCredentialsMessage != null) {
+        return Failure<MobileAuthSession>(invalidCredentialsMessage);
+      }
+
+      if (response.statusCode == 422) {
+        return const Failure<MobileAuthSession>(
+          'Проверьте email и пароль.',
+        );
+      }
+
+      return Failure<MobileAuthSession>(fallbackMessage);
+    } catch (_) {
+      return Failure<MobileAuthSession>(fallbackMessage);
+    }
   }
 
   MobileAuthUser? _parseCurrentUser(Object? jsonBody) {

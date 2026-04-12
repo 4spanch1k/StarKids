@@ -18,6 +18,7 @@ import LoginPage from '@/pages/login/LoginPage.vue';
 import MenuPage from '@/pages/menu/MenuPage.vue';
 import PromotionsPage from '@/pages/promotions/PromotionsPage.vue';
 import PushCampaignsPage from '@/pages/push-campaigns/PushCampaignsPage.vue';
+import TicketsPage from '@/pages/tickets/TicketsPage.vue';
 import { useSessionStore } from '@/features/auth/stores/useSessionStore';
 
 const routes: RouteRecordRaw[] = [
@@ -63,6 +64,13 @@ const routes: RouteRecordRaw[] = [
         name: adminCrudRouteNames.menu.list,
         component: MenuPage,
         idParam: adminCrudRouteNames.menu.idParam,
+        allowCreate: false,
+      }).routes,
+      ...buildAdminCrudRouteGroup({
+        path: 'tickets',
+        name: adminCrudRouteNames.tickets.list,
+        component: TicketsPage,
+        idParam: adminCrudRouteNames.tickets.idParam,
         allowCreate: false,
       }).routes,
       ...buildAdminCrudRouteGroup({

@@ -2,7 +2,9 @@ from ...core.exceptions.http import NotFoundException
 from ...db.repositories.branch_menu_repository import BranchMenuRepository
 from ...db.repositories.branch_pricing_repository import BranchPricingRepository
 from ...db.repositories.branch_repository import BranchRepository
+from ...db.repositories.branch_ticket_repository import BranchTicketRepository
 from .menu_seed import DEFAULT_BRANCH_MENU
+from .ticket_seed import DEFAULT_BRANCH_TICKET_CONFIG
 from .schemas import (
     BranchContactsResponse,
     BranchDetail,
@@ -12,6 +14,8 @@ from .schemas import (
     BranchMenuResponse,
     BranchPricesRulesResponse,
     BranchSummary,
+    BranchTicketItemResponse,
+    BranchTicketsResponse,
     BranchVisitTariffResponse,
 )
 
@@ -22,10 +26,12 @@ class BranchService:
         repository: BranchRepository | None = None,
         pricing_repository: BranchPricingRepository | None = None,
         menu_repository: BranchMenuRepository | None = None,
+        ticket_repository: BranchTicketRepository | None = None,
     ) -> None:
         self.repository = repository or BranchRepository()
         self.pricing_repository = pricing_repository or BranchPricingRepository()
         self.menu_repository = menu_repository or BranchMenuRepository()
+        self.ticket_repository = ticket_repository or BranchTicketRepository()
 
     def list_branches(self) -> list[BranchSummary]:
         return [
@@ -127,6 +133,27 @@ class BranchService:
             ],
         )
 
+    def get_branch_tickets(self, branch_id_or_slug: str) -> BranchTicketsResponse:
+        branch = self._get_active_branch_or_404(branch_id_or_slug)
+        self._ensure_branch_tickets_seeded(branch.id)
+        items = self.ticket_repository.list_items(branch.id, active_only=True)
+        notes = self.ticket_repository.list_notes(branch.id, active_only=True)
+
+        return BranchTicketsResponse(
+            branch_id=branch.id,
+            items=[
+                BranchTicketItemResponse(
+                    id=item.id,
+                    title=item.title,
+                    description=item.description,
+                    price_tenge=item.price_tenge,
+                    badge_labels=item.badge_labels or [],
+                )
+                for item in items
+            ],
+            notes=[note.text for note in notes],
+        )
+
     def _get_active_branch_or_404(self, branch_id_or_slug: str):
         branch = self.repository.get_active_by_id_or_slug(branch_id_or_slug)
         if branch is None:
@@ -143,4 +170,13 @@ class BranchService:
             branch_id=branch_id,
             category_payloads=DEFAULT_BRANCH_MENU['categories'],
             item_payloads=DEFAULT_BRANCH_MENU['items'],
+        )
+
+    def _ensure_branch_tickets_seeded(self, branch_id: str) -> None:
+        if self.ticket_repository.has_ticket_config(branch_id):
+            return
+        self.ticket_repository.replace_branch_ticket_config(
+            branch_id=branch_id,
+            item_payloads=DEFAULT_BRANCH_TICKET_CONFIG['items'],
+            note_payloads=DEFAULT_BRANCH_TICKET_CONFIG['notes'],
         )

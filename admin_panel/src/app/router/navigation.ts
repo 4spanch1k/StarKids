@@ -17,6 +17,7 @@ export const primaryNavigationItems: NavigationItem[] = [
 export const secondaryNavigationItems: NavigationItem[] = [
   { name: 'dashboard', label: 'Сводка', to: '/dashboard' },
   { name: 'menu', label: 'Меню', to: '/menu' },
+  { name: 'tickets', label: 'Билеты', to: '/tickets' },
   { name: 'customers', label: 'Клиенты', to: '/customers' },
   { name: 'push-campaigns', label: 'Пуш-кампании', to: '/push-campaigns' },
   { name: 'audit-logs', label: 'Журнал аудита', to: '/audit-logs' },
