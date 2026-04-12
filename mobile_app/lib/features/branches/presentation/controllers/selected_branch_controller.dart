@@ -9,8 +9,8 @@ class SelectedBranchController extends ChangeNotifier {
   SelectedBranchController({
     required LocalStorage localStorage,
     required BranchRepository branchRepository,
-  })  : _localStorage = localStorage,
-        _branchRepository = branchRepository;
+  }) : _localStorage = localStorage,
+       _branchRepository = branchRepository;
 
   final LocalStorage _localStorage;
   final BranchRepository _branchRepository;
@@ -27,7 +27,25 @@ class SelectedBranchController extends ChangeNotifier {
   Future<void> load() async {
     final storedBranchId = await _localStorage.readPreferredBranch();
     _hasStoredSelection = storedBranchId != null;
-    _selectedBranch = await _resolveBranch(storedBranchId ?? defaultBranchId);
+    final availableBranches = await _listAvailableBranches();
+    if (availableBranches.isNotEmpty) {
+      BranchOption? matchingBranch;
+      for (final branch in availableBranches) {
+        if (branch.id == storedBranchId) {
+          matchingBranch = branch;
+          break;
+        }
+      }
+
+      _selectedBranch = matchingBranch ?? availableBranches.first;
+
+      if (storedBranchId != _selectedBranch.id) {
+        await _localStorage.savePreferredBranch(_selectedBranch.id);
+      }
+    } else {
+      _selectedBranch = await _resolveBranch(storedBranchId ?? defaultBranchId);
+    }
+
     notifyListeners();
   }
 
@@ -106,5 +124,13 @@ class SelectedBranchController extends ChangeNotifier {
     }
 
     return true;
+  }
+
+  Future<List<BranchOption>> _listAvailableBranches() async {
+    try {
+      return await _branchRepository.listBranches();
+    } catch (_) {
+      return const <BranchOption>[];
+    }
   }
 }

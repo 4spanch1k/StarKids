@@ -4,6 +4,8 @@ from .base import Base
 from .branch_pricing_profile import BranchPricingProfile
 from .branch_menu_category import BranchMenuCategory
 from .branch_menu_item import BranchMenuItem
+from .branch_ticket_item import BranchTicketItem
+from .branch_ticket_note import BranchTicketNote
 from .branch_rule import BranchRule
 from .branch_tariff import BranchTariff
 from .birthday_package import BirthdayPackage
@@ -26,6 +28,8 @@ __all__ = [
     'BranchPricingProfile',
     'BranchMenuCategory',
     'BranchMenuItem',
+    'BranchTicketItem',
+    'BranchTicketNote',
     'BranchTariff',
     'BranchRule',
     'BirthdayPackage',

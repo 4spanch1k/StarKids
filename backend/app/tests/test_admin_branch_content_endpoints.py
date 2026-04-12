@@ -17,6 +17,8 @@ from app.db.models.branch_menu_item import BranchMenuItem
 from app.db.models.branch_pricing_profile import BranchPricingProfile
 from app.db.models.branch_rule import BranchRule
 from app.db.models.branch_tariff import BranchTariff
+from app.db.models.branch_ticket_item import BranchTicketItem
+from app.db.models.branch_ticket_note import BranchTicketNote
 from app.main import app
 
 
@@ -57,6 +59,8 @@ class AdminBranchContentEndpointTests(unittest.TestCase):
             session.query(AdminSession).delete()
             session.query(AdminUser).delete()
             session.query(BirthdayPackage).delete()
+            session.query(BranchTicketNote).delete()
+            session.query(BranchTicketItem).delete()
             session.query(BranchMenuItem).delete()
             session.query(BranchMenuCategory).delete()
             session.query(BranchRule).delete()
@@ -361,6 +365,174 @@ class AdminBranchContentEndpointTests(unittest.TestCase):
                         ],
                     },
                 ],
+            },
+        )
+
+    def test_branch_tickets_flow_from_admin_to_mobile(self) -> None:
+        seeded_tickets_response = self.client.get(
+            '/api/v1/admin/branches/branch-main/tickets',
+            headers=self._auth_headers(),
+        )
+        self.assertEqual(seeded_tickets_response.status_code, 200)
+        self.assertEqual(
+            seeded_tickets_response.json()['items'][0]['title'],
+            'Детские билеты 1–3 лет',
+        )
+        self.assertEqual(len(seeded_tickets_response.json()['notes']), 3)
+
+        update_response = self.client.put(
+            '/api/v1/admin/branches/branch-main/tickets',
+            headers=self._auth_headers(),
+            json={
+                'items': [
+                    {
+                        'title': 'Детские билеты 1–3 лет',
+                        'description': 'Для подтверждения возраста понадобится документ.',
+                        'price_tenge': 2800,
+                        'badge_labels': ['Документ обязателен'],
+                        'display_order': 1,
+                        'is_active': True,
+                    },
+                    {
+                        'title': 'Семейный билет 2+1',
+                        'description': 'Для двух взрослых и одного ребенка.',
+                        'price_tenge': 7200,
+                        'badge_labels': ['Семейный'],
+                        'display_order': 2,
+                        'is_active': True,
+                    },
+                    {
+                        'title': 'Взрослый билет (сопровождающий)',
+                        'description': 'Тариф для одного сопровождающего взрослого.',
+                        'price_tenge': 400,
+                        'badge_labels': ['Для сопровождающего'],
+                        'display_order': 3,
+                        'is_active': False,
+                    },
+                ],
+                'notes': [
+                    {
+                        'text': 'Детям 0–1 лет — бесплатно',
+                        'display_order': 1,
+                        'is_active': True,
+                    },
+                    {
+                        'text': 'Имениннику в день рождения — бесплатно',
+                        'display_order': 2,
+                        'is_active': True,
+                    },
+                    {
+                        'text': 'Скрытая заметка',
+                        'display_order': 3,
+                        'is_active': False,
+                    },
+                ],
+            },
+        )
+        self.assertEqual(update_response.status_code, 200)
+        self.assertEqual(len(update_response.json()['items']), 3)
+        self.assertEqual(update_response.json()['items'][1]['title'], 'Семейный билет 2+1')
+
+        mobile_tickets_response = self.client.get(
+            '/api/v1/mobile/branches/branch-main/tickets',
+        )
+        self.assertEqual(mobile_tickets_response.status_code, 200)
+        self.assertEqual(
+            mobile_tickets_response.json(),
+            {
+                'branch_id': 'branch-main',
+                'items': [
+                    {
+                        'id': mobile_tickets_response.json()['items'][0]['id'],
+                        'title': 'Детские билеты 1–3 лет',
+                        'description': 'Для подтверждения возраста понадобится документ.',
+                        'price_tenge': 2800,
+                        'badge_labels': ['Документ обязателен'],
+                    },
+                    {
+                        'id': mobile_tickets_response.json()['items'][1]['id'],
+                        'title': 'Семейный билет 2+1',
+                        'description': 'Для двух взрослых и одного ребенка.',
+                        'price_tenge': 7200,
+                        'badge_labels': ['Семейный'],
+                    },
+                ],
+                'notes': [
+                    'Детям 0–1 лет — бесплатно',
+                    'Имениннику в день рождения — бесплатно',
+                ],
+            },
+        )
+
+    def test_branch_tickets_are_scoped_per_branch(self) -> None:
+        create_branch_response = self.client.post(
+            '/api/v1/admin/branches',
+            headers=self._auth_headers(),
+            json={
+                'slug': 'branch-south',
+                'name': 'Star Kids South',
+                'city': 'Shymkent',
+                'address': 'Auezov 12',
+                'short_label': 'South',
+                'working_hours': '11:00 - 23:00',
+                'description': 'South branch description',
+                'phone': '+77070000001',
+                'whatsapp_phone': '+77070000001',
+                'display_order': 2,
+                'is_active': True,
+            },
+        )
+        self.assertEqual(create_branch_response.status_code, 200)
+        south_branch_id = create_branch_response.json()['id']
+
+        update_south_tickets_response = self.client.put(
+            f'/api/v1/admin/branches/{south_branch_id}/tickets',
+            headers=self._auth_headers(),
+            json={
+                'items': [
+                    {
+                        'title': 'Семейный билет South',
+                        'description': 'Только для южного филиала.',
+                        'price_tenge': 6500,
+                        'badge_labels': ['South'],
+                        'display_order': 1,
+                        'is_active': True,
+                    }
+                ],
+                'notes': [
+                    {
+                        'text': 'Только по южному филиалу',
+                        'display_order': 1,
+                        'is_active': True,
+                    }
+                ],
+            },
+        )
+        self.assertEqual(update_south_tickets_response.status_code, 200)
+
+        main_tickets_response = self.client.get('/api/v1/mobile/branches/branch-main/tickets')
+        south_tickets_response = self.client.get('/api/v1/mobile/branches/branch-south/tickets')
+
+        self.assertEqual(main_tickets_response.status_code, 200)
+        self.assertEqual(south_tickets_response.status_code, 200)
+        self.assertEqual(
+            main_tickets_response.json()['items'][0]['title'],
+            'Детские билеты 1–3 лет',
+        )
+        self.assertEqual(
+            south_tickets_response.json(),
+            {
+                'branch_id': south_branch_id,
+                'items': [
+                    {
+                        'id': south_tickets_response.json()['items'][0]['id'],
+                        'title': 'Семейный билет South',
+                        'description': 'Только для южного филиала.',
+                        'price_tenge': 6500,
+                        'badge_labels': ['South'],
+                    }
+                ],
+                'notes': ['Только по южному филиалу'],
             },
         )
 

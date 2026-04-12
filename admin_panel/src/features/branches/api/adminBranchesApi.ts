@@ -13,6 +13,8 @@ import type {
   AdminBranchPricesRules,
   AdminBranchPricesRulesPayload,
   AdminBranchSummary,
+  AdminBranchTickets,
+  AdminBranchTicketsPayload,
   AdminBranchUpdatePayload,
 } from '@/features/branches/model/adminBranch';
 import { httpClient } from '@/shared/api/httpClient';
@@ -113,6 +115,29 @@ type AdminBranchMenuResponse = {
   branch_id: string;
   categories: AdminBranchMenuCategoryResponse[];
   items: AdminBranchMenuItemResponse[];
+};
+
+type AdminBranchTicketItemResponse = {
+  id: string;
+  title: string;
+  description: string | null;
+  price_tenge: number;
+  badge_labels: string[];
+  display_order: number;
+  is_active: boolean;
+};
+
+type AdminBranchTicketNoteResponse = {
+  id: string;
+  text: string;
+  display_order: number;
+  is_active: boolean;
+};
+
+type AdminBranchTicketsResponse = {
+  branch_id: string;
+  items: AdminBranchTicketItemResponse[];
+  notes: AdminBranchTicketNoteResponse[];
 };
 
 export async function listAdminBranches({
@@ -346,6 +371,51 @@ export async function upsertAdminBranchMenu({
   return mapBranchMenu(response);
 }
 
+export async function getAdminBranchTickets({
+  accessToken,
+  branchId,
+}: AuthorizedRequest & { branchId: string }): Promise<AdminBranchTickets> {
+  const response = await httpClient<AdminBranchTicketsResponse>({
+    path: `${ADMIN_BRANCHES_BASE_PATH}/${branchId}/tickets`,
+    method: 'GET',
+    headers: buildAdminAuthHeaders(accessToken),
+  });
+
+  return mapBranchTickets(response);
+}
+
+export async function upsertAdminBranchTickets({
+  accessToken,
+  branchId,
+  payload,
+}: AuthorizedRequest & {
+  branchId: string;
+  payload: AdminBranchTicketsPayload;
+}): Promise<AdminBranchTickets> {
+  const response = await httpClient<AdminBranchTicketsResponse>({
+    path: `${ADMIN_BRANCHES_BASE_PATH}/${branchId}/tickets`,
+    method: 'PUT',
+    headers: buildAdminAuthHeaders(accessToken),
+    body: JSON.stringify({
+      items: payload.items.map((item) => ({
+        title: item.title,
+        description: item.description || null,
+        price_tenge: item.priceTenge,
+        badge_labels: item.badgeLabels,
+        display_order: item.displayOrder,
+        is_active: item.isActive,
+      })),
+      notes: payload.notes.map((note) => ({
+        text: note.text,
+        display_order: note.displayOrder,
+        is_active: note.isActive,
+      })),
+    }),
+  });
+
+  return mapBranchTickets(response);
+}
+
 function mapBranchSummary(response: AdminBranchSummaryResponse): AdminBranchSummary {
   return {
     id: response.id,
@@ -441,6 +511,27 @@ function mapBranchMenu(response: AdminBranchMenuResponse): AdminBranchMenu {
       categoryKey: item.category_key,
       displayOrder: item.display_order,
       isActive: item.is_active,
+    })),
+  };
+}
+
+function mapBranchTickets(response: AdminBranchTicketsResponse): AdminBranchTickets {
+  return {
+    branchId: response.branch_id,
+    items: response.items.map((item) => ({
+      id: item.id,
+      title: item.title,
+      description: item.description ?? '',
+      priceTenge: item.price_tenge,
+      badgeLabels: item.badge_labels,
+      displayOrder: item.display_order,
+      isActive: item.is_active,
+    })),
+    notes: response.notes.map((note) => ({
+      id: note.id,
+      text: note.text,
+      displayOrder: note.display_order,
+      isActive: note.is_active,
     })),
   };
 }
