@@ -5,14 +5,12 @@ import '../../../../core/design_system/foundations/star_kids_icon_sizes.dart';
 import '../../../../core/design_system/foundations/star_kids_radii.dart';
 import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
+import '../../../../core/design_system/widgets/star_kids_motion.dart';
 
-enum TicketsEntryAction {
-  myTickets,
-  buyTicket,
-}
+enum TicketsEntryAction { myTickets, buyTicket }
 
 Future<TicketsEntryAction?> showTicketsEntrySheet(BuildContext context) {
-  return showModalBottomSheet<TicketsEntryAction>(
+  return showStarKidsModalBottomSheet<TicketsEntryAction>(
     context: context,
     backgroundColor: StarKidsColors.surfacePrimary,
     shape: const RoundedRectangleBorder(
@@ -67,7 +65,8 @@ class _TicketsEntrySheet extends StatelessWidget {
               icon: Icons.confirmation_num_rounded,
               title: 'Мои билеты',
               subtitle: 'Здесь будут ваши купленные и активные билеты.',
-              onTap: () => Navigator.of(context).pop(TicketsEntryAction.myTickets),
+              onTap: () =>
+                  Navigator.of(context).pop(TicketsEntryAction.myTickets),
             ),
             const SizedBox(height: StarKidsSpacing.md),
             _TicketsEntryActionCard(
@@ -75,7 +74,8 @@ class _TicketsEntrySheet extends StatelessWidget {
               icon: Icons.shopping_bag_rounded,
               title: 'Купить входной билет',
               subtitle: 'Выберите филиал, дату и нужное количество билетов.',
-              onTap: () => Navigator.of(context).pop(TicketsEntryAction.buyTicket),
+              onTap: () =>
+                  Navigator.of(context).pop(TicketsEntryAction.buyTicket),
             ),
           ],
         ),

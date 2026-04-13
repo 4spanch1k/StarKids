@@ -14,6 +14,7 @@ import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_content_block_card.dart';
 import '../../../../core/design_system/widgets/star_kids_faq_card.dart';
 import '../../../../core/design_system/widgets/star_kids_media_image.dart';
+import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_promo_card.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../../birthdays/domain/birthday_package.dart';
@@ -78,13 +79,15 @@ class HomePage extends StatelessWidget {
                     StarKidsSpacing.x2l,
                   ),
                   sliver: SliverList(
-                    delegate: SliverChildListDelegate(
-                      [
-                        InkWell(
-                          borderRadius:
-                              BorderRadius.circular(StarKidsRadii.full),
-                          onTap: () => Navigator.of(context)
-                              .pushNamed(AppRoutes.branchSelection),
+                    delegate: SliverChildListDelegate([
+                      StarKidsReveal(
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(
+                            StarKidsRadii.full,
+                          ),
+                          onTap: () => Navigator.of(
+                            context,
+                          ).pushNamed(AppRoutes.branchSelection),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: StarKidsSpacing.lg,
@@ -121,10 +124,14 @@ class HomePage extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(height: StarKidsSpacing.lg),
-                        ClipRRect(
-                          borderRadius:
-                              BorderRadius.circular(StarKidsRadii.hero),
+                      ),
+                      const SizedBox(height: StarKidsSpacing.lg),
+                      StarKidsReveal(
+                        delay: starKidsStaggerDelay(1),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(
+                            StarKidsRadii.hero,
+                          ),
                           child: Stack(
                             children: [
                               AspectRatio(
@@ -190,8 +197,9 @@ class HomePage extends StatelessWidget {
                                     const SizedBox(height: StarKidsSpacing.lg),
                                     StarKidsButton.primary(
                                       label: 'Организовать день рождения',
-                                      onPressed: () => Navigator.of(context)
-                                          .pushNamed(AppRoutes.birthdays),
+                                      onPressed: () => Navigator.of(
+                                        context,
+                                      ).pushNamed(AppRoutes.birthdays),
                                     ),
                                   ],
                                 ),
@@ -199,97 +207,118 @@ class HomePage extends StatelessWidget {
                             ],
                           ),
                         ),
-                        const SizedBox(height: StarKidsSpacing.x2l),
-                        const StarKidsSectionHeader(
+                      ),
+                      const SizedBox(height: StarKidsSpacing.x2l),
+                      const StarKidsReveal(
+                        delay: Duration(milliseconds: 80),
+                        child: StarKidsSectionHeader(
                           title: 'Быстрые действия',
                           description:
                               'Самые частые сценарии для родителей собраны в один блок.',
                         ),
-                        const SizedBox(height: StarKidsSpacing.lg),
-                        GridView.count(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: StarKidsSpacing.md,
-                          crossAxisSpacing: StarKidsSpacing.md,
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          childAspectRatio: isCompactHomeLayout ? 1.08 : 1.38,
-                          children: [
-                            _QuickActionTile(
-                              icon: Icons.map_rounded,
-                              title: 'Филиал и маршрут',
-                              subtitle: 'Как доехать и что внутри',
-                              onTap: () => Navigator.of(context)
-                                  .pushNamed(AppRoutes.branchDetails),
-                            ),
-                            _QuickActionTile(
-                              icon: Icons.cake_rounded,
-                              title: 'Дни рождения',
-                              subtitle: 'Пакеты и быстрый запрос',
-                              onTap: () => Navigator.of(context)
-                                  .pushNamed(AppRoutes.birthdays),
-                            ),
-                            _QuickActionTile(
-                              icon: Icons.restaurant_menu_rounded,
-                              title: 'Меню',
-                              subtitle: 'Еда и напитки в филиале',
-                              onTap: () => Navigator.of(context)
-                                  .pushNamed(AppRoutes.menu),
-                            ),
-                            _QuickActionTile(
-                              icon: Icons.pin_drop_rounded,
-                              title: 'Контакты и маршрут',
-                              subtitle: 'Звонок, WhatsApp и как доехать',
-                              onTap: () => Navigator.of(context)
-                                  .pushNamed(AppRoutes.contacts),
-                            ),
-                            _QuickActionTile(
-                              icon: Icons.local_offer_rounded,
-                              title: 'Акции',
-                              subtitle:
-                                  'Текущие предложения и поводы вернуться',
-                              onTap: () => Navigator.of(context)
-                                  .pushNamed(AppRoutes.promotions),
-                            ),
-                            _QuickActionTile(
-                              icon: Icons.chat_bubble_rounded,
-                              title: 'Запрос менеджеру',
-                              subtitle: 'Вопрос по филиалу и услугам',
-                              onTap: () => Navigator.of(context).pushNamed(
-                                AppRoutes.requests,
-                                arguments: const RequestPageArgs(
-                                  initialType: RequestType.contact,
-                                ),
+                      ),
+                      const SizedBox(height: StarKidsSpacing.lg),
+                      GridView.count(
+                        crossAxisCount: 2,
+                        mainAxisSpacing: StarKidsSpacing.md,
+                        crossAxisSpacing: StarKidsSpacing.md,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        childAspectRatio: isCompactHomeLayout ? 1.08 : 1.38,
+                        children: [
+                          _QuickActionTile(
+                            icon: Icons.map_rounded,
+                            title: 'Филиал и маршрут',
+                            subtitle: 'Как доехать и что внутри',
+                            revealDelay: starKidsStaggerDelay(0, initialMs: 80),
+                            onTap: () => Navigator.of(
+                              context,
+                            ).pushNamed(AppRoutes.branchDetails),
+                          ),
+                          _QuickActionTile(
+                            icon: Icons.cake_rounded,
+                            title: 'Дни рождения',
+                            subtitle: 'Пакеты и быстрый запрос',
+                            revealDelay: starKidsStaggerDelay(1, initialMs: 80),
+                            onTap: () => Navigator.of(
+                              context,
+                            ).pushNamed(AppRoutes.birthdays),
+                          ),
+                          _QuickActionTile(
+                            icon: Icons.restaurant_menu_rounded,
+                            title: 'Меню',
+                            subtitle: 'Еда и напитки в филиале',
+                            revealDelay: starKidsStaggerDelay(2, initialMs: 80),
+                            onTap: () => Navigator.of(
+                              context,
+                            ).pushNamed(AppRoutes.menu),
+                          ),
+                          _QuickActionTile(
+                            icon: Icons.pin_drop_rounded,
+                            title: 'Контакты и маршрут',
+                            subtitle: 'Звонок, WhatsApp и как доехать',
+                            revealDelay: starKidsStaggerDelay(3, initialMs: 80),
+                            onTap: () => Navigator.of(
+                              context,
+                            ).pushNamed(AppRoutes.contacts),
+                          ),
+                          _QuickActionTile(
+                            icon: Icons.local_offer_rounded,
+                            title: 'Акции',
+                            subtitle: 'Текущие предложения и поводы вернуться',
+                            revealDelay: starKidsStaggerDelay(4, initialMs: 80),
+                            onTap: () => Navigator.of(
+                              context,
+                            ).pushNamed(AppRoutes.promotions),
+                          ),
+                          _QuickActionTile(
+                            icon: Icons.chat_bubble_rounded,
+                            title: 'Запрос менеджеру',
+                            subtitle: 'Вопрос по филиалу и услугам',
+                            revealDelay: starKidsStaggerDelay(5, initialMs: 80),
+                            onTap: () => Navigator.of(context).pushNamed(
+                              AppRoutes.requests,
+                              arguments: const RequestPageArgs(
+                                initialType: RequestType.contact,
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: StarKidsSpacing.x2l),
-                        FutureBuilder<_HomeContentData>(
-                          future: _loadHomeContent(branch.id),
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                    ConnectionState.waiting &&
-                                !snapshot.hasData) {
-                              return const Center(
-                                child: Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    vertical: StarKidsSpacing.x2l,
-                                  ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: StarKidsSpacing.x2l),
+                      FutureBuilder<_HomeContentData>(
+                        future: _loadHomeContent(branch.id),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                                  ConnectionState.waiting &&
+                              !snapshot.hasData) {
+                            return const StarKidsContentSwitcher(
+                              child: Padding(
+                                key: ValueKey('home-content-loading'),
+                                padding: EdgeInsets.symmetric(
+                                  vertical: StarKidsSpacing.x2l,
+                                ),
+                                child: Center(
                                   child: CircularProgressIndicator(),
                                 ),
+                              ),
+                            );
+                          }
+
+                          final content = snapshot.data ??
+                              _HomeContentData(
+                                branch: branch,
+                                promotions: <PromotionOffer>[],
+                                contentBlocks: <PublicContentBlock>[],
+                                faqs: <PublicFaqItem>[],
                               );
-                            }
+                          final homeBranch = content.branch;
 
-                            final content = snapshot.data ??
-                                _HomeContentData(
-                                  branch: branch,
-                                  promotions: <PromotionOffer>[],
-                                  contentBlocks: <PublicContentBlock>[],
-                                  faqs: <PublicFaqItem>[],
-                                );
-                            final homeBranch = content.branch;
-
-                            return Column(
+                          return StarKidsContentSwitcher(
+                            child: Column(
+                              key: ValueKey(
+                                'home-content-${homeBranch.id}-${content.promotions.length}-${content.contentBlocks.length}-${content.faqs.length}',
+                              ),
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 StarKidsSectionHeader(
@@ -297,12 +326,14 @@ class HomePage extends StatelessWidget {
                                   description:
                                       'Готовое коммерческое предложение, которое проще всего открыть с главного экрана.',
                                   actionLabel: 'Все пакеты',
-                                  onActionTap: () => Navigator.of(context)
-                                      .pushNamed(AppRoutes.birthdays),
+                                  onActionTap: () => Navigator.of(
+                                    context,
+                                  ).pushNamed(AppRoutes.birthdays),
                                 ),
                                 const SizedBox(height: StarKidsSpacing.lg),
                                 if (content.featuredPackage != null)
                                   StarKidsBirthdayPackageCard(
+                                    revealDelay: starKidsStaggerDelay(0),
                                     title: content.featuredPackage!.name,
                                     priceLabel:
                                         content.featuredPackage!.priceLabel,
@@ -342,19 +373,28 @@ class HomePage extends StatelessWidget {
                                 ),
                                 const SizedBox(height: StarKidsSpacing.lg),
                                 if (content.promotions.isNotEmpty)
-                                  ...content.promotions.take(2).map(
-                                        (promotion) => Padding(
+                                  ...content.promotions
+                                      .take(2)
+                                      .toList()
+                                      .asMap()
+                                      .entries
+                                      .map(
+                                        (entry) => Padding(
                                           padding: const EdgeInsets.only(
                                             bottom: StarKidsSpacing.md,
                                           ),
                                           child: StarKidsPromoCard(
-                                            title: promotion.title,
-                                            description: promotion.description,
-                                            imagePath: promotion.imagePath,
-                                            badgeLabel: promotion.badgeLabel,
-                                            onTap: () => Navigator.of(context)
-                                                .pushNamed(
-                                                    AppRoutes.promotions),
+                                            revealDelay: starKidsStaggerDelay(
+                                              entry.key,
+                                            ),
+                                            title: entry.value.title,
+                                            description:
+                                                entry.value.description,
+                                            imagePath: entry.value.imagePath,
+                                            badgeLabel: entry.value.badgeLabel,
+                                            onTap: () => Navigator.of(
+                                              context,
+                                            ).pushNamed(AppRoutes.promotions),
                                           ),
                                         ),
                                       )
@@ -372,18 +412,21 @@ class HomePage extends StatelessWidget {
                                         'Контентные блоки из админки помогают обновлять ключевые сообщения без ручной правки приложения.',
                                   ),
                                   const SizedBox(height: StarKidsSpacing.lg),
-                                  ...content.contentBlocks.map(
-                                    (block) => Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: StarKidsSpacing.md,
+                                  ...content.contentBlocks.asMap().entries.map(
+                                        (entry) => Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: StarKidsSpacing.md,
+                                          ),
+                                          child: StarKidsContentBlockCard(
+                                            revealDelay: starKidsStaggerDelay(
+                                              entry.key,
+                                            ),
+                                            title: entry.value.title,
+                                            body: entry.value.body,
+                                            label: entry.value.ctaLabel,
+                                          ),
+                                        ),
                                       ),
-                                      child: StarKidsContentBlockCard(
-                                        title: block.title,
-                                        body: block.body,
-                                        label: block.ctaLabel,
-                                      ),
-                                    ),
-                                  ),
                                 ] else ...[
                                   const StarKidsSectionHeader(
                                     title: 'Почему сюда удобно возвращаться',
@@ -490,24 +533,32 @@ class HomePage extends StatelessWidget {
                                         'Ответы из live-контента помогают снять базовые вопросы до заявки или звонка.',
                                   ),
                                   const SizedBox(height: StarKidsSpacing.lg),
-                                  ...content.faqs.take(3).map(
-                                        (faq) => Padding(
+                                  ...content.faqs
+                                      .take(3)
+                                      .toList()
+                                      .asMap()
+                                      .entries
+                                      .map(
+                                        (entry) => Padding(
                                           padding: const EdgeInsets.only(
                                             bottom: StarKidsSpacing.md,
                                           ),
                                           child: StarKidsFaqCard(
-                                            question: faq.question,
-                                            answer: faq.answer,
+                                            revealDelay: starKidsStaggerDelay(
+                                              entry.key,
+                                            ),
+                                            question: entry.value.question,
+                                            answer: entry.value.answer,
                                           ),
                                         ),
                                       ),
                                 ],
                               ],
-                            );
-                          },
-                        ),
-                      ],
-                    ),
+                            ),
+                          );
+                        },
+                      ),
+                    ]),
                   ),
                 ),
               ],
@@ -592,57 +643,62 @@ class _QuickActionTile extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
+    this.revealDelay = Duration.zero,
     required this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
+  final Duration revealDelay;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-    return Card(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
-        child: Padding(
-          padding: const EdgeInsets.all(StarKidsSpacing.lg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: StarKidsColors.surfaceTertiary,
-                  borderRadius: BorderRadius.circular(14),
+    return StarKidsReveal(
+      delay: revealDelay,
+      child: Card(
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+          child: Padding(
+            padding: const EdgeInsets.all(StarKidsSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: StarKidsColors.surfaceTertiary,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: StarKidsColors.brandPrimary,
+                    size: StarKidsIconSizes.md,
+                  ),
                 ),
-                child: Icon(
-                  icon,
-                  color: StarKidsColors.brandPrimary,
-                  size: StarKidsIconSizes.md,
+                const Spacer(),
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.titleMedium,
                 ),
-              ),
-              const Spacer(),
-              Text(
-                title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: textTheme.titleMedium,
-              ),
-              const SizedBox(height: StarKidsSpacing.xs),
-              Text(
-                subtitle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: textTheme.bodySmall?.copyWith(
-                  color: StarKidsColors.textSecondary,
+                const SizedBox(height: StarKidsSpacing.xs),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.bodySmall?.copyWith(
+                    color: StarKidsColors.textSecondary,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -651,10 +707,7 @@ class _QuickActionTile extends StatelessWidget {
 }
 
 class _TrustStat extends StatelessWidget {
-  const _TrustStat({
-    required this.title,
-    required this.subtitle,
-  });
+  const _TrustStat({required this.title, required this.subtitle});
 
   final String title;
   final String subtitle;
@@ -682,10 +735,7 @@ class _TrustStat extends StatelessWidget {
 }
 
 class _HomeStateCard extends StatelessWidget {
-  const _HomeStateCard({
-    required this.title,
-    required this.description,
-  });
+  const _HomeStateCard({required this.title, required this.description});
 
   final String title;
   final String description;

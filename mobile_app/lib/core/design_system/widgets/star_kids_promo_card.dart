@@ -5,6 +5,7 @@ import '../foundations/star_kids_radii.dart';
 import '../foundations/star_kids_spacing.dart';
 import 'star_kids_media_image.dart';
 import 'star_kids_button.dart';
+import 'star_kids_motion.dart';
 
 class StarKidsPromoCard extends StatelessWidget {
   const StarKidsPromoCard({
@@ -15,6 +16,7 @@ class StarKidsPromoCard extends StatelessWidget {
     required this.badgeLabel,
     this.onTap,
     this.actionLabel = 'Посмотреть',
+    this.revealDelay = Duration.zero,
   });
 
   final String title;
@@ -23,54 +25,55 @@ class StarKidsPromoCard extends StatelessWidget {
   final String badgeLabel;
   final VoidCallback? onTap;
   final String actionLabel;
+  final Duration revealDelay;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AspectRatio(
-            aspectRatio: 19 / 10,
-            child: StarKidsMediaImage(source: imagePath),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(StarKidsSpacing.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: StarKidsSpacing.md,
-                    vertical: StarKidsSpacing.sm,
-                  ),
-                  decoration: BoxDecoration(
-                    color: StarKidsColors.brandHighlight,
-                    borderRadius: BorderRadius.circular(StarKidsRadii.full),
-                  ),
-                  child: Text(
-                    badgeLabel,
-                    style: textTheme.labelMedium?.copyWith(
-                      color: StarKidsColors.textPrimary,
+    return StarKidsReveal(
+      delay: revealDelay,
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AspectRatio(
+              aspectRatio: 19 / 10,
+              child: StarKidsMediaImage(source: imagePath),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(StarKidsSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: StarKidsSpacing.md,
+                      vertical: StarKidsSpacing.sm,
+                    ),
+                    decoration: BoxDecoration(
+                      color: StarKidsColors.brandHighlight,
+                      borderRadius: BorderRadius.circular(StarKidsRadii.full),
+                    ),
+                    child: Text(
+                      badgeLabel,
+                      style: textTheme.labelMedium?.copyWith(
+                        color: StarKidsColors.textPrimary,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: StarKidsSpacing.md),
-                Text(title, style: textTheme.titleLarge),
-                const SizedBox(height: StarKidsSpacing.sm),
-                Text(description, style: textTheme.bodyMedium),
-                const SizedBox(height: StarKidsSpacing.lg),
-                StarKidsButton.primary(
-                  label: actionLabel,
-                  onPressed: onTap,
-                ),
-              ],
+                  const SizedBox(height: StarKidsSpacing.md),
+                  Text(title, style: textTheme.titleLarge),
+                  const SizedBox(height: StarKidsSpacing.sm),
+                  Text(description, style: textTheme.bodyMedium),
+                  const SizedBox(height: StarKidsSpacing.lg),
+                  StarKidsButton.primary(label: actionLabel, onPressed: onTap),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

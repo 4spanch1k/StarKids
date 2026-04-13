@@ -7,15 +7,12 @@ import '../../../../core/design_system/foundations/star_kids_radii.dart';
 import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
+import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../domain/request_history_item.dart';
 import '../controllers/request_history_controller.dart';
 
 class RequestHistoryPage extends StatefulWidget {
-  const RequestHistoryPage({
-    super.key,
-    this.controller,
-    this.onOpenProfile,
-  });
+  const RequestHistoryPage({super.key, this.controller, this.onOpenProfile});
 
   final RequestHistoryController? controller;
   final VoidCallback? onOpenProfile;
@@ -32,7 +29,8 @@ class _RequestHistoryPageState extends State<RequestHistoryPage> {
   void initState() {
     super.initState();
     _ownsController = widget.controller == null;
-    _controller = widget.controller ??
+    _controller =
+        widget.controller ??
         RequestHistoryController(
           repository: ServiceRegistry.requestHistoryRepository,
         );
@@ -89,7 +87,7 @@ class _RequestHistoryPageState extends State<RequestHistoryPage> {
           body: SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(StarKidsSpacing.xl),
-              child: _buildBody(context),
+              child: StarKidsContentSwitcher(child: _buildBody(context)),
             ),
           ),
         );
@@ -102,6 +100,7 @@ class _RequestHistoryPageState extends State<RequestHistoryPage> {
       case RequestHistoryViewStatus.idle:
       case RequestHistoryViewStatus.loading:
         return const _HistoryStateView(
+          key: ValueKey('request-history-loading'),
           icon: Icons.history_rounded,
           title: 'Загружаем заявки',
           description:
@@ -110,15 +109,16 @@ class _RequestHistoryPageState extends State<RequestHistoryPage> {
         );
       case RequestHistoryViewStatus.unauthenticated:
         return _HistoryStateView(
+          key: const ValueKey('request-history-unauthenticated'),
           icon: Icons.lock_outline_rounded,
           title: 'История доступна после входа',
-          description:
-              'Войдите по номеру телефона в профиле, чтобы увидеть только свои заявки.',
-          buttonLabel: 'Войти по номеру',
+          description: 'Войдите по email, чтобы увидеть только свои заявки.',
+          buttonLabel: 'Перейти ко входу',
           onPressed: _openProfile,
         );
       case RequestHistoryViewStatus.empty:
         return _HistoryStateView(
+          key: const ValueKey('request-history-empty'),
           icon: Icons.inbox_outlined,
           title: 'Пока нет заявок',
           description:
@@ -128,15 +128,18 @@ class _RequestHistoryPageState extends State<RequestHistoryPage> {
         );
       case RequestHistoryViewStatus.error:
         return _HistoryStateView(
+          key: const ValueKey('request-history-error'),
           icon: Icons.cloud_off_rounded,
           title: 'Не удалось загрузить историю',
-          description: _controller.errorMessage ??
+          description:
+              _controller.errorMessage ??
               'Проверьте интернет и попробуйте снова.',
           buttonLabel: 'Повторить',
           onPressed: _reload,
         );
       case RequestHistoryViewStatus.loaded:
         return ListView.separated(
+          key: ValueKey('request-history-loaded-${_controller.items.length}'),
           itemCount: _controller.items.length + 1,
           separatorBuilder: (_, __) =>
               const SizedBox(height: StarKidsSpacing.md),
@@ -146,7 +149,10 @@ class _RequestHistoryPageState extends State<RequestHistoryPage> {
             }
 
             final item = _controller.items[index - 1];
-            return _RequestHistoryCard(item: item);
+            return StarKidsReveal(
+              delay: starKidsStaggerDelay(index - 1),
+              child: _RequestHistoryCard(item: item),
+            );
           },
         );
     }
@@ -154,9 +160,7 @@ class _RequestHistoryPageState extends State<RequestHistoryPage> {
 }
 
 class _HistoryHeader extends StatelessWidget {
-  const _HistoryHeader({
-    required this.total,
-  });
+  const _HistoryHeader({required this.total});
 
   final int total;
 
@@ -178,9 +182,7 @@ class _HistoryHeader extends StatelessWidget {
 }
 
 class _RequestHistoryCard extends StatelessWidget {
-  const _RequestHistoryCard({
-    required this.item,
-  });
+  const _RequestHistoryCard({required this.item});
 
   final RequestHistoryItem item;
 
@@ -251,30 +253,15 @@ class _RequestHistoryCard extends StatelessWidget {
     }
 
     if (item.guestCount != null) {
-      rows.add(
-        _HistoryFactRow(
-          label: 'Гостей',
-          value: '${item.guestCount}',
-        ),
-      );
+      rows.add(_HistoryFactRow(label: 'Гостей', value: '${item.guestCount}'));
     }
 
     if (item.branch != null) {
-      rows.add(
-        _HistoryFactRow(
-          label: 'Филиал',
-          value: item.branch!.name,
-        ),
-      );
+      rows.add(_HistoryFactRow(label: 'Филиал', value: item.branch!.name));
     }
 
     if (item.package != null) {
-      rows.add(
-        _HistoryFactRow(
-          label: 'Пакет',
-          value: item.package!.name,
-        ),
-      );
+      rows.add(_HistoryFactRow(label: 'Пакет', value: item.package!.name));
     }
 
     if (rows.isEmpty) {
@@ -300,10 +287,7 @@ class _RequestHistoryCard extends StatelessWidget {
 }
 
 class _HistoryFactRow extends StatelessWidget {
-  const _HistoryFactRow({
-    required this.label,
-    required this.value,
-  });
+  const _HistoryFactRow({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -336,9 +320,7 @@ class _HistoryFactRow extends StatelessWidget {
 }
 
 class _HistoryStatusChip extends StatelessWidget {
-  const _HistoryStatusChip({
-    required this.label,
-  });
+  const _HistoryStatusChip({required this.label});
 
   final String label;
 
@@ -355,9 +337,9 @@ class _HistoryStatusChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: StarKidsColors.textPrimary,
-            ),
+        style: Theme.of(
+          context,
+        ).textTheme.labelMedium?.copyWith(color: StarKidsColors.textPrimary),
       ),
     );
   }
@@ -365,6 +347,7 @@ class _HistoryStatusChip extends StatelessWidget {
 
 class _HistoryStateView extends StatelessWidget {
   const _HistoryStateView({
+    super.key,
     required this.icon,
     required this.title,
     required this.description,
@@ -404,14 +387,13 @@ class _HistoryStateView extends StatelessWidget {
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
             else
-              Icon(
-                icon,
-                size: 36,
-                color: StarKidsColors.brandPrimary,
-              ),
+              Icon(icon, size: 36, color: StarKidsColors.brandPrimary),
             const SizedBox(height: StarKidsSpacing.lg),
-            Text(title,
-                style: textTheme.titleLarge, textAlign: TextAlign.center),
+            Text(
+              title,
+              style: textTheme.titleLarge,
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: StarKidsSpacing.sm),
             Text(
               description,

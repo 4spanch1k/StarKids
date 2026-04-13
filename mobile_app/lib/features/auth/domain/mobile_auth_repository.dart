@@ -4,6 +4,16 @@ import 'mobile_auth_session.dart';
 import 'otp_challenge.dart';
 
 abstract interface class MobileAuthRepository {
+  Future<Result<MobileAuthSession>> registerWithEmail({
+    required String email,
+    required String password,
+  });
+
+  Future<Result<MobileAuthSession>> loginWithEmail({
+    required String email,
+    required String password,
+  });
+
   Future<Result<OtpChallenge>> requestOtp(String phone);
 
   Future<Result<MobileAuthSession>> verifyOtp({

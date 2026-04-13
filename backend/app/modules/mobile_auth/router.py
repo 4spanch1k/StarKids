@@ -9,6 +9,7 @@ from .dependencies import (
 from .schemas import (
     MobileAuthResponse,
     MobileCurrentUserResponse,
+    MobileEmailAuthRequest,
     MobileRefreshRequest,
     OTPRequest,
     OTPRequestResponse,
@@ -18,6 +19,40 @@ from .service import MobileAuthService
 
 router = APIRouter()
 me_router = APIRouter()
+
+
+@router.post(
+    '/register',
+    response_model=MobileAuthResponse,
+    response_model_exclude_none=True,
+    responses={
+        409: {'model': ErrorResponse},
+        422: {'model': ErrorResponse},
+        503: {'model': ErrorResponse},
+    },
+)
+def register(
+    payload: MobileEmailAuthRequest,
+    service: MobileAuthService = Depends(get_mobile_auth_service),
+) -> MobileAuthResponse:
+    return service.register_with_email(payload)
+
+
+@router.post(
+    '/login',
+    response_model=MobileAuthResponse,
+    response_model_exclude_none=True,
+    responses={
+        401: {'model': ErrorResponse},
+        422: {'model': ErrorResponse},
+        503: {'model': ErrorResponse},
+    },
+)
+def login(
+    payload: MobileEmailAuthRequest,
+    service: MobileAuthService = Depends(get_mobile_auth_service),
+) -> MobileAuthResponse:
+    return service.login_with_email(payload)
 
 
 @router.post(
@@ -35,6 +70,7 @@ def request_otp(
 @router.post(
     '/verify-otp',
     response_model=MobileAuthResponse,
+    response_model_exclude_none=True,
     responses={
         401: {'model': ErrorResponse},
         422: {'model': ErrorResponse},
@@ -51,6 +87,7 @@ def verify_otp(
 @router.post(
     '/refresh',
     response_model=MobileAuthResponse,
+    response_model_exclude_none=True,
     responses={401: {'model': ErrorResponse}, 503: {'model': ErrorResponse}},
 )
 def refresh(
@@ -63,11 +100,19 @@ def refresh(
 @router.get(
     '/current-user',
     response_model=MobileCurrentUserResponse,
+    response_model_exclude_none=True,
+    responses={401: {'model': ErrorResponse}, 503: {'model': ErrorResponse}},
+)
+@router.get(
+    '/me',
+    response_model=MobileCurrentUserResponse,
+    response_model_exclude_none=True,
     responses={401: {'model': ErrorResponse}, 503: {'model': ErrorResponse}},
 )
 @me_router.get(
     '/me',
     response_model=MobileCurrentUserResponse,
+    response_model_exclude_none=True,
     responses={401: {'model': ErrorResponse}, 503: {'model': ErrorResponse}},
 )
 def current_user(
