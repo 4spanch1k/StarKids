@@ -28,7 +28,7 @@ class ApiMobileAuthRepository implements MobileAuthRepository {
       email: email,
       password: password,
       duplicateEmailMessage:
-          'Этот email уже зарегистрирован. Войдите в аккаунт.',
+          'Эта электронная почта уже зарегистрирована. Войдите в аккаунт.',
       fallbackMessage:
           'Не удалось зарегистрироваться. Проверьте интернет и попробуйте снова.',
     );
@@ -43,7 +43,7 @@ class ApiMobileAuthRepository implements MobileAuthRepository {
       path: '/auth/login',
       email: email,
       password: password,
-      invalidCredentialsMessage: 'Проверьте email и пароль.',
+      invalidCredentialsMessage: 'Проверьте почту и пароль.',
       fallbackMessage:
           'Не удалось войти. Проверьте интернет и попробуйте снова.',
     );
@@ -335,7 +335,7 @@ class ApiMobileAuthRepository implements MobileAuthRepository {
 
       if (response.statusCode == 422) {
         return const Failure<MobileAuthSession>(
-          'Проверьте email и пароль.',
+          'Проверьте почту и пароль.',
         );
       }
 
