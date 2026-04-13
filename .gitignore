@@ -11,6 +11,11 @@
 .env.local
 .env.*.local
 !.env.example
+env/*.env
+env/*.local
+env/*.secret
+!env/*.example
+!env/README.md
 .tmp_starkids_*
 
 # Python
