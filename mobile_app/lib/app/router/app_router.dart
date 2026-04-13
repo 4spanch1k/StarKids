@@ -16,6 +16,9 @@ import '../../features/requests/presentation/pages/request_page.dart';
 import 'app_routes.dart';
 
 abstract final class AppRouter {
+  static const _routeTransitionDuration = Duration(milliseconds: 260);
+  static const _routeReverseTransitionDuration = Duration(milliseconds: 180);
+
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
       case AppRoutes.onboarding:
@@ -50,13 +53,33 @@ abstract final class AppRouter {
     }
   }
 
-  static MaterialPageRoute<dynamic> _page(
+  static Route<dynamic> _page(
     Widget page,
     RouteSettings settings,
   ) {
-    return MaterialPageRoute<dynamic>(
-      builder: (_) => page,
+    return PageRouteBuilder<dynamic>(
       settings: settings,
+      transitionDuration: _routeTransitionDuration,
+      reverseTransitionDuration: _routeReverseTransitionDuration,
+      pageBuilder: (_, __, ___) => page,
+      transitionsBuilder: (_, animation, __, child) {
+        final curvedAnimation = CurvedAnimation(
+          parent: animation,
+          reverseCurve: Curves.easeInCubic,
+          curve: Curves.easeOutCubic,
+        );
+
+        return FadeTransition(
+          opacity: curvedAnimation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 0.035),
+              end: Offset.zero,
+            ).animate(curvedAnimation),
+            child: child,
+          ),
+        );
+      },
     );
   }
 }
