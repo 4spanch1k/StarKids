@@ -1,8 +1,8 @@
 <template>
   <AdminCrudWorkspace
-    eyebrow="Коммерческие условия"
-    title="Тарифы и правила"
-    description="Цены посещения и правила по филиалам."
+    eyebrow="Управляемый контент"
+    title="Меню"
+    description="Категории и блюда по филиалам."
     :show-detail="showInlineDetail"
     :route-panel-open="isRoutePanelOpen"
     :route-panel-title="routePanelTitle"
@@ -15,7 +15,7 @@
       <button
         type="button"
         class="admin-button admin-button--secondary"
-        @click="pricesRulesManager.initialize"
+        @click="menuManager.initialize"
       >
         Обновить филиалы
       </button>
@@ -36,22 +36,22 @@
       </AdminCompactFilters>
 
       <StatePanel
-        v-if="pricesRulesManager.isBranchesLoading"
+        v-if="menuManager.isBranchesLoading"
         title="Загружаем филиалы"
-        description="Подготавливаем список филиалов для настройки тарифов."
+        description="Подготавливаем список филиалов для настройки меню."
       />
 
       <StatePanel
-        v-else-if="pricesRulesManager.branchesErrorMessage"
+        v-else-if="menuManager.branchesErrorMessage"
         title="Не удалось загрузить филиалы"
-        :description="pricesRulesManager.branchesErrorMessage"
+        :description="menuManager.branchesErrorMessage"
         tone="error"
       >
         <template #actions>
           <button
             type="button"
             class="admin-button admin-button--secondary"
-            @click="pricesRulesManager.initialize"
+            @click="menuManager.initialize"
           >
             Повторить
           </button>
@@ -70,9 +70,7 @@
           :key="branch.id"
           type="button"
           class="admin-list-record"
-          :class="{
-            'admin-list-record--active': branch.id === pricesRulesManager.selectedBranchId,
-          }"
+          :class="{ 'admin-list-record--active': branch.id === menuManager.selectedBranchId }"
           @click="void routeState.goToDetail(branch.id)"
         >
           <span class="admin-list-record__accent" aria-hidden="true"></span>
@@ -91,21 +89,21 @@
 
     <template #detail>
       <StatePanel
-        v-if="pricesRulesManager.isContentLoading"
-        title="Открываем тарифы и правила"
-        description="Подтягиваем текущий профиль выбранного филиала."
+        v-if="menuManager.isContentLoading"
+        title="Открываем меню"
+        description="Подтягиваем категории и позиции выбранного филиала."
       />
 
       <StatePanel
-        v-else-if="pricesRulesManager.contentErrorMessage && routeMode === 'detail'"
-        title="Не удалось открыть тарифы и правила"
-        :description="pricesRulesManager.contentErrorMessage"
+        v-else-if="menuManager.contentErrorMessage && routeMode === 'detail'"
+        title="Не удалось открыть меню"
+        :description="menuManager.contentErrorMessage"
         tone="error"
       />
 
       <template v-else-if="selectedBranch">
         <template v-if="routeMode === 'detail'">
-          <div class="tariffs-detail-view">
+          <div class="menu-detail-view">
             <header class="admin-detail-header">
               <div class="admin-detail-header__copy">
                 <p class="admin-detail-header__eyebrow">Код: {{ selectedBranch.id }}</p>
@@ -121,7 +119,7 @@
                 </p>
               </div>
 
-              <div class="tariffs-detail-view__actions">
+              <div class="menu-detail-view__actions">
                 <button
                   type="button"
                   class="admin-button admin-button--primary"
@@ -132,42 +130,38 @@
               </div>
             </header>
 
-            <StatePanel
-              v-if="!pricesRulesManager.hasExistingProfile"
-              title="Профиль цен еще не создан"
-              description="Заполните поля ниже и сохраните. Первый профиль для этого филиала будет создан автоматически."
+            <AdminSummaryList
+              title="Сводка меню"
+              :items="menuSummaryItems"
             />
 
             <AdminSummaryList
-              title="Верхний блок"
-              :items="tariffsHeaderItems"
-            />
-
-            <AdminSummaryList
-              title="Тарифы посещения"
-              :items="tariffsCountItems"
+              title="Категории"
+              :items="categorySummaryItems"
             >
-              <ul class="tariffs-detail-view__list">
+              <ul class="menu-detail-view__list">
                 <li
-                  v-for="(tariff, index) in pricesRulesManager.form.visitTariffs"
-                  :key="`detail-tariff-${index}`"
+                  v-for="category in sortedCategories"
+                  :key="`detail-category-${category.key}`"
                 >
-                  <strong>{{ tariff.title || `Тариф ${index + 1}` }}</strong>
-                  <span> · {{ tariff.priceLabel || 'Без подписи цены' }}</span>
+                  <strong>{{ category.title || 'Без названия' }}</strong>
+                  <span> · порядок {{ category.displayOrder }}</span>
                 </li>
               </ul>
             </AdminSummaryList>
 
             <AdminSummaryList
-              title="Правила посещения"
-              :items="rulesCountItems"
+              title="Позиции меню"
+              :items="itemSummaryItems"
             >
-              <ul class="tariffs-detail-view__list">
+              <ul class="menu-detail-view__list">
                 <li
-                  v-for="(rule, index) in pricesRulesManager.form.rules"
-                  :key="`detail-rule-${index}`"
+                  v-for="(item, index) in sortedItems"
+                  :key="`detail-item-${item.id || index}`"
                 >
-                  {{ rule.text || `Правило ${index + 1}` }}
+                  <strong>{{ item.title || `Позиция ${index + 1}` }}</strong>
+                  <span> · {{ resolveCategoryTitle(item.categoryKey) }}</span>
+                  <span> · {{ formatPrice(item.priceTenge) }}</span>
                 </li>
               </ul>
             </AdminSummaryList>
@@ -180,61 +174,27 @@
           @submit.prevent="handleSave"
         >
           <div class="admin-section-heading">
-            <h2>Редактировать тарифы и правила</h2>
-          </div>
-
-          <div class="admin-form-grid--two">
-            <label class="admin-field admin-field--full">
-              <span class="admin-field__label">Заголовок</span>
-              <input
-                v-model="pricesRulesManager.form.introTitle"
-                class="admin-control"
-              />
-            </label>
-
-            <label class="admin-field admin-field--full">
-              <span class="admin-field__label">Описание</span>
-              <textarea
-                v-model="pricesRulesManager.form.introDescription"
-                class="admin-control admin-control--textarea"
-              ></textarea>
-            </label>
-
-            <label class="admin-field admin-field--full">
-              <span class="admin-field__label">Блок про день рождения</span>
-              <textarea
-                v-model="pricesRulesManager.form.birthdayNote"
-                class="admin-control admin-control--textarea"
-              ></textarea>
-            </label>
-
-            <label class="admin-field admin-field--full">
-              <span class="admin-field__label">Дисклеймер</span>
-              <textarea
-                v-model="pricesRulesManager.form.disclaimer"
-                class="admin-control admin-control--textarea"
-              ></textarea>
-            </label>
+            <h2>Редактировать меню</h2>
           </div>
 
           <section class="admin-panel admin-panel--stack admin-panel--muted">
             <div class="admin-section-heading">
-              <h3>Тарифы посещения</h3>
-              <p>Каждая карточка — отдельный тариф для экрана цен в мобильном приложении.</p>
+              <h3>Категории</h3>
+              <p>Категории управляют структурой меню и порядком блоков в мобильном приложении.</p>
             </div>
 
             <div class="admin-repeater">
               <article
-                v-for="(tariff, index) in pricesRulesManager.form.visitTariffs"
-                :key="`tariff-${index}`"
+                v-for="(category, index) in menuManager.form.categories"
+                :key="category.key"
                 class="admin-repeater__item"
               >
                 <div class="admin-repeater__header">
-                  <strong>Тариф {{ index + 1 }}</strong>
+                  <strong>{{ category.title || `Категория ${index + 1}` }}</strong>
                   <button
                     type="button"
                     class="admin-button admin-button--ghost"
-                    @click="pricesRulesManager.removeTariff(index)"
+                    @click="menuManager.removeCategory(index)"
                   >
                     Удалить
                   </button>
@@ -242,27 +202,17 @@
 
                 <div class="admin-repeater__grid">
                   <label class="admin-field">
-                    <span class="admin-field__label">Название</span>
-                    <input v-model="tariff.title" class="admin-control" />
-                  </label>
-
-                  <label class="admin-field">
-                    <span class="admin-field__label">Подпись цены</span>
-                    <input v-model="tariff.priceLabel" class="admin-control" />
-                  </label>
-
-                  <label class="admin-field admin-field--full">
-                    <span class="admin-field__label">Описание</span>
-                    <textarea
-                      v-model="tariff.description"
-                      class="admin-control admin-control--textarea"
-                    ></textarea>
+                    <span class="admin-field__label">Название категории</span>
+                    <input
+                      v-model="category.title"
+                      class="admin-control"
+                    />
                   </label>
 
                   <label class="admin-field">
                     <span class="admin-field__label">Порядок</span>
                     <input
-                      v-model.number="tariff.displayOrder"
+                      v-model.number="category.displayOrder"
                       min="0"
                       type="number"
                       class="admin-control"
@@ -271,9 +221,9 @@
                 </div>
 
                 <AdminSwitchField
-                  v-model="tariff.isActive"
-                  label="Тариф активен"
-                  hint="Неактивный тариф не будет показан в приложении."
+                  v-model="category.isActive"
+                  label="Категория активна"
+                  hint="Неактивная категория не будет показана в мобильном приложении."
                 />
               </article>
             </div>
@@ -281,59 +231,104 @@
             <button
               type="button"
               class="admin-button admin-button--secondary"
-              @click="pricesRulesManager.addTariff"
+              @click="menuManager.addCategory"
             >
-              Добавить тариф
+              Добавить категорию
             </button>
           </section>
 
           <section class="admin-panel admin-panel--stack admin-panel--muted">
             <div class="admin-section-heading">
-              <h3>Правила посещения</h3>
-              <p>Управляйте отдельными правилами без правок в коде приложения.</p>
+              <h3>Позиции меню</h3>
+              <p>Для каждого блюда хранится отдельная картинка, цена, категория и порядок.</p>
             </div>
 
             <div class="admin-repeater">
               <article
-                v-for="(rule, index) in pricesRulesManager.form.rules"
-                :key="`rule-${index}`"
+                v-for="(item, index) in menuManager.form.items"
+                :key="item.id || `item-${index}`"
                 class="admin-repeater__item"
               >
                 <div class="admin-repeater__header">
-                  <strong>Правило {{ index + 1 }}</strong>
+                  <strong>{{ item.title || `Позиция ${index + 1}` }}</strong>
                   <button
                     type="button"
                     class="admin-button admin-button--ghost"
-                    @click="pricesRulesManager.removeRule(index)"
+                    @click="menuManager.removeItem(index)"
                   >
                     Удалить
                   </button>
                 </div>
 
                 <div class="admin-repeater__grid">
-                  <label class="admin-field admin-field--full">
-                    <span class="admin-field__label">Текст правила</span>
-                    <textarea
-                      v-model="rule.text"
-                      class="admin-control admin-control--textarea"
-                    ></textarea>
+                  <label class="admin-field">
+                    <span class="admin-field__label">Название блюда</span>
+                    <input
+                      v-model="item.title"
+                      class="admin-control"
+                    />
                   </label>
 
                   <label class="admin-field">
-                    <span class="admin-field__label">Порядок</span>
+                    <span class="admin-field__label">Цена, тг</span>
                     <input
-                      v-model.number="rule.displayOrder"
+                      v-model.number="item.priceTenge"
                       min="0"
                       type="number"
                       class="admin-control"
                     />
                   </label>
+
+                  <label class="admin-field">
+                    <span class="admin-field__label">Категория</span>
+                    <select
+                      v-model="item.categoryKey"
+                      class="admin-control"
+                    >
+                      <option
+                        v-for="category in sortedCategories"
+                        :key="`option-${category.key}`"
+                        :value="category.key"
+                      >
+                        {{ category.title || 'Без названия' }}
+                      </option>
+                    </select>
+                  </label>
+
+                  <label class="admin-field">
+                    <span class="admin-field__label">Порядок</span>
+                    <input
+                      v-model.number="item.displayOrder"
+                      min="0"
+                      type="number"
+                      class="admin-control"
+                    />
+                  </label>
+
+                  <label class="admin-field admin-field--full">
+                    <span class="admin-field__label">Ссылка на картинку</span>
+                    <input
+                      v-model="item.imageUrl"
+                      class="admin-control"
+                      placeholder="https://..."
+                    />
+                  </label>
+                </div>
+
+                <div
+                  v-if="item.imageUrl"
+                  class="menu-editor__preview"
+                >
+                  <img
+                    :src="item.imageUrl"
+                    :alt="item.title || 'Фото блюда'"
+                  >
                 </div>
 
                 <AdminSwitchField
-                  v-model="rule.isActive"
-                  label="Правило активно"
-                  hint="Неактивное правило остается в админке, но не показывается клиенту."
+                  v-model="item.isActive"
+                  label="Позиция активна"
+                  hint="Скрытая позиция останется в админке, но пропадет из мобильного приложения."
                 />
               </article>
             </div>
@@ -341,32 +336,32 @@
             <button
               type="button"
               class="admin-button admin-button--secondary"
-              @click="pricesRulesManager.addRule"
+              @click="menuManager.addItem"
             >
-              Добавить правило
+              Добавить блюдо
             </button>
           </section>
 
           <p
-            v-if="pricesRulesManager.successMessage"
+            v-if="menuManager.successMessage"
             class="admin-inline-message admin-inline-message--success"
           >
-            {{ pricesRulesManager.successMessage }}
+            {{ menuManager.successMessage }}
           </p>
           <p
-            v-if="pricesRulesManager.contentErrorMessage"
+            v-if="menuManager.contentErrorMessage"
             class="admin-inline-message admin-inline-message--error"
           >
-            {{ pricesRulesManager.contentErrorMessage }}
+            {{ menuManager.contentErrorMessage }}
           </p>
 
           <AdminStickyActions>
             <button
               type="submit"
               class="admin-button admin-button--primary"
-              :disabled="pricesRulesManager.isSaving"
+              :disabled="menuManager.isSaving"
             >
-              {{ pricesRulesManager.isSaving ? 'Сохраняем…' : 'Сохранить тарифы и правила' }}
+              {{ menuManager.isSaving ? 'Сохраняем…' : 'Сохранить меню' }}
             </button>
             <button
               type="button"
@@ -382,7 +377,7 @@
       <StatePanel
         v-else
         title="Выберите филиал"
-        description="Откройте филиал, чтобы посмотреть или изменить тарифы и правила."
+        description="Откройте филиал, чтобы посмотреть или изменить меню."
       />
     </template>
   </AdminCrudWorkspace>
@@ -392,7 +387,11 @@
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 
 import { adminCrudRouteNames } from '@/app/router/adminCrudRoutes';
-import { useBranchPricesRulesManager } from '@/features/branches/model/useBranchPricesRulesManager';
+import { useBranchMenuManager } from '@/features/branches/model/useBranchMenuManager';
+import type {
+  AdminBranchMenuCategory,
+  AdminBranchMenuItem,
+} from '@/features/branches/model/adminBranch';
 import { resolveActiveStatus } from '@/shared/lib/adminStatus';
 import { useAdminCrudRouteState } from '@/shared/composables/useAdminCrudRouteState';
 import { useFormSnapshotDirty } from '@/shared/composables/useFormSnapshotDirty';
@@ -406,24 +405,20 @@ import AdminSwitchField from '@/shared/ui/AdminSwitchField.vue';
 import StatePanel from '@/shared/ui/StatePanel.vue';
 import StatusBadge from '@/shared/ui/StatusBadge.vue';
 
-const pricesRulesManager = reactive(useBranchPricesRulesManager());
+const menuManager = reactive(useBranchMenuManager());
 const routeState = useAdminCrudRouteState({
-  listRouteName: adminCrudRouteNames.tariffs.list,
-  detailRouteName: adminCrudRouteNames.tariffs.detail,
-  editRouteName: adminCrudRouteNames.tariffs.edit,
-  idParam: adminCrudRouteNames.tariffs.idParam,
+  listRouteName: adminCrudRouteNames.menu.list,
+  detailRouteName: adminCrudRouteNames.menu.detail,
+  editRouteName: adminCrudRouteNames.menu.edit,
+  idParam: adminCrudRouteNames.menu.idParam,
 });
 
 const searchQuery = ref('');
 
 const editDirty = useFormSnapshotDirty(() => {
   return {
-    introTitle: pricesRulesManager.form.introTitle,
-    introDescription: pricesRulesManager.form.introDescription,
-    birthdayNote: pricesRulesManager.form.birthdayNote,
-    disclaimer: pricesRulesManager.form.disclaimer,
-    visitTariffs: pricesRulesManager.form.visitTariffs.map((tariff) => ({ ...tariff })),
-    rules: pricesRulesManager.form.rules.map((rule) => ({ ...rule })),
+    categories: menuManager.form.categories.map((category) => ({ ...category })),
+    items: menuManager.form.items.map((item) => ({ ...item })),
   };
 });
 
@@ -443,14 +438,14 @@ const isRoutePanelOpen = computed(() => {
 
 const routePanelTitle = computed(() => {
   if (routeMode.value === 'edit') {
-    return selectedBranch.value?.name || 'Редактировать тарифы и правила';
+    return selectedBranch.value?.name || 'Редактировать меню';
   }
 
   return selectedBranch.value?.name || 'Карточка филиала';
 });
 
 const routePanelEyebrow = computed(() => {
-  return routeMode.value === 'detail' ? 'Карточка тарифов' : 'Редактирование';
+  return routeMode.value === 'detail' ? 'Карточка меню' : 'Редактирование';
 });
 
 const routePanelVariant = computed<'detail' | 'form'>(() => {
@@ -464,10 +459,10 @@ const routePanelCloseLabel = computed(() => {
 const filteredBranches = computed(() => {
   const query = searchQuery.value.trim().toLowerCase();
   if (!query) {
-    return pricesRulesManager.branchOptions;
+    return menuManager.branchOptions;
   }
 
-  return pricesRulesManager.branchOptions.filter((branch) => {
+  return menuManager.branchOptions.filter((branch) => {
     return `${branch.name} ${branch.city} ${branch.shortLabel}`
       .toLowerCase()
       .includes(query);
@@ -475,46 +470,51 @@ const filteredBranches = computed(() => {
 });
 
 const selectedBranch = computed(() => {
-  return pricesRulesManager.branchOptions.find((branch) => {
-    return branch.id === pricesRulesManager.selectedBranchId;
+  return menuManager.branchOptions.find((branch) => {
+    return branch.id === menuManager.selectedBranchId;
   }) ?? null;
 });
 
-const tariffsHeaderItems = computed(() => {
+const sortedCategories = computed<AdminBranchMenuCategory[]>(() => {
+  return [...menuManager.form.categories].sort((left, right) => {
+    return left.displayOrder - right.displayOrder;
+  });
+});
+
+const sortedItems = computed<AdminBranchMenuItem[]>(() => {
+  return [...menuManager.form.items].sort((left, right) => {
+    if (left.displayOrder !== right.displayOrder) {
+      return left.displayOrder - right.displayOrder;
+    }
+    return left.title.localeCompare(right.title);
+  });
+});
+
+const menuSummaryItems = computed(() => {
   return [
-    { label: 'Заголовок', value: pricesRulesManager.form.introTitle || 'Не задан' },
+    { label: 'Категорий', value: String(menuManager.form.categories.length) },
+    { label: 'Позиций', value: String(menuManager.form.items.length) },
     {
-      label: 'Описание',
-      value: pricesRulesManager.form.introDescription || 'Не задано',
-      fullWidth: true,
-    },
-    {
-      label: 'Блок про день рождения',
-      value: pricesRulesManager.form.birthdayNote || 'Не задан',
-      fullWidth: true,
-    },
-    {
-      label: 'Дисклеймер',
-      value: pricesRulesManager.form.disclaimer || 'Не задан',
-      fullWidth: true,
+      label: 'Активных позиций',
+      value: String(menuManager.form.items.filter((item) => item.isActive).length),
     },
   ];
 });
 
-const tariffsCountItems = computed(() => {
-  return [{ label: 'Количество тарифов', value: String(pricesRulesManager.form.visitTariffs.length) }];
+const categorySummaryItems = computed(() => {
+  return [{ label: 'Активных категорий', value: String(menuManager.form.categories.filter((item) => item.isActive).length) }];
 });
 
-const rulesCountItems = computed(() => {
-  return [{ label: 'Количество правил', value: String(pricesRulesManager.form.rules.length) }];
+const itemSummaryItems = computed(() => {
+  return [{ label: 'С картинкой', value: String(menuManager.form.items.filter((item) => item.imageUrl.trim()).length) }];
 });
 
 watch(
   () => [routeMode.value, routeState.activeId.value] as const,
   async ([mode, branchId]) => {
     if ((mode === 'detail' || mode === 'edit') && branchId) {
-      if (pricesRulesManager.selectedBranchId !== branchId) {
-        await pricesRulesManager.selectBranch(branchId);
+      if (menuManager.selectedBranchId !== branchId) {
+        await menuManager.selectBranch(branchId);
       }
       await nextTick();
       editDirty.markClean();
@@ -524,7 +524,7 @@ watch(
 );
 
 onMounted(() => {
-  void pricesRulesManager.initialize();
+  void menuManager.initialize();
 });
 
 async function handlePanelClose() {
@@ -541,31 +541,53 @@ async function handlePanelClose() {
 }
 
 async function handleSave() {
-  await pricesRulesManager.save();
+  await menuManager.save();
 
-  if (!pricesRulesManager.contentErrorMessage) {
+  if (!menuManager.contentErrorMessage) {
     editDirty.markClean();
-    await routeState.goToDetail(pricesRulesManager.selectedBranchId);
+    await routeState.goToDetail(menuManager.selectedBranchId);
   }
+}
+
+function resolveCategoryTitle(categoryKey: string) {
+  return menuManager.form.categories.find((category) => category.key === categoryKey)?.title || 'Без категории';
+}
+
+function formatPrice(priceTenge: number) {
+  return `${priceTenge} тг`;
 }
 </script>
 
 <style scoped>
-.tariffs-detail-view {
+.menu-detail-view {
   display: grid;
   gap: 12px;
 }
 
-.tariffs-detail-view__actions {
+.menu-detail-view__actions {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-.tariffs-detail-view__list {
+.menu-detail-view__list {
   display: grid;
   gap: 8px;
   margin: 0;
   padding-left: 18px;
+}
+
+.menu-editor__preview {
+  width: min(240px, 100%);
+  overflow: hidden;
+  border-radius: 20px;
+  border: 1px solid var(--admin-border-default);
+}
+
+.menu-editor__preview img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
 }
 </style>

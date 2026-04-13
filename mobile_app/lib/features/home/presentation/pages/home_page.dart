@@ -245,13 +245,13 @@ class HomePage extends StatelessWidget {
                             ).pushNamed(AppRoutes.birthdays),
                           ),
                           _QuickActionTile(
-                            icon: Icons.receipt_long_rounded,
-                            title: 'Цены и правила',
-                            subtitle: 'Тарифы и важные условия',
+                            icon: Icons.restaurant_menu_rounded,
+                            title: 'Меню',
+                            subtitle: 'Еда и напитки в филиале',
                             revealDelay: starKidsStaggerDelay(2, initialMs: 80),
                             onTap: () => Navigator.of(
                               context,
-                            ).pushNamed(AppRoutes.pricesRules),
+                            ).pushNamed(AppRoutes.menu),
                           ),
                           _QuickActionTile(
                             icon: Icons.pin_drop_rounded,
@@ -305,8 +305,7 @@ class HomePage extends StatelessWidget {
                             );
                           }
 
-                          final content =
-                              snapshot.data ??
+                          final content = snapshot.data ??
                               _HomeContentData(
                                 branch: branch,
                                 promotions: <PromotionOffer>[],
@@ -350,16 +349,15 @@ class HomePage extends StatelessWidget {
                                         content.featuredPackage!.isFeatured,
                                     onActionTap: () =>
                                         Navigator.of(context).pushNamed(
-                                          AppRoutes.requests,
-                                          arguments: RequestPageArgs(
-                                            initialType:
-                                                RequestType.birthdayRequest,
-                                            initialPackageId:
-                                                content.featuredPackage!.id,
-                                            initialPackage:
-                                                content.featuredPackage,
-                                          ),
-                                        ),
+                                      AppRoutes.requests,
+                                      arguments: RequestPageArgs(
+                                        initialType:
+                                            RequestType.birthdayRequest,
+                                        initialPackageId:
+                                            content.featuredPackage!.id,
+                                        initialPackage: content.featuredPackage,
+                                      ),
+                                    ),
                                   )
                                 else
                                   const _HomeStateCard(
@@ -415,20 +413,20 @@ class HomePage extends StatelessWidget {
                                   ),
                                   const SizedBox(height: StarKidsSpacing.lg),
                                   ...content.contentBlocks.asMap().entries.map(
-                                    (entry) => Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: StarKidsSpacing.md,
-                                      ),
-                                      child: StarKidsContentBlockCard(
-                                        revealDelay: starKidsStaggerDelay(
-                                          entry.key,
+                                        (entry) => Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: StarKidsSpacing.md,
+                                          ),
+                                          child: StarKidsContentBlockCard(
+                                            revealDelay: starKidsStaggerDelay(
+                                              entry.key,
+                                            ),
+                                            title: entry.value.title,
+                                            body: entry.value.body,
+                                            label: entry.value.ctaLabel,
+                                          ),
                                         ),
-                                        title: entry.value.title,
-                                        body: entry.value.body,
-                                        label: entry.value.ctaLabel,
                                       ),
-                                    ),
-                                  ),
                                 ] else ...[
                                   const StarKidsSectionHeader(
                                     title: 'Почему сюда удобно возвращаться',
@@ -468,28 +466,28 @@ class HomePage extends StatelessWidget {
                                               .take(4)
                                               .map(
                                                 (facility) => Container(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal:
-                                                            StarKidsSpacing.md,
-                                                        vertical:
-                                                            StarKidsSpacing.xs,
-                                                      ),
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                    horizontal:
+                                                        StarKidsSpacing.md,
+                                                    vertical:
+                                                        StarKidsSpacing.xs,
+                                                  ),
                                                   decoration: BoxDecoration(
                                                     color: StarKidsColors
                                                         .surfaceSecondary,
                                                     borderRadius:
                                                         BorderRadius.circular(
-                                                          StarKidsRadii.full,
-                                                        ),
+                                                      StarKidsRadii.full,
+                                                    ),
                                                   ),
                                                   child: Text(
                                                     facility,
                                                     style: textTheme.labelMedium
                                                         ?.copyWith(
-                                                          color: StarKidsColors
-                                                              .textPrimary,
-                                                        ),
+                                                      color: StarKidsColors
+                                                          .textPrimary,
+                                                    ),
                                                   ),
                                                 ),
                                               )
@@ -514,9 +512,9 @@ class HomePage extends StatelessWidget {
                                               child: _TrustStat(
                                                 title: homeBranch.workingHours
                                                     .replaceFirst(
-                                                      'Ежедневно ',
-                                                      '',
-                                                    ),
+                                                  'Ежедневно ',
+                                                  '',
+                                                ),
                                                 subtitle:
                                                     'ежедневный режим работы',
                                               ),
@@ -572,11 +570,10 @@ class HomePage extends StatelessWidget {
   }
 
   Future<_HomeContentData> _loadHomeContent(String branchId) async {
-    final branch = await ServiceRegistry.branchRepository
-        .getBranch(branchId)
-        .catchError(
-          (_) => ServiceRegistry.selectedBranchController.selectedBranch,
-        );
+    final branch =
+        await ServiceRegistry.branchRepository.getBranch(branchId).catchError(
+              (_) => ServiceRegistry.selectedBranchController.selectedBranch,
+            );
     ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
     final packages = await ServiceRegistry.birthdayPackageRepository
         .listPackages(branchId: branchId)

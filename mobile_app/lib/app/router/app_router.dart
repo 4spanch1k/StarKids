@@ -5,9 +5,9 @@ import '../../features/branches/presentation/pages/branch_selection_page.dart';
 import '../../features/branches/presentation/pages/branch_details_page.dart';
 import '../../features/contacts/presentation/pages/contacts_map_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
+import '../../features/menu/presentation/pages/menu_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/onboarding/presentation/pages/onboarding_page.dart';
-import '../../features/prices_rules/presentation/pages/prices_rules_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/promotions/presentation/pages/promotions_page.dart';
 import '../../features/request_history/presentation/pages/request_history_page.dart';
@@ -31,8 +31,8 @@ abstract final class AppRouter {
         return _page(const BirthdaysPage(), settings);
       case AppRoutes.promotions:
         return _page(const PromotionsPage(), settings);
-      case AppRoutes.pricesRules:
-        return _page(const PricesRulesPage(), settings);
+      case AppRoutes.menu:
+        return _page(const MenuPage(), settings);
       case AppRoutes.contacts:
         return _page(const ContactsMapPage(), settings);
       case AppRoutes.requests:

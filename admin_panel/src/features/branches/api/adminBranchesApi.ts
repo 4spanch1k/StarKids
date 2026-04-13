@@ -8,6 +8,8 @@ import type {
   AdminBranchDetail,
   AdminBranchGallery,
   AdminBranchGalleryPayload,
+  AdminBranchMenu,
+  AdminBranchMenuPayload,
   AdminBranchPricesRules,
   AdminBranchPricesRulesPayload,
   AdminBranchSummary,
@@ -87,6 +89,30 @@ type AdminBranchPricesRulesResponse = {
   disclaimer: string | null;
   visit_tariffs: AdminBranchTariffResponse[];
   rules: AdminBranchRuleResponse[];
+};
+
+type AdminBranchMenuCategoryResponse = {
+  id: string;
+  key: string;
+  title: string;
+  display_order: number;
+  is_active: boolean;
+};
+
+type AdminBranchMenuItemResponse = {
+  id: string;
+  title: string;
+  price_tenge: number;
+  image_url: string;
+  category_key: string;
+  display_order: number;
+  is_active: boolean;
+};
+
+type AdminBranchMenuResponse = {
+  branch_id: string;
+  categories: AdminBranchMenuCategoryResponse[];
+  items: AdminBranchMenuItemResponse[];
 };
 
 export async function listAdminBranches({
@@ -274,6 +300,52 @@ export async function upsertAdminBranchPricesRules({
   return mapBranchPricesRules(response);
 }
 
+export async function getAdminBranchMenu({
+  accessToken,
+  branchId,
+}: AuthorizedRequest & { branchId: string }): Promise<AdminBranchMenu> {
+  const response = await httpClient<AdminBranchMenuResponse>({
+    path: `${ADMIN_BRANCHES_BASE_PATH}/${branchId}/menu`,
+    method: 'GET',
+    headers: buildAdminAuthHeaders(accessToken),
+  });
+
+  return mapBranchMenu(response);
+}
+
+export async function upsertAdminBranchMenu({
+  accessToken,
+  branchId,
+  payload,
+}: AuthorizedRequest & {
+  branchId: string;
+  payload: AdminBranchMenuPayload;
+}): Promise<AdminBranchMenu> {
+  const response = await httpClient<AdminBranchMenuResponse>({
+    path: `${ADMIN_BRANCHES_BASE_PATH}/${branchId}/menu`,
+    method: 'PUT',
+    headers: buildAdminAuthHeaders(accessToken),
+    body: JSON.stringify({
+      categories: payload.categories.map((category) => ({
+        key: category.key,
+        title: category.title,
+        display_order: category.displayOrder,
+        is_active: category.isActive,
+      })),
+      items: payload.items.map((item) => ({
+        title: item.title,
+        price_tenge: item.priceTenge,
+        image_url: item.imageUrl,
+        category_key: item.categoryKey,
+        display_order: item.displayOrder,
+        is_active: item.isActive,
+      })),
+    }),
+  });
+
+  return mapBranchMenu(response);
+}
+
 function mapBranchSummary(response: AdminBranchSummaryResponse): AdminBranchSummary {
   return {
     id: response.id,
@@ -347,6 +419,28 @@ function mapBranchPricesRules(
       text: rule.text,
       displayOrder: rule.display_order,
       isActive: rule.is_active,
+    })),
+  };
+}
+
+function mapBranchMenu(response: AdminBranchMenuResponse): AdminBranchMenu {
+  return {
+    branchId: response.branch_id,
+    categories: response.categories.map((category) => ({
+      id: category.id,
+      key: category.key,
+      title: category.title,
+      displayOrder: category.display_order,
+      isActive: category.is_active,
+    })),
+    items: response.items.map((item) => ({
+      id: item.id,
+      title: item.title,
+      priceTenge: item.price_tenge,
+      imageUrl: item.image_url,
+      categoryKey: item.category_key,
+      displayOrder: item.display_order,
+      isActive: item.is_active,
     })),
   };
 }
