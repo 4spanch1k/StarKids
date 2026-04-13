@@ -116,6 +116,61 @@ void main() {
       expect(controller.status, MobileAuthStatus.unauthenticated);
       expect(controller.session, isNull);
     });
+
+    test('email login authenticates without otp challenge', () async {
+      final emailSession = MobileAuthSession(
+        user: const MobileAuthUser(
+          id: 'user-email',
+          email: 'parent@example.com',
+        ),
+        email: 'parent@example.com',
+        accessToken: 'email-access-token',
+        refreshToken: 'email-refresh-token',
+        tokenType: 'bearer',
+        verifiedAt: DateTime(2026, 4, 12, 10),
+      );
+      final repository = _FakeMobileAuthRepository(
+        loginResult: Success<MobileAuthSession>(emailSession),
+      );
+      final controller = MobileAuthController(repository: repository);
+
+      await controller.bootstrap();
+      await controller.loginWithEmail(
+        email: ' PARENT@example.com ',
+        password: 'strong-pass-123',
+      );
+
+      expect(repository.loginEmail, 'parent@example.com');
+      expect(controller.status, MobileAuthStatus.authenticated);
+      expect(controller.pendingChallenge, isNull);
+      expect(controller.session?.user?.email, 'parent@example.com');
+    });
+
+    test('validates email password and confirmation inputs', () {
+      final controller = MobileAuthController(
+        repository: _FakeMobileAuthRepository(),
+      );
+
+      expect(controller.validateEmailInput(''), 'Введите email.');
+      expect(
+        controller.validateEmailInput('wrong-email'),
+        'Введите корректный email.',
+      );
+      expect(controller.validateEmailInput('parent@example.com'), isNull);
+      expect(controller.validatePasswordInput(''), 'Введите пароль.');
+      expect(
+        controller.validatePasswordInput('short'),
+        'Пароль должен быть не короче 8 символов.',
+      );
+      expect(controller.validatePasswordInput('strong-pass-123'), isNull);
+      expect(
+        controller.validatePasswordConfirmation(
+          password: 'strong-pass-123',
+          confirmation: 'different-pass',
+        ),
+        'Пароли не совпадают.',
+      );
+    });
   });
 }
 
@@ -124,21 +179,29 @@ class _FakeMobileAuthRepository implements MobileAuthRepository {
     this.restoredSession,
     Result<MobileAuthSession?>? syncSessionResult,
     Result<MobileAuthSession>? verifyResult,
+    Result<MobileAuthSession>? registerResult,
+    Result<MobileAuthSession>? loginResult,
     Result<void>? logoutResult,
   })  : _syncSessionResult = syncSessionResult ??
             (restoredSession == null
                 ? const Success<MobileAuthSession?>(null)
                 : Success<MobileAuthSession?>(restoredSession)),
         _verifyResult = verifyResult,
+        _registerResult = registerResult,
+        _loginResult = loginResult,
         _logoutResult = logoutResult ?? const Success<void>(null);
 
   final MobileAuthSession? restoredSession;
   final Result<MobileAuthSession?> _syncSessionResult;
   final Result<MobileAuthSession>? _verifyResult;
+  final Result<MobileAuthSession>? _registerResult;
+  final Result<MobileAuthSession>? _loginResult;
   final Result<void> _logoutResult;
 
   String? requestedPhone;
   String? verifiedCode;
+  String? registerEmail;
+  String? loginEmail;
   String? syncedAccessToken;
   String? loggedOutAccessToken;
   bool wasCleared = false;
@@ -162,6 +225,44 @@ class _FakeMobileAuthRepository implements MobileAuthRepository {
   @override
   Future<Result<MobileAuthSession>> refreshSession(String refreshToken) async {
     return const Failure<MobileAuthSession>('not used in controller test');
+  }
+
+  @override
+  Future<Result<MobileAuthSession>> registerWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    registerEmail = email;
+    return _registerResult ??
+        Success<MobileAuthSession>(
+          MobileAuthSession(
+            user: MobileAuthUser(id: 'user-register', email: email),
+            email: email,
+            accessToken: 'register-access-token',
+            refreshToken: 'register-refresh-token',
+            tokenType: 'bearer',
+            verifiedAt: DateTime(2026, 4, 12, 10),
+          ),
+        );
+  }
+
+  @override
+  Future<Result<MobileAuthSession>> loginWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    loginEmail = email;
+    return _loginResult ??
+        Success<MobileAuthSession>(
+          MobileAuthSession(
+            user: MobileAuthUser(id: 'user-login', email: email),
+            email: email,
+            accessToken: 'login-access-token',
+            refreshToken: 'login-refresh-token',
+            tokenType: 'bearer',
+            verifiedAt: DateTime(2026, 4, 12, 10),
+          ),
+        );
   }
 
   @override

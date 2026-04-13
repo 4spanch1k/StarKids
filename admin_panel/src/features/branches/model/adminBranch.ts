@@ -123,3 +123,28 @@ export type AdminBranchMenu = {
 };
 
 export type AdminBranchMenuPayload = Omit<AdminBranchMenu, 'branchId'>;
+
+export type AdminBranchTicketItem = {
+  id?: string;
+  title: string;
+  description: string;
+  priceTenge: number;
+  badgeLabels: string[];
+  displayOrder: number;
+  isActive: boolean;
+};
+
+export type AdminBranchTicketNote = {
+  id?: string;
+  text: string;
+  displayOrder: number;
+  isActive: boolean;
+};
+
+export type AdminBranchTickets = {
+  branchId: string;
+  items: AdminBranchTicketItem[];
+  notes: AdminBranchTicketNote[];
+};
+
+export type AdminBranchTicketsPayload = Omit<AdminBranchTickets, 'branchId'>;

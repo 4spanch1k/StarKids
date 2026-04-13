@@ -10,7 +10,7 @@ import 'package:star_kids_mobile/features/notifications/presentation/pages/notif
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('renders granted state and backend blocker honestly', (
+  testWidgets('renders granted state and notification blocker honestly', (
     WidgetTester tester,
   ) async {
     final controller = MobileNotificationsController(
@@ -26,9 +26,9 @@ void main() {
 
     expect(find.text('Уведомления'), findsOneWidget);
     expect(find.text('Разрешено'), findsWidgets);
-    expect(find.text('Регистрация устройства в backend'), findsOneWidget);
+    expect(find.text('Регистрация устройства'), findsOneWidget);
     expect(find.text('Не подключена'), findsOneWidget);
-    expect(find.text('Push token'), findsOneWidget);
+    expect(find.text('Токен уведомлений'), findsOneWidget);
     expect(find.text('Не используется'), findsOneWidget);
     expect(find.text('Открыть настройки приложения'), findsOneWidget);
   });

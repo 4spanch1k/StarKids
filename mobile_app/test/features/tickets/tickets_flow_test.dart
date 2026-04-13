@@ -6,16 +6,47 @@ import 'package:star_kids_mobile/app/di/service_registry.dart';
 import 'package:star_kids_mobile/app/theme/app_theme.dart';
 import 'package:star_kids_mobile/features/branches/data/branch_seed_data.dart';
 import 'package:star_kids_mobile/features/home/presentation/pages/home_page.dart';
+import 'package:star_kids_mobile/features/tickets/data/seed_ticket_config_repository.dart';
+import 'package:star_kids_mobile/features/tickets/domain/branch_ticket_config.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
+    ServiceRegistry.ticketConfigRepository = const SeedTicketConfigRepository(
+      config: BranchTicketConfig(
+        branchId: defaultBranchId,
+        items: [
+          TicketConfigItem(
+            id: 'kids_1_3',
+            title: 'Детские билеты 1–3 лет',
+            priceTenge: 2700,
+            description: 'Документ обязателен',
+            badgeLabels: [],
+          ),
+          TicketConfigItem(
+            id: 'kids_4_15',
+            title: 'Детские билеты 4–15 лет',
+            priceTenge: 3700,
+            description: '',
+            badgeLabels: ['Бесплатно до 1 года не требуется'],
+          ),
+        ],
+        notes: [
+          'Детям 0–1 лет — бесплатно',
+          'Имениннику в день рождения — бесплатно',
+        ],
+      ),
+    );
     await ServiceRegistry.selectedBranchController.selectBranch(
       defaultBranchId,
       selectedBranch: getBranchById(defaultBranchId),
     );
+  });
+
+  tearDown(() {
+    ServiceRegistry.resetTicketConfigRepository();
   });
 
   testWidgets(
@@ -35,8 +66,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Шаг 1 из 2'), findsOneWidget);
-      expect(find.byKey(const ValueKey('ticket-branch-select')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('ticket-branch-select')),
+        findsOneWidget,
+      );
       expect(find.byKey(const ValueKey('ticket-day-select')), findsOneWidget);
+      expect(find.text('Доступные билеты'), findsOneWidget);
+      expect(find.text('Детские билеты 1–3 лет'), findsOneWidget);
+      expect(find.text('2 700 тг'), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey('ticket-day-select')));
       await tester.pumpAndSettle();
@@ -49,8 +86,10 @@ void main() {
 
       expect(find.text('Документ обязателен'), findsOneWidget);
       expect(find.text('Детям 0–1 лет — бесплатно'), findsOneWidget);
-      expect(find.text('Имениннику в день рождения — бесплатно'), findsOneWidget);
-      expect(find.text('Особенным детям — бесплатно'), findsOneWidget);
+      expect(
+        find.text('Имениннику в день рождения — бесплатно'),
+        findsOneWidget,
+      );
       expect(
         find.byKey(const ValueKey('ticket-count-kids_1_3')),
         findsOneWidget,

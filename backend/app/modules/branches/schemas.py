@@ -73,3 +73,17 @@ class BranchMenuCategoryResponse(BaseModel):
 class BranchMenuResponse(BaseModel):
     branch_id: str
     categories: list[BranchMenuCategoryResponse] = Field(default_factory=list)
+
+
+class BranchTicketItemResponse(BaseModel):
+    id: str
+    title: str
+    description: str | None = None
+    price_tenge: int
+    badge_labels: list[str] = Field(default_factory=list)
+
+
+class BranchTicketsResponse(BaseModel):
+    branch_id: str
+    items: list[BranchTicketItemResponse] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)

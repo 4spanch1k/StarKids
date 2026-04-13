@@ -112,9 +112,8 @@ class _RequestHistoryPageState extends State<RequestHistoryPage> {
           key: const ValueKey('request-history-unauthenticated'),
           icon: Icons.lock_outline_rounded,
           title: 'История доступна после входа',
-          description:
-              'Войдите по номеру телефона в профиле, чтобы увидеть только свои заявки.',
-          buttonLabel: 'Войти по номеру',
+          description: 'Войдите по email, чтобы увидеть только свои заявки.',
+          buttonLabel: 'Перейти ко входу',
           onPressed: _openProfile,
         );
       case RequestHistoryViewStatus.empty:
