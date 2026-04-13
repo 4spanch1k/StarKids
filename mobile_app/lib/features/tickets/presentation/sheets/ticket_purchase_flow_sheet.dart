@@ -7,12 +7,13 @@ import '../../../../core/design_system/foundations/star_kids_radii.dart';
 import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
+import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_select_field.dart';
 import '../../../branches/domain/branch_option.dart';
 import '../../domain/branch_ticket_config.dart';
 
 Future<void> showTicketPurchaseFlowSheet(BuildContext context) {
-  return showModalBottomSheet<void>(
+  return showStarKidsModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
@@ -21,7 +22,7 @@ Future<void> showTicketPurchaseFlowSheet(BuildContext context) {
 }
 
 Future<void> showMyTicketsPlaceholderSheet(BuildContext context) {
-  return showModalBottomSheet<void>(
+  return showStarKidsModalBottomSheet<void>(
     context: context,
     backgroundColor: StarKidsColors.surfacePrimary,
     shape: const RoundedRectangleBorder(
@@ -86,7 +87,7 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
       return;
     }
 
-    final selectedBranch = await showModalBottomSheet<BranchOption>(
+    final selectedBranch = await showStarKidsModalBottomSheet<BranchOption>(
       context: context,
       backgroundColor: StarKidsColors.surfacePrimary,
       shape: const RoundedRectangleBorder(
@@ -121,7 +122,7 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
       (index) => firstDay.add(Duration(days: index)),
     );
 
-    final selectedDate = await showModalBottomSheet<DateTime>(
+    final selectedDate = await showStarKidsModalBottomSheet<DateTime>(
       context: context,
       backgroundColor: StarKidsColors.surfacePrimary,
       shape: const RoundedRectangleBorder(
@@ -300,8 +301,7 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                 ),
               ),
               Expanded(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 180),
+                child: StarKidsContentSwitcher(
                   child: _currentStep == _TicketPurchaseStep.selectEntry
                       ? _StepSelectionView(
                           key: const ValueKey('ticket-step-selection'),

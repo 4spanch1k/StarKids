@@ -5,14 +5,12 @@ import '../../../../core/design_system/foundations/star_kids_icon_sizes.dart';
 import '../../../../core/design_system/foundations/star_kids_radii.dart';
 import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
+import '../../../../core/design_system/widgets/star_kids_motion.dart';
 
-enum TicketsEntryAction {
-  myTickets,
-  buyTicket,
-}
+enum TicketsEntryAction { myTickets, buyTicket }
 
 Future<TicketsEntryAction?> showTicketsEntrySheet(BuildContext context) {
-  return showModalBottomSheet<TicketsEntryAction>(
+  return showStarKidsModalBottomSheet<TicketsEntryAction>(
     context: context,
     backgroundColor: StarKidsColors.surfacePrimary,
     shape: const RoundedRectangleBorder(

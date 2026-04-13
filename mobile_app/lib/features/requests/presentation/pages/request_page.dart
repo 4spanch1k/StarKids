@@ -8,6 +8,7 @@ import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_input_field.dart';
+import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../../../core/design_system/widgets/star_kids_select_field.dart';
 import '../../../birthdays/domain/birthday_package.dart';
@@ -21,10 +22,7 @@ import '../formatters/kz_phone_input_formatter.dart';
 import '../models/request_page_args.dart';
 
 class RequestPage extends StatefulWidget {
-  const RequestPage({
-    super.key,
-    this.args,
-  });
+  const RequestPage({super.key, this.args});
 
   final RequestPageArgs? args;
 
@@ -99,60 +97,67 @@ class _RequestPageState extends State<RequestPage> {
                         ? Icons.send_rounded
                         : Icons.chat_bubble_rounded,
                     isLoading: _isSubmitting,
-                    onPressed:
-                        _isSubmitting ? null : () => _submitActiveForm(branch),
+                    onPressed: _isSubmitting
+                        ? null
+                        : () => _submitActiveForm(branch),
                   ),
                 ),
-          body: hasSubmission
-              ? isBirthdayRequest
-                  ? _RequestSuccessView(
-                      branch: branch,
-                      selectedPackage: package,
-                      type: RequestType.birthdayRequest,
-                      submission: birthdaySubmission!,
-                      onBackHome: () =>
-                          Navigator.of(context).pushNamedAndRemoveUntil(
-                        AppRoutes.home,
-                        (route) => false,
-                      ),
-                      onCreateAnother: () => _birthdayController.resetForm(
-                        preserveSelectedPackage: package != null,
-                      ),
-                    )
-                  : _ContactRequestSuccessView(
-                      submission: contactSubmission!,
-                      contextLabel: _contactContextLabel,
-                      onBackHome: () =>
-                          Navigator.of(context).pushNamedAndRemoveUntil(
-                        AppRoutes.home,
-                        (route) => false,
-                      ),
-                      onCreateAnother: _contactController.resetForm,
-                    )
-              : isBirthdayRequest
-                  ? _BirthdayRequestFormView(
-                      formKey: _birthdayFormKey,
-                      type: RequestType.birthdayRequest,
-                      typeSelector: _RequestTypeSelector(
-                        selectedType: _selectedType,
-                        onSelected: _selectRequestType,
-                      ),
-                      controller: _birthdayController,
-                      branch: branch,
-                      selectedPackage: package,
-                      onPickBranch: _showBranchPicker,
-                      onPickPackage: _showPackagePicker,
-                    )
-                  : _ContactRequestFormView(
-                      formKey: _contactFormKey,
-                      type: RequestType.contact,
-                      typeSelector: _RequestTypeSelector(
-                        selectedType: _selectedType,
-                        onSelected: _selectRequestType,
-                      ),
-                      controller: _contactController,
-                      contextLabel: _contactContextLabel,
+          body: StarKidsContentSwitcher(
+            child: hasSubmission
+                ? isBirthdayRequest
+                      ? _RequestSuccessView(
+                          key: const ValueKey('birthday-request-success'),
+                          branch: branch,
+                          selectedPackage: package,
+                          type: RequestType.birthdayRequest,
+                          submission: birthdaySubmission!,
+                          onBackHome: () =>
+                              Navigator.of(context).pushNamedAndRemoveUntil(
+                                AppRoutes.home,
+                                (route) => false,
+                              ),
+                          onCreateAnother: () => _birthdayController.resetForm(
+                            preserveSelectedPackage: package != null,
+                          ),
+                        )
+                      : _ContactRequestSuccessView(
+                          key: const ValueKey('contact-request-success'),
+                          submission: contactSubmission!,
+                          contextLabel: _contactContextLabel,
+                          onBackHome: () =>
+                              Navigator.of(context).pushNamedAndRemoveUntil(
+                                AppRoutes.home,
+                                (route) => false,
+                              ),
+                          onCreateAnother: _contactController.resetForm,
+                        )
+                : isBirthdayRequest
+                ? _BirthdayRequestFormView(
+                    key: const ValueKey('birthday-request-form'),
+                    formKey: _birthdayFormKey,
+                    type: RequestType.birthdayRequest,
+                    typeSelector: _RequestTypeSelector(
+                      selectedType: _selectedType,
+                      onSelected: _selectRequestType,
                     ),
+                    controller: _birthdayController,
+                    branch: branch,
+                    selectedPackage: package,
+                    onPickBranch: _showBranchPicker,
+                    onPickPackage: _showPackagePicker,
+                  )
+                : _ContactRequestFormView(
+                    key: const ValueKey('contact-request-form'),
+                    formKey: _contactFormKey,
+                    type: RequestType.contact,
+                    typeSelector: _RequestTypeSelector(
+                      selectedType: _selectedType,
+                      onSelected: _selectRequestType,
+                    ),
+                    controller: _contactController,
+                    contextLabel: _contactContextLabel,
+                  ),
+          ),
         );
       },
     );
@@ -227,7 +232,7 @@ class _RequestPageState extends State<RequestPage> {
       return;
     }
 
-    final selectedBranchId = await showModalBottomSheet<String>(
+    final selectedBranchId = await showStarKidsModalBottomSheet<String>(
       context: context,
       backgroundColor: StarKidsColors.surfacePrimary,
       shape: const RoundedRectangleBorder(
@@ -247,8 +252,9 @@ class _RequestPageState extends State<RequestPage> {
       return;
     }
 
-    await ServiceRegistry.selectedBranchController
-        .selectBranch(selectedBranchId);
+    await ServiceRegistry.selectedBranchController.selectBranch(
+      selectedBranchId,
+    );
   }
 
   Future<void> _showPackagePicker() async {
@@ -263,9 +269,7 @@ class _RequestPageState extends State<RequestPage> {
     }
 
     if (packages.isEmpty) {
-      _showLoadError(
-        'Для выбранного филиала пока нет опубликованных пакетов.',
-      );
+      _showLoadError('Для выбранного филиала пока нет опубликованных пакетов.');
       return;
     }
 
@@ -273,7 +277,7 @@ class _RequestPageState extends State<RequestPage> {
       return;
     }
 
-    final selectedPackageId = await showModalBottomSheet<String>(
+    final selectedPackageId = await showStarKidsModalBottomSheet<String>(
       context: context,
       backgroundColor: StarKidsColors.surfacePrimary,
       shape: const RoundedRectangleBorder(
@@ -307,9 +311,9 @@ class _RequestPageState extends State<RequestPage> {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -402,10 +406,7 @@ class _RequestTypeOptionCard extends StatelessWidget {
                   children: [
                     Text(type.label, style: textTheme.titleMedium),
                     const SizedBox(height: StarKidsSpacing.xs),
-                    Text(
-                      type.selectorDescription,
-                      style: textTheme.bodyMedium,
-                    ),
+                    Text(type.selectorDescription, style: textTheme.bodyMedium),
                   ],
                 ),
               ),
@@ -419,6 +420,7 @@ class _RequestTypeOptionCard extends StatelessWidget {
 
 class _BirthdayRequestFormView extends StatelessWidget {
   const _BirthdayRequestFormView({
+    super.key,
     required this.formKey,
     required this.typeSelector,
     required this.type,
@@ -574,6 +576,7 @@ class _BirthdayRequestFormView extends StatelessWidget {
 
 class _ContactRequestFormView extends StatelessWidget {
   const _ContactRequestFormView({
+    super.key,
     required this.formKey,
     required this.typeSelector,
     required this.type,
@@ -692,6 +695,7 @@ class _ContactRequestFormView extends StatelessWidget {
 
 class _RequestSuccessView extends StatelessWidget {
   const _RequestSuccessView({
+    super.key,
     required this.branch,
     required this.selectedPackage,
     required this.type,
@@ -731,25 +735,16 @@ class _RequestSuccessView extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _SuccessRow(
-                  label: 'Филиал',
-                  value: branch.name,
-                ),
+                _SuccessRow(label: 'Филиал', value: branch.name),
                 const SizedBox(height: StarKidsSpacing.md),
                 _SuccessRow(
                   label: 'Пакет',
                   value: selectedPackage?.name ?? 'Менеджер поможет подобрать',
                 ),
                 const SizedBox(height: StarKidsSpacing.md),
-                _SuccessRow(
-                  label: 'Номер заявки',
-                  value: submission.requestId,
-                ),
+                _SuccessRow(label: 'Номер заявки', value: submission.requestId),
                 const SizedBox(height: StarKidsSpacing.md),
-                _SuccessRow(
-                  label: 'Следующий шаг',
-                  value: submission.nextStep,
-                ),
+                _SuccessRow(label: 'Следующий шаг', value: submission.nextStep),
               ],
             ),
           ),
@@ -776,6 +771,7 @@ class _RequestSuccessView extends StatelessWidget {
 
 class _ContactRequestSuccessView extends StatelessWidget {
   const _ContactRequestSuccessView({
+    super.key,
     required this.submission,
     this.contextLabel,
     required this.onBackHome,
@@ -817,21 +813,12 @@ class _ContactRequestSuccessView extends StatelessWidget {
                 ),
                 if (contextLabel != null) ...[
                   const SizedBox(height: StarKidsSpacing.md),
-                  _SuccessRow(
-                    label: 'Контекст',
-                    value: contextLabel!,
-                  ),
+                  _SuccessRow(label: 'Контекст', value: contextLabel!),
                 ],
                 const SizedBox(height: StarKidsSpacing.md),
-                _SuccessRow(
-                  label: 'Номер заявки',
-                  value: submission.requestId,
-                ),
+                _SuccessRow(label: 'Номер заявки', value: submission.requestId),
                 const SizedBox(height: StarKidsSpacing.md),
-                _SuccessRow(
-                  label: 'Статус',
-                  value: submission.status.label,
-                ),
+                _SuccessRow(label: 'Статус', value: submission.status.label),
                 const SizedBox(height: StarKidsSpacing.md),
                 const _SuccessRow(
                   label: 'Следующий шаг',
@@ -861,10 +848,7 @@ class _ContactRequestSuccessView extends StatelessWidget {
 }
 
 class _RequestContextCard extends StatelessWidget {
-  const _RequestContextCard({
-    required this.label,
-    required this.description,
-  });
+  const _RequestContextCard({required this.label, required this.description});
 
   final String label;
   final String description;
@@ -890,10 +874,7 @@ class _RequestContextCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: StarKidsSpacing.xs),
-          Text(
-            description,
-            style: textTheme.bodyMedium,
-          ),
+          Text(description, style: textTheme.bodyMedium),
         ],
       ),
     );
@@ -1049,10 +1030,7 @@ class _RequestStatusBanner extends StatelessWidget {
 }
 
 class _SuccessRow extends StatelessWidget {
-  const _SuccessRow({
-    required this.label,
-    required this.value,
-  });
+  const _SuccessRow({required this.label, required this.value});
 
   final String label;
   final String value;

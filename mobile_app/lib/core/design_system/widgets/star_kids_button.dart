@@ -5,12 +5,9 @@ import '../foundations/star_kids_icon_sizes.dart';
 import '../foundations/star_kids_radii.dart';
 import '../foundations/star_kids_shadows.dart';
 import '../foundations/star_kids_spacing.dart';
+import 'star_kids_motion.dart';
 
-enum StarKidsButtonVariant {
-  primary,
-  secondary,
-  ghost,
-}
+enum StarKidsButtonVariant { primary, secondary, ghost }
 
 class StarKidsButton extends StatelessWidget {
   const StarKidsButton({
@@ -69,41 +66,46 @@ class StarKidsButton extends StatelessWidget {
 
     final button = switch (variant) {
       StarKidsButtonVariant.primary => AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(StarKidsRadii.full),
-            boxShadow: isDisabled ? const [] : StarKidsShadows.depth1,
-          ),
-          child: FilledButton(
-            onPressed: isDisabled ? null : onPressed,
-            child: content,
-          ),
+        duration: const Duration(milliseconds: 180),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(StarKidsRadii.full),
+          boxShadow: isDisabled ? const [] : StarKidsShadows.depth1,
         ),
+        child: FilledButton(
+          onPressed: isDisabled ? null : onPressed,
+          child: content,
+        ),
+      ),
       StarKidsButtonVariant.secondary => OutlinedButton(
-          onPressed: isDisabled ? null : onPressed,
-          child: content,
-        ),
+        onPressed: isDisabled ? null : onPressed,
+        child: content,
+      ),
       StarKidsButtonVariant.ghost => TextButton(
-          onPressed: isDisabled ? null : onPressed,
-          style: TextButton.styleFrom(
-            foregroundColor: _foregroundColor(isDisabled),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(StarKidsRadii.full),
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: StarKidsSpacing.lg,
-              vertical: StarKidsSpacing.md,
-            ),
+        onPressed: isDisabled ? null : onPressed,
+        style: TextButton.styleFrom(
+          foregroundColor: _foregroundColor(isDisabled),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(StarKidsRadii.full),
           ),
-          child: content,
+          padding: const EdgeInsets.symmetric(
+            horizontal: StarKidsSpacing.lg,
+            vertical: StarKidsSpacing.md,
+          ),
         ),
+        child: content,
+      ),
     };
 
+    final interactiveButton = StarKidsPressEffect(
+      enabled: !isDisabled,
+      child: button,
+    );
+
     if (!expand || variant == StarKidsButtonVariant.ghost) {
-      return button;
+      return interactiveButton;
     }
 
-    return SizedBox(width: double.infinity, child: button);
+    return SizedBox(width: double.infinity, child: interactiveButton);
   }
 
   Color _foregroundColor(bool isDisabled) {
@@ -134,10 +136,7 @@ class _ButtonContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = Text(
-      label,
-      textAlign: TextAlign.center,
-    );
+    final text = Text(label, textAlign: TextAlign.center);
 
     if (isLoading) {
       return Wrap(
