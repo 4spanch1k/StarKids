@@ -13,6 +13,7 @@ import '../../features/promotions/presentation/pages/promotions_page.dart';
 import '../../features/request_history/presentation/pages/request_history_page.dart';
 import '../../features/requests/presentation/models/request_page_args.dart';
 import '../../features/requests/presentation/pages/request_page.dart';
+import '../../core/design_system/widgets/star_kids_motion.dart';
 import 'app_routes.dart';
 
 abstract final class AppRouter {
@@ -50,13 +51,7 @@ abstract final class AppRouter {
     }
   }
 
-  static MaterialPageRoute<dynamic> _page(
-    Widget page,
-    RouteSettings settings,
-  ) {
-    return MaterialPageRoute<dynamic>(
-      builder: (_) => page,
-      settings: settings,
-    );
+  static Route<dynamic> _page(Widget page, RouteSettings settings) {
+    return buildStarKidsPageRoute<dynamic>(page: page, settings: settings);
   }
 }

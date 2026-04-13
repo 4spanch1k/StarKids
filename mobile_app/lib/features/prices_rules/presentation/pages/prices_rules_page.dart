@@ -9,6 +9,7 @@ import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_media_image.dart';
+import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../../branches/domain/branch_option.dart';
 import '../../data/prices_rules_curated_content.dart';
@@ -48,28 +49,41 @@ class PricesRulesPage extends StatelessWidget {
             future: _loadScreenData(branch.id),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return const StarKidsContentSwitcher(
+                  child: Center(
+                    key: ValueKey('prices-rules-loading'),
+                    child: CircularProgressIndicator(),
+                  ),
+                );
               }
 
               if (snapshot.hasError) {
-                return _PricesRulesStateView(
-                  title: 'Цены пока недоступны',
-                  description:
-                      'Не удалось показать тарифы и правила для выбранного филиала. Попробуйте выбрать другой филиал.',
-                  actionLabel: 'Сменить филиал',
-                  onActionTap: () => Navigator.of(context)
-                      .pushNamed(AppRoutes.branchSelection),
+                return StarKidsContentSwitcher(
+                  child: _PricesRulesStateView(
+                    key: const ValueKey('prices-rules-error'),
+                    title: 'Цены пока недоступны',
+                    description:
+                        'Не удалось показать тарифы и правила для выбранного филиала. Попробуйте выбрать другой филиал.',
+                    actionLabel: 'Сменить филиал',
+                    onActionTap: () => Navigator.of(
+                      context,
+                    ).pushNamed(AppRoutes.branchSelection),
+                  ),
                 );
               }
 
               if (!snapshot.hasData) {
-                return _PricesRulesStateView(
-                  title: 'Цены пока недоступны',
-                  description:
-                      'Экран готов, но тарифы и правила для этого филиала пока не удалось показать.',
-                  actionLabel: 'Сменить филиал',
-                  onActionTap: () => Navigator.of(context)
-                      .pushNamed(AppRoutes.branchSelection),
+                return StarKidsContentSwitcher(
+                  child: _PricesRulesStateView(
+                    key: const ValueKey('prices-rules-empty'),
+                    title: 'Цены пока недоступны',
+                    description:
+                        'Экран готов, но тарифы и правила для этого филиала пока не удалось показать.',
+                    actionLabel: 'Сменить филиал',
+                    onActionTap: () => Navigator.of(
+                      context,
+                    ).pushNamed(AppRoutes.branchSelection),
+                  ),
                 );
               }
 
@@ -87,183 +101,193 @@ class PricesRulesPage extends StatelessWidget {
                   : 'Детали по формату дня рождения можно уточнить у менеджера после выбора пакета.';
               final tariffGroups = _groupTariffs(data.visitTariffs);
 
-              return ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  StarKidsSpacing.xl,
-                  StarKidsSpacing.lg,
-                  StarKidsSpacing.xl,
-                  StarKidsSpacing.x5l,
-                ),
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(StarKidsSpacing.xl),
-                    decoration: BoxDecoration(
-                      color: StarKidsColors.surfacePrimary,
-                      borderRadius: BorderRadius.circular(StarKidsRadii.hero),
-                      border: Border.all(color: StarKidsColors.borderDefault),
-                      boxShadow: StarKidsShadows.depth1,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: StarKidsSpacing.md,
-                            vertical: StarKidsSpacing.sm,
-                          ),
-                          decoration: BoxDecoration(
-                            color: StarKidsColors.surfaceTertiary,
-                            borderRadius:
-                                BorderRadius.circular(StarKidsRadii.full),
-                          ),
-                          child: Text(
-                            resolvedBranch.shortLabel,
-                            style: textTheme.labelMedium?.copyWith(
-                              color: StarKidsColors.brandPrimary,
+              return StarKidsContentSwitcher(
+                child: ListView(
+                  key: ValueKey('prices-rules-loaded-${resolvedBranch.id}'),
+                  padding: const EdgeInsets.fromLTRB(
+                    StarKidsSpacing.xl,
+                    StarKidsSpacing.lg,
+                    StarKidsSpacing.xl,
+                    StarKidsSpacing.x5l,
+                  ),
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(StarKidsSpacing.xl),
+                      decoration: BoxDecoration(
+                        color: StarKidsColors.surfacePrimary,
+                        borderRadius: BorderRadius.circular(StarKidsRadii.hero),
+                        border: Border.all(color: StarKidsColors.borderDefault),
+                        boxShadow: StarKidsShadows.depth1,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: StarKidsSpacing.md,
+                              vertical: StarKidsSpacing.sm,
+                            ),
+                            decoration: BoxDecoration(
+                              color: StarKidsColors.surfaceTertiary,
+                              borderRadius: BorderRadius.circular(
+                                StarKidsRadii.full,
+                              ),
+                            ),
+                            child: Text(
+                              resolvedBranch.shortLabel,
+                              style: textTheme.labelMedium?.copyWith(
+                                color: StarKidsColors.brandPrimary,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: StarKidsSpacing.md),
-                        Text(introTitle, style: textTheme.headlineMedium),
-                        const SizedBox(height: StarKidsSpacing.md),
-                        Text(introDescription, style: textTheme.bodyLarge),
-                      ],
+                          const SizedBox(height: StarKidsSpacing.md),
+                          Text(introTitle, style: textTheme.headlineMedium),
+                          const SizedBox(height: StarKidsSpacing.md),
+                          Text(introDescription, style: textTheme.bodyLarge),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: StarKidsSpacing.x2l),
-                  const StarKidsSectionHeader(
-                    title: 'Тарифы посещения',
-                    description:
-                        'Полный прайс без сокращений и без формулировок вида «от ...».',
-                  ),
-                  const SizedBox(height: StarKidsSpacing.lg),
-                  if (data.visitTariffs.isNotEmpty)
-                    if (tariffGroups.length > 1)
-                      ...tariffGroups.map(
-                        (group) => Padding(
-                          padding:
-                              const EdgeInsets.only(bottom: StarKidsSpacing.md),
-                          child: _TariffGroupCard(group: group),
+                    const SizedBox(height: StarKidsSpacing.x2l),
+                    const StarKidsSectionHeader(
+                      title: 'Тарифы посещения',
+                      description:
+                          'Полный прайс без сокращений и без формулировок вида «от ...».',
+                    ),
+                    const SizedBox(height: StarKidsSpacing.lg),
+                    if (data.visitTariffs.isNotEmpty)
+                      if (tariffGroups.length > 1)
+                        ...tariffGroups.map(
+                          (group) => Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: StarKidsSpacing.md,
+                            ),
+                            child: _TariffGroupCard(group: group),
+                          ),
+                        )
+                      else
+                        ...data.visitTariffs.map(
+                          (tariff) => Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: StarKidsSpacing.md,
+                            ),
+                            child: _TariffCard(tariff: tariff),
+                          ),
+                        )
+                    else
+                      const _InlineInfoCard(
+                        title: 'Тарифы скоро появятся',
+                        description:
+                            'Для этого филиала еще не опубликован список тарифов. Базовые детали можно уточнить у менеджера.',
+                      ),
+                    if (data.menuSections.isNotEmpty) ...[
+                      const SizedBox(height: StarKidsSpacing.x2l),
+                      const StarKidsSectionHeader(
+                        title: 'Меню',
+                        description:
+                            'Большой блок меню прямо внутри экрана: заметные категории, понятные цены и аккуратные изображения.',
+                      ),
+                      const SizedBox(height: StarKidsSpacing.lg),
+                      const _FeatureIntroCard(
+                        title: 'Меню кафе',
+                        description:
+                            'Секции не спрятаны в мелкие элементы: каждая категория раскрыта сразу, а цены видны без дополнительных переходов.',
+                        icon: Icons.restaurant_menu_rounded,
+                        tintColor: StarKidsColors.surfaceSecondary,
+                      ),
+                      const SizedBox(height: StarKidsSpacing.lg),
+                      ...data.menuSections.map(
+                        (section) => Padding(
+                          padding: const EdgeInsets.only(
+                            bottom: StarKidsSpacing.lg,
+                          ),
+                          child: _MenuSectionCard(section: section),
+                        ),
+                      ),
+                    ],
+                    if (data.birthdayPackages.isNotEmpty) ...[
+                      const SizedBox(height: StarKidsSpacing.x2l),
+                      const StarKidsSectionHeader(
+                        title: 'Пакеты дней рождения',
+                        description:
+                            'Отдельный важный блок с точной ценой в тенге, старой ценой и полным составом каждого пакета.',
+                      ),
+                      const SizedBox(height: StarKidsSpacing.lg),
+                      const _FeatureIntroCard(
+                        title: 'Праздничные пакеты',
+                        description:
+                            'Здесь показаны все ключевые услуги внутри пакета, чтобы родитель сразу видел разницу между сценариями.',
+                        icon: Icons.celebration_rounded,
+                        tintColor: StarKidsColors.surfaceTertiary,
+                      ),
+                      const SizedBox(height: StarKidsSpacing.lg),
+                      ...data.birthdayPackages.map(
+                        (package) => Padding(
+                          padding: const EdgeInsets.only(
+                            bottom: StarKidsSpacing.lg,
+                          ),
+                          child: _BirthdayPackageOfferCard(package: package),
+                        ),
+                      ),
+                      StarKidsButton.secondary(
+                        label: 'Открыть отдельный раздел праздников',
+                        icon: Icons.cake_rounded,
+                        onPressed: () => Navigator.of(
+                          context,
+                        ).pushNamed(AppRoutes.birthdays),
+                      ),
+                    ],
+                    const SizedBox(height: StarKidsSpacing.x2l),
+                    const StarKidsSectionHeader(
+                      title: 'Льготы и важные условия',
+                      description:
+                          'Короткий список важных условий и бесплатных льгот без перегруза длинным регламентом.',
+                    ),
+                    const SizedBox(height: StarKidsSpacing.md),
+                    if (data.rules.isNotEmpty)
+                      ...data.rules.map(
+                        (rule) => Padding(
+                          padding: const EdgeInsets.only(
+                            bottom: StarKidsSpacing.md,
+                          ),
+                          child: _RuleRow(rule: rule),
                         ),
                       )
                     else
-                      ...data.visitTariffs.map(
-                        (tariff) => Padding(
-                          padding:
-                              const EdgeInsets.only(bottom: StarKidsSpacing.md),
-                          child: _TariffCard(tariff: tariff),
+                      const _InlineInfoCard(
+                        title: 'Правила скоро появятся',
+                        description:
+                            'Основные правила посещения для этого филиала обновляются. Их можно уточнить перед визитом.',
+                      ),
+                    const SizedBox(height: StarKidsSpacing.xl),
+                    Container(
+                      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+                      decoration: BoxDecoration(
+                        color: StarKidsColors.surfaceSecondary,
+                        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Если нужен другой формат праздника',
+                            style: textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: StarKidsSpacing.sm),
+                          Text(birthdayNote, style: textTheme.bodyLarge),
+                        ],
+                      ),
+                    ),
+                    if (data.disclaimer != null) ...[
+                      const SizedBox(height: StarKidsSpacing.lg),
+                      Text(
+                        data.disclaimer!,
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: StarKidsColors.textSecondary,
                         ),
-                      )
-                  else
-                    const _InlineInfoCard(
-                      title: 'Тарифы скоро появятся',
-                      description:
-                          'Для этого филиала еще не опубликован список тарифов. Базовые детали можно уточнить у менеджера.',
-                    ),
-                  if (data.menuSections.isNotEmpty) ...[
-                    const SizedBox(height: StarKidsSpacing.x2l),
-                    const StarKidsSectionHeader(
-                      title: 'Меню',
-                      description:
-                          'Большой блок меню прямо внутри экрана: заметные категории, понятные цены и аккуратные изображения.',
-                    ),
-                    const SizedBox(height: StarKidsSpacing.lg),
-                    const _FeatureIntroCard(
-                      title: 'Меню кафе',
-                      description:
-                          'Секции не спрятаны в мелкие элементы: каждая категория раскрыта сразу, а цены видны без дополнительных переходов.',
-                      icon: Icons.restaurant_menu_rounded,
-                      tintColor: StarKidsColors.surfaceSecondary,
-                    ),
-                    const SizedBox(height: StarKidsSpacing.lg),
-                    ...data.menuSections.map(
-                      (section) => Padding(
-                        padding:
-                            const EdgeInsets.only(bottom: StarKidsSpacing.lg),
-                        child: _MenuSectionCard(section: section),
                       ),
-                    ),
+                    ],
                   ],
-                  if (data.birthdayPackages.isNotEmpty) ...[
-                    const SizedBox(height: StarKidsSpacing.x2l),
-                    const StarKidsSectionHeader(
-                      title: 'Пакеты дней рождения',
-                      description:
-                          'Отдельный важный блок с точной ценой в тенге, старой ценой и полным составом каждого пакета.',
-                    ),
-                    const SizedBox(height: StarKidsSpacing.lg),
-                    const _FeatureIntroCard(
-                      title: 'Праздничные пакеты',
-                      description:
-                          'Здесь показаны все ключевые услуги внутри пакета, чтобы родитель сразу видел разницу между сценариями.',
-                      icon: Icons.celebration_rounded,
-                      tintColor: StarKidsColors.surfaceTertiary,
-                    ),
-                    const SizedBox(height: StarKidsSpacing.lg),
-                    ...data.birthdayPackages.map(
-                      (package) => Padding(
-                        padding:
-                            const EdgeInsets.only(bottom: StarKidsSpacing.lg),
-                        child: _BirthdayPackageOfferCard(package: package),
-                      ),
-                    ),
-                    StarKidsButton.secondary(
-                      label: 'Открыть отдельный раздел праздников',
-                      icon: Icons.cake_rounded,
-                      onPressed: () =>
-                          Navigator.of(context).pushNamed(AppRoutes.birthdays),
-                    ),
-                  ],
-                  const SizedBox(height: StarKidsSpacing.x2l),
-                  const StarKidsSectionHeader(
-                    title: 'Льготы и важные условия',
-                    description:
-                        'Короткий список важных условий и бесплатных льгот без перегруза длинным регламентом.',
-                  ),
-                  const SizedBox(height: StarKidsSpacing.md),
-                  if (data.rules.isNotEmpty)
-                    ...data.rules.map(
-                      (rule) => Padding(
-                        padding:
-                            const EdgeInsets.only(bottom: StarKidsSpacing.md),
-                        child: _RuleRow(rule: rule),
-                      ),
-                    )
-                  else
-                    const _InlineInfoCard(
-                      title: 'Правила скоро появятся',
-                      description:
-                          'Основные правила посещения для этого филиала обновляются. Их можно уточнить перед визитом.',
-                    ),
-                  const SizedBox(height: StarKidsSpacing.xl),
-                  Container(
-                    padding: const EdgeInsets.all(StarKidsSpacing.lg),
-                    decoration: BoxDecoration(
-                      color: StarKidsColors.surfaceSecondary,
-                      borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Если нужен другой формат праздника',
-                          style: textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: StarKidsSpacing.sm),
-                        Text(birthdayNote, style: textTheme.bodyLarge),
-                      ],
-                    ),
-                  ),
-                  if (data.disclaimer != null) ...[
-                    const SizedBox(height: StarKidsSpacing.lg),
-                    Text(
-                      data.disclaimer!,
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: StarKidsColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ],
+                ),
               );
             },
           ),
@@ -273,13 +297,14 @@ class PricesRulesPage extends StatelessWidget {
   }
 
   Future<_PricesRulesScreenData> _loadScreenData(String branchId) async {
-    final branch =
-        await ServiceRegistry.branchRepository.getBranch(branchId).catchError(
-              (_) => ServiceRegistry.selectedBranchController.selectedBranch,
-            );
+    final branch = await ServiceRegistry.branchRepository
+        .getBranch(branchId)
+        .catchError(
+          (_) => ServiceRegistry.selectedBranchController.selectedBranch,
+        );
     ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
-    final pricesRules =
-        await ServiceRegistry.pricesRulesRepository.getForBranch(branchId);
+    final pricesRules = await ServiceRegistry.pricesRulesRepository
+        .getForBranch(branchId);
 
     return _PricesRulesScreenData(
       branch: branch,
@@ -305,7 +330,9 @@ class PricesRulesPage extends StatelessWidget {
 
       final groupTitle = parts.first.trim();
       final itemTitle = parts.sublist(1).join('·').trim();
-      grouped.putIfAbsent(groupTitle, () => <_TariffGroupItemData>[]).add(
+      grouped
+          .putIfAbsent(groupTitle, () => <_TariffGroupItemData>[])
+          .add(
             _TariffGroupItemData(
               title: itemTitle,
               priceLabel: tariff.priceLabel,
@@ -315,20 +342,13 @@ class PricesRulesPage extends StatelessWidget {
     }
 
     return grouped.entries
-        .map(
-          (entry) => _TariffGroupData(
-            title: entry.key,
-            items: entry.value,
-          ),
-        )
+        .map((entry) => _TariffGroupData(title: entry.key, items: entry.value))
         .toList(growable: false);
   }
 }
 
 class _TariffCard extends StatelessWidget {
-  const _TariffCard({
-    required this.tariff,
-  });
+  const _TariffCard({required this.tariff});
 
   final VisitTariff tariff;
 
@@ -359,10 +379,7 @@ class _TariffCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: Text(
-                        tariff.title,
-                        style: textTheme.titleLarge,
-                      ),
+                      child: Text(tariff.title, style: textTheme.titleLarge),
                     ),
                     const SizedBox(width: StarKidsSpacing.md),
                     _PriceChip(label: tariff.priceLabel),
@@ -379,9 +396,7 @@ class _TariffCard extends StatelessWidget {
 }
 
 class _RuleRow extends StatelessWidget {
-  const _RuleRow({
-    required this.rule,
-  });
+  const _RuleRow({required this.rule});
 
   final String rule;
 
@@ -400,10 +415,7 @@ class _RuleRow extends StatelessWidget {
         ),
         const SizedBox(width: StarKidsSpacing.sm),
         Expanded(
-          child: Text(
-            rule,
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
+          child: Text(rule, style: Theme.of(context).textTheme.bodyLarge),
         ),
       ],
     );
@@ -412,6 +424,7 @@ class _RuleRow extends StatelessWidget {
 
 class _PricesRulesStateView extends StatelessWidget {
   const _PricesRulesStateView({
+    super.key,
     required this.title,
     required this.description,
     required this.actionLabel,
@@ -469,10 +482,7 @@ class _PricesRulesScreenData {
 }
 
 class _InlineInfoCard extends StatelessWidget {
-  const _InlineInfoCard({
-    required this.title,
-    required this.description,
-  });
+  const _InlineInfoCard({required this.title, required this.description});
 
   final String title;
   final String description;
@@ -556,9 +566,7 @@ class _FeatureIntroCard extends StatelessWidget {
 }
 
 class _MenuSectionCard extends StatelessWidget {
-  const _MenuSectionCard({
-    required this.section,
-  });
+  const _MenuSectionCard({required this.section});
 
   final MenuSection section;
 
@@ -600,10 +608,7 @@ class _MenuSectionCard extends StatelessWidget {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            section.title,
-                            style: textTheme.headlineSmall,
-                          ),
+                          Text(section.title, style: textTheme.headlineSmall),
                           if (section.subtitle != null) ...[
                             const SizedBox(height: StarKidsSpacing.sm),
                             Container(
@@ -710,9 +715,7 @@ class _MenuSectionCard extends StatelessWidget {
 }
 
 class _MenuItemCard extends StatelessWidget {
-  const _MenuItemCard({
-    required this.item,
-  });
+  const _MenuItemCard({required this.item});
 
   final MenuItem item;
 
@@ -743,10 +746,7 @@ class _MenuItemCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  item.title,
-                  style: textTheme.titleMedium,
-                ),
+                Text(item.title, style: textTheme.titleMedium),
                 const SizedBox(height: StarKidsSpacing.sm),
                 _PriceChip(label: item.priceLabel),
               ],
@@ -759,9 +759,7 @@ class _MenuItemCard extends StatelessWidget {
 }
 
 class _BirthdayPackageOfferCard extends StatelessWidget {
-  const _BirthdayPackageOfferCard({
-    required this.package,
-  });
+  const _BirthdayPackageOfferCard({required this.package});
 
   final BirthdayPackageOffer package;
 
@@ -877,9 +875,7 @@ class _BirthdayPackageOfferCard extends StatelessWidget {
 }
 
 class _BirthdayPackageFeatureRow extends StatelessWidget {
-  const _BirthdayPackageFeatureRow({
-    required this.feature,
-  });
+  const _BirthdayPackageFeatureRow({required this.feature});
 
   final BirthdayPackageFeature feature;
 
@@ -922,9 +918,7 @@ class _BirthdayPackageFeatureRow extends StatelessWidget {
 }
 
 class _TariffGroupCard extends StatelessWidget {
-  const _TariffGroupCard({
-    required this.group,
-  });
+  const _TariffGroupCard({required this.group});
 
   final _TariffGroupData group;
 
@@ -958,9 +952,7 @@ class _TariffGroupCard extends StatelessWidget {
 }
 
 class _TariffGroupItemCard extends StatelessWidget {
-  const _TariffGroupItemCard({
-    required this.item,
-  });
+  const _TariffGroupItemCard({required this.item});
 
   final _TariffGroupItemData item;
 
@@ -981,12 +973,7 @@ class _TariffGroupItemCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  item.title,
-                  style: textTheme.titleMedium,
-                ),
-              ),
+              Expanded(child: Text(item.title, style: textTheme.titleMedium)),
               const SizedBox(width: StarKidsSpacing.md),
               _PriceChip(label: item.priceLabel),
             ],
@@ -1007,9 +994,7 @@ class _TariffGroupItemCard extends StatelessWidget {
 }
 
 class _PriceChip extends StatelessWidget {
-  const _PriceChip({
-    required this.label,
-  });
+  const _PriceChip({required this.label});
 
   final String label;
 
@@ -1026,19 +1011,16 @@ class _PriceChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: StarKidsColors.textPrimary,
-            ),
+        style: Theme.of(
+          context,
+        ).textTheme.labelMedium?.copyWith(color: StarKidsColors.textPrimary),
       ),
     );
   }
 }
 
 class _TariffGroupData {
-  const _TariffGroupData({
-    required this.title,
-    required this.items,
-  });
+  const _TariffGroupData({required this.title, required this.items});
 
   final String title;
   final List<_TariffGroupItemData> items;

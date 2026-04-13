@@ -3,9 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../foundations/star_kids_colors.dart';
-
-const starKidsLogoAssetPath =
-    'assets/images/645959303_17890733316429584_1469844678684572952_n.jpg';
+import 'star_kids_brand_logo.dart';
 
 class StarKidsLogoLoader extends StatelessWidget {
   const StarKidsLogoLoader({
@@ -55,15 +53,11 @@ class StarKidsLogoLoader extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(6),
-                  child: ClipOval(
-                    child: Image.asset(
-                      starKidsLogoAssetPath,
-                      width: resolvedLogoSize,
-                      height: resolvedLogoSize,
-                      fit: BoxFit.cover,
-                    ),
+                child: SizedBox.square(
+                  dimension: resolvedLogoSize + 12,
+                  child: StarKidsBrandLogo(
+                    logoSize: resolvedLogoSize,
+                    maxRelativeSize: 1,
                   ),
                 ),
               ),

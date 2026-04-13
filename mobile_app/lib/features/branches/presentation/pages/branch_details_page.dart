@@ -8,6 +8,7 @@ import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_media_image.dart';
+import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../../../core/services/external_link_service.dart';
 import '../../../contacts/domain/branch_contact_links.dart';
@@ -41,11 +42,11 @@ class BranchDetailsPage extends StatelessWidget {
               icon: Icons.chat_bubble_rounded,
               onPressed: _hasValue(branch.whatsAppPhone)
                   ? () => _handleAction(
-                        context,
-                        () => ExternalLinkService.openWhatsApp(
-                          branch.whatsAppPhone,
-                        ),
-                      )
+                      context,
+                      () => ExternalLinkService.openWhatsApp(
+                        branch.whatsAppPhone,
+                      ),
+                    )
                   : null,
             ),
           ),
@@ -53,14 +54,22 @@ class BranchDetailsPage extends StatelessWidget {
             future: _loadScreenData(branch.id),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return const StarKidsContentSwitcher(
+                  child: Center(
+                    key: ValueKey('branch-details-loading'),
+                    child: CircularProgressIndicator(),
+                  ),
+                );
               }
 
               if (!snapshot.hasData) {
-                return const _BranchDetailsStateView(
-                  title: 'Филиал пока недоступен',
-                  description:
-                      'Не удалось загрузить live-данные по выбранному филиалу. Попробуйте открыть экран позже.',
+                return const StarKidsContentSwitcher(
+                  child: _BranchDetailsStateView(
+                    key: ValueKey('branch-details-empty'),
+                    title: 'Филиал пока недоступен',
+                    description:
+                        'Не удалось загрузить live-данные по выбранному филиалу. Попробуйте открыть экран позже.',
+                  ),
                 );
               }
 
@@ -70,192 +79,196 @@ class BranchDetailsPage extends StatelessWidget {
               final canOpenMap = _hasValue(contactLinks.mapUrl);
               final canCall = _hasValue(branchDetail.phone);
 
-              return ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  StarKidsSpacing.xl,
-                  StarKidsSpacing.lg,
-                  StarKidsSpacing.xl,
-                  StarKidsSpacing.x5l,
-                ),
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(32),
-                    child: AspectRatio(
-                      aspectRatio: 2,
-                      child: StarKidsMediaImage(
-                          source: branchDetail.heroImagePath),
-                    ),
+              return StarKidsContentSwitcher(
+                child: ListView(
+                  key: ValueKey('branch-details-${branchDetail.id}'),
+                  padding: const EdgeInsets.fromLTRB(
+                    StarKidsSpacing.xl,
+                    StarKidsSpacing.lg,
+                    StarKidsSpacing.xl,
+                    StarKidsSpacing.x5l,
                   ),
-                  const SizedBox(height: StarKidsSpacing.lg),
-                  Text(branchDetail.name, style: textTheme.headlineMedium),
-                  const SizedBox(height: StarKidsSpacing.sm),
-                  Text(
-                    _displayValue(
-                      branchDetail.description,
-                      fallback:
-                          'Подробное описание филиала скоро появится. Пока можно посмотреть контакты, цены и пакеты праздника.',
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(32),
+                      child: AspectRatio(
+                        aspectRatio: 2,
+                        child: StarKidsMediaImage(
+                          source: branchDetail.heroImagePath,
+                        ),
+                      ),
                     ),
-                    style: textTheme.bodyLarge,
-                  ),
-                  const SizedBox(height: StarKidsSpacing.lg),
-                  _InfoRow(
-                    icon: Icons.location_on_rounded,
-                    title: 'Адрес',
-                    value: _displayValue(
-                      branchDetail.address,
-                      fallback: 'Уточняйте у менеджера',
+                    const SizedBox(height: StarKidsSpacing.lg),
+                    Text(branchDetail.name, style: textTheme.headlineMedium),
+                    const SizedBox(height: StarKidsSpacing.sm),
+                    Text(
+                      _displayValue(
+                        branchDetail.description,
+                        fallback:
+                            'Подробное описание филиала скоро появится. Пока можно посмотреть контакты, цены и пакеты праздника.',
+                      ),
+                      style: textTheme.bodyLarge,
                     ),
-                  ),
-                  _InfoRow(
-                    icon: Icons.schedule_rounded,
-                    title: 'Режим работы',
-                    value: _displayValue(
-                      branchDetail.workingHours,
-                      fallback: 'Уточняйте у менеджера',
+                    const SizedBox(height: StarKidsSpacing.lg),
+                    _InfoRow(
+                      icon: Icons.location_on_rounded,
+                      title: 'Адрес',
+                      value: _displayValue(
+                        branchDetail.address,
+                        fallback: 'Уточняйте у менеджера',
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: StarKidsSpacing.lg),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: StarKidsButton.secondary(
-                          label: 'Маршрут',
-                          icon: Icons.map_rounded,
-                          onPressed: !canOpenMap
-                              ? null
-                              : () => _handleAction(
+                    _InfoRow(
+                      icon: Icons.schedule_rounded,
+                      title: 'Режим работы',
+                      value: _displayValue(
+                        branchDetail.workingHours,
+                        fallback: 'Уточняйте у менеджера',
+                      ),
+                    ),
+                    const SizedBox(height: StarKidsSpacing.lg),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: StarKidsButton.secondary(
+                            label: 'Маршрут',
+                            icon: Icons.map_rounded,
+                            onPressed: !canOpenMap
+                                ? null
+                                : () => _handleAction(
                                     context,
                                     () => ExternalLinkService.openMap(
                                       contactLinks.mapUrl,
                                     ),
                                   ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: StarKidsSpacing.md),
-                      Expanded(
-                        child: StarKidsButton.secondary(
-                          label: 'Позвонить',
-                          icon: Icons.call_rounded,
-                          onPressed: !canCall
-                              ? null
-                              : () => _handleAction(
+                        const SizedBox(width: StarKidsSpacing.md),
+                        Expanded(
+                          child: StarKidsButton.secondary(
+                            label: 'Позвонить',
+                            icon: Icons.call_rounded,
+                            onPressed: !canCall
+                                ? null
+                                : () => _handleAction(
                                     context,
                                     () => ExternalLinkService.openPhone(
                                       branchDetail.phone,
                                     ),
                                   ),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: StarKidsSpacing.x2l),
-                  const StarKidsSectionHeader(
-                    title: 'Еще полезно перед визитом',
-                    description:
-                        'Короткие переходы к важным коммерческим экранам без перегруза текущего филиала.',
-                  ),
-                  const SizedBox(height: StarKidsSpacing.md),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: StarKidsButton.secondary(
-                          label: 'Цены и правила',
-                          icon: Icons.receipt_long_rounded,
-                          onPressed: () => Navigator.of(
-                            context,
-                          ).pushNamed(AppRoutes.pricesRules),
+                      ],
+                    ),
+                    const SizedBox(height: StarKidsSpacing.x2l),
+                    const StarKidsSectionHeader(
+                      title: 'Еще полезно перед визитом',
+                      description:
+                          'Короткие переходы к важным коммерческим экранам без перегруза текущего филиала.',
+                    ),
+                    const SizedBox(height: StarKidsSpacing.md),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: StarKidsButton.secondary(
+                            label: 'Цены и правила',
+                            icon: Icons.receipt_long_rounded,
+                            onPressed: () => Navigator.of(
+                              context,
+                            ).pushNamed(AppRoutes.pricesRules),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: StarKidsSpacing.md),
-                      Expanded(
-                        child: StarKidsButton.secondary(
-                          label: 'Контакты и маршрут',
-                          icon: Icons.pin_drop_rounded,
-                          onPressed: () => Navigator.of(
-                            context,
-                          ).pushNamed(AppRoutes.contacts),
+                        const SizedBox(width: StarKidsSpacing.md),
+                        Expanded(
+                          child: StarKidsButton.secondary(
+                            label: 'Контакты и маршрут',
+                            icon: Icons.pin_drop_rounded,
+                            onPressed: () => Navigator.of(
+                              context,
+                            ).pushNamed(AppRoutes.contacts),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: StarKidsSpacing.md),
-                  StarKidsButton.secondary(
-                    label: 'Посмотреть пакеты праздника',
-                    icon: Icons.cake_rounded,
-                    onPressed: () =>
-                        Navigator.of(context).pushNamed(AppRoutes.birthdays),
-                  ),
-                  const SizedBox(height: StarKidsSpacing.x2l),
-                  const StarKidsSectionHeader(
-                    title: 'Почему родители выбирают этот филиал',
-                    description:
-                        'Короткая, понятная информация без перегруза перед заявкой или повторным визитом.',
-                  ),
-                  const SizedBox(height: StarKidsSpacing.md),
-                  if (branchDetail.facilities.isNotEmpty)
-                    Wrap(
-                      spacing: StarKidsSpacing.sm,
-                      runSpacing: StarKidsSpacing.sm,
-                      children: branchDetail.facilities
-                          .map(
-                            (facility) => Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: StarKidsSpacing.md,
-                                vertical: StarKidsSpacing.xs,
-                              ),
-                              decoration: BoxDecoration(
-                                color: StarKidsColors.surfaceSecondary,
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                facility,
-                                style: textTheme.labelMedium?.copyWith(
-                                  color: StarKidsColors.textPrimary,
+                      ],
+                    ),
+                    const SizedBox(height: StarKidsSpacing.md),
+                    StarKidsButton.secondary(
+                      label: 'Посмотреть пакеты праздника',
+                      icon: Icons.cake_rounded,
+                      onPressed: () =>
+                          Navigator.of(context).pushNamed(AppRoutes.birthdays),
+                    ),
+                    const SizedBox(height: StarKidsSpacing.x2l),
+                    const StarKidsSectionHeader(
+                      title: 'Почему родители выбирают этот филиал',
+                      description:
+                          'Короткая, понятная информация без перегруза перед заявкой или повторным визитом.',
+                    ),
+                    const SizedBox(height: StarKidsSpacing.md),
+                    if (branchDetail.facilities.isNotEmpty)
+                      Wrap(
+                        spacing: StarKidsSpacing.sm,
+                        runSpacing: StarKidsSpacing.sm,
+                        children: branchDetail.facilities
+                            .map(
+                              (facility) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: StarKidsSpacing.md,
+                                  vertical: StarKidsSpacing.xs,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: StarKidsColors.surfaceSecondary,
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  facility,
+                                  style: textTheme.labelMedium?.copyWith(
+                                    color: StarKidsColors.textPrimary,
+                                  ),
                                 ),
                               ),
-                            ),
-                          )
-                          .toList(),
-                    )
-                  else
-                    const _BranchInlineStateCard(
-                      title: 'Подробности филиала скоро появятся',
-                      description:
-                          'Сейчас здесь пока нет отдельного списка удобств, но остальные данные филиала уже доступны.',
-                    ),
-                  const SizedBox(height: StarKidsSpacing.x2l),
-                  const StarKidsSectionHeader(
-                    title: 'Галерея филиала',
-                    description: 'Реальные зоны, сцены и атмосфера площадки.',
-                  ),
-                  const SizedBox(height: StarKidsSpacing.md),
-                  if (branchDetail.galleryImagePaths.isNotEmpty)
-                    SizedBox(
-                      height: 156,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemBuilder: (context, index) {
-                          final imagePath =
-                              branchDetail.galleryImagePaths[index];
-                          return ClipRRect(
-                            borderRadius: BorderRadius.circular(20),
-                            child: AspectRatio(
-                              aspectRatio: 4 / 5,
-                              child: StarKidsMediaImage(source: imagePath),
-                            ),
-                          );
-                        },
-                        separatorBuilder: (_, __) => const SizedBox(width: 8),
-                        itemCount: branchDetail.galleryImagePaths.length,
+                            )
+                            .toList(),
+                      )
+                    else
+                      const _BranchInlineStateCard(
+                        title: 'Подробности филиала скоро появятся',
+                        description:
+                            'Сейчас здесь пока нет отдельного списка удобств, но остальные данные филиала уже доступны.',
                       ),
-                    )
-                  else
-                    const _BranchInlineStateCard(
-                      title: 'Галерея скоро появится',
-                      description:
-                          'Для этого филиала еще не опубликованы изображения. Контакты и основные условия уже доступны.',
+                    const SizedBox(height: StarKidsSpacing.x2l),
+                    const StarKidsSectionHeader(
+                      title: 'Галерея филиала',
+                      description: 'Реальные зоны, сцены и атмосфера площадки.',
                     ),
-                ],
+                    const SizedBox(height: StarKidsSpacing.md),
+                    if (branchDetail.galleryImagePaths.isNotEmpty)
+                      SizedBox(
+                        height: 156,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemBuilder: (context, index) {
+                            final imagePath =
+                                branchDetail.galleryImagePaths[index];
+                            return ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: AspectRatio(
+                                aspectRatio: 4 / 5,
+                                child: StarKidsMediaImage(source: imagePath),
+                              ),
+                            );
+                          },
+                          separatorBuilder: (_, __) => const SizedBox(width: 8),
+                          itemCount: branchDetail.galleryImagePaths.length,
+                        ),
+                      )
+                    else
+                      const _BranchInlineStateCard(
+                        title: 'Галерея скоро появится',
+                        description:
+                            'Для этого филиала еще не опубликованы изображения. Контакты и основные условия уже доступны.',
+                      ),
+                  ],
+                ),
               );
             },
           ),
@@ -288,10 +301,7 @@ class BranchDetailsPage extends StatelessWidget {
         .getForBranch(branchId)
         .catchError((_) => _buildFallbackContactLinks(branch));
 
-    return _BranchDetailsScreenData(
-      branch: branch,
-      contactLinks: contactLinks,
-    );
+    return _BranchDetailsScreenData(branch: branch, contactLinks: contactLinks);
   }
 
   BranchContactLinks _buildFallbackContactLinks(BranchOption branch) {
@@ -311,10 +321,7 @@ class BranchDetailsPage extends StatelessWidget {
     return value?.trim().isNotEmpty == true;
   }
 
-  static String _displayValue(
-    String? value, {
-    required String fallback,
-  }) {
+  static String _displayValue(String? value, {required String fallback}) {
     final normalized = value?.trim();
     if (normalized == null || normalized.isEmpty) {
       return fallback;
@@ -378,6 +385,7 @@ class _BranchDetailsScreenData {
 
 class _BranchDetailsStateView extends StatelessWidget {
   const _BranchDetailsStateView({
+    super.key,
     required this.title,
     required this.description,
   });

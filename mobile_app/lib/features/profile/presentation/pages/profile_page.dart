@@ -10,8 +10,10 @@ import '../../../../core/design_system/foundations/star_kids_icon_sizes.dart';
 import '../../../../core/design_system/foundations/star_kids_radii.dart';
 import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
+import '../../../../core/design_system/widgets/star_kids_brand_logo.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_input_field.dart';
+import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../auth/domain/mobile_auth_session.dart';
 import '../../../auth/domain/otp_challenge.dart';
 import '../../../auth/presentation/controllers/mobile_auth_controller.dart';
@@ -21,10 +23,7 @@ import '../../../notifications/presentation/controllers/mobile_notifications_con
 import '../../../requests/presentation/formatters/kz_phone_input_formatter.dart';
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({
-    super.key,
-    this.notificationsController,
-  });
+  const ProfilePage({super.key, this.notificationsController});
 
   final MobileNotificationsController? notificationsController;
 
@@ -46,10 +45,10 @@ class _ProfilePageState extends State<ProfilePage> {
       ServiceRegistry.mobileNotificationsController;
 
   Listenable get _pageListenable => Listenable.merge([
-        _authController,
-        _notificationsController,
-        ServiceRegistry.selectedBranchController,
-      ]);
+    _authController,
+    _notificationsController,
+    ServiceRegistry.selectedBranchController,
+  ]);
 
   @override
   void initState() {
@@ -72,8 +71,9 @@ class _ProfilePageState extends State<ProfilePage> {
     final challenge = _authController.pendingChallenge;
 
     if (session != null) {
-      _phoneController.text =
-          KzPhoneInputFormatter.formatDisplay(session.phone);
+      _phoneController.text = KzPhoneInputFormatter.formatDisplay(
+        session.phone,
+      );
       _codeController.clear();
       return;
     }
@@ -148,34 +148,39 @@ class _ProfilePageState extends State<ProfilePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _ProfileIntroCard(
-                    title: session != null
-                        ? 'Ваш профиль уже активен'
-                        : challenge != null
-                            ? 'Подтвердите вход по коду'
-                            : 'Войдите по номеру телефона',
-                    description: session != null
-                        ? 'Номер телефона уже подключен к приложению. Здесь будут собираться ваш профиль и персональный контекст.'
-                        : challenge != null
-                            ? 'Мы отправили одноразовый код на ваш номер. После подтверждения приложение сохранит вход на этом устройстве.'
-                            : 'Войдите по номеру телефона, чтобы сохранить сессию, персональный контекст и подготовить основу для истории заявок.',
+                  StarKidsReveal(
+                    child: _ProfileIntroCard(
+                      title: session != null
+                          ? 'Ваш профиль уже активен'
+                          : challenge != null
+                          ? 'Подтвердите вход по коду'
+                          : 'Войдите по номеру телефона',
+                      description: session != null
+                          ? 'Номер телефона уже подключен к приложению. Здесь будут собираться ваш профиль и персональный контекст.'
+                          : challenge != null
+                          ? 'Мы отправили одноразовый код на ваш номер. После подтверждения приложение сохранит вход на этом устройстве.'
+                          : 'Войдите по номеру телефона, чтобы сохранить сессию, персональный контекст и подготовить основу для истории заявок.',
+                    ),
                   ),
                   if (errorMessage != null) ...[
                     const SizedBox(height: StarKidsSpacing.lg),
-                    _AuthErrorCard(
-                      message: errorMessage,
-                      onDismiss: _authController.clearError,
+                    StarKidsReveal(
+                      delay: starKidsStaggerDelay(1),
+                      child: _AuthErrorCard(
+                        message: errorMessage,
+                        onDismiss: _authController.clearError,
+                      ),
                     ),
                   ],
                   const SizedBox(height: StarKidsSpacing.lg),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 180),
+                  StarKidsContentSwitcher(
                     child: session != null
                         ? _AuthenticatedProfileCard(
                             key: const ValueKey('authenticated-profile-card'),
                             session: session,
-                            maskedPhone:
-                                _authController.maskPhone(session.phone),
+                            maskedPhone: _authController.maskPhone(
+                              session.phone,
+                            ),
                             selectedBranch: selectedBranch,
                             isRefreshing: _authController.isRefreshingProfile,
                             isLoggingOut: _authController.isLoggingOut,
@@ -183,44 +188,52 @@ class _ProfilePageState extends State<ProfilePage> {
                             onLogout: _logout,
                           )
                         : challenge != null
-                            ? _OtpVerificationCard(
-                                key: const ValueKey('otp-verification-card'),
-                                formKey: _codeFormKey,
-                                codeController: _codeController,
-                                challenge: challenge,
-                                maskedPhone:
-                                    _authController.maskPhone(challenge.phone),
-                                isLoading: _authController.status ==
-                                    MobileAuthStatus.verifying,
-                                onSubmit: _verifyOtp,
-                                onEditPhone: _editPhone,
-                                onResendOtp: _resendOtp,
-                                validator: _authController.validateOtpCode,
-                              )
-                            : _PhoneAuthCard(
-                                key: const ValueKey('phone-auth-card'),
-                                formKey: _phoneFormKey,
-                                phoneController: _phoneController,
-                                isLoading: _authController.status ==
-                                    MobileAuthStatus.loading,
-                                onSubmit: _requestOtp,
-                                validator: _authController.validatePhoneInput,
-                              ),
+                        ? _OtpVerificationCard(
+                            key: const ValueKey('otp-verification-card'),
+                            formKey: _codeFormKey,
+                            codeController: _codeController,
+                            challenge: challenge,
+                            maskedPhone: _authController.maskPhone(
+                              challenge.phone,
+                            ),
+                            isLoading:
+                                _authController.status ==
+                                MobileAuthStatus.verifying,
+                            onSubmit: _verifyOtp,
+                            onEditPhone: _editPhone,
+                            onResendOtp: _resendOtp,
+                            validator: _authController.validateOtpCode,
+                          )
+                        : _PhoneAuthCard(
+                            key: const ValueKey('phone-auth-card'),
+                            formKey: _phoneFormKey,
+                            phoneController: _phoneController,
+                            isLoading:
+                                _authController.status ==
+                                MobileAuthStatus.loading,
+                            onSubmit: _requestOtp,
+                            validator: _authController.validatePhoneInput,
+                          ),
                   ),
                   const SizedBox(height: StarKidsSpacing.lg),
-                  _ProfileNextStepCard(
-                    isAuthenticated: session != null,
-                    selectedBranchLabel: selectedBranch.name,
-                    onOpenHistory: () => Navigator.of(
-                      context,
-                    ).pushNamed(AppRoutes.myRequests),
+                  StarKidsReveal(
+                    delay: starKidsStaggerDelay(2),
+                    child: _ProfileNextStepCard(
+                      isAuthenticated: session != null,
+                      selectedBranchLabel: selectedBranch.name,
+                      onOpenHistory: () =>
+                          Navigator.of(context).pushNamed(AppRoutes.myRequests),
+                    ),
                   ),
                   const SizedBox(height: StarKidsSpacing.lg),
-                  _NotificationsStatusCard(
-                    status: _notificationsController.status,
-                    onOpenStatus: () => Navigator.of(
-                      context,
-                    ).pushNamed(AppRoutes.notifications),
+                  StarKidsReveal(
+                    delay: starKidsStaggerDelay(3),
+                    child: _NotificationsStatusCard(
+                      status: _notificationsController.status,
+                      onOpenStatus: () => Navigator.of(
+                        context,
+                      ).pushNamed(AppRoutes.notifications),
+                    ),
                   ),
                 ],
               ),
@@ -233,10 +246,7 @@ class _ProfilePageState extends State<ProfilePage> {
 }
 
 class _ProfileIntroCard extends StatelessWidget {
-  const _ProfileIntroCard({
-    required this.title,
-    required this.description,
-  });
+  const _ProfileIntroCard({required this.title, required this.description});
 
   final String title;
   final String description;
@@ -256,6 +266,12 @@ class _ProfileIntroCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const SizedBox(
+            width: 88,
+            height: 88,
+            child: StarKidsBrandLogo(logoSize: 78),
+          ),
+          const SizedBox(height: StarKidsSpacing.lg),
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: StarKidsSpacing.md,
@@ -283,10 +299,7 @@ class _ProfileIntroCard extends StatelessWidget {
 }
 
 class _AuthErrorCard extends StatelessWidget {
-  const _AuthErrorCard({
-    required this.message,
-    required this.onDismiss,
-  });
+  const _AuthErrorCard({required this.message, required this.onDismiss});
 
   final String message;
   final VoidCallback onDismiss;
@@ -417,9 +430,9 @@ class _OtpVerificationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final expiresAt = MaterialLocalizations.of(context).formatTimeOfDay(
-      TimeOfDay.fromDateTime(challenge.expiresAt),
-    );
+    final expiresAt = MaterialLocalizations.of(
+      context,
+    ).formatTimeOfDay(TimeOfDay.fromDateTime(challenge.expiresAt));
 
     return _AuthCardShell(
       child: Form(
@@ -529,25 +542,16 @@ class _AuthenticatedProfileCard extends StatelessWidget {
             style: textTheme.bodyMedium,
           ),
           const SizedBox(height: StarKidsSpacing.lg),
-          _ProfileFactRow(
-            label: 'Телефон',
-            value: displayPhone,
-          ),
+          _ProfileFactRow(label: 'Телефон', value: displayPhone),
           const SizedBox(height: StarKidsSpacing.md),
-          _ProfileFactRow(
-            label: 'Текущий филиал',
-            value: selectedBranch.name,
-          ),
+          _ProfileFactRow(label: 'Текущий филиал', value: selectedBranch.name),
           const SizedBox(height: StarKidsSpacing.md),
           _ProfileFactRow(
             label: 'Адрес филиала',
             value: selectedBranch.address,
           ),
           const SizedBox(height: StarKidsSpacing.md),
-          _ProfileFactRow(
-            label: 'Вход подтвержден',
-            value: verifiedDate,
-          ),
+          _ProfileFactRow(label: 'Вход подтвержден', value: verifiedDate),
           const SizedBox(height: StarKidsSpacing.md),
           _ProfileFactRow(
             label: 'Состояние',
@@ -559,16 +563,18 @@ class _AuthenticatedProfileCard extends StatelessWidget {
               Expanded(
                 child: StarKidsButton.secondary(
                   label: 'Обновить профиль',
-                  onPressed:
-                      isRefreshing || isLoggingOut ? null : () => onRefresh(),
+                  onPressed: isRefreshing || isLoggingOut
+                      ? null
+                      : () => onRefresh(),
                 ),
               ),
               const SizedBox(width: StarKidsSpacing.sm),
               Expanded(
                 child: StarKidsButton.primary(
                   label: 'Выйти',
-                  onPressed:
-                      isRefreshing || isLoggingOut ? null : () => onLogout(),
+                  onPressed: isRefreshing || isLoggingOut
+                      ? null
+                      : () => onLogout(),
                   isLoading: isLoggingOut,
                 ),
               ),
@@ -647,15 +653,9 @@ class _NotificationsStatusCard extends StatelessWidget {
         children: [
           Text('Уведомления', style: textTheme.titleLarge),
           const SizedBox(height: StarKidsSpacing.sm),
-          Text(
-            _descriptionForStatus(status),
-            style: textTheme.bodyMedium,
-          ),
+          Text(_descriptionForStatus(status), style: textTheme.bodyMedium),
           const SizedBox(height: StarKidsSpacing.md),
-          _ProfileFactRow(
-            label: 'Состояние',
-            value: _labelForStatus(status),
-          ),
+          _ProfileFactRow(label: 'Состояние', value: _labelForStatus(status)),
           const SizedBox(height: StarKidsSpacing.md),
           StarKidsButton.secondary(
             label: 'Статус уведомлений',
@@ -695,9 +695,7 @@ class _NotificationsStatusCard extends StatelessWidget {
 }
 
 class _AuthCardShell extends StatelessWidget {
-  const _AuthCardShell({
-    required this.child,
-  });
+  const _AuthCardShell({required this.child});
 
   final Widget child;
 
@@ -717,10 +715,7 @@ class _AuthCardShell extends StatelessWidget {
 }
 
 class _ProfileFactRow extends StatelessWidget {
-  const _ProfileFactRow({
-    required this.label,
-    required this.value,
-  });
+  const _ProfileFactRow({required this.label, required this.value});
 
   final String label;
   final String value;

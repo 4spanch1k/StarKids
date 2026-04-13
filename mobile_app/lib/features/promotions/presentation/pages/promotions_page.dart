@@ -9,6 +9,7 @@ import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_content_block_card.dart';
+import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_promo_card.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../../branches/domain/branch_option.dart';
@@ -56,21 +57,31 @@ class PromotionsPage extends StatelessWidget {
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting &&
                   !snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              if (snapshot.hasError) {
-                return _PromotionsStateView(
-                  title: 'Акции пока недоступны',
-                  description:
-                      'Не удалось загрузить коммерческие предложения. Попробуйте открыть экран позже.',
-                  actionLabel: 'Выбрать другой филиал',
-                  onActionTap: () => Navigator.of(context)
-                      .pushNamed(AppRoutes.branchSelection),
+                return const StarKidsContentSwitcher(
+                  child: Center(
+                    key: ValueKey('promotions-loading'),
+                    child: CircularProgressIndicator(),
+                  ),
                 );
               }
 
-              final data = snapshot.data ??
+              if (snapshot.hasError) {
+                return StarKidsContentSwitcher(
+                  child: _PromotionsStateView(
+                    key: const ValueKey('promotions-error'),
+                    title: 'Акции пока недоступны',
+                    description:
+                        'Не удалось загрузить коммерческие предложения. Попробуйте открыть экран позже.',
+                    actionLabel: 'Выбрать другой филиал',
+                    onActionTap: () => Navigator.of(
+                      context,
+                    ).pushNamed(AppRoutes.branchSelection),
+                  ),
+                );
+              }
+
+              final data =
+                  snapshot.data ??
                   _PromotionsScreenData(
                     branch: branch,
                     promotions: <PromotionOffer>[],
@@ -78,129 +89,141 @@ class PromotionsPage extends StatelessWidget {
                   );
               final promotions = data.promotions;
               if (promotions.isEmpty) {
-                return _PromotionsStateView(
-                  title: 'Скоро появятся новые предложения',
-                  description:
-                      'Экран уже готов для коммерческого контента, но по текущему филиалу пока нет активных офферов.',
-                  actionLabel: 'Сменить филиал',
-                  onActionTap: () => Navigator.of(context)
-                      .pushNamed(AppRoutes.branchSelection),
+                return StarKidsContentSwitcher(
+                  child: _PromotionsStateView(
+                    key: const ValueKey('promotions-empty'),
+                    title: 'Скоро появятся новые предложения',
+                    description:
+                        'Экран уже готов для коммерческого контента, но по текущему филиалу пока нет активных офферов.',
+                    actionLabel: 'Сменить филиал',
+                    onActionTap: () => Navigator.of(
+                      context,
+                    ).pushNamed(AppRoutes.branchSelection),
+                  ),
                 );
               }
 
               final textTheme = Theme.of(context).textTheme;
 
-              return ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  StarKidsSpacing.xl,
-                  StarKidsSpacing.lg,
-                  StarKidsSpacing.xl,
-                  StarKidsSpacing.x5l,
-                ),
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(StarKidsSpacing.xl),
-                    decoration: BoxDecoration(
-                      color: StarKidsColors.surfacePrimary,
-                      borderRadius: BorderRadius.circular(StarKidsRadii.hero),
-                      border: Border.all(color: StarKidsColors.borderDefault),
-                      boxShadow: StarKidsShadows.depth1,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: StarKidsSpacing.md,
-                            vertical: StarKidsSpacing.sm,
-                          ),
-                          decoration: BoxDecoration(
-                            color: StarKidsColors.brandHighlight,
-                            borderRadius:
-                                BorderRadius.circular(StarKidsRadii.full),
-                          ),
-                          child: Text(
-                            data.branch.shortLabel,
-                            style: textTheme.labelMedium?.copyWith(
-                              color: StarKidsColors.textPrimary,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: StarKidsSpacing.md),
-                        Text(
-                          'Акции должны возвращать родителя в приложение, а не просто висеть как баннер.',
-                          style: textTheme.headlineMedium,
-                        ),
-                        const SizedBox(height: StarKidsSpacing.md),
-                        Text(
-                          'Здесь собраны branch-aware офферы и удобный вход в request flow без нового визуального шума.',
-                          style: textTheme.bodyLarge,
-                        ),
-                      ],
-                    ),
+              return StarKidsContentSwitcher(
+                child: ListView(
+                  key: ValueKey('promotions-loaded-${data.branch.id}'),
+                  padding: const EdgeInsets.fromLTRB(
+                    StarKidsSpacing.xl,
+                    StarKidsSpacing.lg,
+                    StarKidsSpacing.xl,
+                    StarKidsSpacing.x5l,
                   ),
-                  const SizedBox(height: StarKidsSpacing.x2l),
-                  StarKidsSectionHeader(
-                    title: 'Предложения для ${data.branch.shortLabel}',
-                    description:
-                        'Коммерческий экран должен быстро показать, почему сюда стоит вернуться именно сейчас.',
-                  ),
-                  const SizedBox(height: StarKidsSpacing.lg),
-                  ...promotions.map(
-                    (promotion) => Padding(
-                      padding:
-                          const EdgeInsets.only(bottom: StarKidsSpacing.lg),
-                      child: StarKidsPromoCard(
-                        title: promotion.title,
-                        description: promotion.description,
-                        imagePath: promotion.imagePath,
-                        badgeLabel: promotion.badgeLabel,
-                        actionLabel: promotion.ctaLabel,
-                        onTap: () => Navigator.of(context).pushNamed(
-                          AppRoutes.requests,
-                          arguments: const RequestPageArgs(
-                            initialType: RequestType.birthdayRequest,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: StarKidsSpacing.lg),
-                  if (data.contentBlocks.isNotEmpty)
-                    ...data.contentBlocks.map(
-                      (block) => Padding(
-                        padding:
-                            const EdgeInsets.only(bottom: StarKidsSpacing.md),
-                        child: StarKidsContentBlockCard(
-                          title: block.title,
-                          body: block.body,
-                          label: block.ctaLabel,
-                        ),
-                      ),
-                    )
-                  else
+                  children: [
                     Container(
-                      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+                      padding: const EdgeInsets.all(StarKidsSpacing.xl),
                       decoration: BoxDecoration(
-                        color: StarKidsColors.surfaceSecondary,
-                        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+                        color: StarKidsColors.surfacePrimary,
+                        borderRadius: BorderRadius.circular(StarKidsRadii.hero),
+                        border: Border.all(color: StarKidsColors.borderDefault),
+                        boxShadow: StarKidsShadows.depth1,
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Зачем открывать приложение снова',
-                            style: textTheme.titleLarge,
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: StarKidsSpacing.md,
+                              vertical: StarKidsSpacing.sm,
+                            ),
+                            decoration: BoxDecoration(
+                              color: StarKidsColors.brandHighlight,
+                              borderRadius: BorderRadius.circular(
+                                StarKidsRadii.full,
+                              ),
+                            ),
+                            child: Text(
+                              data.branch.shortLabel,
+                              style: textTheme.labelMedium?.copyWith(
+                                color: StarKidsColors.textPrimary,
+                              ),
+                            ),
                           ),
-                          const SizedBox(height: StarKidsSpacing.sm),
+                          const SizedBox(height: StarKidsSpacing.md),
                           Text(
-                            'Филиалы, акции и birthday flow уже собраны в один сценарий: посмотреть, выбрать и оставить заявку за пару минут.',
+                            'Акции должны возвращать родителя в приложение, а не просто висеть как баннер.',
+                            style: textTheme.headlineMedium,
+                          ),
+                          const SizedBox(height: StarKidsSpacing.md),
+                          Text(
+                            'Здесь собраны branch-aware офферы и удобный вход в request flow без нового визуального шума.',
                             style: textTheme.bodyLarge,
                           ),
                         ],
                       ),
                     ),
-                ],
+                    const SizedBox(height: StarKidsSpacing.x2l),
+                    StarKidsSectionHeader(
+                      title: 'Предложения для ${data.branch.shortLabel}',
+                      description:
+                          'Коммерческий экран должен быстро показать, почему сюда стоит вернуться именно сейчас.',
+                    ),
+                    const SizedBox(height: StarKidsSpacing.lg),
+                    ...promotions.asMap().entries.map(
+                      (entry) => Padding(
+                        padding: const EdgeInsets.only(
+                          bottom: StarKidsSpacing.lg,
+                        ),
+                        child: StarKidsPromoCard(
+                          revealDelay: starKidsStaggerDelay(entry.key),
+                          title: entry.value.title,
+                          description: entry.value.description,
+                          imagePath: entry.value.imagePath,
+                          badgeLabel: entry.value.badgeLabel,
+                          actionLabel: entry.value.ctaLabel,
+                          onTap: () => Navigator.of(context).pushNamed(
+                            AppRoutes.requests,
+                            arguments: const RequestPageArgs(
+                              initialType: RequestType.birthdayRequest,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: StarKidsSpacing.lg),
+                    if (data.contentBlocks.isNotEmpty)
+                      ...data.contentBlocks.asMap().entries.map(
+                        (entry) => Padding(
+                          padding: const EdgeInsets.only(
+                            bottom: StarKidsSpacing.md,
+                          ),
+                          child: StarKidsContentBlockCard(
+                            revealDelay: starKidsStaggerDelay(entry.key),
+                            title: entry.value.title,
+                            body: entry.value.body,
+                            label: entry.value.ctaLabel,
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.all(StarKidsSpacing.lg),
+                        decoration: BoxDecoration(
+                          color: StarKidsColors.surfaceSecondary,
+                          borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Зачем открывать приложение снова',
+                              style: textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: StarKidsSpacing.sm),
+                            Text(
+                              'Филиалы, акции и birthday flow уже собраны в один сценарий: посмотреть, выбрать и оставить заявку за пару минут.',
+                              style: textTheme.bodyLarge,
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
               );
             },
           ),
@@ -210,10 +233,11 @@ class PromotionsPage extends StatelessWidget {
   }
 
   Future<_PromotionsScreenData> _loadScreenData(String branchId) async {
-    final branch =
-        await ServiceRegistry.branchRepository.getBranch(branchId).catchError(
-              (_) => ServiceRegistry.selectedBranchController.selectedBranch,
-            );
+    final branch = await ServiceRegistry.branchRepository
+        .getBranch(branchId)
+        .catchError(
+          (_) => ServiceRegistry.selectedBranchController.selectedBranch,
+        );
     ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
     final promotions = await ServiceRegistry.promotionRepository
         .listPromotions(branchId)
@@ -232,6 +256,7 @@ class PromotionsPage extends StatelessWidget {
 
 class _PromotionsStateView extends StatelessWidget {
   const _PromotionsStateView({
+    super.key,
     required this.title,
     required this.description,
     required this.actionLabel,

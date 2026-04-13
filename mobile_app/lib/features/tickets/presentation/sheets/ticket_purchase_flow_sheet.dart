@@ -7,11 +7,12 @@ import '../../../../core/design_system/foundations/star_kids_radii.dart';
 import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
+import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_select_field.dart';
 import '../../../branches/domain/branch_option.dart';
 
 Future<void> showTicketPurchaseFlowSheet(BuildContext context) {
-  return showModalBottomSheet<void>(
+  return showStarKidsModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
@@ -20,7 +21,7 @@ Future<void> showTicketPurchaseFlowSheet(BuildContext context) {
 }
 
 Future<void> showMyTicketsPlaceholderSheet(BuildContext context) {
-  return showModalBottomSheet<void>(
+  return showStarKidsModalBottomSheet<void>(
     context: context,
     backgroundColor: StarKidsColors.surfacePrimary,
     shape: const RoundedRectangleBorder(
@@ -30,10 +31,7 @@ Future<void> showMyTicketsPlaceholderSheet(BuildContext context) {
   );
 }
 
-enum _TicketPurchaseStep {
-  selectEntry,
-  chooseTickets,
-}
+enum _TicketPurchaseStep { selectEntry, chooseTickets }
 
 class _TicketPurchaseFlowSheet extends StatefulWidget {
   const _TicketPurchaseFlowSheet();
@@ -97,7 +95,7 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
       return;
     }
 
-    final selectedBranch = await showModalBottomSheet<BranchOption>(
+    final selectedBranch = await showStarKidsModalBottomSheet<BranchOption>(
       context: context,
       backgroundColor: StarKidsColors.surfacePrimary,
       shape: const RoundedRectangleBorder(
@@ -130,7 +128,7 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
       (index) => firstDay.add(Duration(days: index)),
     );
 
-    final selectedDate = await showModalBottomSheet<DateTime>(
+    final selectedDate = await showStarKidsModalBottomSheet<DateTime>(
       context: context,
       backgroundColor: StarKidsColors.surfacePrimary,
       shape: const RoundedRectangleBorder(
@@ -269,8 +267,7 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                 ),
               ),
               Expanded(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 180),
+                child: StarKidsContentSwitcher(
                   child: _currentStep == _TicketPurchaseStep.selectEntry
                       ? _StepSelectionView(
                           key: const ValueKey('ticket-step-selection'),
@@ -421,7 +418,9 @@ class _StepSelectionView extends StatelessWidget {
           StarKidsSelectField(
             key: const ValueKey('ticket-day-select'),
             label: 'День',
-            value: selectedDate == null ? null : _formatTicketDate(selectedDate!),
+            value: selectedDate == null
+                ? null
+                : _formatTicketDate(selectedDate!),
             helperText: 'Выберите дату посещения заранее.',
             leadingIcon: Icons.calendar_today_rounded,
             placeholderText: 'Выберите день посещения',
@@ -527,7 +526,9 @@ class _StepTicketsView extends StatelessWidget {
                 const SizedBox(height: StarKidsSpacing.md),
                 const _BenefitLine(label: 'Детям 0–1 лет — бесплатно'),
                 const SizedBox(height: StarKidsSpacing.sm),
-                const _BenefitLine(label: 'Имениннику в день рождения — бесплатно'),
+                const _BenefitLine(
+                  label: 'Имениннику в день рождения — бесплатно',
+                ),
                 const SizedBox(height: StarKidsSpacing.sm),
                 const _BenefitLine(label: 'Особенным детям — бесплатно'),
               ],
@@ -686,9 +687,7 @@ class _CounterButton extends StatelessWidget {
 }
 
 class _BenefitLine extends StatelessWidget {
-  const _BenefitLine({
-    required this.label,
-  });
+  const _BenefitLine({required this.label});
 
   final String label;
 
@@ -708,9 +707,7 @@ class _BenefitLine extends StatelessWidget {
           ),
         ),
         const SizedBox(width: StarKidsSpacing.sm),
-        Expanded(
-          child: Text(label, style: textTheme.bodyMedium),
-        ),
+        Expanded(child: Text(label, style: textTheme.bodyMedium)),
       ],
     );
   }
@@ -848,8 +845,7 @@ class _SelectionSheet<T> extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.all(StarKidsSpacing.lg),
                         decoration: BoxDecoration(
-                          borderRadius:
-                              BorderRadius.circular(StarKidsRadii.xl),
+                          borderRadius: BorderRadius.circular(StarKidsRadii.xl),
                           border: Border.all(
                             color: isSelected
                                 ? StarKidsColors.brandPrimary
@@ -943,15 +939,7 @@ String _formatTenge(int amount) {
   return '${buffer.toString()} тг';
 }
 
-const _weekdaysRu = <String>[
-  'Пн',
-  'Вт',
-  'Ср',
-  'Чт',
-  'Пт',
-  'Сб',
-  'Вс',
-];
+const _weekdaysRu = <String>['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
 const _monthsRu = <String>[
   'января',
