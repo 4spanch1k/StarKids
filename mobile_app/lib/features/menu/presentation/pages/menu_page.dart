@@ -8,6 +8,7 @@ import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_media_image.dart';
+import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../../branches/domain/branch_option.dart';
 import '../../domain/branch_menu.dart';
@@ -38,17 +39,25 @@ class MenuPage extends StatelessWidget {
             future: _loadScreenData(branch.id),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return const StarKidsContentSwitcher(
+                  child: Center(
+                    key: ValueKey('menu-loading'),
+                    child: CircularProgressIndicator(),
+                  ),
+                );
               }
 
               if (snapshot.hasError || !snapshot.hasData) {
-                return _MenuStateView(
-                  title: 'Меню пока недоступно',
-                  description:
-                      'Не удалось загрузить позиции для выбранного филиала. Попробуйте выбрать другой филиал или зайти позже.',
-                  actionLabel: 'Сменить филиал',
-                  onActionTap: () => Navigator.of(context)
-                      .pushNamed(AppRoutes.branchSelection),
+                return StarKidsContentSwitcher(
+                  child: _MenuStateView(
+                    key: const ValueKey('menu-error'),
+                    title: 'Меню пока недоступно',
+                    description:
+                        'Не удалось загрузить позиции для выбранного филиала. Попробуйте выбрать другой филиал или зайти позже.',
+                    actionLabel: 'Сменить филиал',
+                    onActionTap: () => Navigator.of(context)
+                        .pushNamed(AppRoutes.branchSelection),
+                  ),
                 );
               }
 
@@ -56,77 +65,97 @@ class MenuPage extends StatelessWidget {
               final textTheme = Theme.of(context).textTheme;
 
               if (data.menu.categories.isEmpty) {
-                return _MenuStateView(
-                  title: 'Меню скоро появится',
-                  description:
-                      'Для этого филиала еще не опубликованы блюда. Попробуйте открыть другой филиал.',
-                  actionLabel: 'Сменить филиал',
-                  onActionTap: () => Navigator.of(context)
-                      .pushNamed(AppRoutes.branchSelection),
+                return StarKidsContentSwitcher(
+                  child: _MenuStateView(
+                    key: const ValueKey('menu-empty'),
+                    title: 'Меню скоро появится',
+                    description:
+                        'Для этого филиала еще не опубликованы блюда. Попробуйте открыть другой филиал.',
+                    actionLabel: 'Сменить филиал',
+                    onActionTap: () => Navigator.of(context)
+                        .pushNamed(AppRoutes.branchSelection),
+                  ),
                 );
               }
 
-              return ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  StarKidsSpacing.xl,
-                  StarKidsSpacing.lg,
-                  StarKidsSpacing.xl,
-                  StarKidsSpacing.x4l,
-                ),
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(StarKidsSpacing.xl),
-                    decoration: BoxDecoration(
-                      color: StarKidsColors.surfacePrimary,
-                      borderRadius: BorderRadius.circular(StarKidsRadii.hero),
-                      border: Border.all(color: StarKidsColors.borderDefault),
-                      boxShadow: StarKidsShadows.depth1,
+              return StarKidsContentSwitcher(
+                child: ListView(
+                  key: ValueKey('menu-loaded-${data.branch.id}'),
+                  padding: const EdgeInsets.fromLTRB(
+                    StarKidsSpacing.xl,
+                    StarKidsSpacing.lg,
+                    StarKidsSpacing.xl,
+                    StarKidsSpacing.x4l,
+                  ),
+                  children: [
+                    StarKidsReveal(
+                      child: Container(
+                        padding: const EdgeInsets.all(StarKidsSpacing.xl),
+                        decoration: BoxDecoration(
+                          color: StarKidsColors.surfacePrimary,
+                          borderRadius: BorderRadius.circular(
+                            StarKidsRadii.hero,
+                          ),
+                          border: Border.all(
+                            color: StarKidsColors.borderDefault,
+                          ),
+                          boxShadow: StarKidsShadows.depth1,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: StarKidsSpacing.md,
+                                vertical: StarKidsSpacing.sm,
+                              ),
+                              decoration: BoxDecoration(
+                                color: StarKidsColors.surfaceTertiary,
+                                borderRadius: BorderRadius.circular(
+                                  StarKidsRadii.full,
+                                ),
+                              ),
+                              child: Text(
+                                data.branch.shortLabel,
+                                style: textTheme.labelMedium?.copyWith(
+                                  color: StarKidsColors.brandPrimary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: StarKidsSpacing.md),
+                            Text('Меню кафе', style: textTheme.headlineMedium),
+                            const SizedBox(height: StarKidsSpacing.md),
+                            Text(
+                              'Все позиции, цены и картинки приходят из админки. Категории разделены так, чтобы меню было удобно читать на телефоне.',
+                              style: textTheme.bodyLarge,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: StarKidsSpacing.md,
-                            vertical: StarKidsSpacing.sm,
-                          ),
-                          decoration: BoxDecoration(
-                            color: StarKidsColors.surfaceTertiary,
-                            borderRadius:
-                                BorderRadius.circular(StarKidsRadii.full),
-                          ),
-                          child: Text(
-                            data.branch.shortLabel,
-                            style: textTheme.labelMedium?.copyWith(
-                              color: StarKidsColors.brandPrimary,
+                    const SizedBox(height: StarKidsSpacing.x2l),
+                    const StarKidsReveal(
+                      delay: Duration(milliseconds: 80),
+                      child: StarKidsSectionHeader(
+                        title: 'Категории',
+                        description:
+                            'Каждое блюдо показывает отдельную картинку и точную цену в тенге.',
+                      ),
+                    ),
+                    const SizedBox(height: StarKidsSpacing.lg),
+                    ...data.menu.categories.asMap().entries.map(
+                          (entry) => Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: StarKidsSpacing.xl,
+                            ),
+                            child: _MenuCategoryCard(
+                              revealDelay: starKidsStaggerDelay(entry.key),
+                              category: entry.value,
                             ),
                           ),
                         ),
-                        const SizedBox(height: StarKidsSpacing.md),
-                        Text('Меню кафе', style: textTheme.headlineMedium),
-                        const SizedBox(height: StarKidsSpacing.md),
-                        Text(
-                          'Все позиции, цены и картинки приходят из админки. Категории разделены так, чтобы меню было удобно читать на телефоне.',
-                          style: textTheme.bodyLarge,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: StarKidsSpacing.x2l),
-                  const StarKidsSectionHeader(
-                    title: 'Категории',
-                    description:
-                        'Каждое блюдо показывает отдельную картинку и точную цену в тенге.',
-                  ),
-                  const SizedBox(height: StarKidsSpacing.lg),
-                  ...data.menu.categories.map(
-                    (category) => Padding(
-                      padding:
-                          const EdgeInsets.only(bottom: StarKidsSpacing.xl),
-                      child: _MenuCategoryCard(category: category),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               );
             },
           ),
@@ -153,56 +182,61 @@ class MenuPage extends StatelessWidget {
 class _MenuCategoryCard extends StatelessWidget {
   const _MenuCategoryCard({
     required this.category,
+    this.revealDelay = Duration.zero,
   });
 
   final MenuCategory category;
+  final Duration revealDelay;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-    return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
-      decoration: BoxDecoration(
-        color: StarKidsColors.surfacePrimary,
-        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-        border: Border.all(color: StarKidsColors.borderDefault),
-        boxShadow: StarKidsShadows.depth1,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: StarKidsColors.surfaceTertiary,
-                  borderRadius: BorderRadius.circular(14),
+    return StarKidsReveal(
+      delay: revealDelay,
+      child: Container(
+        padding: const EdgeInsets.all(StarKidsSpacing.lg),
+        decoration: BoxDecoration(
+          color: StarKidsColors.surfacePrimary,
+          borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+          border: Border.all(color: StarKidsColors.borderDefault),
+          boxShadow: StarKidsShadows.depth1,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: StarKidsColors.surfaceTertiary,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.restaurant_menu_rounded,
+                    color: StarKidsColors.brandPrimary,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.restaurant_menu_rounded,
-                  color: StarKidsColors.brandPrimary,
+                const SizedBox(width: StarKidsSpacing.md),
+                Expanded(
+                  child: Text(
+                    category.title,
+                    style: textTheme.titleLarge,
+                  ),
                 ),
-              ),
-              const SizedBox(width: StarKidsSpacing.md),
-              Expanded(
-                child: Text(
-                  category.title,
-                  style: textTheme.titleLarge,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: StarKidsSpacing.lg),
-          ...category.items.map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: StarKidsSpacing.md),
-              child: _MenuItemCard(item: item),
+              ],
             ),
-          ),
-        ],
+            const SizedBox(height: StarKidsSpacing.lg),
+            ...category.items.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: StarKidsSpacing.md),
+                child: _MenuItemCard(item: item),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -267,6 +301,7 @@ class _MenuItemCard extends StatelessWidget {
 
 class _MenuStateView extends StatelessWidget {
   const _MenuStateView({
+    super.key,
     required this.title,
     required this.description,
     required this.actionLabel,
