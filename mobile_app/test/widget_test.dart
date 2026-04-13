@@ -32,7 +32,7 @@ void main() {
     await tester.tap(find.text('Войти').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('Введите email.'), findsOneWidget);
+    expect(find.text('Введите электронную почту.'), findsOneWidget);
     expect(find.text('Введите пароль.'), findsOneWidget);
   });
 }

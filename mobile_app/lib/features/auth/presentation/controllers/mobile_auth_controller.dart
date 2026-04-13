@@ -337,11 +337,11 @@ class MobileAuthController extends ChangeNotifier {
   String? validateEmailInput(String? value) {
     final email = _normalizeEmail(value ?? '');
     if (email.isEmpty) {
-      return 'Введите email.';
+      return 'Введите электронную почту.';
     }
 
     if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
-      return 'Введите корректный email.';
+      return 'Введите корректную электронную почту.';
     }
 
     return null;

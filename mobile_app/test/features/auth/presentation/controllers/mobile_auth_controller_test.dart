@@ -151,10 +151,13 @@ void main() {
         repository: _FakeMobileAuthRepository(),
       );
 
-      expect(controller.validateEmailInput(''), 'Введите email.');
+      expect(
+        controller.validateEmailInput(''),
+        'Введите электронную почту.',
+      );
       expect(
         controller.validateEmailInput('wrong-email'),
-        'Введите корректный email.',
+        'Введите корректную электронную почту.',
       );
       expect(controller.validateEmailInput('parent@example.com'), isNull);
       expect(controller.validatePasswordInput(''), 'Введите пароль.');
