@@ -21,11 +21,13 @@ class EmailAuthGatePage extends StatefulWidget {
   State<EmailAuthGatePage> createState() => _EmailAuthGatePageState();
 }
 
-class _EmailAuthGatePageState extends State<EmailAuthGatePage> {
+class _EmailAuthGatePageState extends State<EmailAuthGatePage>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  late final AnimationController _entryController;
 
   _EmailAuthMode _mode = _EmailAuthMode.login;
   AutovalidateMode _autovalidateMode = AutovalidateMode.disabled;
@@ -36,7 +38,17 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage> {
       ServiceRegistry.mobileAuthController;
 
   @override
+  void initState() {
+    super.initState();
+    _entryController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 920),
+    )..forward();
+  }
+
+  @override
   void dispose() {
+    _entryController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -91,6 +103,13 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage> {
     });
   }
 
+  Animation<double> _entryInterval(double begin, double end) {
+    return CurvedAnimation(
+      parent: _entryController,
+      curve: Interval(begin, end, curve: Curves.easeOutCubic),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -134,40 +153,52 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              _AuthBrandIntro(isRegister: isRegister),
+                              _RevealMotion(
+                                animation: _entryInterval(0, 0.58),
+                                offset: const Offset(0, 0.08),
+                                child: _AuthBrandIntro(isRegister: isRegister),
+                              ),
                               const SizedBox(height: StarKidsSpacing.x2l),
-                              _AuthFormCard(
-                                formKey: _formKey,
-                                autovalidateMode: _autovalidateMode,
-                                mode: _mode,
-                                emailController: _emailController,
-                                passwordController: _passwordController,
-                                confirmPasswordController:
-                                    _confirmPasswordController,
-                                isLoading: isLoading,
-                                errorMessage: errorMessage,
-                                isPasswordVisible: _isPasswordVisible,
-                                isConfirmPasswordVisible:
-                                    _isConfirmPasswordVisible,
-                                onModeChanged: _setMode,
-                                onSubmit: _submit,
-                                onPasswordVisibilityChanged:
-                                    _togglePasswordVisibility,
-                                onConfirmPasswordVisibilityChanged:
-                                    _toggleConfirmPasswordVisibility,
-                                emailValidator:
-                                    _authController.validateEmailInput,
-                                passwordValidator:
-                                    _authController.validatePasswordInput,
-                                confirmationValidator: (value) =>
-                                    _authController
-                                        .validatePasswordConfirmation(
-                                  password: _passwordController.text,
-                                  confirmation: value,
+                              _RevealMotion(
+                                animation: _entryInterval(0.16, 0.82),
+                                offset: const Offset(0, 0.1),
+                                child: _AuthFormCard(
+                                  formKey: _formKey,
+                                  autovalidateMode: _autovalidateMode,
+                                  mode: _mode,
+                                  emailController: _emailController,
+                                  passwordController: _passwordController,
+                                  confirmPasswordController:
+                                      _confirmPasswordController,
+                                  isLoading: isLoading,
+                                  errorMessage: errorMessage,
+                                  isPasswordVisible: _isPasswordVisible,
+                                  isConfirmPasswordVisible:
+                                      _isConfirmPasswordVisible,
+                                  onModeChanged: _setMode,
+                                  onSubmit: _submit,
+                                  onPasswordVisibilityChanged:
+                                      _togglePasswordVisibility,
+                                  onConfirmPasswordVisibilityChanged:
+                                      _toggleConfirmPasswordVisibility,
+                                  emailValidator:
+                                      _authController.validateEmailInput,
+                                  passwordValidator:
+                                      _authController.validatePasswordInput,
+                                  confirmationValidator: (value) =>
+                                      _authController
+                                          .validatePasswordConfirmation(
+                                    password: _passwordController.text,
+                                    confirmation: value,
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: StarKidsSpacing.lg),
-                              _AuthHintText(isRegister: isRegister),
+                              _RevealMotion(
+                                animation: _entryInterval(0.34, 1),
+                                offset: const Offset(0, 0.06),
+                                child: _AuthHintText(isRegister: isRegister),
+                              ),
                             ],
                           ),
                         ),
@@ -180,6 +211,32 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage> {
           ),
         );
       },
+    );
+  }
+}
+
+class _RevealMotion extends StatelessWidget {
+  const _RevealMotion({
+    required this.animation,
+    required this.child,
+    this.offset = const Offset(0, 0.08),
+  });
+
+  final Animation<double> animation;
+  final Widget child;
+  final Offset offset;
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: animation,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: offset,
+          end: Offset.zero,
+        ).animate(animation),
+        child: child,
+      ),
     );
   }
 }
@@ -228,7 +285,24 @@ class _DecorativeGlow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IgnorePointer(
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 980),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return IgnorePointer(
+          child: Opacity(
+            opacity: value,
+            child: Transform.translate(
+              offset: Offset(0, 28 * (1 - value)),
+              child: Transform.scale(
+                scale: 0.9 + (value * 0.1),
+                child: child,
+              ),
+            ),
+          ),
+        );
+      },
       child: Container(
         width: size,
         height: size,
@@ -253,9 +327,21 @@ class _AuthBrandIntro extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 220),
+      duration: const Duration(milliseconds: 280),
       switchInCurve: Curves.easeOutCubic,
       switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 0.04),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          ),
+        );
+      },
       child: Column(
         key: ValueKey(isRegister),
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -418,31 +504,51 @@ class _AuthFormCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              _isRegister ? 'Создать аккаунт' : 'С возвращением',
-              style: Theme.of(context).textTheme.headlineSmall,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: StarKidsSpacing.xs),
-            Text(
-              _isRegister
-                  ? 'Заполните почту и пароль. Это займет меньше минуты.'
-                  : 'Введите почту и пароль, чтобы открыть приложение.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: StarKidsColors.textSecondary,
-                    height: 1.36,
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 240),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: _slideFadeTransition,
+              child: Column(
+                key: ValueKey('copy-${mode.name}'),
+                children: [
+                  Text(
+                    _isRegister ? 'Создать аккаунт' : 'С возвращением',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                    textAlign: TextAlign.center,
                   ),
-              textAlign: TextAlign.center,
+                  const SizedBox(height: StarKidsSpacing.xs),
+                  Text(
+                    _isRegister
+                        ? 'Заполните почту и пароль. Это займет меньше минуты.'
+                        : 'Введите почту и пароль, чтобы открыть приложение.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: StarKidsColors.textSecondary,
+                          height: 1.36,
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: StarKidsSpacing.lg),
             _AuthModeSwitch(
               mode: mode,
               onChanged: isLoading ? null : onModeChanged,
             ),
-            if (errorMessage != null) ...[
-              const SizedBox(height: StarKidsSpacing.lg),
-              _AuthErrorBanner(message: errorMessage!),
-            ],
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: _slideFadeTransition,
+              child: errorMessage == null
+                  ? const SizedBox.shrink()
+                  : Padding(
+                      key: ValueKey(errorMessage),
+                      padding: const EdgeInsets.only(top: StarKidsSpacing.lg),
+                      child: _AuthErrorBanner(message: errorMessage!),
+                    ),
+            ),
             const SizedBox(height: StarKidsSpacing.lg),
             AutofillGroup(
               child: Column(
@@ -482,9 +588,10 @@ class _AuthFormCard extends StatelessWidget {
                     ),
                   ),
                   AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
+                    duration: const Duration(milliseconds: 260),
                     switchInCurve: Curves.easeOutCubic,
                     switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: _slideFadeTransition,
                     child: _isRegister
                         ? Padding(
                             key: const ValueKey('confirm-password'),
@@ -520,13 +627,32 @@ class _AuthFormCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: StarKidsSpacing.xl),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              constraints: const BoxConstraints(minHeight: 56),
-              child: StarKidsButton.primary(
-                label: _isRegister ? 'Зарегистрироваться' : 'Войти',
-                onPressed: isLoading ? null : () => onSubmit(),
-                isLoading: isLoading,
+            AnimatedScale(
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOutCubic,
+              scale: isLoading ? 0.98 : 1,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                constraints: const BoxConstraints(minHeight: 56),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(StarKidsRadii.full),
+                  boxShadow: isLoading
+                      ? const []
+                      : [
+                          BoxShadow(
+                            color: StarKidsColors.brandPrimary
+                                .withValues(alpha: 0.22),
+                            blurRadius: 26,
+                            offset: const Offset(0, 14),
+                          ),
+                        ],
+                ),
+                child: StarKidsButton.primary(
+                  label: _isRegister ? 'Зарегистрироваться' : 'Войти',
+                  onPressed: isLoading ? null : () => onSubmit(),
+                  isLoading: isLoading,
+                ),
               ),
             ),
           ],
@@ -536,7 +662,20 @@ class _AuthFormCard extends StatelessWidget {
   }
 }
 
-class _AuthTextField extends StatelessWidget {
+Widget _slideFadeTransition(Widget child, Animation<double> animation) {
+  return FadeTransition(
+    opacity: animation,
+    child: SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(0, 0.08),
+        end: Offset.zero,
+      ).animate(animation),
+      child: child,
+    ),
+  );
+}
+
+class _AuthTextField extends StatefulWidget {
   const _AuthTextField({
     required this.controller,
     required this.label,
@@ -566,24 +705,80 @@ class _AuthTextField extends StatelessWidget {
   final Widget? suffix;
 
   @override
+  State<_AuthTextField> createState() => _AuthTextFieldState();
+}
+
+class _AuthTextFieldState extends State<_AuthTextField> {
+  late final FocusNode _focusNode;
+  bool _isFocused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode();
+    _focusNode.addListener(_handleFocusChanged);
+  }
+
+  @override
+  void dispose() {
+    _focusNode
+      ..removeListener(_handleFocusChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _handleFocusChanged() {
+    if (_isFocused == _focusNode.hasFocus) {
+      return;
+    }
+
+    setState(() {
+      _isFocused = _focusNode.hasFocus;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      textInputAction: textInputAction,
-      enabled: enabled,
-      obscureText: obscureText,
-      enableSuggestions: !obscureText,
-      autocorrect: !obscureText,
-      validator: validator,
-      autofillHints: autofillHints,
-      onFieldSubmitted: onFieldSubmitted,
-      cursorColor: StarKidsColors.brandPrimary,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hintText,
-        prefixIcon: prefixIcon == null ? null : Icon(prefixIcon),
-        suffixIcon: suffix,
+    return AnimatedScale(
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOutCubic,
+      scale: _isFocused ? 1.012 : 1,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(StarKidsRadii.md),
+          boxShadow: _isFocused
+              ? [
+                  BoxShadow(
+                    color: StarKidsColors.brandPrimary.withValues(alpha: 0.14),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ]
+              : const [],
+        ),
+        child: TextFormField(
+          controller: widget.controller,
+          focusNode: _focusNode,
+          keyboardType: widget.keyboardType,
+          textInputAction: widget.textInputAction,
+          enabled: widget.enabled,
+          obscureText: widget.obscureText,
+          enableSuggestions: !widget.obscureText,
+          autocorrect: !widget.obscureText,
+          validator: widget.validator,
+          autofillHints: widget.autofillHints,
+          onFieldSubmitted: widget.onFieldSubmitted,
+          cursorColor: StarKidsColors.brandPrimary,
+          decoration: InputDecoration(
+            labelText: widget.label,
+            hintText: widget.hintText,
+            prefixIcon:
+                widget.prefixIcon == null ? null : Icon(widget.prefixIcon),
+            suffixIcon: widget.suffix,
+          ),
+        ),
       ),
     );
   }
@@ -603,8 +798,20 @@ class _PasswordVisibilityButton extends StatelessWidget {
     return IconButton(
       onPressed: onPressed,
       tooltip: isVisible ? 'Скрыть пароль' : 'Показать пароль',
-      icon: Icon(
-        isVisible ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+      icon: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 150),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          return ScaleTransition(
+            scale: animation,
+            child: FadeTransition(opacity: animation, child: child),
+          );
+        },
+        child: Icon(
+          isVisible ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+          key: ValueKey(isVisible),
+        ),
       ),
     );
   }
@@ -620,7 +827,10 @@ class _AuthHintText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 180),
+      duration: const Duration(milliseconds: 220),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: _slideFadeTransition,
       child: Text(
         isRegister
             ? 'После регистрации вход сохранится на этом устройстве.'
@@ -645,87 +855,115 @@ class _AuthModeSwitch extends StatelessWidget {
   final _EmailAuthMode mode;
   final ValueChanged<_EmailAuthMode>? onChanged;
 
+  bool get _isLogin => mode == _EmailAuthMode.login;
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.xs),
-      decoration: BoxDecoration(
-        color: StarKidsColors.surfaceSecondary,
-        borderRadius: BorderRadius.circular(StarKidsRadii.full),
-        border: Border.all(color: StarKidsColors.borderDefault),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _AuthModeTab(
-              label: 'Вход',
-              isSelected: mode == _EmailAuthMode.login,
-              isEnabled: onChanged != null,
-              onTap: () => onChanged?.call(_EmailAuthMode.login),
+    final isEnabled = onChanged != null;
+    final selectedStyle = Theme.of(context).textTheme.labelLarge?.copyWith(
+          color: StarKidsColors.textPrimary,
+          fontWeight: FontWeight.w800,
+        );
+    final idleStyle = Theme.of(context).textTheme.labelLarge?.copyWith(
+          color: StarKidsColors.textSecondary,
+          fontWeight: FontWeight.w700,
+        );
+
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 160),
+      opacity: isEnabled ? 1 : 0.62,
+      child: Container(
+        height: 52,
+        padding: const EdgeInsets.all(StarKidsSpacing.xs),
+        decoration: BoxDecoration(
+          color: StarKidsColors.surfaceSecondary,
+          borderRadius: BorderRadius.circular(StarKidsRadii.full),
+          border: Border.all(color: StarKidsColors.borderDefault),
+        ),
+        child: Stack(
+          children: [
+            AnimatedAlign(
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
+              alignment:
+                  _isLogin ? Alignment.centerLeft : Alignment.centerRight,
+              child: FractionallySizedBox(
+                widthFactor: 0.5,
+                heightFactor: 1,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: StarKidsColors.surfacePrimary,
+                    borderRadius: BorderRadius.circular(StarKidsRadii.full),
+                    boxShadow: [
+                      BoxShadow(
+                        color:
+                            StarKidsColors.textPrimary.withValues(alpha: 0.08),
+                        blurRadius: 16,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ),
-          Expanded(
-            child: _AuthModeTab(
-              label: 'Регистрация',
-              isSelected: mode == _EmailAuthMode.register,
-              isEnabled: onChanged != null,
-              onTap: () => onChanged?.call(_EmailAuthMode.register),
+            Row(
+              children: [
+                _AuthModeHitArea(
+                  label: 'Вход',
+                  isSelected: _isLogin,
+                  isEnabled: isEnabled,
+                  style: _isLogin ? selectedStyle : idleStyle,
+                  onTap: () => onChanged?.call(_EmailAuthMode.login),
+                ),
+                _AuthModeHitArea(
+                  label: 'Регистрация',
+                  isSelected: !_isLogin,
+                  isEnabled: isEnabled,
+                  style: !_isLogin ? selectedStyle : idleStyle,
+                  onTap: () => onChanged?.call(_EmailAuthMode.register),
+                ),
+              ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-class _AuthModeTab extends StatelessWidget {
-  const _AuthModeTab({
+class _AuthModeHitArea extends StatelessWidget {
+  const _AuthModeHitArea({
     required this.label,
     required this.isSelected,
     required this.isEnabled,
+    required this.style,
     required this.onTap,
   });
 
   final String label;
   final bool isSelected;
   final bool isEnabled;
+  final TextStyle? style;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final textStyle = Theme.of(context).textTheme.labelLarge?.copyWith(
-          color: isSelected
-              ? StarKidsColors.textPrimary
-              : StarKidsColors.textSecondary,
-        );
-
-    return Semantics(
-      button: true,
-      selected: isSelected,
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 160),
-        opacity: isEnabled ? 1 : 0.58,
-        child: InkWell(
-          onTap: isEnabled ? onTap : null,
-          borderRadius: BorderRadius.circular(StarKidsRadii.full),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOutCubic,
-            padding: const EdgeInsets.symmetric(
-              horizontal: StarKidsSpacing.md,
-              vertical: StarKidsSpacing.md,
-            ),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? StarKidsColors.surfacePrimary
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(StarKidsRadii.full),
-              boxShadow: isSelected ? StarKidsShadows.depth1 : const [],
-            ),
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              style: textStyle,
+    return Expanded(
+      child: Semantics(
+        button: true,
+        selected: isSelected,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: isEnabled ? onTap : null,
+            borderRadius: BorderRadius.circular(StarKidsRadii.full),
+            child: Center(
+              child: AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                style: style ?? const TextStyle(),
+                child: Text(label),
+              ),
             ),
           ),
         ),
