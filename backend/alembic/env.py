@@ -15,6 +15,7 @@ from app.db.models import (  # noqa: F401
     branch,
     branch_menu_category,
     branch_menu_item,
+    mobile_payment,
 )
 
 config = context.config

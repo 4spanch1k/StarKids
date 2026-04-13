@@ -1,4 +1,5 @@
 import '../../core/api/api_client.dart';
+import '../../core/services/external_link_service.dart';
 import '../../core/storage/local_storage.dart';
 import '../../features/auth/data/api_mobile_auth_repository.dart';
 import '../../features/auth/data/mobile_auth_session_storage.dart';
@@ -29,8 +30,12 @@ import '../../features/branches/presentation/controllers/selected_branch_control
 import '../../features/requests/data/mock_birthday_request_repository.dart';
 import '../../features/requests/domain/contact_request_repository.dart';
 import '../../features/tickets/data/api_ticket_config_repository.dart';
+import '../../features/tickets/data/api_ticket_purchase_repository.dart';
 import '../../features/tickets/domain/ticket_config_repository.dart';
+import '../../features/tickets/domain/ticket_purchase_repository.dart';
 import '../config/app_environment.dart';
+
+typedef PaymentUrlLauncher = Future<bool> Function(String url);
 
 abstract final class ServiceRegistry {
   static final apiClient = ApiClient(baseUrl: AppEnvironment.apiBaseUrl);
@@ -61,6 +66,12 @@ abstract final class ServiceRegistry {
   );
   static TicketConfigRepository ticketConfigRepository =
       ApiTicketConfigRepository(apiClient: apiClient);
+  static TicketPurchaseRepository ticketPurchaseRepository =
+      ApiTicketPurchaseRepository(
+    apiClient: apiClient,
+    sessionStorage: mobileAuthSessionStorage,
+  );
+  static PaymentUrlLauncher paymentUrlLauncher = ExternalLinkService.openUrl;
   static final ContactLinksRepository contactLinksRepository =
       ApiContactLinksRepository(apiClient: apiClient);
   static final notificationPermissionStorage = NotificationPermissionStorage();
@@ -103,5 +114,16 @@ abstract final class ServiceRegistry {
 
   static void resetTicketConfigRepository() {
     ticketConfigRepository = ApiTicketConfigRepository(apiClient: apiClient);
+  }
+
+  static void resetTicketPurchaseRepository() {
+    ticketPurchaseRepository = ApiTicketPurchaseRepository(
+      apiClient: apiClient,
+      sessionStorage: mobileAuthSessionStorage,
+    );
+  }
+
+  static void resetPaymentUrlLauncher() {
+    paymentUrlLauncher = ExternalLinkService.openUrl;
   }
 }

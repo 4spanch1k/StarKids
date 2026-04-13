@@ -66,34 +66,34 @@ class StarKidsButton extends StatelessWidget {
 
     final button = switch (variant) {
       StarKidsButtonVariant.primary => AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(StarKidsRadii.full),
-          boxShadow: isDisabled ? const [] : StarKidsShadows.depth1,
+          duration: const Duration(milliseconds: 180),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(StarKidsRadii.full),
+            boxShadow: isDisabled ? const [] : StarKidsShadows.depth1,
+          ),
+          child: FilledButton(
+            onPressed: isDisabled ? null : onPressed,
+            child: content,
+          ),
         ),
-        child: FilledButton(
+      StarKidsButtonVariant.secondary => OutlinedButton(
           onPressed: isDisabled ? null : onPressed,
           child: content,
         ),
-      ),
-      StarKidsButtonVariant.secondary => OutlinedButton(
-        onPressed: isDisabled ? null : onPressed,
-        child: content,
-      ),
       StarKidsButtonVariant.ghost => TextButton(
-        onPressed: isDisabled ? null : onPressed,
-        style: TextButton.styleFrom(
-          foregroundColor: _foregroundColor(isDisabled),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(StarKidsRadii.full),
+          onPressed: isDisabled ? null : onPressed,
+          style: TextButton.styleFrom(
+            foregroundColor: _foregroundColor(isDisabled),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(StarKidsRadii.full),
+            ),
+            padding: const EdgeInsets.symmetric(
+              horizontal: StarKidsSpacing.lg,
+              vertical: StarKidsSpacing.md,
+            ),
           ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: StarKidsSpacing.lg,
-            vertical: StarKidsSpacing.md,
-          ),
+          child: content,
         ),
-        child: content,
-      ),
     };
 
     final interactiveButton = StarKidsPressEffect(

@@ -9,8 +9,10 @@ import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_select_field.dart';
+import '../../../../core/utils/result.dart';
 import '../../../branches/domain/branch_option.dart';
 import '../../domain/branch_ticket_config.dart';
+import '../../domain/ticket_purchase.dart';
 
 Future<void> showTicketPurchaseFlowSheet(BuildContext context) {
   return showStarKidsModalBottomSheet<void>(
@@ -21,18 +23,24 @@ Future<void> showTicketPurchaseFlowSheet(BuildContext context) {
   );
 }
 
-Future<void> showMyTicketsPlaceholderSheet(BuildContext context) {
+Future<void> showMyTicketsSheet(BuildContext context) {
   return showStarKidsModalBottomSheet<void>(
     context: context,
     backgroundColor: StarKidsColors.surfacePrimary,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
-    builder: (context) => const _MyTicketsPlaceholderSheet(),
+    builder: (context) => const _MyTicketsSheet(),
   );
 }
 
+Future<void> showMyTicketsPlaceholderSheet(BuildContext context) {
+  return showMyTicketsSheet(context);
+}
+
 enum _TicketPurchaseStep { selectEntry, chooseTickets }
+
+enum _TicketPaymentPhase { idle, starting, opened, checking, paid, failed }
 
 class _TicketPurchaseFlowSheet extends StatefulWidget {
   const _TicketPurchaseFlowSheet();
@@ -47,10 +55,12 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
       ServiceRegistry.selectedBranchController.selectedBranch;
   DateTime? _selectedDate;
   var _currentStep = _TicketPurchaseStep.selectEntry;
-  var _showPaymentPlaceholder = false;
+  var _paymentPhase = _TicketPaymentPhase.idle;
   var _isConfigLoading = true;
   BranchTicketConfig? _ticketConfig;
   String? _configErrorMessage;
+  String? _paymentMessage;
+  TicketPaymentStart? _activePayment;
   Map<String, int> _ticketCounts = <String, int>{};
 
   List<TicketConfigItem> get _ticketItems => _ticketConfig?.items ?? const [];
@@ -68,6 +78,22 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
   }
 
   bool get _hasAvailableTickets => _ticketItems.isNotEmpty;
+
+  bool get _isPaymentBusy =>
+      _paymentPhase == _TicketPaymentPhase.starting ||
+      _paymentPhase == _TicketPaymentPhase.checking;
+
+  List<TicketPaymentLineItemPayload> get _selectedPaymentItems {
+    return _ticketCounts.entries
+        .where((entry) => entry.value > 0)
+        .map(
+          (entry) => TicketPaymentLineItemPayload(
+            ticketItemId: entry.key,
+            quantity: entry.value,
+          ),
+        )
+        .toList();
+  }
 
   @override
   void initState() {
@@ -157,14 +183,17 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
 
     setState(() {
       _currentStep = _TicketPurchaseStep.chooseTickets;
-      _showPaymentPlaceholder = false;
+      _resetPaymentState();
     });
   }
 
   void _goBackToSelection() {
+    if (_isPaymentBusy) {
+      return;
+    }
     setState(() {
       _currentStep = _TicketPurchaseStep.selectEntry;
-      _showPaymentPlaceholder = false;
+      _resetPaymentState();
     });
   }
 
@@ -177,17 +206,117 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
 
     setState(() {
       _ticketCounts[ticketTypeId] = nextCount;
-      _showPaymentPlaceholder = false;
+      _resetPaymentState();
     });
   }
 
-  void _showPaymentStagePlaceholder() {
+  Future<void> _startPayment() async {
     if (_totalAmount <= 0) {
+      return;
+    }
+    if (_isPaymentBusy) {
       return;
     }
 
     setState(() {
-      _showPaymentPlaceholder = true;
+      _paymentPhase = _TicketPaymentPhase.starting;
+      _paymentMessage = null;
+      _activePayment = null;
+    });
+
+    final result =
+        await ServiceRegistry.ticketPurchaseRepository.startFreedomPayment(
+      items: _selectedPaymentItems,
+      visitDate: _selectedDate,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    if (result is Failure<TicketPaymentStart>) {
+      setState(() {
+        _paymentPhase = _TicketPaymentPhase.failed;
+        _paymentMessage = result.message;
+      });
+      return;
+    }
+
+    final payment = (result as Success<TicketPaymentStart>).data;
+    final didOpenPayment = await ServiceRegistry.paymentUrlLauncher(
+      payment.paymentUrl,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    if (!didOpenPayment) {
+      setState(() {
+        _paymentPhase = _TicketPaymentPhase.failed;
+        _paymentMessage = 'Не удалось открыть страницу Freedom Pay.';
+        _activePayment = payment;
+      });
+      return;
+    }
+
+    setState(() {
+      _paymentPhase = _TicketPaymentPhase.opened;
+      _paymentMessage =
+          'Страница оплаты открыта. После завершения вернитесь и проверьте статус.';
+      _activePayment = payment;
+    });
+  }
+
+  Future<void> _checkPaymentStatus() async {
+    final payment = _activePayment;
+    if (payment == null || _isPaymentBusy) {
+      return;
+    }
+
+    setState(() {
+      _paymentPhase = _TicketPaymentPhase.checking;
+      _paymentMessage = 'Проверяем подтверждение от сервера.';
+    });
+
+    final result = await ServiceRegistry.ticketPurchaseRepository
+        .getPaymentStatus(payment.paymentId);
+
+    if (!mounted) {
+      return;
+    }
+
+    if (result is Failure<TicketPaymentStatus>) {
+      setState(() {
+        _paymentPhase = _TicketPaymentPhase.opened;
+        _paymentMessage = result.message;
+      });
+      return;
+    }
+
+    final paymentStatus = (result as Success<TicketPaymentStatus>).data;
+    setState(() {
+      switch (paymentStatus.status) {
+        case TicketPaymentStatusValue.paid:
+          _paymentPhase = _TicketPaymentPhase.paid;
+          _paymentMessage =
+              'Оплата подтверждена сервером. Билет добавлен в «Мои билеты».';
+          break;
+        case TicketPaymentStatusValue.failed:
+        case TicketPaymentStatusValue.canceled:
+        case TicketPaymentStatusValue.expired:
+          _paymentPhase = _TicketPaymentPhase.failed;
+          _paymentMessage = paymentStatus.failureReason ??
+              'Оплата не прошла. Можно попробовать еще раз.';
+          break;
+        case TicketPaymentStatusValue.created:
+        case TicketPaymentStatusValue.pending:
+        case TicketPaymentStatusValue.unknown:
+          _paymentPhase = _TicketPaymentPhase.opened;
+          _paymentMessage =
+              'Платеж еще обрабатывается. Повторите проверку чуть позже.';
+          break;
+      }
     });
   }
 
@@ -195,7 +324,7 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
     setState(() {
       _isConfigLoading = true;
       _configErrorMessage = null;
-      _showPaymentPlaceholder = false;
+      _resetPaymentState();
     });
 
     try {
@@ -226,6 +355,12 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
             'Не удалось загрузить конфигурацию билетов для выбранного филиала.';
       });
     }
+  }
+
+  void _resetPaymentState() {
+    _paymentPhase = _TicketPaymentPhase.idle;
+    _paymentMessage = null;
+    _activePayment = null;
   }
 
   @override
@@ -264,7 +399,7 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                   children: [
                     if (_currentStep == _TicketPurchaseStep.chooseTickets)
                       IconButton(
-                        onPressed: _goBackToSelection,
+                        onPressed: _isPaymentBusy ? null : _goBackToSelection,
                         icon: const Icon(Icons.arrow_back_rounded),
                         tooltip: 'Назад',
                       )
@@ -371,9 +506,7 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                       const SizedBox(height: StarKidsSpacing.md),
                     ],
                     StarKidsButton.primary(
-                      label: _currentStep == _TicketPurchaseStep.selectEntry
-                          ? 'Продолжить'
-                          : 'Оплатить',
+                      label: _primaryActionLabel,
                       onPressed: _currentStep == _TicketPurchaseStep.selectEntry
                           ? (_selectedDate == null ||
                                   _isConfigLoading ||
@@ -381,17 +514,35 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                                   !_hasAvailableTickets
                               ? null
                               : _goToNextStep)
-                          : (_totalAmount == 0
+                          : (_totalAmount == 0 ||
+                                  _isPaymentBusy ||
+                                  _paymentPhase == _TicketPaymentPhase.paid
                               ? null
-                              : _showPaymentStagePlaceholder),
+                              : _startPayment),
+                      isLoading: _paymentPhase == _TicketPaymentPhase.starting,
                     ),
                     if (_currentStep == _TicketPurchaseStep.chooseTickets &&
-                        _showPaymentPlaceholder) ...[
+                        _activePayment != null &&
+                        _paymentPhase != _TicketPaymentPhase.paid) ...[
+                      const SizedBox(height: StarKidsSpacing.sm),
+                      StarKidsButton.secondary(
+                        label: _paymentPhase == _TicketPaymentPhase.checking
+                            ? 'Проверяем статус'
+                            : 'Проверить оплату',
+                        onPressed: _isPaymentBusy ? null : _checkPaymentStatus,
+                        isLoading:
+                            _paymentPhase == _TicketPaymentPhase.checking,
+                      ),
+                    ],
+                    if (_currentStep == _TicketPurchaseStep.chooseTickets &&
+                        _paymentMessage != null) ...[
                       const SizedBox(height: StarKidsSpacing.md),
                       Text(
-                        'Оплата будет подключена на следующем этапе.',
+                        _paymentMessage!,
                         style: textTheme.bodyMedium?.copyWith(
-                          color: StarKidsColors.textSecondary,
+                          color: _paymentPhase == _TicketPaymentPhase.failed
+                              ? StarKidsColors.statusError
+                              : StarKidsColors.textSecondary,
                         ),
                       ),
                     ],
@@ -403,6 +554,17 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
         ),
       ),
     );
+  }
+
+  String get _primaryActionLabel {
+    if (_currentStep == _TicketPurchaseStep.selectEntry) {
+      return 'Продолжить';
+    }
+    return switch (_paymentPhase) {
+      _TicketPaymentPhase.starting => 'Готовим оплату',
+      _TicketPaymentPhase.paid => 'Оплата подтверждена',
+      _ => 'Оплатить через Freedom Pay',
+    };
   }
 
   List<BranchOption> _deduplicateBranches(List<BranchOption> branches) {
@@ -960,8 +1122,51 @@ class _TicketConfigStateCard extends StatelessWidget {
   }
 }
 
-class _MyTicketsPlaceholderSheet extends StatelessWidget {
-  const _MyTicketsPlaceholderSheet();
+class _MyTicketsSheet extends StatefulWidget {
+  const _MyTicketsSheet();
+
+  @override
+  State<_MyTicketsSheet> createState() => _MyTicketsSheetState();
+}
+
+class _MyTicketsSheetState extends State<_MyTicketsSheet> {
+  var _isLoading = true;
+  String? _errorMessage;
+  List<PurchasedTicket> _tickets = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTickets();
+  }
+
+  Future<void> _loadTickets() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final result =
+        await ServiceRegistry.ticketPurchaseRepository.listPurchasedTickets();
+    if (!mounted) {
+      return;
+    }
+
+    if (result is Failure<List<PurchasedTicket>>) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = result.message;
+        _tickets = const [];
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = false;
+      _errorMessage = null;
+      _tickets = (result as Success<List<PurchasedTicket>>).data;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -991,34 +1196,143 @@ class _MyTicketsPlaceholderSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: StarKidsSpacing.xl),
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: StarKidsColors.surfaceSecondary,
-                borderRadius: BorderRadius.circular(StarKidsRadii.lg),
-              ),
-              child: const Icon(
-                Icons.confirmation_num_rounded,
-                color: StarKidsColors.brandPrimary,
-              ),
-            ),
-            const SizedBox(height: StarKidsSpacing.lg),
-            Text('Ваши билеты появятся здесь', style: textTheme.headlineSmall),
+            Text('Мои билеты', style: textTheme.headlineSmall),
             const SizedBox(height: StarKidsSpacing.sm),
             Text(
-              'После подключения покупки и истории заказов в этом разделе будут ваши активные входные билеты.',
+              'Показываем только билеты, подтвержденные backend после оплаты.',
               style: textTheme.bodyMedium?.copyWith(
                 color: StarKidsColors.textSecondary,
               ),
             ),
             const SizedBox(height: StarKidsSpacing.xl),
+            if (_isLoading)
+              const _TicketConfigStateCard(
+                title: 'Загружаем билеты',
+                description: 'Проверяем подтвержденные покупки.',
+              )
+            else if (_errorMessage != null)
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _TicketConfigStateCard(
+                    title: 'Не удалось загрузить билеты',
+                    description: _errorMessage!,
+                  ),
+                  const SizedBox(height: StarKidsSpacing.md),
+                  StarKidsButton.secondary(
+                    label: 'Повторить',
+                    onPressed: _loadTickets,
+                  ),
+                ],
+              )
+            else if (_tickets.isEmpty)
+              const _TicketConfigStateCard(
+                title: 'Пока нет купленных билетов',
+                description:
+                    'После подтвержденной оплаты билет появится здесь автоматически.',
+              )
+            else
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: _tickets.length,
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(height: StarKidsSpacing.md),
+                  itemBuilder: (context, index) {
+                    return _PurchasedTicketCard(ticket: _tickets[index]);
+                  },
+                ),
+              ),
+            const SizedBox(height: StarKidsSpacing.lg),
             StarKidsButton.secondary(
-              label: 'Понятно',
+              label: 'Закрыть',
               onPressed: () => Navigator.of(context).pop(),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _PurchasedTicketCard extends StatelessWidget {
+  const _PurchasedTicketCard({required this.ticket});
+
+  final PurchasedTicket ticket;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      decoration: BoxDecoration(
+        color: StarKidsColors.surfacePrimary,
+        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+        border: Border.all(color: StarKidsColors.borderDefault),
+        boxShadow: StarKidsShadows.depth1,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: StarKidsColors.statusSuccessSurface,
+                  borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+                ),
+                child: const Icon(
+                  Icons.confirmation_num_rounded,
+                  color: StarKidsColors.statusSuccess,
+                ),
+              ),
+              const SizedBox(width: StarKidsSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(ticket.branchName, style: textTheme.titleMedium),
+                    const SizedBox(height: StarKidsSpacing.xs),
+                    Text(
+                      ticket.visitDate == null
+                          ? 'Дата посещения не указана'
+                          : _formatTicketDate(ticket.visitDate!),
+                      style: textTheme.bodySmall?.copyWith(
+                        color: StarKidsColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: StarKidsSpacing.sm),
+              Text(
+                _formatTenge(ticket.amountTenge),
+                style: textTheme.titleSmall?.copyWith(
+                  color: StarKidsColors.brandPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: StarKidsSpacing.md),
+          for (final item in ticket.items) ...[
+            Text(
+              '${item.title} x ${item.quantity}',
+              style: textTheme.bodyMedium,
+            ),
+            const SizedBox(height: StarKidsSpacing.xs),
+          ],
+          Text(
+            'Заказ ${ticket.localOrderId}',
+            style: textTheme.bodySmall?.copyWith(
+              color: StarKidsColors.textSecondary,
+            ),
+          ),
+        ],
       ),
     );
   }

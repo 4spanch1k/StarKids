@@ -623,7 +623,7 @@ Future<void> _handleNavigationSelection(BuildContext context, int index) async {
 
       switch (action) {
         case TicketsEntryAction.myTickets:
-          await showMyTicketsPlaceholderSheet(context);
+          await showMyTicketsSheet(context);
           return;
         case TicketsEntryAction.buyTicket:
           await showTicketPurchaseFlowSheet(context);

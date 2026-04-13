@@ -19,6 +19,15 @@ class Settings(BaseSettings):
     admin_seed_password: str | None = None
     admin_seed_full_name: str = 'Star Kids Admin'
     admin_seed_role: str = 'super_admin'
+    freedompay_merchant_id: str | None = None
+    freedompay_secret_key: str | None = None
+    freedompay_base_url: str = 'https://api.freedompay.kz'
+    freedompay_result_url: str | None = None
+    freedompay_success_url: str | None = None
+    freedompay_failure_url: str | None = None
+    freedompay_testing_mode: bool = False
+    freedompay_mock_mode: bool = False
+    freedompay_request_timeout_seconds: int = 15
 
     model_config = SettingsConfigDict(
         env_file='.env',
@@ -61,6 +70,19 @@ class Settings(BaseSettings):
         if self.is_development:
             return 'ChangeMe123!'
         return None
+
+    @property
+    def is_freedompay_configured(self) -> bool:
+        return all(
+            (
+                self.freedompay_merchant_id,
+                self.freedompay_secret_key,
+                self.freedompay_base_url,
+                self.freedompay_result_url,
+                self.freedompay_success_url,
+                self.freedompay_failure_url,
+            )
+        )
 
 
 @lru_cache

@@ -14,6 +14,8 @@ from ..modules.home.router import router as home_router
 from ..modules.leads.router import router as leads_router
 from ..modules.mobile_auth.router import me_router as mobile_me_router
 from ..modules.mobile_auth.router import router as mobile_auth_router
+from ..modules.mobile_payments.router import mobile_router as mobile_payments_router
+from ..modules.mobile_payments.router import public_router as public_payments_router
 from ..modules.mobile_request_history.router import router as mobile_request_history_router
 from ..modules.notifications.router import router as notifications_router
 from ..modules.promotions.router import router as promotions_router
@@ -38,6 +40,16 @@ api_router.include_router(
     notifications_router,
     prefix='/mobile',
     tags=['mobile-notifications'],
+)
+api_router.include_router(
+    mobile_payments_router,
+    prefix='/mobile',
+    tags=['mobile-payments'],
+)
+api_router.include_router(
+    public_payments_router,
+    prefix='/public',
+    tags=['public-payments'],
 )
 api_router.include_router(admin_auth_router, prefix='/admin/auth', tags=['admin-auth'])
 api_router.include_router(admin_branches_router, prefix='/admin', tags=['admin-branches'])
