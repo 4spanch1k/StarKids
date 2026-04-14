@@ -14,6 +14,7 @@ from ..modules.home.router import router as home_router
 from ..modules.leads.router import router as leads_router
 from ..modules.mobile_auth.router import router as mobile_auth_router
 from ..modules.mobile_profile.router import router as mobile_profile_router
+from ..modules.mobile_children.router import router as mobile_children_router
 from ..modules.notifications.router import router as notifications_router
 from ..modules.promotions.router import router as promotions_router
 
@@ -22,6 +23,7 @@ api_router = APIRouter()
 api_router.include_router(health_router)
 api_router.include_router(mobile_auth_router, prefix='/mobile/auth', tags=['mobile-auth'])
 api_router.include_router(mobile_profile_router, prefix='/mobile', tags=['mobile-profile'])
+api_router.include_router(mobile_children_router, prefix='/mobile', tags=['mobile-children'])
 api_router.include_router(home_router, prefix='/mobile', tags=['mobile-home'])
 api_router.include_router(branches_router, prefix='/mobile', tags=['mobile-branches'])
 api_router.include_router(birthdays_router, prefix='/mobile', tags=['mobile-birthdays'])

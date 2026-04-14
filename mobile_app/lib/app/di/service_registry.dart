@@ -1,4 +1,5 @@
 import '../../core/api/api_client.dart';
+import '../../core/settings/app_settings_controller.dart';
 import '../../core/storage/local_storage.dart';
 import '../../features/auth/data/api_mobile_auth_repository.dart';
 import '../../features/auth/data/mobile_auth_session_storage.dart';
@@ -8,6 +9,9 @@ import '../../features/birthdays/data/api_birthday_package_repository.dart';
 import '../../features/birthdays/domain/birthday_package_repository.dart';
 import '../../features/branches/data/api_branch_repository.dart';
 import '../../features/branches/domain/branch_repository.dart';
+import '../../features/children/data/api_children_repository.dart';
+import '../../features/children/domain/children_repository.dart';
+import '../../features/children/presentation/controllers/children_controller.dart';
 import '../../features/content/data/api_public_content_repository.dart';
 import '../../features/content/domain/public_content_repository.dart';
 import '../../features/contacts/data/api_contact_links_repository.dart';
@@ -38,6 +42,7 @@ import '../config/app_environment.dart';
 abstract final class ServiceRegistry {
   static final apiClient = ApiClient(baseUrl: AppEnvironment.apiBaseUrl);
   static final localStorage = LocalStorage();
+  static final appSettingsController = AppSettingsController(localStorage: localStorage);
   static final mobileAuthSessionStorage = MobileAuthSessionStorage();
   static final MobileAuthRepository mobileAuthRepository =
       ApiMobileAuthRepository(
@@ -94,6 +99,14 @@ abstract final class ServiceRegistry {
     profileRepository: profileRepository,
     requestHistoryRepository: requestHistoryRepository,
   );
+  static final ChildrenRepository childrenRepository = ApiChildrenRepository(
+    apiClient: apiClient,
+    sessionStorage: mobileAuthSessionStorage,
+    authRepository: mobileAuthRepository,
+  );
+  static final childrenController = ChildrenController(
+    repository: childrenRepository,
+  );
   static final ContactRequestRepository contactRequestRepository =
       ApiContactRequestRepository(
     apiClient: apiClient,
@@ -108,6 +121,7 @@ abstract final class ServiceRegistry {
             );
 
   static Future<void> bootstrap() async {
+    await appSettingsController.load();
     await mobileAuthController.bootstrap();
     await mobileNotificationsController.bootstrap();
     await selectedBranchController.load();

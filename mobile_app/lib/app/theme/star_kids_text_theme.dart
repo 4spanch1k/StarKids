@@ -6,6 +6,13 @@ abstract final class StarKidsTextTheme {
   static const String displayFontFamily = 'Sora';
   static const String bodyFontFamily = 'Manrope';
 
+  static TextTheme buildDark() {
+    return build().apply(
+      bodyColor: StarKidsDarkColors.textPrimary,
+      displayColor: StarKidsDarkColors.textPrimary,
+    );
+  }
+
   static TextTheme build() {
     return const TextTheme(
       displayLarge: TextStyle(
