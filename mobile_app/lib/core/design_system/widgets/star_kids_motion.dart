@@ -175,6 +175,8 @@ class StarKidsContentSwitcher extends StatelessWidget {
   }
 }
 
+/// Elastic liquid press effect: presses down quickly and bounces back
+/// with a springy elastic out curve for a satisfying "liquid" feel.
 class StarKidsPressEffect extends StatefulWidget {
   const StarKidsPressEffect({
     super.key,
@@ -189,17 +191,41 @@ class StarKidsPressEffect extends StatefulWidget {
   State<StarKidsPressEffect> createState() => _StarKidsPressEffectState();
 }
 
-class _StarKidsPressEffectState extends State<StarKidsPressEffect> {
-  var _isPressed = false;
+class _StarKidsPressEffectState extends State<StarKidsPressEffect>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scaleAnim;
 
-  void _setPressed(bool value) {
-    if (!widget.enabled || _isPressed == value) {
-      return;
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 130),
+      reverseDuration: const Duration(milliseconds: 380),
+    );
+    _scaleAnim = Tween<double>(begin: 1.0, end: 0.968).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeInCubic,
+        reverseCurve: Curves.elasticOut,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _setPressed(bool pressed) {
+    if (!widget.enabled) return;
+    if (pressed) {
+      _controller.forward();
+    } else {
+      _controller.reverse();
     }
-
-    setState(() {
-      _isPressed = value;
-    });
   }
 
   @override
@@ -212,16 +238,13 @@ class _StarKidsPressEffectState extends State<StarKidsPressEffect> {
       onPointerDown: (_) => _setPressed(true),
       onPointerUp: (_) => _setPressed(false),
       onPointerCancel: (_) => _setPressed(false),
-      child: AnimatedScale(
-        duration: starKidsPressMotionDuration,
-        curve: Curves.easeOutCubic,
-        scale: _isPressed ? 0.985 : 1,
-        child: AnimatedOpacity(
-          duration: starKidsPressMotionDuration,
-          curve: Curves.easeOutCubic,
-          opacity: _isPressed ? 0.94 : 1,
-          child: widget.child,
+      child: AnimatedBuilder(
+        animation: _scaleAnim,
+        builder: (context, child) => Transform.scale(
+          scale: _scaleAnim.value,
+          child: child,
         ),
+        child: widget.child,
       ),
     );
   }
