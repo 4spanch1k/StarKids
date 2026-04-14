@@ -1,7 +1,14 @@
+from __future__ import annotations
+
+from datetime import date
+from typing import Any
+
 from sqlalchemy import select
 
 from ..models.mobile_user import MobileUser
 from .base import Repository
+
+_SENTINEL = object()
 
 
 class MobileUserRepository(Repository):
@@ -36,6 +43,30 @@ class MobileUserRepository(Repository):
             is_active=is_active,
         )
         self.db.add(user)
+        self.db.commit()
+        self.db.refresh(user)
+        return user
+
+    def update(
+        self,
+        user: MobileUser,
+        *,
+        first_name: Any = _SENTINEL,
+        last_name: Any = _SENTINEL,
+        email: Any = _SENTINEL,
+        avatar_url: Any = _SENTINEL,
+        child_birth_date: Any = _SENTINEL,
+    ) -> MobileUser:
+        if first_name is not _SENTINEL:
+            user.first_name = first_name
+        if last_name is not _SENTINEL:
+            user.last_name = last_name
+        if email is not _SENTINEL:
+            user.email = email.lower().strip() if email is not None else None
+        if avatar_url is not _SENTINEL:
+            user.avatar_url = avatar_url
+        if child_birth_date is not _SENTINEL:
+            user.child_birth_date = child_birth_date
         self.db.commit()
         self.db.refresh(user)
         return user

@@ -1,230 +1,719 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:image_cropper/image_cropper.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/design_system/foundations/star_kids_colors.dart';
-import '../../../../core/design_system/foundations/star_kids_icon_sizes.dart';
 import '../../../../core/design_system/foundations/star_kids_radii.dart';
 import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
-import '../../../auth/domain/mobile_auth_session.dart';
-import '../../../auth/presentation/controllers/mobile_auth_controller.dart';
+import '../../../../core/design_system/widgets/star_kids_input_field.dart';
+import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../branches/domain/branch_option.dart';
 import '../../../notifications/domain/notification_permission_status.dart';
 import '../../../notifications/presentation/controllers/mobile_notifications_controller.dart';
+import '../../../request_history/domain/request_history_item.dart';
+import '../../domain/user_profile.dart';
+import '../controllers/profile_controller.dart';
+import '../widgets/profile_section_card.dart';
+import '../widgets/profile_shimmer.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({
     super.key,
+    this.controller,
     this.notificationsController,
+    this.selectedBranchOverride,
+    this.onOpenBranchSelection,
+    this.onOpenAllRequests,
+    this.onLogout,
+    this.appVersionOverride,
   });
 
+  final ProfileController? controller;
   final MobileNotificationsController? notificationsController;
+  final BranchOption? selectedBranchOverride;
+  final VoidCallback? onOpenBranchSelection;
+  final VoidCallback? onOpenAllRequests;
+  final Future<void> Function()? onLogout;
+  final String? appVersionOverride;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  MobileAuthController get _authController =>
-      ServiceRegistry.mobileAuthController;
+  late final ProfileController _controller;
+  late final MobileNotificationsController _notificationsController;
 
-  MobileNotificationsController get _notificationsController =>
-      widget.notificationsController ??
-      ServiceRegistry.mobileNotificationsController;
+  final _firstNameTextController = TextEditingController();
+  final _lastNameTextController = TextEditingController();
+  final _emailTextController = TextEditingController();
 
-  Listenable get _pageListenable => Listenable.merge([
-        _authController,
-        _notificationsController,
-        ServiceRegistry.selectedBranchController,
-      ]);
+  bool _didInitTextControllers = false;
 
   @override
   void initState() {
     super.initState();
+    _controller = widget.controller ?? ServiceRegistry.profileController;
+    _notificationsController =
+        widget.notificationsController ?? ServiceRegistry.mobileNotificationsController;
+
+    unawaited(_controller.load());
     unawaited(_notificationsController.bootstrap());
+
+    _controller.addListener(_syncTextControllers);
   }
 
-  Future<void> _logout() async {
-    await _authController.logout();
+  @override
+  void dispose() {
+    _controller.removeListener(_syncTextControllers);
+    _firstNameTextController.dispose();
+    _lastNameTextController.dispose();
+    _emailTextController.dispose();
+    super.dispose();
   }
 
-  Future<void> _refreshProfile() async {
-    await _authController.refreshProfile();
+  void _syncTextControllers() {
+    if (_controller.status == ProfileViewStatus.success && !_didInitTextControllers) {
+      _didInitTextControllers = true;
+      _firstNameTextController.text = _controller.firstNameDraft;
+      _lastNameTextController.text = _controller.lastNameDraft;
+      _emailTextController.text = _controller.emailDraft;
+    }
+  }
+
+  BranchOption get _selectedBranch =>
+      widget.selectedBranchOverride ??
+      ServiceRegistry.selectedBranchController.selectedBranch;
+
+  Future<void> _handleLogout() async {
+    if (widget.onLogout != null) {
+      await widget.onLogout!();
+    } else {
+      await ServiceRegistry.mobileAuthController.logout();
+    }
+  }
+
+  void _handleOpenBranchSelection() {
+    if (widget.onOpenBranchSelection != null) {
+      widget.onOpenBranchSelection!();
+    } else {
+      Navigator.of(context).pushNamed(AppRoutes.branchSelection);
+    }
+  }
+
+  void _handleOpenAllRequests() {
+    if (widget.onOpenAllRequests != null) {
+      widget.onOpenAllRequests!();
+    } else {
+      Navigator.of(context).pushNamed(AppRoutes.myRequests);
+    }
+  }
+
+  Future<void> _pickAndUploadAvatar() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
+
+    final cropper = ImageCropper();
+    final cropped = await cropper.cropImage(
+      sourcePath: picked.path,
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Обрезать фото',
+          cropStyle: CropStyle.circle,
+          lockAspectRatio: true,
+        ),
+        IOSUiSettings(
+          title: 'Обрезать фото',
+          aspectRatioLockEnabled: true,
+        ),
+      ],
+    );
+    if (cropped == null) return;
+
+    final bytes = await cropped.readAsBytes();
+    final fileName = cropped.path.split('/').last;
+    final ext = fileName.split('.').last.toLowerCase();
+    final contentType = ext == 'jpg' || ext == 'jpeg'
+        ? 'image/jpeg'
+        : ext == 'png'
+            ? 'image/png'
+            : 'image/jpeg';
+
+    await _controller.uploadAvatar(bytes, fileName, contentType);
+  }
+
+  Future<void> _handleDeleteAvatar() async {
+    await _controller.deleteAvatar();
+  }
+
+  Future<void> _handleSave() async {
+    await _controller.saveChanges();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _pageListenable,
-      builder: (context, _) {
-        final session = _authController.session;
-        final selectedBranch =
-            ServiceRegistry.selectedBranchController.selectedBranch;
-        final errorMessage = _authController.errorMessage;
+    return Scaffold(
+      backgroundColor: StarKidsColors.surfaceCanvas,
+      appBar: AppBar(
+        title: const Text('Профиль'),
+        backgroundColor: StarKidsColors.surfaceCanvas,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: AnimatedBuilder(
+        animation: Listenable.merge([_controller, _notificationsController]),
+        builder: (context, _) {
+          return switch (_controller.status) {
+            ProfileViewStatus.loading => const ProfileLoadingSkeleton(),
+            ProfileViewStatus.error => _buildErrorState(context),
+            ProfileViewStatus.empty || ProfileViewStatus.success => _buildContent(context),
+          };
+        },
+      ),
+    );
+  }
 
-        return Scaffold(
-          appBar: AppBar(title: const Text('Профиль')),
-          body: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(StarKidsSpacing.xl),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _ProfileIntroCard(
-                    title: session == null
-                        ? 'Вход не выполнен'
-                        : 'Ваш профиль активен',
-                    description: session == null
-                        ? 'Чтобы пользоваться приложением, вернитесь на экран входа и авторизуйтесь по email.'
-                        : 'Здесь хранится ваш аккаунт, выбранный филиал и быстрый переход к истории заявок.',
-                  ),
-                  if (errorMessage != null) ...[
-                    const SizedBox(height: StarKidsSpacing.lg),
-                    _AuthErrorCard(
-                      message: errorMessage,
-                      onDismiss: _authController.clearError,
-                    ),
-                  ],
-                  const SizedBox(height: StarKidsSpacing.lg),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 180),
-                    child: session == null
-                        ? _UnauthenticatedProfileCard(
-                            key: const ValueKey('unauthenticated-profile'),
-                            onLogout: _logout,
-                          )
-                        : _AuthenticatedProfileCard(
-                            key: const ValueKey('authenticated-profile-card'),
-                            session: session,
-                            selectedBranch: selectedBranch,
-                            isRefreshing: _authController.isRefreshingProfile,
-                            isLoggingOut: _authController.isLoggingOut,
-                            onRefresh: _refreshProfile,
-                            onLogout: _logout,
-                          ),
-                  ),
-                  const SizedBox(height: StarKidsSpacing.lg),
-                  _ProfileNextStepCard(
-                    selectedBranchLabel: selectedBranch.name,
-                    onOpenHistory: () => Navigator.of(
-                      context,
-                    ).pushNamed(AppRoutes.myRequests),
-                  ),
-                  const SizedBox(height: StarKidsSpacing.lg),
-                  _NotificationsStatusCard(
-                    status: _notificationsController.status,
-                    onOpenStatus: () => Navigator.of(
-                      context,
-                    ).pushNamed(AppRoutes.notifications),
-                  ),
-                ],
+  Widget _buildErrorState(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(StarKidsSpacing.x2l),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.error_outline_rounded,
+              color: StarKidsColors.statusError,
+              size: 48,
+            ),
+            const SizedBox(height: StarKidsSpacing.lg),
+            Text(
+              'Не удалось загрузить профиль',
+              style: textTheme.titleLarge,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: StarKidsSpacing.sm),
+            Text(
+              _controller.errorMessage ?? 'Попробуйте снова.',
+              style: textTheme.bodyMedium?.copyWith(
+                color: StarKidsColors.textSecondary,
               ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: StarKidsSpacing.xl),
+            StarKidsButton.primary(
+              label: 'Повторить',
+              onPressed: _controller.retry,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
+    final profile = _controller.profile;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(StarKidsSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ProfileHeaderCard(
+            profile: profile,
+            isUploadingAvatar: _controller.isUploadingAvatar,
+            onPickAvatar: _pickAndUploadAvatar,
+            onDeleteAvatar:
+                (profile?.hasAvatar ?? false) ? _handleDeleteAvatar : null,
+          ),
+          if (_controller.errorMessage != null) ...[
+            const SizedBox(height: StarKidsSpacing.lg),
+            _InlineErrorBanner(
+              message: _controller.errorMessage!,
+              onDismiss: _controller.clearError,
+            ),
+          ],
+          const SizedBox(height: StarKidsSpacing.xl),
+          StarKidsContentSwitcher(
+            child: _buildPersonalDataSection(context),
+          ),
+          const SizedBox(height: StarKidsSpacing.xl),
+          _buildBranchSection(context),
+          const SizedBox(height: StarKidsSpacing.xl),
+          _buildRequestsSection(context),
+          const SizedBox(height: StarKidsSpacing.xl),
+          _buildSettingsSection(context),
+          const SizedBox(height: StarKidsSpacing.x2l),
+          _buildFooter(context),
+          const SizedBox(height: StarKidsSpacing.xl),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPersonalDataSection(BuildContext context) {
+    return ProfileSectionCard(
+      title: 'Личные данные',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          StarKidsInputField(
+            controller: _firstNameTextController,
+            label: 'Имя',
+            errorText: _controller.firstNameError,
+            onChanged: _controller.updateFirstName,
+            textCapitalization: TextCapitalization.words,
+            textInputAction: TextInputAction.next,
+          ),
+          const SizedBox(height: StarKidsSpacing.md),
+          StarKidsInputField(
+            controller: _lastNameTextController,
+            label: 'Фамилия',
+            errorText: _controller.lastNameError,
+            onChanged: _controller.updateLastName,
+            textCapitalization: TextCapitalization.words,
+            textInputAction: TextInputAction.next,
+          ),
+          const SizedBox(height: StarKidsSpacing.md),
+          StarKidsInputField(
+            controller: _emailTextController,
+            label: 'Email',
+            errorText: _controller.emailError,
+            onChanged: _controller.updateEmail,
+            keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.done,
+          ),
+          const SizedBox(height: StarKidsSpacing.md),
+          _ChildBirthDateField(
+            selectedDate: _controller.childBirthDateDraft,
+            errorText: _controller.childBirthDateError,
+            onChanged: _controller.updateChildBirthDate,
+          ),
+          const SizedBox(height: StarKidsSpacing.xl),
+          StarKidsButton.primary(
+            label: 'Сохранить',
+            isLoading: _controller.isSaving,
+            onPressed: _controller.canSave ? _handleSave : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBranchSection(BuildContext context) {
+    final branch = _selectedBranch;
+    final textTheme = Theme.of(context).textTheme;
+
+    return ProfileSectionCard(
+      title: 'Мой филиал',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            branch.name,
+            style: textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w600,
             ),
           ),
+          if (branch.address.isNotEmpty) ...[
+            const SizedBox(height: StarKidsSpacing.xs),
+            Text(
+              branch.address,
+              style: textTheme.bodyMedium?.copyWith(
+                color: StarKidsColors.textSecondary,
+              ),
+            ),
+          ],
+          if (branch.workingHours.isNotEmpty) ...[
+            const SizedBox(height: StarKidsSpacing.xs),
+            Text(
+              branch.workingHours,
+              style: textTheme.bodySmall?.copyWith(
+                color: StarKidsColors.textSecondary,
+              ),
+            ),
+          ],
+          const SizedBox(height: StarKidsSpacing.xl),
+          StarKidsButton.secondary(
+            label: 'Изменить филиал',
+            onPressed: _handleOpenBranchSelection,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRequestsSection(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    Widget content;
+
+    switch (_controller.requestsStatus) {
+      case ProfileRequestsStatus.loading:
+        content = const Center(
+          child: Padding(
+            padding: EdgeInsets.all(StarKidsSpacing.lg),
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
         );
-      },
+      case ProfileRequestsStatus.error:
+        content = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _controller.requestsErrorMessage ?? 'Ошибка загрузки заявок.',
+              style: textTheme.bodyMedium?.copyWith(
+                color: StarKidsColors.statusError,
+              ),
+            ),
+            const SizedBox(height: StarKidsSpacing.md),
+            StarKidsButton.secondary(
+              label: 'Повторить',
+              onPressed: _controller.loadRequestPreview,
+            ),
+          ],
+        );
+      case ProfileRequestsStatus.empty:
+        content = Text(
+          'Заявок ещё нет.',
+          style: textTheme.bodyMedium?.copyWith(
+            color: StarKidsColors.textSecondary,
+          ),
+        );
+      case ProfileRequestsStatus.success:
+        content = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final item in _controller.previewRequests) ...[
+              _RequestPreviewItem(item: item),
+              const SizedBox(height: StarKidsSpacing.sm),
+            ],
+            if (_controller.totalRequests > 3)
+              Padding(
+                padding: const EdgeInsets.only(top: StarKidsSpacing.xs),
+                child: Text(
+                  'Ещё ${_controller.totalRequests - 3} заявок',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: StarKidsColors.textSecondary,
+                  ),
+                ),
+              ),
+          ],
+        );
+    }
+
+    return ProfileSectionCard(
+      title: 'Мои заявки',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          content,
+          const SizedBox(height: StarKidsSpacing.xl),
+          StarKidsButton.secondary(
+            label: 'Все заявки',
+            onPressed: _handleOpenAllRequests,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsSection(BuildContext context) {
+    return ProfileSectionCard(
+      title: 'Настройки',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _NotificationToggleRow(
+            notificationsController: _notificationsController,
+          ),
+          const SizedBox(height: StarKidsSpacing.lg),
+          const _LanguagePlaceholderRow(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooter(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final version = widget.appVersionOverride ?? '';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        StarKidsButton.secondary(
+          label: 'Выйти',
+          onPressed: _handleLogout,
+        ),
+        if (version.isNotEmpty) ...[
+          const SizedBox(height: StarKidsSpacing.sm),
+          Text(
+            'Версия $version',
+            style: textTheme.bodySmall?.copyWith(
+              color: StarKidsColors.textSecondary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ],
     );
   }
 }
 
-class _ProfileIntroCard extends StatelessWidget {
-  const _ProfileIntroCard({
-    required this.title,
-    required this.description,
+// ─── Header card ─────────────────────────────────────────────────────────────
+
+class _ProfileHeaderCard extends StatelessWidget {
+  const _ProfileHeaderCard({
+    required this.profile,
+    required this.isUploadingAvatar,
+    required this.onPickAvatar,
+    required this.onDeleteAvatar,
   });
 
-  final String title;
-  final String description;
+  final UserProfile? profile;
+  final bool isUploadingAvatar;
+  final Future<void> Function() onPickAvatar;
+  final Future<void> Function()? onDeleteAvatar;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final p = profile;
 
     return Container(
       padding: const EdgeInsets.all(StarKidsSpacing.xl),
       decoration: BoxDecoration(
         color: StarKidsColors.surfacePrimary,
-        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
         border: Border.all(color: StarKidsColors.borderDefault),
         boxShadow: StarKidsShadows.depth1,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: StarKidsSpacing.md,
-              vertical: StarKidsSpacing.xs,
-            ),
-            decoration: BoxDecoration(
-              color: StarKidsColors.brandHighlight,
-              borderRadius: BorderRadius.circular(StarKidsRadii.full),
-            ),
-            child: Text(
-              'Аккаунт',
-              style: textTheme.labelMedium?.copyWith(
-                color: StarKidsColors.textPrimary,
-              ),
+          _AvatarSection(
+            profile: p,
+            isUploading: isUploadingAvatar,
+            onPickAvatar: onPickAvatar,
+            onDeleteAvatar: onDeleteAvatar,
+          ),
+          const SizedBox(width: StarKidsSpacing.xl),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  p?.fullName ?? 'Профиль Star Kids',
+                  style: textTheme.titleLarge,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (p?.phone != null && p!.phone!.isNotEmpty) ...[
+                  const SizedBox(height: StarKidsSpacing.xs),
+                  Text(
+                    p.phone!,
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: StarKidsColors.textSecondary,
+                    ),
+                  ),
+                ] else if (p?.email != null && p!.email!.isNotEmpty) ...[
+                  const SizedBox(height: StarKidsSpacing.xs),
+                  Text(
+                    p.email!,
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: StarKidsColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
-          const SizedBox(height: StarKidsSpacing.md),
-          Text(title, style: textTheme.headlineMedium),
-          const SizedBox(height: StarKidsSpacing.sm),
-          Text(description, style: textTheme.bodyLarge),
         ],
       ),
     );
   }
 }
 
-class _AuthErrorCard extends StatelessWidget {
-  const _AuthErrorCard({
-    required this.message,
-    required this.onDismiss,
+class _AvatarSection extends StatelessWidget {
+  const _AvatarSection({
+    required this.profile,
+    required this.isUploading,
+    required this.onPickAvatar,
+    required this.onDeleteAvatar,
   });
+
+  final UserProfile? profile;
+  final bool isUploading;
+  final Future<void> Function() onPickAvatar;
+  final Future<void> Function()? onDeleteAvatar;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: isUploading ? null : onPickAvatar,
+      child: Stack(
+        children: [
+          _AvatarCircle(profile: profile, isUploading: isUploading),
+          Positioned(
+            bottom: 0,
+            right: 0,
+            child: Container(
+              width: 28,
+              height: 28,
+              decoration: const BoxDecoration(
+                color: StarKidsColors.brandPrimary,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.camera_alt_rounded,
+                color: Colors.white,
+                size: 16,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AvatarCircle extends StatelessWidget {
+  const _AvatarCircle({required this.profile, required this.isUploading});
+
+  final UserProfile? profile;
+  final bool isUploading;
+
+  @override
+  Widget build(BuildContext context) {
+    const size = 80.0;
+    final avatarUrl = profile?.avatarUrl;
+
+    Widget inner;
+    if (isUploading) {
+      inner = Container(
+        width: size,
+        height: size,
+        decoration: const BoxDecoration(
+          color: StarKidsColors.surfaceTertiary,
+          shape: BoxShape.circle,
+        ),
+        child: const Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    } else if (avatarUrl != null && avatarUrl.isNotEmpty) {
+      inner = ClipOval(
+        child: CachedNetworkImage(
+          imageUrl: avatarUrl,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          placeholder: (_, __) => _AvatarFallback(
+            initials: profile?.initials ?? 'SK',
+            size: size,
+          ),
+          errorWidget: (_, __, ___) => _AvatarFallback(
+            initials: profile?.initials ?? 'SK',
+            size: size,
+          ),
+        ),
+      );
+    } else {
+      inner = _AvatarFallback(
+        initials: profile?.initials ?? 'SK',
+        size: size,
+      );
+    }
+
+    return SizedBox(width: size, height: size, child: inner);
+  }
+}
+
+class _AvatarFallback extends StatelessWidget {
+  const _AvatarFallback({required this.initials, required this.size});
+
+  final String initials;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: const BoxDecoration(
+        color: StarKidsColors.surfaceTertiary,
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Text(
+          initials,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: StarKidsColors.brandPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Inline error banner ─────────────────────────────────────────────────────
+
+class _InlineErrorBanner extends StatelessWidget {
+  const _InlineErrorBanner({required this.message, required this.onDismiss});
 
   final String message;
   final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
     return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      padding: const EdgeInsets.symmetric(
+        horizontal: StarKidsSpacing.lg,
+        vertical: StarKidsSpacing.md,
+      ),
       decoration: BoxDecoration(
-        color: StarKidsColors.statusError.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+        color: StarKidsColors.statusErrorSurface,
+        borderRadius: BorderRadius.circular(StarKidsRadii.md),
         border: Border.all(
-          color: StarKidsColors.statusError.withValues(alpha: 0.24),
+          color: StarKidsColors.statusError.withValues(alpha: 0.3),
         ),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Icon(
             Icons.error_outline_rounded,
             color: StarKidsColors.statusError,
-            size: StarKidsIconSizes.md,
+            size: 20,
           ),
-          const SizedBox(width: StarKidsSpacing.md),
+          const SizedBox(width: StarKidsSpacing.sm),
           Expanded(
             child: Text(
               message,
-              style: textTheme.bodyMedium?.copyWith(
-                color: StarKidsColors.textPrimary,
-              ),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: StarKidsColors.textPrimary,
+                  ),
             ),
           ),
-          const SizedBox(width: StarKidsSpacing.sm),
-          IconButton(
-            onPressed: onDismiss,
-            icon: const Icon(Icons.close_rounded),
-            splashRadius: 18,
+          const SizedBox(width: StarKidsSpacing.xs),
+          GestureDetector(
+            onTap: onDismiss,
+            child: const Icon(
+              Icons.close_rounded,
+              color: StarKidsColors.textSecondary,
+              size: 18,
+            ),
           ),
         ],
       ),
@@ -232,174 +721,169 @@ class _AuthErrorCard extends StatelessWidget {
   }
 }
 
-class _UnauthenticatedProfileCard extends StatelessWidget {
-  const _UnauthenticatedProfileCard({
-    super.key,
-    required this.onLogout,
+// ─── Child birth date picker ──────────────────────────────────────────────────
+
+class _ChildBirthDateField extends StatelessWidget {
+  const _ChildBirthDateField({
+    required this.selectedDate,
+    this.errorText,
+    required this.onChanged,
   });
 
-  final Future<void> Function() onLogout;
+  final DateTime? selectedDate;
+  final String? errorText;
+  final ValueChanged<DateTime?> onChanged;
 
-  @override
-  Widget build(BuildContext context) {
-    return _AuthCardShell(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Сессия не активна',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: StarKidsSpacing.sm),
-          Text(
-            'Приложение откроет экран входа. Авторизуйтесь по email, чтобы продолжить.',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: StarKidsSpacing.lg),
-          StarKidsButton.primary(
-            label: 'Перейти ко входу',
-            onPressed: () => onLogout(),
-          ),
-        ],
-      ),
+  Future<void> _pickDate(BuildContext context) async {
+    final now = DateTime.now();
+    final initial = selectedDate ?? DateTime(now.year - 3, now.month, now.day);
+    final firstDate = DateTime(now.year - 18, now.month, now.day);
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial.isBefore(firstDate) ? now : initial,
+      firstDate: firstDate,
+      lastDate: now,
+      helpText: 'Дата рождения ребёнка',
+      cancelText: 'Отмена',
+      confirmText: 'Выбрать',
     );
+
+    if (picked != null) {
+      onChanged(picked);
+    }
   }
-}
 
-class _AuthenticatedProfileCard extends StatelessWidget {
-  const _AuthenticatedProfileCard({
-    super.key,
-    required this.session,
-    required this.selectedBranch,
-    required this.isRefreshing,
-    required this.isLoggingOut,
-    required this.onRefresh,
-    required this.onLogout,
-  });
-
-  final MobileAuthSession session;
-  final BranchOption selectedBranch;
-  final bool isRefreshing;
-  final bool isLoggingOut;
-  final Future<void> Function() onRefresh;
-  final Future<void> Function() onLogout;
+  String _formatDate(DateTime d) {
+    return '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
+  }
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final verifiedDate = MaterialLocalizations.of(
-      context,
-    ).formatMediumDate(session.verifiedAt);
-    final email = session.user?.email ?? session.email ?? 'Email не указан';
-    final phone = session.user?.phone ?? session.phone;
+    final d = selectedDate;
 
-    return _AuthCardShell(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text('Профиль подключен', style: textTheme.titleLarge),
-              ),
-              if (isRefreshing)
-                const SizedBox(
-                  width: StarKidsSpacing.lg,
-                  height: StarKidsSpacing.lg,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-            ],
-          ),
-          const SizedBox(height: StarKidsSpacing.sm),
-          Text(
-            'Вход сохранен на этом устройстве. Сессия проверяется через сервер при запуске приложения.',
-            style: textTheme.bodyMedium,
-          ),
-          const SizedBox(height: StarKidsSpacing.lg),
-          _ProfileFactRow(
-            label: 'Email',
-            value: email,
-          ),
-          if (phone != null && phone.trim().isNotEmpty) ...[
-            const SizedBox(height: StarKidsSpacing.md),
-            _ProfileFactRow(
-              label: 'Телефон',
-              value: phone,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: () => _pickDate(context),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: StarKidsSpacing.lg,
+              vertical: StarKidsSpacing.md,
             ),
-          ],
-          const SizedBox(height: StarKidsSpacing.md),
-          _ProfileFactRow(
-            label: 'Текущий филиал',
-            value: selectedBranch.name,
-          ),
-          const SizedBox(height: StarKidsSpacing.md),
-          _ProfileFactRow(
-            label: 'Вход выполнен',
-            value: verifiedDate,
-          ),
-          const SizedBox(height: StarKidsSpacing.md),
-          _ProfileFactRow(
-            label: 'Состояние',
-            value: isRefreshing ? 'Обновляем профиль' : 'Активная сессия',
-          ),
-          const SizedBox(height: StarKidsSpacing.xl),
-          Row(
-            children: [
-              Expanded(
-                child: StarKidsButton.secondary(
-                  label: 'Обновить',
-                  onPressed:
-                      isRefreshing || isLoggingOut ? null : () => onRefresh(),
-                ),
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: errorText != null
+                    ? StarKidsColors.statusError
+                    : StarKidsColors.borderDefault,
               ),
-              const SizedBox(width: StarKidsSpacing.sm),
-              Expanded(
-                child: StarKidsButton.primary(
-                  label: 'Выйти',
-                  onPressed:
-                      isRefreshing || isLoggingOut ? null : () => onLogout(),
-                  isLoading: isLoggingOut,
+              borderRadius: BorderRadius.circular(StarKidsRadii.md),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Дата рождения ребёнка',
+                        style: textTheme.bodySmall?.copyWith(
+                          color: StarKidsColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        d != null ? _formatDate(d) : 'Не указана',
+                        style: textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
                 ),
+                const Icon(
+                  Icons.calendar_today_rounded,
+                  size: 18,
+                  color: StarKidsColors.textSecondary,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (errorText != null) ...[
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.only(left: StarKidsSpacing.sm),
+            child: Text(
+              errorText!,
+              style: textTheme.bodySmall?.copyWith(
+                color: StarKidsColors.statusError,
               ),
-            ],
+            ),
           ),
         ],
-      ),
+      ],
     );
   }
 }
 
-class _ProfileNextStepCard extends StatelessWidget {
-  const _ProfileNextStepCard({
-    required this.selectedBranchLabel,
-    required this.onOpenHistory,
-  });
+// ─── Request preview item ─────────────────────────────────────────────────────
 
-  final String selectedBranchLabel;
-  final VoidCallback onOpenHistory;
+class _RequestPreviewItem extends StatelessWidget {
+  const _RequestPreviewItem({required this.item});
+
+  final RequestHistoryItem item;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
     return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      padding: const EdgeInsets.all(StarKidsSpacing.md),
       decoration: BoxDecoration(
-        color: StarKidsColors.surfaceSecondary,
-        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+        color: StarKidsColors.surfaceCanvas,
+        borderRadius: BorderRadius.circular(StarKidsRadii.sm),
         border: Border.all(color: StarKidsColors.borderDefault),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text(
-            'История заявок привязана к вашему аккаунту. Сейчас выбран филиал $selectedBranchLabel.',
-            style: textTheme.bodyMedium,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.type.label,
+                  style: textTheme.labelMedium?.copyWith(
+                    color: StarKidsColors.textPrimary,
+                  ),
+                ),
+                if (item.branch != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    item.branch!.name,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: StarKidsColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
-          const SizedBox(height: StarKidsSpacing.md),
-          StarKidsButton.secondary(
-            label: 'Мои заявки',
-            onPressed: onOpenHistory,
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: StarKidsSpacing.sm,
+              vertical: 4,
+            ),
+            decoration: BoxDecoration(
+              color: StarKidsColors.surfaceTertiary,
+              borderRadius: BorderRadius.circular(StarKidsRadii.full),
+            ),
+            child: Text(
+              item.status.label,
+              style: textTheme.labelSmall?.copyWith(
+                color: StarKidsColors.brandPrimary,
+              ),
+            ),
           ),
         ],
       ),
@@ -407,103 +891,67 @@ class _ProfileNextStepCard extends StatelessWidget {
   }
 }
 
-class _NotificationsStatusCard extends StatelessWidget {
-  const _NotificationsStatusCard({
-    required this.status,
-    required this.onOpenStatus,
-  });
+// ─── Settings section widgets ─────────────────────────────────────────────────
 
-  final NotificationPermissionStatus status;
-  final VoidCallback onOpenStatus;
+class _NotificationToggleRow extends StatelessWidget {
+  const _NotificationToggleRow({required this.notificationsController});
+
+  final MobileNotificationsController notificationsController;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final status = notificationsController.status;
+    final isGranted = status == NotificationPermissionStatus.granted;
 
-    return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
-      decoration: BoxDecoration(
-        color: StarKidsColors.surfaceSecondary,
-        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
-        border: Border.all(color: StarKidsColors.borderDefault),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Уведомления', style: textTheme.titleLarge),
-          const SizedBox(height: StarKidsSpacing.sm),
-          Text(
-            _descriptionForStatus(status),
-            style: textTheme.bodyMedium,
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Push-уведомления',
+                style: textTheme.bodyLarge,
+              ),
+              Text(
+                _labelForStatus(status),
+                style: textTheme.bodySmall?.copyWith(
+                  color: StarKidsColors.textSecondary,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: StarKidsSpacing.md),
-          _ProfileFactRow(
-            label: 'Состояние',
-            value: _labelForStatus(status),
-          ),
-          const SizedBox(height: StarKidsSpacing.md),
-          StarKidsButton.secondary(
-            label: 'Статус уведомлений',
-            onPressed: onOpenStatus,
-          ),
-        ],
-      ),
+        ),
+        Switch(
+          value: isGranted,
+          activeColor: StarKidsColors.brandPrimary,
+          onChanged: notificationsController.isBusy
+              ? null
+              : (value) {
+                  if (value) {
+                    notificationsController.requestPermission();
+                  } else {
+                    notificationsController.openSystemSettings();
+                  }
+                },
+        ),
+      ],
     );
   }
 
   String _labelForStatus(NotificationPermissionStatus status) {
     return switch (status) {
       NotificationPermissionStatus.unknown => 'Не запрашивалось',
-      NotificationPermissionStatus.granted => 'Разрешено',
-      NotificationPermissionStatus.denied => 'Отключено',
+      NotificationPermissionStatus.granted => 'Включены',
+      NotificationPermissionStatus.denied => 'Выключены',
       NotificationPermissionStatus.unavailable => 'Недоступно',
     };
   }
-
-  String _descriptionForStatus(NotificationPermissionStatus status) {
-    return switch (status) {
-      NotificationPermissionStatus.unknown =>
-        'Разрешение на уведомления еще не запрашивалось. Сейчас доступна базовая подготовка, отправка уведомлений будет подключена отдельно.',
-      NotificationPermissionStatus.granted =>
-        'Разрешение на уведомления уже выдано. Отправка уведомлений будет подключена отдельным шагом.',
-      NotificationPermissionStatus.denied =>
-        'Разрешение на уведомления отключено. Его можно проверить и изменить отдельно.',
-      NotificationPermissionStatus.unavailable =>
-        'В этой сборке управление уведомлениями недоступно.',
-    };
-  }
 }
 
-class _AuthCardShell extends StatelessWidget {
-  const _AuthCardShell({
-    required this.child,
-  });
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.xl),
-      decoration: BoxDecoration(
-        color: StarKidsColors.surfacePrimary,
-        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-        border: Border.all(color: StarKidsColors.borderDefault),
-        boxShadow: StarKidsShadows.depth1,
-      ),
-      child: child,
-    );
-  }
-}
-
-class _ProfileFactRow extends StatelessWidget {
-  const _ProfileFactRow({
-    required this.label,
-    required this.value,
-  });
-
-  final String label;
-  final String value;
+class _LanguagePlaceholderRow extends StatelessWidget {
+  const _LanguagePlaceholderRow();
 
   @override
   Widget build(BuildContext context) {
@@ -512,19 +960,33 @@ class _ProfileFactRow extends StatelessWidget {
     return Row(
       children: [
         Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Язык', style: textTheme.bodyLarge),
+              Text(
+                'Скоро появится переключение языка.',
+                style: textTheme.bodySmall?.copyWith(
+                  color: StarKidsColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: StarKidsSpacing.md,
+            vertical: StarKidsSpacing.xs,
+          ),
+          decoration: BoxDecoration(
+            color: StarKidsColors.borderDefault.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(StarKidsRadii.full),
+          ),
           child: Text(
-            label,
+            'Рус / Қаз',
             style: textTheme.labelMedium?.copyWith(
               color: StarKidsColors.textSecondary,
             ),
-          ),
-        ),
-        const SizedBox(width: StarKidsSpacing.md),
-        Expanded(
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
-            style: textTheme.bodyLarge,
           ),
         ),
       ],
