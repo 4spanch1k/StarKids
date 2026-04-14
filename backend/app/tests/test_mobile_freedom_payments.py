@@ -1,4 +1,5 @@
 from datetime import date
+import hashlib
 import unittest
 
 from fastapi.testclient import TestClient
@@ -35,6 +36,29 @@ class FakeFreedomPayClient:
 
 
 class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
+    def test_freedompay_signature_matches_documented_flat_parameter_order(self) -> None:
+        params = {
+            'pg_amount': '100',
+            'pg_description': 'test',
+            'pg_merchant_id': '82',
+            'pg_order_id': '123456',
+            'pg_salt': 'some random string',
+        }
+        documented_source = (
+            'init_payment.php;100;test;82;123456;some random string;secret_key'
+        )
+
+        signature = build_freedompay_signature(
+            script_name='init_payment.php',
+            params=params,
+            secret_key='secret_key',
+        )
+
+        self.assertEqual(
+            signature,
+            hashlib.md5(documented_source.encode('utf-8')).hexdigest(),
+        )
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.engine = create_engine(
