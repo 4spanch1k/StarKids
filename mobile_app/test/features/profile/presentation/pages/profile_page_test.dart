@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:star_kids_mobile/core/settings/app_settings_controller.dart';
+import 'package:star_kids_mobile/core/storage/local_storage.dart';
 import 'package:star_kids_mobile/core/utils/result.dart';
+import 'package:star_kids_mobile/features/children/domain/child.dart';
+import 'package:star_kids_mobile/features/children/domain/children_repository.dart';
+import 'package:star_kids_mobile/features/children/presentation/controllers/children_controller.dart';
 import 'package:star_kids_mobile/features/notifications/domain/notification_permission_status.dart';
 import 'package:star_kids_mobile/features/notifications/domain/notification_settings_repository.dart';
 import 'package:star_kids_mobile/features/notifications/presentation/controllers/mobile_notifications_controller.dart';
@@ -15,8 +22,25 @@ import 'package:star_kids_mobile/features/request_history/domain/request_history
 import 'package:star_kids_mobile/features/requests/domain/request_status.dart';
 import 'package:star_kids_mobile/features/requests/domain/request_type.dart';
 
+MaterialApp _wrap(Widget child) {
+  return MaterialApp(
+    localizationsDelegates: const [
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: const [Locale('ru'), Locale('kk')],
+    locale: const Locale('ru'),
+    home: child,
+  );
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
 
   group('ProfilePage', () {
     testWidgets(
@@ -50,14 +74,22 @@ void main() {
         ),
       );
 
+      final childrenController = ChildrenController(
+        repository: _FakeChildrenRepository(children: const []),
+      );
+
+      final settingsController = AppSettingsController(
+        localStorage: LocalStorage(),
+      );
+
       await tester.pumpWidget(
-        MaterialApp(
-          home: ProfilePage(
-            controller: controller,
-            notificationsController: notificationsController,
-            appVersionOverride: '1.0.0',
-          ),
-        ),
+        _wrap(ProfilePage(
+          controller: controller,
+          notificationsController: notificationsController,
+          childrenControllerOverride: childrenController,
+          settingsControllerOverride: settingsController,
+          appVersionOverride: '1.0.0',
+        )),
       );
 
       await tester.pumpAndSettle();
@@ -84,13 +116,21 @@ void main() {
         ),
       );
 
+      final childrenController = ChildrenController(
+        repository: _FakeChildrenRepository(children: const []),
+      );
+
+      final settingsController = AppSettingsController(
+        localStorage: LocalStorage(),
+      );
+
       await tester.pumpWidget(
-        MaterialApp(
-          home: ProfilePage(
-            controller: controller,
-            notificationsController: notificationsController,
-          ),
-        ),
+        _wrap(ProfilePage(
+          controller: controller,
+          notificationsController: notificationsController,
+          childrenControllerOverride: childrenController,
+          settingsControllerOverride: settingsController,
+        )),
       );
 
       await tester.pumpAndSettle();
@@ -160,4 +200,34 @@ class _FakeNotificationSettingsRepository
 
   @override
   Future<NotificationPermissionStatus> requestPermission() async => loadStatus;
+}
+
+class _FakeChildrenRepository implements ChildrenRepository {
+  _FakeChildrenRepository({required this.children});
+  final List<Child> children;
+
+  @override
+  Future<Result<List<Child>>> fetchChildren() async =>
+      Success<List<Child>>(children);
+
+  @override
+  Future<Result<Child>> createChild({
+    required String name,
+    required DateTime birthDate,
+    required ChildGender gender,
+  }) async =>
+      Failure<Child>('not implemented');
+
+  @override
+  Future<Result<Child>> updateChild({
+    required String childId,
+    String? name,
+    DateTime? birthDate,
+    ChildGender? gender,
+  }) async =>
+      Failure<Child>('not implemented');
+
+  @override
+  Future<Result<void>> deleteChild(String childId) async =>
+      const Success<void>(null);
 }

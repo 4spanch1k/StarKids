@@ -18,6 +18,7 @@ import '../../../../core/design_system/widgets/star_kids_media_image.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_promo_card.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
+import '../../../../core/l10n/app_l10n.dart';
 import '../../../birthdays/domain/birthday_package.dart';
 import '../../../branches/domain/branch_option.dart';
 import '../../../content/domain/public_content_block.dart';
@@ -588,31 +589,36 @@ class _FloatingNavBar extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(StarKidsRadii.full),
-          child: NavigationBar(
-            selectedIndex: selectedIndex,
-            onDestinationSelected: onDestinationSelected,
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.home_rounded),
-                label: 'Главная',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.cake_rounded),
-                label: 'Праздники',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.local_offer_rounded),
-                label: 'Акции',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.confirmation_num_rounded),
-                label: 'Билеты',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.person_rounded),
-                label: 'Профиль',
-              ),
-            ],
+          child: Builder(
+            builder: (ctx) {
+              final l = AppL10n.of(ctx);
+              return NavigationBar(
+                selectedIndex: selectedIndex,
+                onDestinationSelected: onDestinationSelected,
+                destinations: [
+                  NavigationDestination(
+                    icon: const Icon(Icons.home_rounded),
+                    label: l.navHome,
+                  ),
+                  NavigationDestination(
+                    icon: const Icon(Icons.cake_rounded),
+                    label: l.navBirthdays,
+                  ),
+                  NavigationDestination(
+                    icon: const Icon(Icons.local_offer_rounded),
+                    label: l.navPromotions,
+                  ),
+                  NavigationDestination(
+                    icon: const Icon(Icons.confirmation_num_rounded),
+                    label: 'Билеты',
+                  ),
+                  NavigationDestination(
+                    icon: const Icon(Icons.person_rounded),
+                    label: l.navProfile,
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),

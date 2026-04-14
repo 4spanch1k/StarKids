@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'di/service_registry.dart';
 import 'router/app_router.dart';
@@ -13,9 +14,13 @@ class StarKidsApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: ServiceRegistry.mobileAuthController,
+      animation: Listenable.merge([
+        ServiceRegistry.mobileAuthController,
+        ServiceRegistry.appSettingsController,
+      ]),
       builder: (context, _) {
         final authController = ServiceRegistry.mobileAuthController;
+        final settings = ServiceRegistry.appSettingsController;
         final isBootstrapping =
             authController.status == MobileAuthStatus.loading &&
                 authController.session == null;
@@ -26,6 +31,18 @@ class StarKidsApp extends StatelessWidget {
           title: 'Star Kids',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light(),
+          darkTheme: AppTheme.dark(),
+          themeMode: settings.themeMode,
+          locale: Locale(settings.locale),
+          supportedLocales: const [
+            Locale('ru'),
+            Locale('kk'),
+          ],
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
           home: !isAuthenticated
               ? isBootstrapping
                   ? const _AuthGateLoadingPage()

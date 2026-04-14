@@ -14,7 +14,11 @@ import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_input_field.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
+import '../../../../core/l10n/app_l10n.dart';
+import '../../../../core/settings/app_settings_controller.dart';
 import '../../../branches/domain/branch_option.dart';
+import '../../../children/domain/child.dart';
+import '../../../children/presentation/controllers/children_controller.dart';
 import '../../../notifications/domain/notification_permission_status.dart';
 import '../../../notifications/presentation/controllers/mobile_notifications_controller.dart';
 import '../../../request_history/domain/request_history_item.dart';
@@ -28,6 +32,8 @@ class ProfilePage extends StatefulWidget {
     super.key,
     this.controller,
     this.notificationsController,
+    this.childrenControllerOverride,
+    this.settingsControllerOverride,
     this.selectedBranchOverride,
     this.onOpenBranchSelection,
     this.onOpenAllRequests,
@@ -37,6 +43,8 @@ class ProfilePage extends StatefulWidget {
 
   final ProfileController? controller;
   final MobileNotificationsController? notificationsController;
+  final ChildrenController? childrenControllerOverride;
+  final AppSettingsController? settingsControllerOverride;
   final BranchOption? selectedBranchOverride;
   final VoidCallback? onOpenBranchSelection;
   final VoidCallback? onOpenAllRequests;
@@ -50,6 +58,8 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   late final ProfileController _controller;
   late final MobileNotificationsController _notificationsController;
+  late final ChildrenController _childrenController;
+  late final AppSettingsController _settingsController;
 
   final _firstNameTextController = TextEditingController();
   final _lastNameTextController = TextEditingController();
@@ -63,9 +73,14 @@ class _ProfilePageState extends State<ProfilePage> {
     _controller = widget.controller ?? ServiceRegistry.profileController;
     _notificationsController =
         widget.notificationsController ?? ServiceRegistry.mobileNotificationsController;
+    _childrenController =
+        widget.childrenControllerOverride ?? ServiceRegistry.childrenController;
+    _settingsController =
+        widget.settingsControllerOverride ?? ServiceRegistry.appSettingsController;
 
     unawaited(_controller.load());
     unawaited(_notificationsController.bootstrap());
+    unawaited(_childrenController.load());
 
     _controller.addListener(_syncTextControllers);
   }
@@ -161,16 +176,25 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? StarKidsDarkColors.surfaceCanvas : StarKidsColors.surfaceCanvas;
+
     return Scaffold(
-      backgroundColor: StarKidsColors.surfaceCanvas,
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text('Профиль'),
-        backgroundColor: StarKidsColors.surfaceCanvas,
+        title: Text(l.profileTitle),
+        backgroundColor: bgColor,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
       ),
       body: AnimatedBuilder(
-        animation: Listenable.merge([_controller, _notificationsController]),
+        animation: Listenable.merge([
+          _controller,
+          _notificationsController,
+          _childrenController,
+          _settingsController,
+        ]),
         builder: (context, _) {
           return switch (_controller.status) {
             ProfileViewStatus.loading => const ProfileLoadingSkeleton(),
@@ -183,6 +207,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildErrorState(BuildContext context) {
+    final l = AppL10n.of(context);
     final textTheme = Theme.of(context).textTheme;
     return Center(
       child: Padding(
@@ -197,21 +222,19 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const SizedBox(height: StarKidsSpacing.lg),
             Text(
-              'Не удалось загрузить профиль',
+              l.profileLoadError,
               style: textTheme.titleLarge,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: StarKidsSpacing.sm),
             Text(
-              _controller.errorMessage ?? 'Попробуйте снова.',
-              style: textTheme.bodyMedium?.copyWith(
-                color: StarKidsColors.textSecondary,
-              ),
+              _controller.errorMessage ?? l.profileLoadErrorHint,
+              style: textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: StarKidsSpacing.xl),
             StarKidsButton.primary(
-              label: 'Повторить',
+              label: l.retry,
               onPressed: _controller.retry,
             ),
           ],
@@ -222,6 +245,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildContent(BuildContext context) {
     final profile = _controller.profile;
+    final l = AppL10n.of(context);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(StarKidsSpacing.xl),
@@ -232,8 +256,7 @@ class _ProfilePageState extends State<ProfilePage> {
             profile: profile,
             isUploadingAvatar: _controller.isUploadingAvatar,
             onPickAvatar: _pickAndUploadAvatar,
-            onDeleteAvatar:
-                (profile?.hasAvatar ?? false) ? _handleDeleteAvatar : null,
+            onDeleteAvatar: (profile?.hasAvatar ?? false) ? _handleDeleteAvatar : null,
           ),
           if (_controller.errorMessage != null) ...[
             const SizedBox(height: StarKidsSpacing.lg),
@@ -242,10 +265,18 @@ class _ProfilePageState extends State<ProfilePage> {
               onDismiss: _controller.clearError,
             ),
           ],
+          // Birthday reminders for today
+          if (_childrenController.todaysBirthdays.isNotEmpty) ...[
+            const SizedBox(height: StarKidsSpacing.xl),
+            for (final child in _childrenController.todaysBirthdays)
+              _BirthdayReminderBanner(child: child),
+          ],
           const SizedBox(height: StarKidsSpacing.xl),
           StarKidsContentSwitcher(
             child: _buildPersonalDataSection(context),
           ),
+          const SizedBox(height: StarKidsSpacing.xl),
+          _buildChildrenSection(context),
           const SizedBox(height: StarKidsSpacing.xl),
           _buildBranchSection(context),
           const SizedBox(height: StarKidsSpacing.xl),
@@ -253,7 +284,7 @@ class _ProfilePageState extends State<ProfilePage> {
           const SizedBox(height: StarKidsSpacing.xl),
           _buildSettingsSection(context),
           const SizedBox(height: StarKidsSpacing.x2l),
-          _buildFooter(context),
+          _buildFooter(context, l),
           const SizedBox(height: StarKidsSpacing.xl),
         ],
       ),
@@ -261,14 +292,15 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildPersonalDataSection(BuildContext context) {
+    final l = AppL10n.of(context);
     return ProfileSectionCard(
-      title: 'Личные данные',
+      title: l.personalData,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           StarKidsInputField(
             controller: _firstNameTextController,
-            label: 'Имя',
+            label: l.firstName,
             errorText: _controller.firstNameError,
             onChanged: _controller.updateFirstName,
             textCapitalization: TextCapitalization.words,
@@ -277,7 +309,7 @@ class _ProfilePageState extends State<ProfilePage> {
           const SizedBox(height: StarKidsSpacing.md),
           StarKidsInputField(
             controller: _lastNameTextController,
-            label: 'Фамилия',
+            label: l.lastName,
             errorText: _controller.lastNameError,
             onChanged: _controller.updateLastName,
             textCapitalization: TextCapitalization.words,
@@ -286,21 +318,15 @@ class _ProfilePageState extends State<ProfilePage> {
           const SizedBox(height: StarKidsSpacing.md),
           StarKidsInputField(
             controller: _emailTextController,
-            label: 'Email',
+            label: l.email,
             errorText: _controller.emailError,
             onChanged: _controller.updateEmail,
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.done,
           ),
-          const SizedBox(height: StarKidsSpacing.md),
-          _ChildBirthDateField(
-            selectedDate: _controller.childBirthDateDraft,
-            errorText: _controller.childBirthDateError,
-            onChanged: _controller.updateChildBirthDate,
-          ),
           const SizedBox(height: StarKidsSpacing.xl),
           StarKidsButton.primary(
-            label: 'Сохранить',
+            label: l.save,
             isLoading: _controller.isSaving,
             onPressed: _controller.canSave ? _handleSave : null,
           ),
@@ -309,42 +335,35 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  Widget _buildChildrenSection(BuildContext context) {
+    return _ChildrenSection(controller: _childrenController);
+  }
+
   Widget _buildBranchSection(BuildContext context) {
+    final l = AppL10n.of(context);
     final branch = _selectedBranch;
     final textTheme = Theme.of(context).textTheme;
 
     return ProfileSectionCard(
-      title: 'Мой филиал',
+      title: l.myBranch,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             branch.name,
-            style: textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
           ),
           if (branch.address.isNotEmpty) ...[
             const SizedBox(height: StarKidsSpacing.xs),
-            Text(
-              branch.address,
-              style: textTheme.bodyMedium?.copyWith(
-                color: StarKidsColors.textSecondary,
-              ),
-            ),
+            Text(branch.address, style: textTheme.bodyMedium),
           ],
           if (branch.workingHours.isNotEmpty) ...[
             const SizedBox(height: StarKidsSpacing.xs),
-            Text(
-              branch.workingHours,
-              style: textTheme.bodySmall?.copyWith(
-                color: StarKidsColors.textSecondary,
-              ),
-            ),
+            Text(branch.workingHours, style: textTheme.bodySmall),
           ],
           const SizedBox(height: StarKidsSpacing.xl),
           StarKidsButton.secondary(
-            label: 'Изменить филиал',
+            label: l.changeBranch,
             onPressed: _handleOpenBranchSelection,
           ),
         ],
@@ -353,6 +372,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildRequestsSection(BuildContext context) {
+    final l = AppL10n.of(context);
     final textTheme = Theme.of(context).textTheme;
     Widget content;
 
@@ -369,25 +389,20 @@ class _ProfilePageState extends State<ProfilePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              _controller.requestsErrorMessage ?? 'Ошибка загрузки заявок.',
+              _controller.requestsErrorMessage ?? l.requestsLoadError,
               style: textTheme.bodyMedium?.copyWith(
                 color: StarKidsColors.statusError,
               ),
             ),
             const SizedBox(height: StarKidsSpacing.md),
             StarKidsButton.secondary(
-              label: 'Повторить',
+              label: l.retry,
               onPressed: _controller.loadRequestPreview,
             ),
           ],
         );
       case ProfileRequestsStatus.empty:
-        content = Text(
-          'Заявок ещё нет.',
-          style: textTheme.bodyMedium?.copyWith(
-            color: StarKidsColors.textSecondary,
-          ),
-        );
+        content = Text(l.noRequests, style: textTheme.bodyMedium);
       case ProfileRequestsStatus.success:
         content = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -400,10 +415,8 @@ class _ProfilePageState extends State<ProfilePage> {
               Padding(
                 padding: const EdgeInsets.only(top: StarKidsSpacing.xs),
                 child: Text(
-                  'Ещё ${_controller.totalRequests - 3} заявок',
-                  style: textTheme.bodySmall?.copyWith(
-                    color: StarKidsColors.textSecondary,
-                  ),
+                  l.moreRequests(_controller.totalRequests - 3),
+                  style: textTheme.bodySmall,
                 ),
               ),
           ],
@@ -411,14 +424,14 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     return ProfileSectionCard(
-      title: 'Мои заявки',
+      title: l.myRequests,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           content,
           const SizedBox(height: StarKidsSpacing.xl),
           StarKidsButton.secondary(
-            label: 'Все заявки',
+            label: l.allRequests,
             onPressed: _handleOpenAllRequests,
           ),
         ],
@@ -427,8 +440,9 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildSettingsSection(BuildContext context) {
+    final l = AppL10n.of(context);
     return ProfileSectionCard(
-      title: 'Настройки',
+      title: l.settings,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -436,13 +450,15 @@ class _ProfilePageState extends State<ProfilePage> {
             notificationsController: _notificationsController,
           ),
           const SizedBox(height: StarKidsSpacing.lg),
-          const _LanguagePlaceholderRow(),
+          _LanguageSwitchRow(settingsController: _settingsController),
+          const SizedBox(height: StarKidsSpacing.lg),
+          _ThemeSwitchRow(settingsController: _settingsController),
         ],
       ),
     );
   }
 
-  Widget _buildFooter(BuildContext context) {
+  Widget _buildFooter(BuildContext context, AppL10n l) {
     final textTheme = Theme.of(context).textTheme;
     final version = widget.appVersionOverride ?? '';
 
@@ -450,20 +466,766 @@ class _ProfilePageState extends State<ProfilePage> {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         StarKidsButton.secondary(
-          label: 'Выйти',
+          label: l.logout,
           onPressed: _handleLogout,
         ),
         if (version.isNotEmpty) ...[
           const SizedBox(height: StarKidsSpacing.sm),
           Text(
-            'Версия $version',
-            style: textTheme.bodySmall?.copyWith(
-              color: StarKidsColors.textSecondary,
-            ),
+            '${l.version} $version',
+            style: textTheme.bodySmall,
             textAlign: TextAlign.center,
           ),
         ],
       ],
+    );
+  }
+}
+
+// ─── Birthday reminder banner ─────────────────────────────────────────────────
+
+class _BirthdayReminderBanner extends StatelessWidget {
+  const _BirthdayReminderBanner({required this.child});
+
+  final Child child;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
+    final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: StarKidsSpacing.md),
+      child: Container(
+        padding: const EdgeInsets.all(StarKidsSpacing.lg),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: isDark
+                ? [
+                    const Color(0xFF3D0A3F),
+                    const Color(0xFF1A0A2E),
+                  ]
+                : [
+                    StarKidsColors.brandPrimary.withValues(alpha: 0.08),
+                    StarKidsColors.cosmicLavender,
+                  ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+          border: Border.all(
+            color: isDark
+                ? StarKidsDarkColors.accentPink.withValues(alpha: 0.4)
+                : StarKidsColors.brandPrimary.withValues(alpha: 0.2),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('🎂', style: TextStyle(fontSize: 28)),
+            const SizedBox(width: StarKidsSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l.birthdayReminderTitle(child.name),
+                    style: textTheme.titleMedium?.copyWith(
+                      color: isDark
+                          ? StarKidsDarkColors.textPrimary
+                          : StarKidsColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: StarKidsSpacing.xs),
+                  Text(
+                    l.birthdayFreeEntry,
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: isDark
+                          ? StarKidsDarkColors.accentPink
+                          : StarKidsColors.brandPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    l.birthdayPackageHint,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: isDark
+                          ? StarKidsDarkColors.textSecondary
+                          : StarKidsColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Children section ─────────────────────────────────────────────────────────
+
+class _ChildrenSection extends StatelessWidget {
+  const _ChildrenSection({required this.controller});
+
+  final ChildrenController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
+    final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    Widget content;
+    switch (controller.status) {
+      case ChildrenStatus.loading:
+        content = const Center(
+          child: Padding(
+            padding: EdgeInsets.all(StarKidsSpacing.lg),
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        );
+      case ChildrenStatus.error:
+        content = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              controller.errorMessage ?? l.childrenLoadError,
+              style: textTheme.bodyMedium?.copyWith(
+                color: isDark
+                    ? StarKidsDarkColors.statusError
+                    : StarKidsColors.statusError,
+              ),
+            ),
+            const SizedBox(height: StarKidsSpacing.md),
+            StarKidsButton.secondary(
+              label: l.retry,
+              onPressed: controller.retry,
+            ),
+          ],
+        );
+      case ChildrenStatus.empty:
+        content = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l.noChildren, style: textTheme.bodyMedium),
+            const SizedBox(height: StarKidsSpacing.lg),
+            StarKidsButton.primary(
+              label: l.addChild,
+              onPressed: () => _showAddChildSheet(context),
+            ),
+          ],
+        );
+      case ChildrenStatus.success:
+        content = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final child in controller.children) ...[
+              _ChildCard(
+                child: child,
+                onEdit: () => _showEditChildSheet(context, child),
+                onDelete: () => _confirmDelete(context, child),
+              ),
+              const SizedBox(height: StarKidsSpacing.sm),
+            ],
+            const SizedBox(height: StarKidsSpacing.sm),
+            StarKidsButton.secondary(
+              label: l.addChild,
+              onPressed: () => _showAddChildSheet(context),
+            ),
+          ],
+        );
+    }
+
+    return ProfileSectionCard(
+      title: l.children,
+      child: content,
+    );
+  }
+
+  void _showAddChildSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(StarKidsRadii.xl)),
+      ),
+      builder: (_) => _ChildFormSheet(
+        controller: controller,
+        childToEdit: null,
+      ),
+    );
+  }
+
+  void _showEditChildSheet(BuildContext context, Child child) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(StarKidsRadii.xl)),
+      ),
+      builder: (_) => _ChildFormSheet(
+        controller: controller,
+        childToEdit: child,
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context, Child child) {
+    final l = AppL10n.of(context);
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.confirmDeleteChild),
+        content: Text(child.name),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(l.cancel),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              controller.deleteChild(child.id);
+            },
+            child: Text(l.delete, style: const TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChildCard extends StatelessWidget {
+  const _ChildCard({
+    required this.child,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final Child child;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l = AppL10n.of(context);
+
+    final cardBg = isDark ? StarKidsDarkColors.surfaceElevated : StarKidsColors.surfacePrimary;
+    final cardBorder =
+        isDark ? StarKidsDarkColors.borderDefault : StarKidsColors.borderDefault;
+    final avatarBg = isDark
+        ? StarKidsDarkColors.glassSurface
+        : (child.gender == ChildGender.female
+            ? StarKidsColors.surfaceTertiary
+            : StarKidsColors.cosmicSky);
+    final avatarEmoji = child.gender == ChildGender.female ? '👧' : '👦';
+
+    return Container(
+      padding: const EdgeInsets.all(StarKidsSpacing.md),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(StarKidsRadii.md),
+        border: Border.all(color: cardBorder),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(color: avatarBg, shape: BoxShape.circle),
+            child: Center(
+              child: Text(avatarEmoji, style: const TextStyle(fontSize: 22)),
+            ),
+          ),
+          const SizedBox(width: StarKidsSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  child.name,
+                  style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  _formatDate(child.birthDate),
+                  style: textTheme.bodySmall,
+                ),
+                Text(
+                  child.gender == ChildGender.female ? l.genderGirl : l.genderBoy,
+                  style: textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: onEdit,
+            icon: const Icon(Icons.edit_outlined, size: 18),
+            tooltip: l.edit,
+          ),
+          IconButton(
+            onPressed: onDelete,
+            icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+            tooltip: l.delete,
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
+}
+
+// ─── Child form sheet ─────────────────────────────────────────────────────────
+
+class _ChildFormSheet extends StatefulWidget {
+  const _ChildFormSheet({
+    required this.controller,
+    required this.childToEdit,
+  });
+
+  final ChildrenController controller;
+  final Child? childToEdit;
+
+  @override
+  State<_ChildFormSheet> createState() => _ChildFormSheetState();
+}
+
+class _ChildFormSheetState extends State<_ChildFormSheet> {
+  late final TextEditingController _nameController;
+  DateTime? _birthDate;
+  ChildGender? _gender;
+
+  String? _nameError;
+  String? _birthDateError;
+  String? _genderError;
+
+  @override
+  void initState() {
+    super.initState();
+    final child = widget.childToEdit;
+    _nameController = TextEditingController(text: child?.name ?? '');
+    _birthDate = child?.birthDate;
+    _gender = child?.gender;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  bool _validate(AppL10n l) {
+    bool ok = true;
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      _nameError = l.childNameRequired;
+      ok = false;
+    } else if (name.length > 100) {
+      _nameError = l.childNameTooLong;
+      ok = false;
+    } else {
+      _nameError = null;
+    }
+
+    if (_birthDate == null) {
+      _birthDateError = l.childBirthDateRequired;
+      ok = false;
+    } else {
+      final now = DateTime.now();
+      if (_birthDate!.isAfter(now)) {
+        _birthDateError = l.childBirthDateFuture;
+        ok = false;
+      } else {
+        _birthDateError = null;
+      }
+    }
+
+    if (_gender == null) {
+      _genderError = l.childGenderRequired;
+      ok = false;
+    } else {
+      _genderError = null;
+    }
+
+    setState(() {});
+    return ok;
+  }
+
+  Future<void> _submit(AppL10n l) async {
+    if (!_validate(l)) return;
+
+    bool success;
+    if (widget.childToEdit != null) {
+      success = await widget.controller.editChild(
+        childId: widget.childToEdit!.id,
+        name: _nameController.text.trim(),
+        birthDate: _birthDate!,
+        gender: _gender!,
+      );
+    } else {
+      success = await widget.controller.addChild(
+        name: _nameController.text.trim(),
+        birthDate: _birthDate!,
+        gender: _gender!,
+      );
+    }
+
+    if (success && mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  Future<void> _pickDate(BuildContext context, AppL10n l) async {
+    final now = DateTime.now();
+    final initial = _birthDate ?? DateTime(now.year - 3);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(now.year - 18),
+      lastDate: now,
+      helpText: l.datePickerHelpText,
+      cancelText: l.datePickerCancel,
+      confirmText: l.datePickerConfirm,
+    );
+    if (picked != null) {
+      setState(() => _birthDate = picked);
+    }
+  }
+
+  String _formatDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
+    final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sheetBg = isDark ? StarKidsDarkColors.surfacePrimary : StarKidsColors.surfacePrimary;
+    final isEditing = widget.childToEdit != null;
+
+    return AnimatedBuilder(
+      animation: widget.controller,
+      builder: (context, _) {
+        return Container(
+          color: sheetBg,
+          padding: EdgeInsets.only(
+            left: StarKidsSpacing.xl,
+            right: StarKidsSpacing.xl,
+            top: StarKidsSpacing.xl,
+            bottom: MediaQuery.of(context).viewInsets.bottom + StarKidsSpacing.xl,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? StarKidsDarkColors.borderDefault
+                        : StarKidsColors.borderDefault,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: StarKidsSpacing.lg),
+              Text(
+                isEditing ? l.editChild : l.addChild,
+                style: textTheme.titleLarge,
+              ),
+              const SizedBox(height: StarKidsSpacing.xl),
+              // Name
+              StarKidsInputField(
+                controller: _nameController,
+                label: l.childName,
+                errorText: _nameError,
+                onChanged: (_) {
+                  if (_nameError != null) setState(() => _nameError = null);
+                },
+                textCapitalization: TextCapitalization.words,
+                textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: StarKidsSpacing.md),
+              // Birth date
+              _DatePickerField(
+                label: l.childBirthDate,
+                selectedDate: _birthDate,
+                errorText: _birthDateError,
+                dateLabel: _birthDate != null ? _formatDate(_birthDate!) : l.dateNotSet,
+                onTap: () => _pickDate(context, l),
+              ),
+              const SizedBox(height: StarKidsSpacing.md),
+              // Gender
+              _GenderSelector(
+                selected: _gender,
+                errorText: _genderError,
+                onSelected: (g) => setState(() {
+                  _gender = g;
+                  _genderError = null;
+                }),
+              ),
+              if (widget.controller.formError != null) ...[
+                const SizedBox(height: StarKidsSpacing.md),
+                Text(
+                  widget.controller.formError!,
+                  style: textTheme.bodySmall?.copyWith(
+                    color: isDark
+                        ? StarKidsDarkColors.statusError
+                        : StarKidsColors.statusError,
+                  ),
+                ),
+              ],
+              const SizedBox(height: StarKidsSpacing.xl),
+              StarKidsButton.primary(
+                label: l.save,
+                isLoading: widget.controller.isSaving,
+                onPressed: widget.controller.isSaving ? null : () => _submit(l),
+              ),
+              const SizedBox(height: StarKidsSpacing.sm),
+              StarKidsButton.secondary(
+                label: l.cancel,
+                onPressed: widget.controller.isSaving
+                    ? null
+                    : () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _DatePickerField extends StatelessWidget {
+  const _DatePickerField({
+    required this.label,
+    required this.selectedDate,
+    required this.errorText,
+    required this.dateLabel,
+    required this.onTap,
+  });
+
+  final String label;
+  final DateTime? selectedDate;
+  final String? errorText;
+  final String dateLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = errorText != null
+        ? (isDark ? StarKidsDarkColors.borderError : StarKidsColors.borderError)
+        : (isDark ? StarKidsDarkColors.borderDefault : StarKidsColors.borderDefault);
+    final fillColor =
+        isDark ? StarKidsDarkColors.glassSurface : StarKidsColors.glassSurface;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: StarKidsSpacing.lg,
+              vertical: StarKidsSpacing.md,
+            ),
+            decoration: BoxDecoration(
+              color: fillColor,
+              border: Border.all(color: borderColor),
+              borderRadius: BorderRadius.circular(StarKidsRadii.md),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: isDark
+                              ? StarKidsDarkColors.textSecondary
+                              : StarKidsColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(dateLabel, style: textTheme.bodyMedium),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.calendar_today_rounded,
+                  size: 18,
+                  color: isDark
+                      ? StarKidsDarkColors.textSecondary
+                      : StarKidsColors.textSecondary,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (errorText != null) ...[
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.only(left: StarKidsSpacing.sm),
+            child: Text(
+              errorText!,
+              style: textTheme.bodySmall?.copyWith(
+                color: isDark
+                    ? StarKidsDarkColors.statusError
+                    : StarKidsColors.statusError,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _GenderSelector extends StatelessWidget {
+  const _GenderSelector({
+    required this.selected,
+    required this.errorText,
+    required this.onSelected,
+  });
+
+  final ChildGender? selected;
+  final String? errorText;
+  final ValueChanged<ChildGender> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l = AppL10n.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l.childGender,
+          style: textTheme.bodySmall?.copyWith(
+            color: isDark
+                ? StarKidsDarkColors.textSecondary
+                : StarKidsColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: StarKidsSpacing.sm),
+        Row(
+          children: [
+            Expanded(
+              child: _GenderOption(
+                label: l.genderBoy,
+                emoji: '👦',
+                isSelected: selected == ChildGender.male,
+                onTap: () => onSelected(ChildGender.male),
+              ),
+            ),
+            const SizedBox(width: StarKidsSpacing.sm),
+            Expanded(
+              child: _GenderOption(
+                label: l.genderGirl,
+                emoji: '👧',
+                isSelected: selected == ChildGender.female,
+                onTap: () => onSelected(ChildGender.female),
+              ),
+            ),
+          ],
+        ),
+        if (errorText != null) ...[
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.only(left: StarKidsSpacing.sm),
+            child: Text(
+              errorText!,
+              style: textTheme.bodySmall?.copyWith(
+                color: isDark
+                    ? StarKidsDarkColors.statusError
+                    : StarKidsColors.statusError,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _GenderOption extends StatelessWidget {
+  const _GenderOption({
+    required this.label,
+    required this.emoji,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final String emoji;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final selectedBg = isDark
+        ? StarKidsDarkColors.navIndicator
+        : StarKidsColors.brandPrimary.withValues(alpha: 0.08);
+    final selectedBorder =
+        isDark ? StarKidsDarkColors.accentPink : StarKidsColors.brandPrimary;
+    final idleBg =
+        isDark ? StarKidsDarkColors.glassSurface : StarKidsColors.glassSurface;
+    final idleBorder =
+        isDark ? StarKidsDarkColors.borderDefault : StarKidsColors.borderDefault;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(
+          horizontal: StarKidsSpacing.md,
+          vertical: StarKidsSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected ? selectedBg : idleBg,
+          borderRadius: BorderRadius.circular(StarKidsRadii.md),
+          border: Border.all(
+            color: isSelected ? selectedBorder : idleBorder,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 18)),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: textTheme.bodyMedium?.copyWith(
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected
+                    ? (isDark ? StarKidsDarkColors.accentPink : StarKidsColors.brandPrimary)
+                    : null,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -486,15 +1248,18 @@ class _ProfileHeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final p = profile;
+    final cardBg = isDark ? StarKidsDarkColors.surfaceElevated : StarKidsColors.surfacePrimary;
+    final cardBorder = isDark ? StarKidsDarkColors.borderDefault : StarKidsColors.borderDefault;
 
     return Container(
       padding: const EdgeInsets.all(StarKidsSpacing.xl),
       decoration: BoxDecoration(
-        color: StarKidsColors.surfacePrimary,
+        color: cardBg,
         borderRadius: BorderRadius.circular(StarKidsRadii.lg),
-        border: Border.all(color: StarKidsColors.borderDefault),
-        boxShadow: StarKidsShadows.depth1,
+        border: Border.all(color: cardBorder),
+        boxShadow: isDark ? null : StarKidsShadows.depth1,
       ),
       child: Row(
         children: [
@@ -517,20 +1282,10 @@ class _ProfileHeaderCard extends StatelessWidget {
                 ),
                 if (p?.phone != null && p!.phone!.isNotEmpty) ...[
                   const SizedBox(height: StarKidsSpacing.xs),
-                  Text(
-                    p.phone!,
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: StarKidsColors.textSecondary,
-                    ),
-                  ),
+                  Text(p.phone!, style: textTheme.bodyMedium),
                 ] else if (p?.email != null && p!.email!.isNotEmpty) ...[
                   const SizedBox(height: StarKidsSpacing.xs),
-                  Text(
-                    p.email!,
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: StarKidsColors.textSecondary,
-                    ),
-                  ),
+                  Text(p.email!, style: textTheme.bodyMedium),
                 ],
               ],
             ),
@@ -571,11 +1326,7 @@ class _AvatarSection extends StatelessWidget {
                 color: StarKidsColors.brandPrimary,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.camera_alt_rounded,
-                color: Colors.white,
-                size: 16,
-              ),
+              child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 16),
             ),
           ),
         ],
@@ -593,6 +1344,7 @@ class _AvatarCircle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const size = 80.0;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final avatarUrl = profile?.avatarUrl;
 
     Widget inner;
@@ -600,16 +1352,12 @@ class _AvatarCircle extends StatelessWidget {
       inner = Container(
         width: size,
         height: size,
-        decoration: const BoxDecoration(
-          color: StarKidsColors.surfaceTertiary,
+        decoration: BoxDecoration(
+          color: isDark ? StarKidsDarkColors.glassSurface : StarKidsColors.surfaceTertiary,
           shape: BoxShape.circle,
         ),
         child: const Center(
-          child: SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
+          child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
         ),
       );
     } else if (avatarUrl != null && avatarUrl.isNotEmpty) {
@@ -630,10 +1378,7 @@ class _AvatarCircle extends StatelessWidget {
         ),
       );
     } else {
-      inner = _AvatarFallback(
-        initials: profile?.initials ?? 'SK',
-        size: size,
-      );
+      inner = _AvatarFallback(initials: profile?.initials ?? 'SK', size: size);
     }
 
     return SizedBox(width: size, height: size, child: inner);
@@ -648,18 +1393,19 @@ class _AvatarFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: size,
       height: size,
-      decoration: const BoxDecoration(
-        color: StarKidsColors.surfaceTertiary,
+      decoration: BoxDecoration(
+        color: isDark ? StarKidsDarkColors.glassSurface : StarKidsColors.surfaceTertiary,
         shape: BoxShape.circle,
       ),
       child: Center(
         child: Text(
           initials,
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: StarKidsColors.brandPrimary,
+                color: isDark ? StarKidsDarkColors.accentPink : StarKidsColors.brandPrimary,
                 fontWeight: FontWeight.w700,
               ),
         ),
@@ -678,151 +1424,48 @@ class _InlineErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: StarKidsSpacing.lg,
         vertical: StarKidsSpacing.md,
       ),
       decoration: BoxDecoration(
-        color: StarKidsColors.statusErrorSurface,
+        color: isDark
+            ? StarKidsDarkColors.statusErrorSurface
+            : StarKidsColors.statusErrorSurface,
         borderRadius: BorderRadius.circular(StarKidsRadii.md),
         border: Border.all(
-          color: StarKidsColors.statusError.withValues(alpha: 0.3),
+          color: isDark
+              ? StarKidsDarkColors.statusError.withValues(alpha: 0.3)
+              : StarKidsColors.statusError.withValues(alpha: 0.3),
         ),
       ),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.error_outline_rounded,
-            color: StarKidsColors.statusError,
+            color: isDark ? StarKidsDarkColors.statusError : StarKidsColors.statusError,
             size: 20,
           ),
           const SizedBox(width: StarKidsSpacing.sm),
           Expanded(
             child: Text(
               message,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: StarKidsColors.textPrimary,
-                  ),
+              style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
           const SizedBox(width: StarKidsSpacing.xs),
           GestureDetector(
             onTap: onDismiss,
-            child: const Icon(
+            child: Icon(
               Icons.close_rounded,
-              color: StarKidsColors.textSecondary,
+              color: isDark ? StarKidsDarkColors.textSecondary : StarKidsColors.textSecondary,
               size: 18,
             ),
           ),
         ],
       ),
-    );
-  }
-}
-
-// ─── Child birth date picker ──────────────────────────────────────────────────
-
-class _ChildBirthDateField extends StatelessWidget {
-  const _ChildBirthDateField({
-    required this.selectedDate,
-    this.errorText,
-    required this.onChanged,
-  });
-
-  final DateTime? selectedDate;
-  final String? errorText;
-  final ValueChanged<DateTime?> onChanged;
-
-  Future<void> _pickDate(BuildContext context) async {
-    final now = DateTime.now();
-    final initial = selectedDate ?? DateTime(now.year - 3, now.month, now.day);
-    final firstDate = DateTime(now.year - 18, now.month, now.day);
-
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initial.isBefore(firstDate) ? now : initial,
-      firstDate: firstDate,
-      lastDate: now,
-      helpText: 'Дата рождения ребёнка',
-      cancelText: 'Отмена',
-      confirmText: 'Выбрать',
-    );
-
-    if (picked != null) {
-      onChanged(picked);
-    }
-  }
-
-  String _formatDate(DateTime d) {
-    return '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final d = selectedDate;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        GestureDetector(
-          onTap: () => _pickDate(context),
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: StarKidsSpacing.lg,
-              vertical: StarKidsSpacing.md,
-            ),
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: errorText != null
-                    ? StarKidsColors.statusError
-                    : StarKidsColors.borderDefault,
-              ),
-              borderRadius: BorderRadius.circular(StarKidsRadii.md),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Дата рождения ребёнка',
-                        style: textTheme.bodySmall?.copyWith(
-                          color: StarKidsColors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        d != null ? _formatDate(d) : 'Не указана',
-                        style: textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(
-                  Icons.calendar_today_rounded,
-                  size: 18,
-                  color: StarKidsColors.textSecondary,
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (errorText != null) ...[
-          const SizedBox(height: 4),
-          Padding(
-            padding: const EdgeInsets.only(left: StarKidsSpacing.sm),
-            child: Text(
-              errorText!,
-              style: textTheme.bodySmall?.copyWith(
-                color: StarKidsColors.statusError,
-              ),
-            ),
-          ),
-        ],
-      ],
     );
   }
 }
@@ -837,13 +1480,17 @@ class _RequestPreviewItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? StarKidsDarkColors.surfaceCanvas : StarKidsColors.surfaceCanvas;
+    final border = isDark ? StarKidsDarkColors.borderDefault : StarKidsColors.borderDefault;
+    final chipBg = isDark ? StarKidsDarkColors.glassSurface : StarKidsColors.surfaceTertiary;
 
     return Container(
       padding: const EdgeInsets.all(StarKidsSpacing.md),
       decoration: BoxDecoration(
-        color: StarKidsColors.surfaceCanvas,
+        color: bg,
         borderRadius: BorderRadius.circular(StarKidsRadii.sm),
-        border: Border.all(color: StarKidsColors.borderDefault),
+        border: Border.all(color: border),
       ),
       child: Row(
         children: [
@@ -851,20 +1498,10 @@ class _RequestPreviewItem extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  item.type.label,
-                  style: textTheme.labelMedium?.copyWith(
-                    color: StarKidsColors.textPrimary,
-                  ),
-                ),
+                Text(item.type.label, style: textTheme.labelMedium),
                 if (item.branch != null) ...[
                   const SizedBox(height: 2),
-                  Text(
-                    item.branch!.name,
-                    style: textTheme.bodySmall?.copyWith(
-                      color: StarKidsColors.textSecondary,
-                    ),
-                  ),
+                  Text(item.branch!.name, style: textTheme.bodySmall),
                 ],
               ],
             ),
@@ -875,13 +1512,13 @@ class _RequestPreviewItem extends StatelessWidget {
               vertical: 4,
             ),
             decoration: BoxDecoration(
-              color: StarKidsColors.surfaceTertiary,
+              color: chipBg,
               borderRadius: BorderRadius.circular(StarKidsRadii.full),
             ),
             child: Text(
               item.status.label,
               style: textTheme.labelSmall?.copyWith(
-                color: StarKidsColors.brandPrimary,
+                color: isDark ? StarKidsDarkColors.accentPink : StarKidsColors.brandPrimary,
               ),
             ),
           ),
@@ -901,6 +1538,7 @@ class _NotificationToggleRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final l = AppL10n.of(context);
     final status = notificationsController.status;
     final isGranted = status == NotificationPermissionStatus.granted;
 
@@ -910,16 +1548,8 @@ class _NotificationToggleRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Push-уведомления',
-                style: textTheme.bodyLarge,
-              ),
-              Text(
-                _labelForStatus(status),
-                style: textTheme.bodySmall?.copyWith(
-                  color: StarKidsColors.textSecondary,
-                ),
-              ),
+              Text(l.pushNotifications, style: textTheme.bodyLarge),
+              Text(_labelForStatus(status, l), style: textTheme.bodySmall),
             ],
           ),
         ),
@@ -940,56 +1570,130 @@ class _NotificationToggleRow extends StatelessWidget {
     );
   }
 
-  String _labelForStatus(NotificationPermissionStatus status) {
+  String _labelForStatus(NotificationPermissionStatus status, AppL10n l) {
     return switch (status) {
-      NotificationPermissionStatus.unknown => 'Не запрашивалось',
-      NotificationPermissionStatus.granted => 'Включены',
-      NotificationPermissionStatus.denied => 'Выключены',
-      NotificationPermissionStatus.unavailable => 'Недоступно',
+      NotificationPermissionStatus.unknown => l.notifUnknown,
+      NotificationPermissionStatus.granted => l.notifEnabled,
+      NotificationPermissionStatus.denied => l.notifDisabled,
+      NotificationPermissionStatus.unavailable => l.notifUnavailable,
     };
   }
 }
 
-class _LanguagePlaceholderRow extends StatelessWidget {
-  const _LanguagePlaceholderRow();
+class _LanguageSwitchRow extends StatelessWidget {
+  const _LanguageSwitchRow({required this.settingsController});
+
+  final AppSettingsController settingsController;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final l = AppL10n.of(context);
+    final current = settingsController.locale;
 
     return Row(
       children: [
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Язык', style: textTheme.bodyLarge),
-              Text(
-                'Скоро появится переключение языка.',
-                style: textTheme.bodySmall?.copyWith(
-                  color: StarKidsColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
+          child: Text(l.language, style: textTheme.bodyLarge),
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: StarKidsSpacing.md,
-            vertical: StarKidsSpacing.xs,
-          ),
-          decoration: BoxDecoration(
-            color: StarKidsColors.borderDefault.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(StarKidsRadii.full),
-          ),
-          child: Text(
-            'Рус / Қаз',
-            style: textTheme.labelMedium?.copyWith(
-              color: StarKidsColors.textSecondary,
-            ),
+        _SegmentedChoice(
+          options: const ['ru', 'kk'],
+          labels: [l.langRu, l.langKk],
+          selected: current,
+          onChanged: (v) => settingsController.setLocale(v),
+        ),
+      ],
+    );
+  }
+}
+
+class _ThemeSwitchRow extends StatelessWidget {
+  const _ThemeSwitchRow({required this.settingsController});
+
+  final AppSettingsController settingsController;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final l = AppL10n.of(context);
+    final isDark = settingsController.isDark;
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(l.theme, style: textTheme.bodyLarge),
+        ),
+        _SegmentedChoice(
+          options: const ['light', 'dark'],
+          labels: [l.themeLight, l.themeDark],
+          selected: isDark ? 'dark' : 'light',
+          onChanged: (v) => settingsController.setThemeMode(
+            v == 'dark' ? ThemeMode.dark : ThemeMode.light,
           ),
         ),
       ],
+    );
+  }
+}
+
+class _SegmentedChoice extends StatelessWidget {
+  const _SegmentedChoice({
+    required this.options,
+    required this.labels,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final List<String> options;
+  final List<String> labels;
+  final String selected;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textTheme = Theme.of(context).textTheme;
+    final activeBg = isDark ? StarKidsDarkColors.accentPink : StarKidsColors.brandPrimary;
+    final idleBg = isDark ? StarKidsDarkColors.glassSurface : StarKidsColors.glassSurface;
+    final border = isDark ? StarKidsDarkColors.borderDefault : StarKidsColors.borderDefault;
+    final activeText = Colors.white;
+    final idleText = isDark ? StarKidsDarkColors.textSecondary : StarKidsColors.textSecondary;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: idleBg,
+        borderRadius: BorderRadius.circular(StarKidsRadii.full),
+        border: Border.all(color: border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (int i = 0; i < options.length; i++)
+            GestureDetector(
+              onTap: () => onChanged(options[i]),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: StarKidsSpacing.md,
+                  vertical: StarKidsSpacing.xs,
+                ),
+                decoration: BoxDecoration(
+                  color: selected == options[i] ? activeBg : Colors.transparent,
+                  borderRadius: BorderRadius.circular(StarKidsRadii.full),
+                ),
+                child: Text(
+                  labels[i],
+                  style: textTheme.labelMedium?.copyWith(
+                    color: selected == options[i] ? activeText : idleText,
+                    fontWeight: selected == options[i]
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
