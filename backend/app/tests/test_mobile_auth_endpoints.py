@@ -272,7 +272,7 @@ class MobileAuthEndpointTests(unittest.TestCase):
             headers={'Authorization': f"Bearer {auth_body['access_token']}"},
         )
         me_response = self.client.get(
-            '/api/v1/mobile/me',
+            '/api/v1/mobile/auth/me',
             headers={'Authorization': f"Bearer {auth_body['access_token']}"},
         )
 

@@ -21,6 +21,9 @@ import '../../features/notifications/domain/notification_settings_repository.dar
 import '../../features/notifications/presentation/controllers/mobile_notifications_controller.dart';
 import '../../features/promotions/data/api_promotion_repository.dart';
 import '../../features/promotions/domain/promotion_repository.dart';
+import '../../features/profile/data/api_profile_repository.dart';
+import '../../features/profile/domain/profile_repository.dart';
+import '../../features/profile/presentation/controllers/profile_controller.dart';
 import '../../features/request_history/data/api_request_history_repository.dart';
 import '../../features/request_history/domain/request_history_repository.dart';
 import '../../features/requests/data/api_birthday_request_repository.dart';
@@ -81,6 +84,15 @@ abstract final class ServiceRegistry {
     apiClient: apiClient,
     sessionStorage: mobileAuthSessionStorage,
     authRepository: mobileAuthRepository,
+  );
+  static final ProfileRepository profileRepository = ApiProfileRepository(
+    apiClient: apiClient,
+    sessionStorage: mobileAuthSessionStorage,
+    authRepository: mobileAuthRepository,
+  );
+  static final profileController = ProfileController(
+    profileRepository: profileRepository,
+    requestHistoryRepository: requestHistoryRepository,
   );
   static final ContactRequestRepository contactRequestRepository =
       ApiContactRequestRepository(
