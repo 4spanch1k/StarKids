@@ -54,6 +54,28 @@ class ApiClient {
     );
   }
 
+  Future<ApiClientResponse> putJson(
+    String path, {
+    required Map<String, dynamic> body,
+    Map<String, String>? headers,
+  }) async {
+    final response = await _httpClient
+        .put(
+          _buildUri(path),
+          headers: _mergeHeaders(const {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          }, headers),
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    return ApiClientResponse(
+      statusCode: response.statusCode,
+      data: _decodeBody(response.body),
+    );
+  }
+
   Future<ApiClientResponse> patchJson(
     String path, {
     required Map<String, dynamic> body,

@@ -27,7 +27,6 @@ def upgrade() -> None:
             sa.String(32),
             sa.ForeignKey('mobile_users.id', ondelete='CASCADE'),
             nullable=False,
-            index=True,
         ),
         sa.Column('name', sa.String(100), nullable=False),
         sa.Column('birth_date', sa.Date(), nullable=False),

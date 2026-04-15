@@ -18,11 +18,16 @@ import '../../features/contacts/data/api_contact_links_repository.dart';
 import '../../features/contacts/domain/contact_links_repository.dart';
 import '../../features/menu/data/api_menu_repository.dart';
 import '../../features/menu/domain/menu_repository.dart';
+import '../../features/notifications/data/api_push_token_repository.dart';
 import '../../features/notifications/data/device_notification_settings_repository.dart';
+import '../../features/notifications/data/fcm_token_gateway.dart';
+import '../../features/notifications/data/firebase_fcm_token_gateway.dart';
 import '../../features/notifications/data/notification_permission_storage.dart';
 import '../../features/notifications/data/permission_handler_notification_permission_gateway.dart';
 import '../../features/notifications/domain/notification_settings_repository.dart';
+import '../../features/notifications/domain/push_token_repository.dart';
 import '../../features/notifications/presentation/controllers/mobile_notifications_controller.dart';
+import '../../features/notifications/presentation/controllers/push_token_controller.dart';
 import '../../features/promotions/data/api_promotion_repository.dart';
 import '../../features/promotions/domain/promotion_repository.dart';
 import '../../features/profile/data/api_profile_repository.dart';
@@ -82,6 +87,15 @@ abstract final class ServiceRegistry {
   static final mobileNotificationsController = MobileNotificationsController(
     repository: notificationSettingsRepository,
   );
+  static final FcmTokenGateway fcmTokenGateway = FirebaseFcmTokenGateway();
+  static final PushTokenRepository pushTokenRepository =
+      ApiPushTokenRepository(apiClient: apiClient);
+  static final pushTokenController = PushTokenController(
+    authController: mobileAuthController,
+    notificationSettingsRepository: notificationSettingsRepository,
+    fcmTokenGateway: fcmTokenGateway,
+    pushTokenRepository: pushTokenRepository,
+  );
   static final PublicContentRepository publicContentRepository =
       ApiPublicContentRepository(apiClient: apiClient);
   static final RequestHistoryRepository requestHistoryRepository =
@@ -125,6 +139,7 @@ abstract final class ServiceRegistry {
     await mobileAuthController.bootstrap();
     await mobileNotificationsController.bootstrap();
     await selectedBranchController.load();
+    await pushTokenController.bootstrap();
   }
 
   static void resetTicketConfigRepository() {

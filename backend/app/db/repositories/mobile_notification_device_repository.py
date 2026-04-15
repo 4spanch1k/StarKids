@@ -7,6 +7,19 @@ from .base import Repository
 
 
 class MobileNotificationDeviceRepository(Repository):
+    def get_active_devices_for_user(
+        self,
+        mobile_user_id: str,
+    ) -> list[MobileNotificationDevice]:
+        return list(
+            self.db.scalars(
+                select(MobileNotificationDevice).where(
+                    MobileNotificationDevice.mobile_user_id == mobile_user_id,
+                    MobileNotificationDevice.notifications_enabled.is_(True),
+                )
+            ).all()
+        )
+
     def get_by_mobile_session_id(
         self,
         mobile_session_id: str,

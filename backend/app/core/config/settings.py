@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     admin_seed_full_name: str = 'Star Kids Admin'
     admin_seed_role: str = 'super_admin'
 
+    fcm_project_id: str | None = None
+    fcm_client_email: str | None = None
+    fcm_private_key: str | None = None
+
     storage_backend: str = 'local'
     media_root: str = './media'
     media_url_prefix: str = '/media'
@@ -37,6 +41,10 @@ class Settings(BaseSettings):
         env_file_encoding='utf-8',
         extra='ignore',
     )
+
+    @property
+    def fcm_is_configured(self) -> bool:
+        return bool(self.fcm_project_id and self.fcm_client_email and self.fcm_private_key)
 
     @property
     def normalized_media_url_prefix(self) -> str:
