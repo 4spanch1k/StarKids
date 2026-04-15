@@ -10,15 +10,19 @@ import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../domain/notification_permission_status.dart';
+import '../../domain/push_registration_status.dart';
 import '../controllers/mobile_notifications_controller.dart';
+import '../controllers/push_token_controller.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({
     super.key,
     this.notificationsController,
+    this.pushTokenController,
   });
 
   final MobileNotificationsController? notificationsController;
+  final PushTokenController? pushTokenController;
 
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
@@ -29,20 +33,25 @@ class _NotificationsPageState extends State<NotificationsPage> {
       widget.notificationsController ??
       ServiceRegistry.mobileNotificationsController;
 
+  PushTokenController get _pushController =>
+      widget.pushTokenController ?? ServiceRegistry.pushTokenController;
+
   @override
   void initState() {
     super.initState();
     unawaited(_controller.bootstrap());
+    unawaited(_pushController.bootstrap());
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _controller,
+      animation: Listenable.merge([_controller, _pushController]),
       builder: (context, _) {
         final status = _controller.status;
         final action = _primaryActionForStatus(status);
         final errorMessage = _controller.errorMessage;
+        final pushStatus = _pushController.status;
 
         return Scaffold(
           appBar: AppBar(title: const Text('Уведомления')),
@@ -54,11 +63,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 children: [
                   _NotificationsSummaryCard(
                     status: status,
+                    pushStatus: pushStatus,
                     isLoading: _controller.isLoading,
                     actionLabel: action?.label,
                     isActionLoading: _controller.isRequestingPermission ||
                         _controller.isOpeningSettings,
                     onActionTap: action?.onTap,
+                    onRetryRegistration:
+                        pushStatus == PushRegistrationStatus.failed
+                            ? _pushController.retryRegistration
+                            : null,
                   ),
                   if (errorMessage != null) ...[
                     const SizedBox(height: StarKidsSpacing.lg),
@@ -100,17 +114,21 @@ class _NotificationsPageState extends State<NotificationsPage> {
 class _NotificationsSummaryCard extends StatelessWidget {
   const _NotificationsSummaryCard({
     required this.status,
+    required this.pushStatus,
     required this.isLoading,
     required this.actionLabel,
     required this.isActionLoading,
     required this.onActionTap,
+    required this.onRetryRegistration,
   });
 
   final NotificationPermissionStatus status;
+  final PushRegistrationStatus pushStatus;
   final bool isLoading;
   final String? actionLabel;
   final bool isActionLoading;
   final Future<void> Function()? onActionTap;
+  final Future<void> Function()? onRetryRegistration;
 
   @override
   Widget build(BuildContext context) {
@@ -149,14 +167,14 @@ class _NotificationsSummaryCard extends StatelessWidget {
             value: _labelForStatus(status),
           ),
           const SizedBox(height: StarKidsSpacing.md),
-          const _NotificationFactRow(
+          _NotificationFactRow(
             label: 'Регистрация устройства',
-            value: 'Не подключена',
+            value: _registrationLabel(pushStatus),
           ),
           const SizedBox(height: StarKidsSpacing.md),
-          const _NotificationFactRow(
+          _NotificationFactRow(
             label: 'Токен уведомлений',
-            value: 'Не используется',
+            value: _tokenLabel(pushStatus),
           ),
           if (isLoading) ...[
             const SizedBox(height: StarKidsSpacing.lg),
@@ -168,6 +186,13 @@ class _NotificationsSummaryCard extends StatelessWidget {
               label: actionLabel!,
               onPressed: onActionTap == null ? null : () => onActionTap!(),
               isLoading: isActionLoading,
+            ),
+          ],
+          if (onRetryRegistration != null) ...[
+            const SizedBox(height: StarKidsSpacing.md),
+            StarKidsButton.secondary(
+              label: 'Повторить регистрацию',
+              onPressed: () => onRetryRegistration!(),
             ),
           ],
         ],
@@ -187,17 +212,37 @@ class _NotificationsSummaryCard extends StatelessWidget {
   String _descriptionForStatus(NotificationPermissionStatus status) {
     return switch (status) {
       NotificationPermissionStatus.unknown =>
-        'Приложение еще не запрашивало системное разрешение на уведомления. '
-            'Регистрация устройства и отправка уведомлений пока не подключены.',
+        'Приложение еще не запрашивало системное разрешение на уведомления.',
       NotificationPermissionStatus.granted =>
-        'Системное разрешение уже выдано. Отправка уведомлений будет подключена '
-            'отдельным шагом.',
+        'Системное разрешение выдано. Устройство регистрируется для получения уведомлений.',
       NotificationPermissionStatus.denied =>
-        'Системное разрешение отключено. Без него приложение не сможет '
-            'показывать уведомления, когда отправка будет подключена.',
+        'Системное разрешение отключено. Уведомления не будут доставляться.',
       NotificationPermissionStatus.unavailable =>
-        'В этой сборке или на этой платформе управление уведомлениями '
-            'недоступно. Регистрация устройства пока не используется.',
+        'На этой платформе или сборке управление уведомлениями недоступно.',
+    };
+  }
+
+  String _registrationLabel(PushRegistrationStatus pushStatus) {
+    return switch (pushStatus) {
+      PushRegistrationStatus.idle => 'Ожидает',
+      PushRegistrationStatus.registering => 'Регистрация...',
+      PushRegistrationStatus.registered => 'Зарегистрировано',
+      PushRegistrationStatus.failed => 'Ошибка регистрации',
+      PushRegistrationStatus.permissionDenied => 'Нет разрешения',
+      PushRegistrationStatus.unavailable => 'Недоступно',
+      PushRegistrationStatus.unauthenticated => 'Требуется вход',
+    };
+  }
+
+  String _tokenLabel(PushRegistrationStatus pushStatus) {
+    return switch (pushStatus) {
+      PushRegistrationStatus.registered => 'Активен',
+      PushRegistrationStatus.registering => 'Получение...',
+      PushRegistrationStatus.failed => 'Не получен',
+      PushRegistrationStatus.permissionDenied => 'Не доступен',
+      PushRegistrationStatus.unavailable => 'Не доступен',
+      PushRegistrationStatus.unauthenticated => 'Не доступен',
+      PushRegistrationStatus.idle => 'Ожидает',
     };
   }
 }
