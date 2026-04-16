@@ -71,12 +71,12 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     _controller = widget.controller ?? ServiceRegistry.profileController;
-    _notificationsController =
-        widget.notificationsController ?? ServiceRegistry.mobileNotificationsController;
+    _notificationsController = widget.notificationsController ??
+        ServiceRegistry.mobileNotificationsController;
     _childrenController =
         widget.childrenControllerOverride ?? ServiceRegistry.childrenController;
-    _settingsController =
-        widget.settingsControllerOverride ?? ServiceRegistry.appSettingsController;
+    _settingsController = widget.settingsControllerOverride ??
+        ServiceRegistry.appSettingsController;
 
     unawaited(_controller.load());
     unawaited(_notificationsController.bootstrap());
@@ -95,7 +95,8 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _syncTextControllers() {
-    if (_controller.status == ProfileViewStatus.success && !_didInitTextControllers) {
+    if (_controller.status == ProfileViewStatus.success &&
+        !_didInitTextControllers) {
       _didInitTextControllers = true;
       _firstNameTextController.text = _controller.firstNameDraft;
       _lastNameTextController.text = _controller.lastNameDraft;
@@ -178,7 +179,9 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? StarKidsDarkColors.surfaceCanvas : StarKidsColors.surfaceCanvas;
+    final bgColor = isDark
+        ? StarKidsDarkColors.surfaceCanvas
+        : StarKidsColors.surfaceCanvas;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -199,7 +202,9 @@ class _ProfilePageState extends State<ProfilePage> {
           return switch (_controller.status) {
             ProfileViewStatus.loading => const ProfileLoadingSkeleton(),
             ProfileViewStatus.error => _buildErrorState(context),
-            ProfileViewStatus.empty || ProfileViewStatus.success => _buildContent(context),
+            ProfileViewStatus.empty ||
+            ProfileViewStatus.success =>
+              _buildContent(context),
           };
         },
       ),
@@ -256,7 +261,8 @@ class _ProfilePageState extends State<ProfilePage> {
             profile: profile,
             isUploadingAvatar: _controller.isUploadingAvatar,
             onPickAvatar: _pickAndUploadAvatar,
-            onDeleteAvatar: (profile?.hasAvatar ?? false) ? _handleDeleteAvatar : null,
+            onDeleteAvatar:
+                (profile?.hasAvatar ?? false) ? _handleDeleteAvatar : null,
           ),
           if (_controller.errorMessage != null) ...[
             const SizedBox(height: StarKidsSpacing.lg),
@@ -653,7 +659,8 @@ class _ChildrenSection extends StatelessWidget {
       isScrollControlled: true,
       useSafeArea: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(StarKidsRadii.xl)),
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(StarKidsRadii.xl)),
       ),
       builder: (_) => _ChildFormSheet(
         controller: controller,
@@ -668,7 +675,8 @@ class _ChildrenSection extends StatelessWidget {
       isScrollControlled: true,
       useSafeArea: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(StarKidsRadii.xl)),
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(StarKidsRadii.xl)),
       ),
       builder: (_) => _ChildFormSheet(
         controller: controller,
@@ -719,9 +727,12 @@ class _ChildCard extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l = AppL10n.of(context);
 
-    final cardBg = isDark ? StarKidsDarkColors.surfaceElevated : StarKidsColors.surfacePrimary;
-    final cardBorder =
-        isDark ? StarKidsDarkColors.borderDefault : StarKidsColors.borderDefault;
+    final cardBg = isDark
+        ? StarKidsDarkColors.surfaceElevated
+        : StarKidsColors.surfacePrimary;
+    final cardBorder = isDark
+        ? StarKidsDarkColors.borderDefault
+        : StarKidsColors.borderDefault;
     final avatarBg = isDark
         ? StarKidsDarkColors.glassSurface
         : (child.gender == ChildGender.female
@@ -753,14 +764,17 @@ class _ChildCard extends StatelessWidget {
               children: [
                 Text(
                   child.name,
-                  style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+                  style: textTheme.bodyLarge
+                      ?.copyWith(fontWeight: FontWeight.w600),
                 ),
                 Text(
                   _formatDate(child.birthDate),
                   style: textTheme.bodySmall,
                 ),
                 Text(
-                  child.gender == ChildGender.female ? l.genderGirl : l.genderBoy,
+                  child.gender == ChildGender.female
+                      ? l.genderGirl
+                      : l.genderBoy,
                   style: textTheme.bodySmall,
                 ),
               ],
@@ -910,7 +924,9 @@ class _ChildFormSheetState extends State<_ChildFormSheet> {
     final l = AppL10n.of(context);
     final textTheme = Theme.of(context).textTheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final sheetBg = isDark ? StarKidsDarkColors.surfacePrimary : StarKidsColors.surfacePrimary;
+    final sheetBg = isDark
+        ? StarKidsDarkColors.surfacePrimary
+        : StarKidsColors.surfacePrimary;
     final isEditing = widget.childToEdit != null;
 
     return AnimatedBuilder(
@@ -922,7 +938,8 @@ class _ChildFormSheetState extends State<_ChildFormSheet> {
             left: StarKidsSpacing.xl,
             right: StarKidsSpacing.xl,
             top: StarKidsSpacing.xl,
-            bottom: MediaQuery.of(context).viewInsets.bottom + StarKidsSpacing.xl,
+            bottom:
+                MediaQuery.of(context).viewInsets.bottom + StarKidsSpacing.xl,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -963,7 +980,9 @@ class _ChildFormSheetState extends State<_ChildFormSheet> {
                 label: l.childBirthDate,
                 selectedDate: _birthDate,
                 errorText: _birthDateError,
-                dateLabel: _birthDate != null ? _formatDate(_birthDate!) : l.dateNotSet,
+                dateLabel: _birthDate != null
+                    ? _formatDate(_birthDate!)
+                    : l.dateNotSet,
                 onTap: () => _pickDate(context, l),
               ),
               const SizedBox(height: StarKidsSpacing.md),
@@ -1029,7 +1048,9 @@ class _DatePickerField extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final borderColor = errorText != null
         ? (isDark ? StarKidsDarkColors.borderError : StarKidsColors.borderError)
-        : (isDark ? StarKidsDarkColors.borderDefault : StarKidsColors.borderDefault);
+        : (isDark
+            ? StarKidsDarkColors.borderDefault
+            : StarKidsColors.borderDefault);
     final fillColor =
         isDark ? StarKidsDarkColors.glassSurface : StarKidsColors.glassSurface;
 
@@ -1190,8 +1211,9 @@ class _GenderOption extends StatelessWidget {
         isDark ? StarKidsDarkColors.accentPink : StarKidsColors.brandPrimary;
     final idleBg =
         isDark ? StarKidsDarkColors.glassSurface : StarKidsColors.glassSurface;
-    final idleBorder =
-        isDark ? StarKidsDarkColors.borderDefault : StarKidsColors.borderDefault;
+    final idleBorder = isDark
+        ? StarKidsDarkColors.borderDefault
+        : StarKidsColors.borderDefault;
 
     return GestureDetector(
       onTap: onTap,
@@ -1219,7 +1241,9 @@ class _GenderOption extends StatelessWidget {
               style: textTheme.bodyMedium?.copyWith(
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 color: isSelected
-                    ? (isDark ? StarKidsDarkColors.accentPink : StarKidsColors.brandPrimary)
+                    ? (isDark
+                        ? StarKidsDarkColors.accentPink
+                        : StarKidsColors.brandPrimary)
                     : null,
               ),
             ),
@@ -1250,8 +1274,12 @@ class _ProfileHeaderCard extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final p = profile;
-    final cardBg = isDark ? StarKidsDarkColors.surfaceElevated : StarKidsColors.surfacePrimary;
-    final cardBorder = isDark ? StarKidsDarkColors.borderDefault : StarKidsColors.borderDefault;
+    final cardBg = isDark
+        ? StarKidsDarkColors.surfaceElevated
+        : StarKidsColors.surfacePrimary;
+    final cardBorder = isDark
+        ? StarKidsDarkColors.borderDefault
+        : StarKidsColors.borderDefault;
 
     return Container(
       padding: const EdgeInsets.all(StarKidsSpacing.xl),
@@ -1326,7 +1354,8 @@ class _AvatarSection extends StatelessWidget {
                 color: StarKidsColors.brandPrimary,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 16),
+              child: const Icon(Icons.camera_alt_rounded,
+                  color: Colors.white, size: 16),
             ),
           ),
         ],
@@ -1353,11 +1382,16 @@ class _AvatarCircle extends StatelessWidget {
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: isDark ? StarKidsDarkColors.glassSurface : StarKidsColors.surfaceTertiary,
+          color: isDark
+              ? StarKidsDarkColors.glassSurface
+              : StarKidsColors.surfaceTertiary,
           shape: BoxShape.circle,
         ),
         child: const Center(
-          child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
+          child: SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2)),
         ),
       );
     } else if (avatarUrl != null && avatarUrl.isNotEmpty) {
@@ -1398,14 +1432,18 @@ class _AvatarFallback extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: isDark ? StarKidsDarkColors.glassSurface : StarKidsColors.surfaceTertiary,
+        color: isDark
+            ? StarKidsDarkColors.glassSurface
+            : StarKidsColors.surfaceTertiary,
         shape: BoxShape.circle,
       ),
       child: Center(
         child: Text(
           initials,
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: isDark ? StarKidsDarkColors.accentPink : StarKidsColors.brandPrimary,
+                color: isDark
+                    ? StarKidsDarkColors.accentPink
+                    : StarKidsColors.brandPrimary,
                 fontWeight: FontWeight.w700,
               ),
         ),
@@ -1445,7 +1483,9 @@ class _InlineErrorBanner extends StatelessWidget {
         children: [
           Icon(
             Icons.error_outline_rounded,
-            color: isDark ? StarKidsDarkColors.statusError : StarKidsColors.statusError,
+            color: isDark
+                ? StarKidsDarkColors.statusError
+                : StarKidsColors.statusError,
             size: 20,
           ),
           const SizedBox(width: StarKidsSpacing.sm),
@@ -1460,7 +1500,9 @@ class _InlineErrorBanner extends StatelessWidget {
             onTap: onDismiss,
             child: Icon(
               Icons.close_rounded,
-              color: isDark ? StarKidsDarkColors.textSecondary : StarKidsColors.textSecondary,
+              color: isDark
+                  ? StarKidsDarkColors.textSecondary
+                  : StarKidsColors.textSecondary,
               size: 18,
             ),
           ),
@@ -1481,9 +1523,15 @@ class _RequestPreviewItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? StarKidsDarkColors.surfaceCanvas : StarKidsColors.surfaceCanvas;
-    final border = isDark ? StarKidsDarkColors.borderDefault : StarKidsColors.borderDefault;
-    final chipBg = isDark ? StarKidsDarkColors.glassSurface : StarKidsColors.surfaceTertiary;
+    final bg = isDark
+        ? StarKidsDarkColors.surfaceCanvas
+        : StarKidsColors.surfaceCanvas;
+    final border = isDark
+        ? StarKidsDarkColors.borderDefault
+        : StarKidsColors.borderDefault;
+    final chipBg = isDark
+        ? StarKidsDarkColors.glassSurface
+        : StarKidsColors.surfaceTertiary;
 
     return Container(
       padding: const EdgeInsets.all(StarKidsSpacing.md),
@@ -1518,7 +1566,9 @@ class _RequestPreviewItem extends StatelessWidget {
             child: Text(
               item.status.label,
               style: textTheme.labelSmall?.copyWith(
-                color: isDark ? StarKidsDarkColors.accentPink : StarKidsColors.brandPrimary,
+                color: isDark
+                    ? StarKidsDarkColors.accentPink
+                    : StarKidsColors.brandPrimary,
               ),
             ),
           ),
@@ -1653,11 +1703,17 @@ class _SegmentedChoice extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textTheme = Theme.of(context).textTheme;
-    final activeBg = isDark ? StarKidsDarkColors.accentPink : StarKidsColors.brandPrimary;
-    final idleBg = isDark ? StarKidsDarkColors.glassSurface : StarKidsColors.glassSurface;
-    final border = isDark ? StarKidsDarkColors.borderDefault : StarKidsColors.borderDefault;
+    final activeBg =
+        isDark ? StarKidsDarkColors.accentPink : StarKidsColors.brandPrimary;
+    final idleBg =
+        isDark ? StarKidsDarkColors.glassSurface : StarKidsColors.glassSurface;
+    final border = isDark
+        ? StarKidsDarkColors.borderDefault
+        : StarKidsColors.borderDefault;
     final activeText = Colors.white;
-    final idleText = isDark ? StarKidsDarkColors.textSecondary : StarKidsColors.textSecondary;
+    final idleText = isDark
+        ? StarKidsDarkColors.textSecondary
+        : StarKidsColors.textSecondary;
 
     return Container(
       decoration: BoxDecoration(

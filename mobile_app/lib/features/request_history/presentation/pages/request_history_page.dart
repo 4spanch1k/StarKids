@@ -29,8 +29,7 @@ class _RequestHistoryPageState extends State<RequestHistoryPage> {
   void initState() {
     super.initState();
     _ownsController = widget.controller == null;
-    _controller =
-        widget.controller ??
+    _controller = widget.controller ??
         RequestHistoryController(
           repository: ServiceRegistry.requestHistoryRepository,
         );
@@ -131,8 +130,7 @@ class _RequestHistoryPageState extends State<RequestHistoryPage> {
           key: const ValueKey('request-history-error'),
           icon: Icons.cloud_off_rounded,
           title: 'Не удалось загрузить историю',
-          description:
-              _controller.errorMessage ??
+          description: _controller.errorMessage ??
               'Проверьте интернет и попробуйте снова.',
           buttonLabel: 'Повторить',
           onPressed: _reload,

@@ -42,7 +42,8 @@ class ChildrenController extends ChangeNotifier {
     final result = await _repository.fetchChildren();
     if (result is Success<List<Child>>) {
       _children = result.data;
-      _status = _children.isEmpty ? ChildrenStatus.empty : ChildrenStatus.success;
+      _status =
+          _children.isEmpty ? ChildrenStatus.empty : ChildrenStatus.success;
     } else {
       _errorMessage = (result as Failure<List<Child>>).message;
       _status = ChildrenStatus.error;
@@ -120,7 +121,8 @@ class ChildrenController extends ChangeNotifier {
     final result = await _repository.deleteChild(childId);
     if (result is Success<void>) {
       _children = _children.where((c) => c.id != childId).toList();
-      _status = _children.isEmpty ? ChildrenStatus.empty : ChildrenStatus.success;
+      _status =
+          _children.isEmpty ? ChildrenStatus.empty : ChildrenStatus.success;
       _formStatus = ChildFormStatus.idle;
       notifyListeners();
       return true;

@@ -154,7 +154,8 @@ class _FakeProfileRepository implements ProfileRepository {
   }
 
   @override
-  Future<Result<UserProfile>> updateProfile(ProfileUpdatePayload payload) async {
+  Future<Result<UserProfile>> updateProfile(
+      ProfileUpdatePayload payload) async {
     return Success<UserProfile>(profile!);
   }
 

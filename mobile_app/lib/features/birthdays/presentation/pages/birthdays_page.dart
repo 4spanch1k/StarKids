@@ -210,30 +210,31 @@ class BirthdaysPage extends StatelessWidget {
                     ),
                     const SizedBox(height: StarKidsSpacing.md),
                     ...packages.asMap().entries.map(
-                      (entry) => Padding(
-                        padding: const EdgeInsets.only(
-                          bottom: StarKidsSpacing.lg,
-                        ),
-                        child: StarKidsBirthdayPackageCard(
-                          revealDelay: starKidsStaggerDelay(entry.key),
-                          title: entry.value.name,
-                          priceLabel: entry.value.priceLabel,
-                          guestLabel: entry.value.guestLabel,
-                          description: entry.value.description,
-                          highlights: entry.value.highlights,
-                          imagePath: entry.value.imagePath,
-                          isFeatured: entry.value.isFeatured,
-                          onActionTap: () => Navigator.of(context).pushNamed(
-                            AppRoutes.requests,
-                            arguments: RequestPageArgs(
-                              initialType: RequestType.birthdayRequest,
-                              initialPackageId: entry.value.id,
-                              initialPackage: entry.value,
+                          (entry) => Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: StarKidsSpacing.lg,
+                            ),
+                            child: StarKidsBirthdayPackageCard(
+                              revealDelay: starKidsStaggerDelay(entry.key),
+                              title: entry.value.name,
+                              priceLabel: entry.value.priceLabel,
+                              guestLabel: entry.value.guestLabel,
+                              description: entry.value.description,
+                              highlights: entry.value.highlights,
+                              imagePath: entry.value.imagePath,
+                              isFeatured: entry.value.isFeatured,
+                              onActionTap: () =>
+                                  Navigator.of(context).pushNamed(
+                                AppRoutes.requests,
+                                arguments: RequestPageArgs(
+                                  initialType: RequestType.birthdayRequest,
+                                  initialPackageId: entry.value.id,
+                                  initialPackage: entry.value,
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
                     const SizedBox(height: StarKidsSpacing.xl),
                     if (data?.contentBlocks.isNotEmpty == true) ...[
                       const StarKidsSectionHeader(
@@ -243,18 +244,18 @@ class BirthdaysPage extends StatelessWidget {
                       ),
                       const SizedBox(height: StarKidsSpacing.md),
                       ...data!.contentBlocks.asMap().entries.map(
-                        (entry) => Padding(
-                          padding: const EdgeInsets.only(
-                            bottom: StarKidsSpacing.md,
+                            (entry) => Padding(
+                              padding: const EdgeInsets.only(
+                                bottom: StarKidsSpacing.md,
+                              ),
+                              child: StarKidsContentBlockCard(
+                                revealDelay: starKidsStaggerDelay(entry.key),
+                                title: entry.value.title,
+                                body: entry.value.body,
+                                label: entry.value.ctaLabel,
+                              ),
+                            ),
                           ),
-                          child: StarKidsContentBlockCard(
-                            revealDelay: starKidsStaggerDelay(entry.key),
-                            title: entry.value.title,
-                            body: entry.value.body,
-                            label: entry.value.ctaLabel,
-                          ),
-                        ),
-                      ),
                     ] else ...[
                       const StarKidsSectionHeader(
                         title: 'Как принять решение быстрее',
@@ -303,11 +304,10 @@ class BirthdaysPage extends StatelessWidget {
   }
 
   Future<_BirthdaysScreenData> _loadScreenData(String branchId) async {
-    final branch = await ServiceRegistry.branchRepository
-        .getBranch(branchId)
-        .catchError(
-          (_) => ServiceRegistry.selectedBranchController.selectedBranch,
-        );
+    final branch =
+        await ServiceRegistry.branchRepository.getBranch(branchId).catchError(
+              (_) => ServiceRegistry.selectedBranchController.selectedBranch,
+            );
     ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
     final packages = await ServiceRegistry.birthdayPackageRepository
         .listPackages(branchId: branchId)

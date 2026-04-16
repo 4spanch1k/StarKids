@@ -60,7 +60,8 @@ abstract final class StarKidsDarkColors {
   static const Color surfaceCanvas = Color(0xFF0B0B1E);
   static const Color surfacePrimary = Color(0xFF121225); // slightly lifted
   static const Color surfaceElevated = Color(0xFF191936); // cards / sheets
-  static const Color surfaceInverse = Color(0xFFF0ECF8); // inverse (light on dark)
+  static const Color surfaceInverse =
+      Color(0xFFF0ECF8); // inverse (light on dark)
 
   // Glass surfaces
   static const Color glassSurface = Color(0x14FFFFFF); // 8% white glass

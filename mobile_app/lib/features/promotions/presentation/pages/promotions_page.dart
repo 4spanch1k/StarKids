@@ -80,8 +80,7 @@ class PromotionsPage extends StatelessWidget {
                 );
               }
 
-              final data =
-                  snapshot.data ??
+              final data = snapshot.data ??
                   _PromotionsScreenData(
                     branch: branch,
                     promotions: <PromotionOffer>[],
@@ -165,41 +164,41 @@ class PromotionsPage extends StatelessWidget {
                     ),
                     const SizedBox(height: StarKidsSpacing.lg),
                     ...promotions.asMap().entries.map(
-                      (entry) => Padding(
-                        padding: const EdgeInsets.only(
-                          bottom: StarKidsSpacing.lg,
-                        ),
-                        child: StarKidsPromoCard(
-                          revealDelay: starKidsStaggerDelay(entry.key),
-                          title: entry.value.title,
-                          description: entry.value.description,
-                          imagePath: entry.value.imagePath,
-                          badgeLabel: entry.value.badgeLabel,
-                          actionLabel: entry.value.ctaLabel,
-                          onTap: () => Navigator.of(context).pushNamed(
-                            AppRoutes.requests,
-                            arguments: const RequestPageArgs(
-                              initialType: RequestType.birthdayRequest,
+                          (entry) => Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: StarKidsSpacing.lg,
+                            ),
+                            child: StarKidsPromoCard(
+                              revealDelay: starKidsStaggerDelay(entry.key),
+                              title: entry.value.title,
+                              description: entry.value.description,
+                              imagePath: entry.value.imagePath,
+                              badgeLabel: entry.value.badgeLabel,
+                              actionLabel: entry.value.ctaLabel,
+                              onTap: () => Navigator.of(context).pushNamed(
+                                AppRoutes.requests,
+                                arguments: const RequestPageArgs(
+                                  initialType: RequestType.birthdayRequest,
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
                     const SizedBox(height: StarKidsSpacing.lg),
                     if (data.contentBlocks.isNotEmpty)
                       ...data.contentBlocks.asMap().entries.map(
-                        (entry) => Padding(
-                          padding: const EdgeInsets.only(
-                            bottom: StarKidsSpacing.md,
-                          ),
-                          child: StarKidsContentBlockCard(
-                            revealDelay: starKidsStaggerDelay(entry.key),
-                            title: entry.value.title,
-                            body: entry.value.body,
-                            label: entry.value.ctaLabel,
-                          ),
-                        ),
-                      )
+                            (entry) => Padding(
+                              padding: const EdgeInsets.only(
+                                bottom: StarKidsSpacing.md,
+                              ),
+                              child: StarKidsContentBlockCard(
+                                revealDelay: starKidsStaggerDelay(entry.key),
+                                title: entry.value.title,
+                                body: entry.value.body,
+                                label: entry.value.ctaLabel,
+                              ),
+                            ),
+                          )
                     else
                       Container(
                         padding: const EdgeInsets.all(StarKidsSpacing.lg),
@@ -233,11 +232,10 @@ class PromotionsPage extends StatelessWidget {
   }
 
   Future<_PromotionsScreenData> _loadScreenData(String branchId) async {
-    final branch = await ServiceRegistry.branchRepository
-        .getBranch(branchId)
-        .catchError(
-          (_) => ServiceRegistry.selectedBranchController.selectedBranch,
-        );
+    final branch =
+        await ServiceRegistry.branchRepository.getBranch(branchId).catchError(
+              (_) => ServiceRegistry.selectedBranchController.selectedBranch,
+            );
     ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
     final promotions = await ServiceRegistry.promotionRepository
         .listPromotions(branchId)

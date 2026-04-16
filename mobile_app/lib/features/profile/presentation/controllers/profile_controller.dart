@@ -83,7 +83,8 @@ class ProfileController extends ChangeNotifier {
     final now = DateTime.now();
     if (d.isAfter(now)) return 'Дата рождения не может быть в будущем.';
     final eighteenYearsAgo = DateTime(now.year - 18, now.month, now.day);
-    if (d.isBefore(eighteenYearsAgo)) return 'Ребёнку не может быть больше 18 лет.';
+    if (d.isBefore(eighteenYearsAgo))
+      return 'Ребёнку не может быть больше 18 лет.';
     return null;
   }
 
@@ -152,8 +153,7 @@ class ProfileController extends ChangeNotifier {
         _requestsStatus = ProfileRequestsStatus.error;
       }
     } catch (_) {
-      _requestsErrorMessage =
-          'Не удалось загрузить заявки. Попробуйте снова.';
+      _requestsErrorMessage = 'Не удалось загрузить заявки. Попробуйте снова.';
       _requestsStatus = ProfileRequestsStatus.error;
     }
 

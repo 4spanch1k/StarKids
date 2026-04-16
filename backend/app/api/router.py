@@ -13,8 +13,11 @@ from ..modules.health.router import router as health_router
 from ..modules.home.router import router as home_router
 from ..modules.leads.router import router as leads_router
 from ..modules.mobile_auth.router import router as mobile_auth_router
-from ..modules.mobile_profile.router import router as mobile_profile_router
 from ..modules.mobile_children.router import router as mobile_children_router
+from ..modules.mobile_payments.router import mobile_router as mobile_payments_router
+from ..modules.mobile_payments.router import public_router as public_payments_router
+from ..modules.mobile_profile.router import router as mobile_profile_router
+from ..modules.mobile_request_history.router import router as mobile_request_history_router
 from ..modules.notifications.router import router as notifications_router
 from ..modules.promotions.router import router as promotions_router
 
@@ -31,9 +34,24 @@ api_router.include_router(promotions_router, prefix='/mobile', tags=['mobile-pro
 api_router.include_router(content_router, prefix='/mobile', tags=['mobile-content'])
 api_router.include_router(leads_router, prefix='/mobile', tags=['mobile-leads'])
 api_router.include_router(
+    mobile_request_history_router,
+    prefix='/mobile',
+    tags=['mobile-requests-history'],
+)
+api_router.include_router(
     notifications_router,
     prefix='/mobile',
     tags=['mobile-notifications'],
+)
+api_router.include_router(
+    mobile_payments_router,
+    prefix='/mobile',
+    tags=['mobile-payments'],
+)
+api_router.include_router(
+    public_payments_router,
+    prefix='/public',
+    tags=['public-payments'],
 )
 api_router.include_router(admin_auth_router, prefix='/admin/auth', tags=['admin-auth'])
 api_router.include_router(admin_branches_router, prefix='/admin', tags=['admin-branches'])

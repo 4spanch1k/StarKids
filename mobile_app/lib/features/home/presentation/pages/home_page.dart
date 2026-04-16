@@ -171,27 +171,30 @@ class HomePage extends StatelessWidget {
                                         ),
                                         child: Text(
                                           'Любят дети - доверяют родители',
-                                          style: textTheme.labelMedium
-                                              ?.copyWith(
+                                          style:
+                                              textTheme.labelMedium?.copyWith(
                                             color: StarKidsColors.textPrimary,
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(height: StarKidsSpacing.md),
+                                      const SizedBox(
+                                          height: StarKidsSpacing.md),
                                       Text(
                                         'Яркий семейный отдых и дни рождения в Star Kids',
                                         style: textTheme.displayLarge?.copyWith(
                                           color: StarKidsColors.textInverse,
                                         ),
                                       ),
-                                      const SizedBox(height: StarKidsSpacing.md),
+                                      const SizedBox(
+                                          height: StarKidsSpacing.md),
                                       Text(
                                         'Выберите филиал, посмотрите пакеты и отправьте заявку без лишних шагов.',
                                         style: textTheme.bodyLarge?.copyWith(
                                           color: StarKidsColors.textInverse,
                                         ),
                                       ),
-                                      const SizedBox(height: StarKidsSpacing.lg),
+                                      const SizedBox(
+                                          height: StarKidsSpacing.lg),
                                       StarKidsButton.primary(
                                         label: 'Организовать день рождения',
                                         onPressed: () => Navigator.of(
@@ -314,7 +317,8 @@ class HomePage extends StatelessWidget {
                                     ),
                                   const SizedBox(height: StarKidsSpacing.x2l),
                                   const StarKidsSectionHeader(
-                                    title: 'Актуальные акции и поводы вернуться',
+                                    title:
+                                        'Актуальные акции и поводы вернуться',
                                     description:
                                         'Живые предложения из админки должны быть заметны, но не превращаться в визуальный шум.',
                                   ),
@@ -441,7 +445,10 @@ class HomePage extends StatelessWidget {
         title: 'Филиал и маршрут',
         subtitle: 'Как доехать и что внутри',
         revealDelay: starKidsStaggerDelay(0, initialMs: 80),
-        gradientColors: const [StarKidsColors.cosmicSky, StarKidsColors.cosmicMint],
+        gradientColors: const [
+          StarKidsColors.cosmicSky,
+          StarKidsColors.cosmicMint
+        ],
         onTap: () => Navigator.of(context).pushNamed(AppRoutes.branchDetails),
       ),
       _QuickActionTile(
@@ -449,7 +456,10 @@ class HomePage extends StatelessWidget {
         title: 'Дни рождения',
         subtitle: 'Пакеты и быстрый запрос',
         revealDelay: starKidsStaggerDelay(1, initialMs: 80),
-        gradientColors: const [StarKidsColors.cosmicBlush, StarKidsColors.cosmicLavender],
+        gradientColors: const [
+          StarKidsColors.cosmicBlush,
+          StarKidsColors.cosmicLavender
+        ],
         onTap: () => Navigator.of(context).pushNamed(AppRoutes.birthdays),
       ),
       _QuickActionTile(
@@ -457,7 +467,10 @@ class HomePage extends StatelessWidget {
         title: 'Меню',
         subtitle: 'Еда и напитки в филиале',
         revealDelay: starKidsStaggerDelay(2, initialMs: 80),
-        gradientColors: const [StarKidsColors.cosmicPeach, StarKidsColors.cosmicBlush],
+        gradientColors: const [
+          StarKidsColors.cosmicPeach,
+          StarKidsColors.cosmicBlush
+        ],
         onTap: () => Navigator.of(context).pushNamed(AppRoutes.menu),
       ),
       _QuickActionTile(
@@ -465,7 +478,10 @@ class HomePage extends StatelessWidget {
         title: 'Контакты',
         subtitle: 'Звонок, WhatsApp, маршрут',
         revealDelay: starKidsStaggerDelay(3, initialMs: 80),
-        gradientColors: const [StarKidsColors.cosmicLavender, StarKidsColors.cosmicSky],
+        gradientColors: const [
+          StarKidsColors.cosmicLavender,
+          StarKidsColors.cosmicSky
+        ],
         onTap: () => Navigator.of(context).pushNamed(AppRoutes.contacts),
       ),
       _QuickActionTile(
@@ -473,7 +489,10 @@ class HomePage extends StatelessWidget {
         title: 'Акции',
         subtitle: 'Текущие предложения',
         revealDelay: starKidsStaggerDelay(4, initialMs: 80),
-        gradientColors: const [StarKidsColors.cosmicPeach, StarKidsColors.cosmicMint],
+        gradientColors: const [
+          StarKidsColors.cosmicPeach,
+          StarKidsColors.cosmicMint
+        ],
         onTap: () => Navigator.of(context).pushNamed(AppRoutes.promotions),
       ),
       _QuickActionTile(
@@ -481,7 +500,10 @@ class HomePage extends StatelessWidget {
         title: 'Запрос менеджеру',
         subtitle: 'Вопрос по филиалу',
         revealDelay: starKidsStaggerDelay(5, initialMs: 80),
-        gradientColors: const [StarKidsColors.cosmicBlush, StarKidsColors.cosmicPeach],
+        gradientColors: const [
+          StarKidsColors.cosmicBlush,
+          StarKidsColors.cosmicPeach
+        ],
         onTap: () => Navigator.of(context).pushNamed(
           AppRoutes.requests,
           arguments: const RequestPageArgs(
@@ -546,7 +568,7 @@ Future<void> _handleNavigationSelection(BuildContext context, int index) async {
 
       switch (action) {
         case TicketsEntryAction.myTickets:
-          await showMyTicketsPlaceholderSheet(context);
+          await showMyTicketsSheet(context);
           return;
         case TicketsEntryAction.buyTicket:
           await showTicketPurchaseFlowSheet(context);

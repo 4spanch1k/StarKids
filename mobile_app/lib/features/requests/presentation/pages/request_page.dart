@@ -97,66 +97,65 @@ class _RequestPageState extends State<RequestPage> {
                         ? Icons.send_rounded
                         : Icons.chat_bubble_rounded,
                     isLoading: _isSubmitting,
-                    onPressed: _isSubmitting
-                        ? null
-                        : () => _submitActiveForm(branch),
+                    onPressed:
+                        _isSubmitting ? null : () => _submitActiveForm(branch),
                   ),
                 ),
           body: StarKidsContentSwitcher(
             child: hasSubmission
                 ? isBirthdayRequest
-                      ? _RequestSuccessView(
-                          key: const ValueKey('birthday-request-success'),
-                          branch: branch,
-                          selectedPackage: package,
-                          type: RequestType.birthdayRequest,
-                          submission: birthdaySubmission!,
-                          onBackHome: () =>
-                              Navigator.of(context).pushNamedAndRemoveUntil(
-                                AppRoutes.home,
-                                (route) => false,
-                              ),
-                          onCreateAnother: () => _birthdayController.resetForm(
-                            preserveSelectedPackage: package != null,
-                          ),
-                        )
-                      : _ContactRequestSuccessView(
-                          key: const ValueKey('contact-request-success'),
-                          submission: contactSubmission!,
-                          contextLabel: _contactContextLabel,
-                          onBackHome: () =>
-                              Navigator.of(context).pushNamedAndRemoveUntil(
-                                AppRoutes.home,
-                                (route) => false,
-                              ),
-                          onCreateAnother: _contactController.resetForm,
-                        )
+                    ? _RequestSuccessView(
+                        key: const ValueKey('birthday-request-success'),
+                        branch: branch,
+                        selectedPackage: package,
+                        type: RequestType.birthdayRequest,
+                        submission: birthdaySubmission!,
+                        onBackHome: () =>
+                            Navigator.of(context).pushNamedAndRemoveUntil(
+                          AppRoutes.home,
+                          (route) => false,
+                        ),
+                        onCreateAnother: () => _birthdayController.resetForm(
+                          preserveSelectedPackage: package != null,
+                        ),
+                      )
+                    : _ContactRequestSuccessView(
+                        key: const ValueKey('contact-request-success'),
+                        submission: contactSubmission!,
+                        contextLabel: _contactContextLabel,
+                        onBackHome: () =>
+                            Navigator.of(context).pushNamedAndRemoveUntil(
+                          AppRoutes.home,
+                          (route) => false,
+                        ),
+                        onCreateAnother: _contactController.resetForm,
+                      )
                 : isBirthdayRequest
-                ? _BirthdayRequestFormView(
-                    key: const ValueKey('birthday-request-form'),
-                    formKey: _birthdayFormKey,
-                    type: RequestType.birthdayRequest,
-                    typeSelector: _RequestTypeSelector(
-                      selectedType: _selectedType,
-                      onSelected: _selectRequestType,
-                    ),
-                    controller: _birthdayController,
-                    branch: branch,
-                    selectedPackage: package,
-                    onPickBranch: _showBranchPicker,
-                    onPickPackage: _showPackagePicker,
-                  )
-                : _ContactRequestFormView(
-                    key: const ValueKey('contact-request-form'),
-                    formKey: _contactFormKey,
-                    type: RequestType.contact,
-                    typeSelector: _RequestTypeSelector(
-                      selectedType: _selectedType,
-                      onSelected: _selectRequestType,
-                    ),
-                    controller: _contactController,
-                    contextLabel: _contactContextLabel,
-                  ),
+                    ? _BirthdayRequestFormView(
+                        key: const ValueKey('birthday-request-form'),
+                        formKey: _birthdayFormKey,
+                        type: RequestType.birthdayRequest,
+                        typeSelector: _RequestTypeSelector(
+                          selectedType: _selectedType,
+                          onSelected: _selectRequestType,
+                        ),
+                        controller: _birthdayController,
+                        branch: branch,
+                        selectedPackage: package,
+                        onPickBranch: _showBranchPicker,
+                        onPickPackage: _showPackagePicker,
+                      )
+                    : _ContactRequestFormView(
+                        key: const ValueKey('contact-request-form'),
+                        formKey: _contactFormKey,
+                        type: RequestType.contact,
+                        typeSelector: _RequestTypeSelector(
+                          selectedType: _selectedType,
+                          onSelected: _selectRequestType,
+                        ),
+                        controller: _contactController,
+                        contextLabel: _contactContextLabel,
+                      ),
           ),
         );
       },

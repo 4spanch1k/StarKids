@@ -60,11 +60,11 @@ class ContactsMapPage extends StatelessWidget {
                   onPressed: !canOpenWhatsApp
                       ? null
                       : () => _handleAction(
-                          context,
-                          () => ExternalLinkService.openWhatsApp(
-                            contactLinks.whatsAppPhone,
+                            context,
+                            () => ExternalLinkService.openWhatsApp(
+                              contactLinks.whatsAppPhone,
+                            ),
                           ),
-                        ),
                 ),
               ),
               body: Builder(
@@ -232,11 +232,11 @@ class ContactsMapPage extends StatelessWidget {
                                 onPressed: !canOpenMap
                                     ? null
                                     : () => _handleAction(
-                                        context,
-                                        () => ExternalLinkService.openMap(
-                                          contact.mapUrl,
+                                          context,
+                                          () => ExternalLinkService.openMap(
+                                            contact.mapUrl,
+                                          ),
                                         ),
-                                      ),
                               ),
                             ),
                             const SizedBox(width: StarKidsSpacing.md),
@@ -247,11 +247,11 @@ class ContactsMapPage extends StatelessWidget {
                                 onPressed: !canCall
                                     ? null
                                     : () => _handleAction(
-                                        context,
-                                        () => ExternalLinkService.openPhone(
-                                          contact.phone,
+                                          context,
+                                          () => ExternalLinkService.openPhone(
+                                            contact.phone,
+                                          ),
                                         ),
-                                      ),
                               ),
                             ),
                           ],
@@ -263,11 +263,11 @@ class ContactsMapPage extends StatelessWidget {
                           onPressed: !canOpenWhatsApp
                               ? null
                               : () => _handleAction(
-                                  context,
-                                  () => ExternalLinkService.openWhatsApp(
-                                    contact.whatsAppPhone,
+                                    context,
+                                    () => ExternalLinkService.openWhatsApp(
+                                      contact.whatsAppPhone,
+                                    ),
                                   ),
-                                ),
                         ),
                         const SizedBox(height: StarKidsSpacing.xl),
                         Container(
@@ -297,7 +297,8 @@ class ContactsMapPage extends StatelessWidget {
                               StarKidsButton.secondary(
                                 label: 'Оставить запрос менеджеру',
                                 icon: Icons.support_agent_rounded,
-                                onPressed: () => Navigator.of(context).pushNamed(
+                                onPressed: () =>
+                                    Navigator.of(context).pushNamed(
                                   AppRoutes.requests,
                                   arguments: RequestPageArgs(
                                     initialType: RequestType.contact,

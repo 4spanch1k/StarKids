@@ -34,7 +34,8 @@ void main() {
       expect(controller.registeredToken, isNull);
     });
 
-    test('bootstrap → registered when authenticated + permission granted + token available',
+    test(
+        'bootstrap → registered when authenticated + permission granted + token available',
         () async {
       final session = _buildSession('access-token-1');
       final authController = _buildAuthController(session: session);
@@ -82,7 +83,8 @@ void main() {
       expect(controller.status, PushRegistrationStatus.permissionDenied);
     });
 
-    test('bootstrap → unavailable when FCM token is null (Firebase not configured)',
+    test(
+        'bootstrap → unavailable when FCM token is null (Firebase not configured)',
         () async {
       final session = _buildSession('access-token-4');
       final authController = _buildAuthController(session: session);

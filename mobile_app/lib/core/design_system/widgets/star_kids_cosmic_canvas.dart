@@ -44,20 +44,15 @@ class _CosmicCanvasPainter extends CustomPainter {
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
 
     // Soft nebula blobs — positioned so they look organic across all screen sizes
-    _drawBlob(
-        canvas, size, Offset(size.width * 0.88, size.height * 0.07),
+    _drawBlob(canvas, size, Offset(size.width * 0.88, size.height * 0.07),
         size.width * 0.54, const Color(0x30FFCCE7)); // top-right pink
-    _drawBlob(
-        canvas, size, Offset(size.width * 0.04, size.height * 0.30),
+    _drawBlob(canvas, size, Offset(size.width * 0.04, size.height * 0.30),
         size.width * 0.50, const Color(0x26D4BEFF)); // mid-left lavender
-    _drawBlob(
-        canvas, size, Offset(size.width * 0.70, size.height * 0.52),
+    _drawBlob(canvas, size, Offset(size.width * 0.70, size.height * 0.52),
         size.width * 0.46, const Color(0x22FFD8BE)); // center-right peach
-    _drawBlob(
-        canvas, size, Offset(size.width * 0.18, size.height * 0.74),
+    _drawBlob(canvas, size, Offset(size.width * 0.18, size.height * 0.74),
         size.width * 0.42, const Color(0x1ABEE8FF)); // bottom-left sky
-    _drawBlob(
-        canvas, size, Offset(size.width * 0.52, size.height * 0.94),
+    _drawBlob(canvas, size, Offset(size.width * 0.52, size.height * 0.94),
         size.width * 0.38, const Color(0x24E8BEFF)); // bottom-center lavender
 
     // Star dust — deterministic via seeded Random so shouldRepaint = false

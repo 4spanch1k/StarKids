@@ -31,6 +31,13 @@ class BranchTicketRepository(Repository):
         )
         return list(self.db.scalars(statement).all())
 
+    def get_active_item(self, ticket_item_id: str) -> BranchTicketItem | None:
+        statement = select(BranchTicketItem).where(
+            BranchTicketItem.id == ticket_item_id,
+            BranchTicketItem.is_active.is_(True),
+        )
+        return self.db.scalar(statement)
+
     def list_notes(
         self,
         branch_id: str,

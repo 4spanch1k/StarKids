@@ -131,8 +131,7 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
             child: SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  final keyboardInset =
-                      MediaQuery.viewInsetsOf(context).bottom;
+                  final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
                   final minContentHeight = (constraints.maxHeight -
                           StarKidsSpacing.xl -
                           keyboardInset)
@@ -938,8 +937,8 @@ class _AuthModeSwitch extends StatelessWidget {
                     borderRadius: BorderRadius.circular(StarKidsRadii.full),
                     boxShadow: [
                       BoxShadow(
-                        color: StarKidsColors.brandPrimary
-                            .withValues(alpha: 0.12),
+                        color:
+                            StarKidsColors.brandPrimary.withValues(alpha: 0.12),
                         blurRadius: 16,
                         offset: const Offset(0, 6),
                       ),

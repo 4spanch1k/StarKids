@@ -45,7 +45,8 @@ class ApiProfileRepository implements ProfileRepository {
   }
 
   @override
-  Future<Result<UserProfile>> updateProfile(ProfileUpdatePayload payload) async {
+  Future<Result<UserProfile>> updateProfile(
+      ProfileUpdatePayload payload) async {
     final body = <String, dynamic>{};
     if (payload.firstName != null) body['firstName'] = payload.firstName;
     if (payload.lastName != null) body['lastName'] = payload.lastName;

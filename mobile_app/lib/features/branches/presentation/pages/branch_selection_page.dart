@@ -25,72 +25,74 @@ class BranchSelectionPage extends StatelessWidget {
               future: ServiceRegistry.branchRepository.listBranches(),
               builder: (context, snapshot) {
                 final branches = snapshot.data ?? const <BranchOption>[];
-                final body =
-                    snapshot.connectionState == ConnectionState.waiting &&
+                final body = snapshot.connectionState ==
+                            ConnectionState.waiting &&
                         branches.isEmpty
                     ? const Center(
                         key: ValueKey('branch-selection-loading'),
                         child: CircularProgressIndicator(),
                       )
                     : snapshot.hasError && branches.isEmpty
-                    ? const _BranchSelectionStateView(
-                        key: ValueKey('branch-selection-error'),
-                        title: 'Филиалы пока недоступны',
-                        description:
-                            'Не удалось загрузить список филиалов. Попробуйте открыть экран позже.',
-                      )
-                    : ListView(
-                        key: ValueKey(
-                          'branch-selection-loaded-${branches.length}',
-                        ),
-                        padding: const EdgeInsets.all(StarKidsSpacing.xl),
-                        children: [
-                          const StarKidsSectionHeader(
-                            title: 'Начните с филиала',
+                        ? const _BranchSelectionStateView(
+                            key: ValueKey('branch-selection-error'),
+                            title: 'Филиалы пока недоступны',
                             description:
-                                'Филиал влияет на цены, акции, контакты и быстрые действия в приложении.',
-                          ),
-                          const SizedBox(height: StarKidsSpacing.xl),
-                          ...branches.asMap().entries.map(
-                            (entry) => Padding(
-                              padding: const EdgeInsets.only(
-                                bottom: StarKidsSpacing.lg,
-                              ),
-                              child: StarKidsBranchCard(
-                                revealDelay: starKidsStaggerDelay(entry.key),
-                                imagePath: entry.value.heroImagePath,
-                                title: entry.value.name,
-                                address: entry.value.address,
-                                workingHours: entry.value.workingHours,
-                                tagLabel:
-                                    entry.value.id ==
-                                        selectedBranchController
-                                            .selectedBranchId
-                                    ? 'Выбран'
-                                    : entry.value.shortLabel,
-                                onTap: () async {
-                                  await selectedBranchController.selectBranch(
-                                    entry.value.id,
-                                  );
-
-                                  if (!context.mounted) {
-                                    return;
-                                  }
-
-                                  if (Navigator.of(context).canPop()) {
-                                    Navigator.of(context).pop();
-                                    return;
-                                  }
-
-                                  Navigator.of(
-                                    context,
-                                  ).pushReplacementNamed(AppRoutes.home);
-                                },
-                              ),
+                                'Не удалось загрузить список филиалов. Попробуйте открыть экран позже.',
+                          )
+                        : ListView(
+                            key: ValueKey(
+                              'branch-selection-loaded-${branches.length}',
                             ),
-                          ),
-                        ],
-                      );
+                            padding: const EdgeInsets.all(StarKidsSpacing.xl),
+                            children: [
+                              const StarKidsSectionHeader(
+                                title: 'Начните с филиала',
+                                description:
+                                    'Филиал влияет на цены, акции, контакты и быстрые действия в приложении.',
+                              ),
+                              const SizedBox(height: StarKidsSpacing.xl),
+                              ...branches.asMap().entries.map(
+                                    (entry) => Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: StarKidsSpacing.lg,
+                                      ),
+                                      child: StarKidsBranchCard(
+                                        revealDelay:
+                                            starKidsStaggerDelay(entry.key),
+                                        imagePath: entry.value.heroImagePath,
+                                        title: entry.value.name,
+                                        address: entry.value.address,
+                                        workingHours: entry.value.workingHours,
+                                        tagLabel: entry.value.id ==
+                                                selectedBranchController
+                                                    .selectedBranchId
+                                            ? 'Выбран'
+                                            : entry.value.shortLabel,
+                                        onTap: () async {
+                                          await selectedBranchController
+                                              .selectBranch(
+                                            entry.value.id,
+                                          );
+
+                                          if (!context.mounted) {
+                                            return;
+                                          }
+
+                                          if (Navigator.of(context).canPop()) {
+                                            Navigator.of(context).pop();
+                                            return;
+                                          }
+
+                                          Navigator.of(
+                                            context,
+                                          ).pushReplacementNamed(
+                                              AppRoutes.home);
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                            ],
+                          );
 
                 return StarKidsContentSwitcher(child: body);
               },

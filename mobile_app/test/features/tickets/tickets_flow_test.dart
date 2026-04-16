@@ -4,10 +4,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:star_kids_mobile/app/di/service_registry.dart';
 import 'package:star_kids_mobile/app/theme/app_theme.dart';
+import 'package:star_kids_mobile/core/utils/result.dart';
 import 'package:star_kids_mobile/features/branches/data/branch_seed_data.dart';
 import 'package:star_kids_mobile/features/home/presentation/pages/home_page.dart';
 import 'package:star_kids_mobile/features/tickets/data/seed_ticket_config_repository.dart';
 import 'package:star_kids_mobile/features/tickets/domain/branch_ticket_config.dart';
+import 'package:star_kids_mobile/features/tickets/domain/ticket_purchase.dart';
+import 'package:star_kids_mobile/features/tickets/domain/ticket_purchase_repository.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -39,6 +42,9 @@ void main() {
         ],
       ),
     );
+    ServiceRegistry.ticketPurchaseRepository =
+        const _FakeTicketPurchaseRepository();
+    ServiceRegistry.paymentUrlLauncher = (_) async => true;
     await ServiceRegistry.selectedBranchController.selectBranch(
       defaultBranchId,
       selectedBranch: getBranchById(defaultBranchId),
@@ -47,6 +53,8 @@ void main() {
 
   tearDown(() {
     ServiceRegistry.resetTicketConfigRepository();
+    ServiceRegistry.resetTicketPurchaseRepository();
+    ServiceRegistry.resetPaymentUrlLauncher();
   });
 
   testWidgets(
@@ -119,17 +127,20 @@ void main() {
       );
       expect(kidsFourToFifteenCounter.data, '0');
 
-      await tester.tap(find.text('Оплатить'));
+      await tester.tap(find.text('Оплатить через Freedom Pay'));
       await tester.pumpAndSettle();
 
       expect(
-        find.text('Оплата будет подключена на следующем этапе.'),
+        find.text(
+          'Страница оплаты открыта. После завершения вернитесь и проверьте статус.',
+        ),
         findsOneWidget,
       );
+      expect(find.text('Проверить оплату'), findsOneWidget);
     },
   );
 
-  testWidgets('Мои билеты открывают честный placeholder', (tester) async {
+  testWidgets('Мои билеты открывают список backend-покупок', (tester) async {
     await _pumpHomePage(tester);
 
     await tester.tap(find.text('Билеты'));
@@ -138,7 +149,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('my-tickets-action')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Ваши билеты появятся здесь'), findsOneWidget);
+    expect(find.text('Мои билеты'), findsOneWidget);
+    expect(find.text('Пока нет купленных билетов'), findsOneWidget);
   });
 }
 
@@ -155,4 +167,45 @@ Future<void> _pumpHomePage(WidgetTester tester) async {
     ),
   );
   await tester.pump();
+}
+
+class _FakeTicketPurchaseRepository implements TicketPurchaseRepository {
+  const _FakeTicketPurchaseRepository();
+
+  @override
+  Future<Result<TicketPaymentStart>> startFreedomPayment({
+    required List<TicketPaymentLineItemPayload> items,
+    required DateTime? visitDate,
+  }) async {
+    return const Success<TicketPaymentStart>(
+      TicketPaymentStart(
+        paymentId: 'payment-test',
+        localOrderId: 'order-test',
+        externalPaymentId: 'fp-test',
+        paymentUrl: 'https://pay.test/order-test',
+        status: TicketPaymentStatusValue.pending,
+      ),
+    );
+  }
+
+  @override
+  Future<Result<TicketPaymentStatus>> getPaymentStatus(String paymentId) async {
+    return const Success<TicketPaymentStatus>(
+      TicketPaymentStatus(
+        paymentId: 'payment-test',
+        localOrderId: 'order-test',
+        externalPaymentId: 'fp-test',
+        amountTenge: 2700,
+        currency: 'KZT',
+        status: TicketPaymentStatusValue.pending,
+        failureReason: null,
+        paidAt: null,
+      ),
+    );
+  }
+
+  @override
+  Future<Result<List<PurchasedTicket>>> listPurchasedTickets() async {
+    return const Success<List<PurchasedTicket>>([]);
+  }
 }
