@@ -10,6 +10,7 @@ import '../../../../core/design_system/foundations/star_kids_radii.dart';
 import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
+import '../../../../core/design_system/widgets/star_kids_cosmic_canvas.dart';
 import '../controllers/mobile_auth_controller.dart';
 
 enum _EmailAuthMode {
@@ -124,9 +125,9 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
         final errorMessage = _authController.errorMessage;
 
         return Scaffold(
-          backgroundColor: StarKidsColors.surfaceCanvas,
+          backgroundColor: StarKidsColors.cosmicBg,
           resizeToAvoidBottomInset: true,
-          body: _AuthCanvas(
+          body: StarKidsCosmicCanvas(
             child: SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -245,78 +246,98 @@ class _RevealMotion extends StatelessWidget {
   }
 }
 
-class _AuthCanvas extends StatelessWidget {
-  const _AuthCanvas({
-    required this.child,
-  });
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned(
-          top: -120,
-          right: -96,
-          child: _DecorativeGlow(
-            size: 260,
-            color: StarKidsColors.surfaceTertiary.withValues(alpha: 0.82),
-          ),
-        ),
-        Positioned(
-          left: -96,
-          bottom: 80,
-          child: _DecorativeGlow(
-            size: 220,
-            color: StarKidsColors.brandHighlight.withValues(alpha: 0.26),
-          ),
-        ),
-        child,
-      ],
-    );
-  }
-}
-
-class _DecorativeGlow extends StatelessWidget {
-  const _DecorativeGlow({
-    required this.size,
-    required this.color,
-  });
-
-  final double size;
-  final Color color;
+/// Cosmic SK logo with a beautiful static gradient and a single entry-glow animation.
+/// Uses TweenAnimationBuilder (one-shot, terminates) so pumpAndSettle works in tests.
+class _CosmicSkLogo extends StatelessWidget {
+  const _CosmicSkLogo();
 
   @override
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 980),
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 1100),
       curve: Curves.easeOutCubic,
-      builder: (context, value, child) {
-        return IgnorePointer(
-          child: Opacity(
-            opacity: value,
-            child: Transform.translate(
-              offset: Offset(0, 28 * (1 - value)),
-              child: Transform.scale(
-                scale: 0.9 + (value * 0.1),
-                child: child,
-              ),
+      builder: (context, t, child) {
+        return Container(
+          width: 84,
+          height: 84,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(StarKidsRadii.hero),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFFEB0876),
+                Color(0xFFCC3AEB),
+                Color(0xFF8F44EB),
+              ],
             ),
+            boxShadow: [
+              BoxShadow(
+                color: StarKidsColors.brandPrimary.withValues(alpha: 0.40 * t),
+                blurRadius: 28,
+                offset: const Offset(0, 10),
+              ),
+              BoxShadow(
+                color: const Color(0xFFB044EB).withValues(alpha: 0.22 * t),
+                blurRadius: 48 * t,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              const Text(
+                'SK',
+                style: TextStyle(
+                  color: StarKidsColors.textInverse,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 26,
+                  letterSpacing: 1.5,
+                  fontFamily: 'Sora',
+                ),
+              ),
+              // Entry sheen highlight — sweeps once, left to right
+              Positioned.fill(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(StarKidsRadii.hero),
+                  child: CustomPaint(
+                    painter: _EntrySheenPainter(progress: t),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: color,
-        ),
-      ),
     );
   }
+}
+
+class _EntrySheenPainter extends CustomPainter {
+  _EntrySheenPainter({required this.progress});
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final x = size.width * (progress * 1.6 - 0.3);
+    final paint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.transparent,
+          Colors.white.withValues(alpha: 0.30 * (1 - progress)),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.5, 1.0],
+      ).createShader(Rect.fromLTWH(x - 20, 0, 40, size.height));
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
+  }
+
+  @override
+  bool shouldRepaint(_EntrySheenPainter old) => old.progress != progress;
 }
 
 class _AuthBrandIntro extends StatelessWidget {
@@ -350,33 +371,7 @@ class _AuthBrandIntro extends StatelessWidget {
         key: ValueKey(isRegister),
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Container(
-            width: 76,
-            height: 76,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  StarKidsColors.brandPrimary,
-                  StarKidsColors.brandPrimaryPressed,
-                ],
-              ),
-              borderRadius: BorderRadius.circular(StarKidsRadii.hero),
-              boxShadow: StarKidsShadows.depth2,
-            ),
-            child: const Center(
-              child: Text(
-                'SK',
-                style: TextStyle(
-                  color: StarKidsColors.textInverse,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 24,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ),
-          ),
+          const _CosmicSkLogo(),
           const SizedBox(height: StarKidsSpacing.lg),
           Text(
             'Star Kids',
@@ -416,15 +411,6 @@ class _AuthTrustChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _AnimatedAuthTrustChip();
-  }
-}
-
-class _AnimatedAuthTrustChip extends StatelessWidget {
-  const _AnimatedAuthTrustChip();
-
-  @override
-  Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
       duration: const Duration(milliseconds: 920),
@@ -438,12 +424,12 @@ class _AnimatedAuthTrustChip extends StatelessWidget {
             vertical: StarKidsSpacing.sm,
           ),
           decoration: BoxDecoration(
-            color: StarKidsColors.surfacePrimary.withValues(alpha: 0.84),
+            color: StarKidsColors.glassSurface,
             borderRadius: BorderRadius.circular(StarKidsRadii.full),
             border: Border.all(
               color: Color.lerp(
                 StarKidsColors.borderDefault,
-                StarKidsColors.brandSecondary.withValues(alpha: 0.34),
+                StarKidsColors.glassStroke,
                 value,
               )!,
             ),
@@ -537,10 +523,18 @@ class _AuthFormCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(StarKidsSpacing.xl),
       decoration: BoxDecoration(
-        color: StarKidsColors.surfacePrimary,
+        // Glass matte card
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xF0FFFFFF),
+            Color(0xD8FFFFFF),
+          ],
+        ),
         borderRadius: BorderRadius.circular(StarKidsRadii.hero),
-        border: Border.all(color: StarKidsColors.borderDefault),
-        boxShadow: StarKidsShadows.depth2,
+        border: Border.all(color: StarKidsColors.glassStroke),
+        boxShadow: StarKidsShadows.cosmicCard,
       ),
       child: AnimatedSize(
         duration: const Duration(milliseconds: 280),
@@ -690,16 +684,7 @@ class _AuthFormCard extends StatelessWidget {
                   constraints: const BoxConstraints(minHeight: 56),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(StarKidsRadii.full),
-                    boxShadow: isLoading
-                        ? const []
-                        : [
-                            BoxShadow(
-                              color: StarKidsColors.brandPrimary
-                                  .withValues(alpha: 0.22),
-                              blurRadius: 26,
-                              offset: const Offset(0, 14),
-                            ),
-                          ],
+                    boxShadow: isLoading ? const [] : StarKidsShadows.brandGlow,
                   ),
                   child: StarKidsButton.primary(
                     label: _isRegister ? 'Зарегистрироваться' : 'Войти',
@@ -930,14 +915,16 @@ class _AuthModeSwitch extends StatelessWidget {
         height: 52,
         padding: const EdgeInsets.all(StarKidsSpacing.xs),
         decoration: BoxDecoration(
-          color: StarKidsColors.surfaceSecondary,
+          gradient: const LinearGradient(
+            colors: [StarKidsColors.cosmicBlush, StarKidsColors.cosmicLavender],
+          ),
           borderRadius: BorderRadius.circular(StarKidsRadii.full),
-          border: Border.all(color: StarKidsColors.borderDefault),
+          border: Border.all(color: StarKidsColors.glassStroke),
         ),
         child: Stack(
           children: [
             AnimatedAlign(
-              duration: const Duration(milliseconds: 260),
+              duration: const Duration(milliseconds: 280),
               curve: Curves.easeOutCubic,
               alignment:
                   _isLogin ? Alignment.centerLeft : Alignment.centerRight,
@@ -946,14 +933,14 @@ class _AuthModeSwitch extends StatelessWidget {
                 heightFactor: 1,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: StarKidsColors.surfacePrimary,
+                    color: StarKidsColors.glassSurface,
                     borderRadius: BorderRadius.circular(StarKidsRadii.full),
                     boxShadow: [
                       BoxShadow(
                         color:
-                            StarKidsColors.textPrimary.withValues(alpha: 0.08),
+                            StarKidsColors.brandPrimary.withValues(alpha: 0.12),
                         blurRadius: 16,
-                        offset: const Offset(0, 8),
+                        offset: const Offset(0, 6),
                       ),
                     ],
                   ),
@@ -1051,7 +1038,7 @@ class _AuthErrorBanner extends StatelessWidget {
             width: 28,
             height: 28,
             decoration: BoxDecoration(
-              color: StarKidsColors.surfacePrimary.withValues(alpha: 0.74),
+              color: StarKidsColors.glassSurface,
               borderRadius: BorderRadius.circular(StarKidsRadii.full),
             ),
             child: const Icon(

@@ -10,38 +10,38 @@ abstract final class StarKidsComponentTheme {
   static FilledButtonThemeData filledButtonTheme() {
     return FilledButtonThemeData(
       style: ButtonStyle(
-        minimumSize: const MaterialStatePropertyAll(
+        minimumSize: const WidgetStatePropertyAll(
           Size(double.infinity, 56),
         ),
-        padding: const MaterialStatePropertyAll(
+        padding: const WidgetStatePropertyAll(
           EdgeInsets.symmetric(horizontal: 24, vertical: 18),
         ),
-        shape: MaterialStatePropertyAll(
+        shape: WidgetStatePropertyAll(
           RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(StarKidsRadii.full),
           ),
         ),
-        elevation: const MaterialStatePropertyAll(0),
-        shadowColor: const MaterialStatePropertyAll(Colors.transparent),
-        backgroundColor: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.disabled)) {
+        elevation: const WidgetStatePropertyAll(0),
+        shadowColor: const WidgetStatePropertyAll(Colors.transparent),
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
             return StarKidsColors.actionDisabledBg;
           }
 
-          if (states.contains(MaterialState.pressed)) {
+          if (states.contains(WidgetState.pressed)) {
             return StarKidsColors.brandPrimaryPressed;
           }
 
           return StarKidsColors.brandPrimary;
         }),
-        foregroundColor: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.disabled)) {
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
             return StarKidsColors.actionDisabledFg;
           }
 
           return StarKidsColors.textInverse;
         }),
-        textStyle: MaterialStatePropertyAll(
+        textStyle: WidgetStatePropertyAll(
           StarKidsTextTheme.build().labelLarge,
         ),
       ),
@@ -51,42 +51,42 @@ abstract final class StarKidsComponentTheme {
   static OutlinedButtonThemeData outlinedButtonTheme() {
     return OutlinedButtonThemeData(
       style: ButtonStyle(
-        minimumSize: const MaterialStatePropertyAll(
+        minimumSize: const WidgetStatePropertyAll(
           Size(double.infinity, 56),
         ),
-        padding: const MaterialStatePropertyAll(
+        padding: const WidgetStatePropertyAll(
           EdgeInsets.symmetric(horizontal: 24, vertical: 18),
         ),
-        shape: MaterialStatePropertyAll(
+        shape: WidgetStatePropertyAll(
           RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(StarKidsRadii.full),
           ),
         ),
-        elevation: const MaterialStatePropertyAll(0),
-        backgroundColor: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.disabled)) {
+        elevation: const WidgetStatePropertyAll(0),
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
             return StarKidsColors.surfaceSecondary;
           }
 
-          if (states.contains(MaterialState.pressed)) {
+          if (states.contains(WidgetState.pressed)) {
             return StarKidsColors.surfaceSecondary;
           }
 
-          return StarKidsColors.surfacePrimary;
+          return StarKidsColors.glassSurface;
         }),
-        foregroundColor: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.disabled)) {
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
             return StarKidsColors.actionDisabledFg;
           }
 
           return StarKidsColors.textPrimary;
         }),
-        side: MaterialStatePropertyAll(
+        side: const WidgetStatePropertyAll(
           BorderSide(
             color: StarKidsColors.borderDefault,
           ),
         ),
-        textStyle: MaterialStatePropertyAll(
+        textStyle: WidgetStatePropertyAll(
           StarKidsTextTheme.build().labelLarge,
         ),
       ),
@@ -96,7 +96,7 @@ abstract final class StarKidsComponentTheme {
   static InputDecorationTheme inputDecorationTheme() {
     return InputDecorationTheme(
       filled: true,
-      fillColor: StarKidsColors.surfacePrimary,
+      fillColor: StarKidsColors.glassSurface,
       contentPadding: const EdgeInsets.symmetric(
         horizontal: StarKidsSpacing.lg,
         vertical: StarKidsSpacing.md,
@@ -162,30 +162,33 @@ abstract final class StarKidsComponentTheme {
 
   static NavigationBarThemeData navigationBarTheme() {
     return NavigationBarThemeData(
-      height: 72,
-      backgroundColor: StarKidsColors.surfacePrimary,
-      indicatorColor: StarKidsColors.surfaceTertiary,
+      height: 68,
+      backgroundColor: StarKidsColors.glassSurface,
+      indicatorColor: StarKidsColors.cosmicBlush,
+      indicatorShape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(StarKidsRadii.full),
+      ),
       elevation: 0,
       shadowColor: Colors.transparent,
-      labelTextStyle: MaterialStateProperty.resolveWith((states) {
+      labelTextStyle: WidgetStateProperty.resolveWith((states) {
         final base = StarKidsTextTheme.build().labelMedium!;
-        if (states.contains(MaterialState.selected)) {
+        if (states.contains(WidgetState.selected)) {
           return base.copyWith(color: StarKidsColors.brandPrimary);
         }
 
         return base.copyWith(color: StarKidsColors.textSecondary);
       }),
-      iconTheme: MaterialStateProperty.resolveWith((states) {
-        if (states.contains(MaterialState.selected)) {
+      iconTheme: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
           return const IconThemeData(
             color: StarKidsColors.brandPrimary,
-            size: 24,
+            size: 22,
           );
         }
 
         return const IconThemeData(
           color: StarKidsColors.textSecondary,
-          size: 24,
+          size: 22,
         );
       }),
     );
@@ -206,16 +209,205 @@ abstract final class StarKidsComponentTheme {
 
   static CardThemeData cardTheme() {
     return CardThemeData(
-      color: StarKidsColors.surfacePrimary,
+      color: StarKidsColors.glassSurface,
       margin: EdgeInsets.zero,
       elevation: 0,
       shadowColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(StarKidsRadii.lg),
-        side: const BorderSide(color: StarKidsColors.borderDefault),
+        side: const BorderSide(color: StarKidsColors.glassStroke),
       ),
     );
   }
 
   static List<BoxShadow> floatingShadow() => StarKidsShadows.depth2;
+
+  // ─── Dark variants ────────────────────────────────────────────────────────
+
+  static FilledButtonThemeData filledButtonThemeDark() {
+    return FilledButtonThemeData(
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(double.infinity, 56)),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+        ),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(StarKidsRadii.full),
+          ),
+        ),
+        elevation: const WidgetStatePropertyAll(0),
+        shadowColor: WidgetStatePropertyAll(
+          StarKidsDarkColors.accentPink.withValues(alpha: 0.4),
+        ),
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return StarKidsDarkColors.actionDisabledBg;
+          }
+          if (states.contains(WidgetState.pressed)) {
+            return StarKidsDarkColors.accentPink.withValues(alpha: 0.85);
+          }
+          return StarKidsDarkColors.accentPink;
+        }),
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return StarKidsDarkColors.actionDisabledFg;
+          }
+          return Colors.white;
+        }),
+        textStyle: WidgetStatePropertyAll(
+          StarKidsTextTheme.buildDark().labelLarge,
+        ),
+      ),
+    );
+  }
+
+  static OutlinedButtonThemeData outlinedButtonThemeDark() {
+    return OutlinedButtonThemeData(
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(double.infinity, 56)),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+        ),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(StarKidsRadii.full),
+          ),
+        ),
+        elevation: const WidgetStatePropertyAll(0),
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return StarKidsDarkColors.actionDisabledBg;
+          }
+          return StarKidsDarkColors.glassSurface;
+        }),
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return StarKidsDarkColors.actionDisabledFg;
+          }
+          return StarKidsDarkColors.textPrimary;
+        }),
+        side: WidgetStatePropertyAll(
+          BorderSide(color: StarKidsDarkColors.borderDefault),
+        ),
+        textStyle: WidgetStatePropertyAll(
+          StarKidsTextTheme.buildDark().labelLarge,
+        ),
+      ),
+    );
+  }
+
+  static InputDecorationTheme inputDecorationThemeDark() {
+    return InputDecorationTheme(
+      filled: true,
+      fillColor: StarKidsDarkColors.glassSurface,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: StarKidsSpacing.lg,
+        vertical: StarKidsSpacing.md,
+      ),
+      hintStyle: StarKidsTextTheme.buildDark().bodyLarge?.copyWith(
+            color: StarKidsDarkColors.textSecondary,
+          ),
+      labelStyle: StarKidsTextTheme.buildDark().labelMedium?.copyWith(
+            color: StarKidsDarkColors.textSecondary,
+          ),
+      helperStyle: StarKidsTextTheme.buildDark().labelMedium?.copyWith(
+            color: StarKidsDarkColors.textSecondary,
+          ),
+      errorStyle: StarKidsTextTheme.buildDark().labelMedium?.copyWith(
+            color: StarKidsDarkColors.statusError,
+          ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(StarKidsRadii.md),
+        borderSide: BorderSide(color: StarKidsDarkColors.borderDefault),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(StarKidsRadii.md),
+        borderSide: BorderSide(color: StarKidsDarkColors.borderDefault),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(StarKidsRadii.md),
+        borderSide: BorderSide(color: StarKidsDarkColors.borderFocus, width: 2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(StarKidsRadii.md),
+        borderSide: BorderSide(color: StarKidsDarkColors.borderError, width: 2),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(StarKidsRadii.md),
+        borderSide: BorderSide(color: StarKidsDarkColors.borderError, width: 2),
+      ),
+      disabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(StarKidsRadii.md),
+        borderSide: BorderSide(color: StarKidsDarkColors.borderDefault),
+      ),
+    );
+  }
+
+  static AppBarTheme appBarThemeDark() {
+    return AppBarTheme(
+      centerTitle: false,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      backgroundColor: StarKidsDarkColors.surfaceCanvas,
+      foregroundColor: StarKidsDarkColors.textPrimary,
+      titleTextStyle: StarKidsTextTheme.buildDark().titleLarge,
+      iconTheme: IconThemeData(
+        color: StarKidsDarkColors.textPrimary,
+        size: 24,
+      ),
+    );
+  }
+
+  static NavigationBarThemeData navigationBarThemeDark() {
+    return NavigationBarThemeData(
+      height: 68,
+      backgroundColor: StarKidsDarkColors.navBarBg,
+      indicatorColor: StarKidsDarkColors.navIndicator,
+      indicatorShape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(StarKidsRadii.full),
+      ),
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      labelTextStyle: WidgetStateProperty.resolveWith((states) {
+        final base = StarKidsTextTheme.buildDark().labelMedium!;
+        if (states.contains(WidgetState.selected)) {
+          return base.copyWith(color: StarKidsDarkColors.accentPink);
+        }
+        return base.copyWith(color: StarKidsDarkColors.textSecondary);
+      }),
+      iconTheme: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return IconThemeData(color: StarKidsDarkColors.accentPink, size: 22);
+        }
+        return IconThemeData(color: StarKidsDarkColors.textSecondary, size: 22);
+      }),
+    );
+  }
+
+  static SnackBarThemeData snackBarThemeDark() {
+    return SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: StarKidsDarkColors.surfaceElevated,
+      contentTextStyle: StarKidsTextTheme.buildDark().bodyLarge?.copyWith(
+            color: StarKidsDarkColors.textPrimary,
+          ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(StarKidsRadii.md),
+      ),
+    );
+  }
+
+  static CardThemeData cardThemeDark() {
+    return CardThemeData(
+      color: StarKidsDarkColors.glassSurface,
+      margin: EdgeInsets.zero,
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+        side: BorderSide(color: StarKidsDarkColors.glassStroke, width: 0.5),
+      ),
+    );
+  }
 }

@@ -29,11 +29,35 @@ class Settings(BaseSettings):
     freedompay_mock_mode: bool = False
     freedompay_request_timeout_seconds: int = 15
 
+    fcm_project_id: str | None = None
+    fcm_client_email: str | None = None
+    fcm_private_key: str | None = None
+
+    storage_backend: str = 'local'
+    media_root: str = './media'
+    media_url_prefix: str = '/media'
+    public_base_url: str | None = None
+    max_avatar_size_bytes: int = 5 * 1024 * 1024
+    s3_bucket: str | None = None
+    s3_region: str | None = None
+    s3_endpoint: str | None = None
+    s3_access_key: str | None = None
+    s3_secret_key: str | None = None
+    s3_public_base_url: str | None = None
+
     model_config = SettingsConfigDict(
         env_file='.env',
         env_file_encoding='utf-8',
         extra='ignore',
     )
+
+    @property
+    def fcm_is_configured(self) -> bool:
+        return bool(self.fcm_project_id and self.fcm_client_email and self.fcm_private_key)
+
+    @property
+    def normalized_media_url_prefix(self) -> str:
+        return self.media_url_prefix.rstrip('/')
 
     @property
     def cors_origins_list(self) -> list[str]:

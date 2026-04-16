@@ -18,7 +18,6 @@ from .schemas import (
 from .service import MobileAuthService
 
 router = APIRouter()
-me_router = APIRouter()
 
 
 @router.post(
@@ -104,12 +103,6 @@ def refresh(
     responses={401: {'model': ErrorResponse}, 503: {'model': ErrorResponse}},
 )
 @router.get(
-    '/me',
-    response_model=MobileCurrentUserResponse,
-    response_model_exclude_none=True,
-    responses={401: {'model': ErrorResponse}, 503: {'model': ErrorResponse}},
-)
-@me_router.get(
     '/me',
     response_model=MobileCurrentUserResponse,
     response_model_exclude_none=True,

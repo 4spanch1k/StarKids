@@ -12,7 +12,7 @@ abstract final class StarKidsTheme {
       useMaterial3: true,
       brightness: Brightness.light,
       fontFamily: StarKidsTextTheme.bodyFontFamily,
-      scaffoldBackgroundColor: StarKidsColors.surfaceCanvas,
+      scaffoldBackgroundColor: StarKidsColors.cosmicBg,
       colorScheme: const ColorScheme(
         brightness: Brightness.light,
         primary: StarKidsColors.brandPrimary,
@@ -21,9 +21,7 @@ abstract final class StarKidsTheme {
         onSecondary: StarKidsColors.textInverse,
         error: StarKidsColors.statusError,
         onError: StarKidsColors.textInverse,
-        background: StarKidsColors.surfaceCanvas,
-        onBackground: StarKidsColors.textPrimary,
-        surface: StarKidsColors.surfacePrimary,
+        surface: StarKidsColors.cosmicBg,
         onSurface: StarKidsColors.textPrimary,
       ),
       textTheme: textTheme,
@@ -36,7 +34,41 @@ abstract final class StarKidsTheme {
       cardTheme: StarKidsComponentTheme.cardTheme(),
       dividerColor: StarKidsColors.borderDefault,
       disabledColor: StarKidsColors.actionDisabledFg,
-      splashColor: StarKidsColors.surfaceTertiary,
+      splashColor: StarKidsColors.cosmicBlush,
+      highlightColor: Colors.transparent,
+    );
+  }
+
+  static ThemeData dark() {
+    final textTheme = StarKidsTextTheme.buildDark();
+
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      fontFamily: StarKidsTextTheme.bodyFontFamily,
+      scaffoldBackgroundColor: StarKidsDarkColors.bg,
+      colorScheme: const ColorScheme(
+        brightness: Brightness.dark,
+        primary: StarKidsDarkColors.accentPink,
+        onPrimary: Colors.white,
+        secondary: Color(0xFF34D399), // emerald
+        onSecondary: Colors.white,
+        error: StarKidsDarkColors.statusError,
+        onError: Colors.white,
+        surface: StarKidsDarkColors.surfacePrimary,
+        onSurface: StarKidsDarkColors.textPrimary,
+      ),
+      textTheme: textTheme,
+      appBarTheme: StarKidsComponentTheme.appBarThemeDark(),
+      filledButtonTheme: StarKidsComponentTheme.filledButtonThemeDark(),
+      outlinedButtonTheme: StarKidsComponentTheme.outlinedButtonThemeDark(),
+      inputDecorationTheme: StarKidsComponentTheme.inputDecorationThemeDark(),
+      navigationBarTheme: StarKidsComponentTheme.navigationBarThemeDark(),
+      snackBarTheme: StarKidsComponentTheme.snackBarThemeDark(),
+      cardTheme: StarKidsComponentTheme.cardThemeDark(),
+      dividerColor: StarKidsDarkColors.borderDefault,
+      disabledColor: StarKidsDarkColors.actionDisabledFg,
+      splashColor: StarKidsDarkColors.nebulaViolet,
       highlightColor: Colors.transparent,
     );
   }

@@ -6,6 +6,13 @@ abstract final class StarKidsTextTheme {
   static const String displayFontFamily = 'Sora';
   static const String bodyFontFamily = 'Manrope';
 
+  static TextTheme buildDark() {
+    return build().apply(
+      bodyColor: StarKidsDarkColors.textPrimary,
+      displayColor: StarKidsDarkColors.textPrimary,
+    );
+  }
+
   static TextTheme build() {
     return const TextTheme(
       displayLarge: TextStyle(
@@ -29,11 +36,25 @@ abstract final class StarKidsTextTheme {
         height: 30 / 24,
         color: StarKidsColors.textPrimary,
       ),
+      displaySmall: TextStyle(
+        fontFamily: displayFontFamily,
+        fontSize: 22,
+        fontWeight: FontWeight.w700,
+        height: 28 / 22,
+        color: StarKidsColors.textPrimary,
+      ),
       titleLarge: TextStyle(
         fontFamily: displayFontFamily,
         fontSize: 20,
         fontWeight: FontWeight.w600,
         height: 26 / 20,
+        color: StarKidsColors.textPrimary,
+      ),
+      titleMedium: TextStyle(
+        fontFamily: bodyFontFamily,
+        fontSize: 15,
+        fontWeight: FontWeight.w600,
+        height: 22 / 15,
         color: StarKidsColors.textPrimary,
       ),
       bodyLarge: TextStyle(
@@ -48,6 +69,13 @@ abstract final class StarKidsTextTheme {
         fontSize: 14,
         fontWeight: FontWeight.w500,
         height: 22 / 14,
+        color: StarKidsColors.textSecondary,
+      ),
+      bodySmall: TextStyle(
+        fontFamily: bodyFontFamily,
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        height: 18 / 12,
         color: StarKidsColors.textSecondary,
       ),
       labelLarge: TextStyle(
