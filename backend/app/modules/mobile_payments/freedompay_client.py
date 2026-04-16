@@ -50,12 +50,11 @@ class FreedomPayClient:
             secret_key=self._settings.freedompay_secret_key or '',
         )
         endpoint = f"{self._settings.freedompay_base_url.rstrip('/')}/{INIT_PAYMENT_SCRIPT}"
-        boundary = f'----starkids{token_hex(8)}'
         gateway_request = request.Request(
             endpoint,
-            data=_encode_multipart_form(signed_params, boundary=boundary),
+            data=_encode_urlencoded_form(signed_params),
             headers={
-                'Content-Type': f'multipart/form-data; boundary={boundary}',
+                'Content-Type': 'application/x-www-form-urlencoded',
                 'Accept': 'application/xml',
                 'User-Agent': 'StarKids/0.1',
             },
@@ -125,14 +124,6 @@ def _parse_xml_payload(raw_body: str) -> dict[str, str]:
     return payload
 
 
-def _encode_multipart_form(params: dict[str, object], *, boundary: str) -> bytes:
-    body = bytearray()
-    for key, value in params.items():
-        body.extend(f'--{boundary}\r\n'.encode('utf-8'))
-        body.extend(
-            f'Content-Disposition: form-data; name="{key}"\r\n\r\n'.encode('utf-8')
-        )
-        body.extend(str(value).encode('utf-8'))
-        body.extend(b'\r\n')
-    body.extend(f'--{boundary}--\r\n'.encode('utf-8'))
-    return bytes(body)
+def _encode_urlencoded_form(params: dict[str, object]) -> bytes:
+    form_params = {key: str(value) for key, value in params.items()}
+    return parse.urlencode(form_params).encode('utf-8')

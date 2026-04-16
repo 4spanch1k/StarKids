@@ -1,13 +1,15 @@
 from datetime import date
 import hashlib
 import unittest
+from unittest.mock import patch
+from urllib import parse
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.core.config.settings import get_settings
+from app.core.config.settings import Settings, get_settings
 from app.core.database.session import get_db_session
 from app.db.models import Base
 from app.db.models.branch import Branch
@@ -17,7 +19,10 @@ from app.db.models.mobile_session import MobileSession
 from app.db.models.mobile_user import MobileUser
 from app.main import app
 from app.modules.mobile_payments.dependencies import get_freedompay_client
-from app.modules.mobile_payments.freedompay_client import FreedomPayInitResult
+from app.modules.mobile_payments.freedompay_client import (
+    FreedomPayClient,
+    FreedomPayInitResult,
+)
 from app.modules.mobile_payments.signing import build_freedompay_signature
 
 
@@ -35,7 +40,67 @@ class FakeFreedomPayClient:
         )
 
 
+class FakeGatewayResponse:
+    def __enter__(self) -> 'FakeGatewayResponse':
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        return None
+
+    def read(self) -> bytes:
+        return (
+            b'<response>'
+            b'<pg_status>ok</pg_status>'
+            b'<pg_payment_id>fp-transport</pg_payment_id>'
+            b'<pg_redirect_url>https://pay.test/transport</pg_redirect_url>'
+            b'</response>'
+        )
+
+
 class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
+    def test_freedompay_init_uses_urlencoded_form_transport(self) -> None:
+        settings = Settings(
+            freedompay_merchant_id='test-merchant',
+            freedompay_secret_key='test-secret',
+            freedompay_base_url='https://api.freedompay.kz',
+            freedompay_result_url='https://api.starkids.test/freedom/result',
+            freedompay_success_url='https://api.starkids.test/payment/success',
+            freedompay_failure_url='https://api.starkids.test/payment/failure',
+        )
+        captured_requests = []
+
+        def fake_urlopen(gateway_request, *, timeout: int):
+            captured_requests.append((gateway_request, timeout))
+            return FakeGatewayResponse()
+
+        with patch(
+            'app.modules.mobile_payments.freedompay_client.request.urlopen',
+            side_effect=fake_urlopen,
+        ):
+            result = FreedomPayClient(settings).init_payment(
+                {
+                    'pg_order_id': 'order-1',
+                    'pg_merchant_id': 'test-merchant',
+                    'pg_amount': '1000',
+                    'pg_currency': 'KZT',
+                    'pg_description': 'Star Kids ticket',
+                    'pg_salt': 'salt',
+                }
+            )
+
+        self.assertEqual(result.external_payment_id, 'fp-transport')
+        gateway_request, timeout = captured_requests[0]
+        self.assertEqual(timeout, settings.freedompay_request_timeout_seconds)
+        self.assertEqual(gateway_request.get_method(), 'POST')
+        self.assertEqual(
+            gateway_request.get_header('Content-type'),
+            'application/x-www-form-urlencoded',
+        )
+        request_body = parse.parse_qs(gateway_request.data.decode('utf-8'))
+        self.assertEqual(request_body['pg_order_id'], ['order-1'])
+        self.assertEqual(request_body['pg_amount'], ['1000'])
+        self.assertIn('pg_sig', request_body)
+
     def test_freedompay_signature_matches_documented_flat_parameter_order(self) -> None:
         params = {
             'pg_amount': '100',
