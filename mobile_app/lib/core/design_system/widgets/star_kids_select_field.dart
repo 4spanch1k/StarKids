@@ -31,8 +31,17 @@ class StarKidsSelectField extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasError = errorText != null;
     final textTheme = Theme.of(context).textTheme;
-    final borderColor =
-        hasError ? StarKidsColors.borderError : StarKidsColors.borderDefault;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = hasError
+        ? (isDark ? StarKidsDarkColors.borderError : StarKidsColors.borderError)
+        : (isDark
+            ? StarKidsDarkColors.borderDefault
+            : StarKidsColors.borderDefault);
+    final fillColor = enabled
+        ? (isDark ? StarKidsDarkColors.glassSurface : StarKidsColors.surfacePrimary)
+        : (isDark ? StarKidsDarkColors.actionDisabledBg : StarKidsColors.surfaceSecondary);
+    final iconColor =
+        isDark ? StarKidsDarkColors.textSecondary : StarKidsColors.textSecondary;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -45,9 +54,7 @@ class StarKidsSelectField extends StatelessWidget {
           child: Text(label, style: textTheme.labelMedium),
         ),
         Material(
-          color: enabled
-              ? StarKidsColors.surfacePrimary
-              : StarKidsColors.surfaceSecondary,
+          color: fillColor,
           borderRadius: BorderRadius.circular(StarKidsRadii.md),
           child: InkWell(
             onTap: enabled ? onTap : null,
@@ -70,7 +77,7 @@ class StarKidsSelectField extends StatelessWidget {
                     Icon(
                       leadingIcon,
                       size: StarKidsIconSizes.sm,
-                      color: StarKidsColors.textSecondary,
+                      color: iconColor,
                     ),
                     const SizedBox(width: StarKidsSpacing.md),
                   ],
@@ -79,15 +86,17 @@ class StarKidsSelectField extends StatelessWidget {
                       value ?? placeholderText,
                       style: textTheme.bodyLarge?.copyWith(
                         color: value == null
-                            ? StarKidsColors.textSecondary
-                            : StarKidsColors.textPrimary,
+                            ? iconColor
+                            : (isDark
+                                ? StarKidsDarkColors.textPrimary
+                                : StarKidsColors.textPrimary),
                       ),
                     ),
                   ),
-                  const Icon(
+                  Icon(
                     Icons.expand_more_rounded,
                     size: StarKidsIconSizes.md,
-                    color: StarKidsColors.textSecondary,
+                    color: iconColor,
                   ),
                 ],
               ),
@@ -102,8 +111,10 @@ class StarKidsSelectField extends StatelessWidget {
               errorText ?? helperText!,
               style: textTheme.labelMedium?.copyWith(
                 color: hasError
-                    ? StarKidsColors.statusError
-                    : StarKidsColors.textSecondary,
+                    ? (isDark
+                        ? StarKidsDarkColors.statusError
+                        : StarKidsColors.statusError)
+                    : iconColor,
               ),
             ),
           ),

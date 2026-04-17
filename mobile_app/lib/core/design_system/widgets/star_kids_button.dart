@@ -57,11 +57,14 @@ class StarKidsButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDisabled = onPressed == null || isLoading;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fgColor = _foregroundColor(isDisabled, isDark);
+
     final content = _ButtonContent(
       label: label,
       icon: icon,
       isLoading: isLoading,
-      foregroundColor: _foregroundColor(isDisabled),
+      foregroundColor: fgColor,
     );
 
     final button = switch (variant) {
@@ -83,7 +86,7 @@ class StarKidsButton extends StatelessWidget {
       StarKidsButtonVariant.ghost => TextButton(
           onPressed: isDisabled ? null : onPressed,
           style: TextButton.styleFrom(
-            foregroundColor: _foregroundColor(isDisabled),
+            foregroundColor: fgColor,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(StarKidsRadii.full),
             ),
@@ -108,15 +111,21 @@ class StarKidsButton extends StatelessWidget {
     return SizedBox(width: double.infinity, child: interactiveButton);
   }
 
-  Color _foregroundColor(bool isDisabled) {
+  Color _foregroundColor(bool isDisabled, bool isDark) {
     if (isDisabled) {
-      return StarKidsColors.actionDisabledFg;
+      return isDark
+          ? StarKidsDarkColors.actionDisabledFg
+          : StarKidsColors.actionDisabledFg;
     }
 
     return switch (variant) {
       StarKidsButtonVariant.primary => StarKidsColors.textInverse,
-      StarKidsButtonVariant.secondary => StarKidsColors.textPrimary,
-      StarKidsButtonVariant.ghost => StarKidsColors.brandPrimary,
+      StarKidsButtonVariant.secondary => isDark
+          ? StarKidsDarkColors.textPrimary
+          : StarKidsColors.textPrimary,
+      StarKidsButtonVariant.ghost => isDark
+          ? StarKidsDarkColors.accentPink
+          : StarKidsColors.brandPrimary,
     };
   }
 }

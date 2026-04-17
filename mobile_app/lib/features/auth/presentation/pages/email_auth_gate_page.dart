@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -125,7 +126,6 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
         final errorMessage = _authController.errorMessage;
 
         return Scaffold(
-          backgroundColor: StarKidsColors.cosmicBg,
           resizeToAvoidBottomInset: true,
           body: StarKidsCosmicCanvas(
             child: SafeArea(
@@ -393,7 +393,6 @@ class _AuthBrandIntro extends StatelessWidget {
                 ? 'Создайте аккаунт, чтобы заявки и профиль оставались под рукой.'
                 : 'Войдите, чтобы продолжить к заявкам, профилю и избранному филиалу.',
             style: textTheme.bodyLarge?.copyWith(
-              color: StarKidsColors.textSecondary,
               height: 1.38,
             ),
             textAlign: TextAlign.center,
@@ -418,18 +417,26 @@ class _AuthTrustChip extends StatelessWidget {
       builder: (context, value, child) {
         final entryGlow = 1 - value;
 
+        final isTrustDark = Theme.of(context).brightness == Brightness.dark;
+
         return Container(
           padding: const EdgeInsets.symmetric(
             horizontal: StarKidsSpacing.md,
             vertical: StarKidsSpacing.sm,
           ),
           decoration: BoxDecoration(
-            color: StarKidsColors.glassSurface,
+            color: isTrustDark
+                ? StarKidsDarkColors.glassSurface
+                : StarKidsColors.glassSurface,
             borderRadius: BorderRadius.circular(StarKidsRadii.full),
             border: Border.all(
               color: Color.lerp(
-                StarKidsColors.borderDefault,
-                StarKidsColors.glassStroke,
+                isTrustDark
+                    ? StarKidsDarkColors.borderDefault
+                    : StarKidsColors.borderDefault,
+                isTrustDark
+                    ? StarKidsDarkColors.glassStroke
+                    : StarKidsColors.glassStroke,
                 value,
               )!,
             ),
@@ -466,9 +473,7 @@ class _AuthTrustChip extends StatelessWidget {
               'Сессия сохраняется на этом устройстве',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: StarKidsColors.textSecondary,
-                  ),
+              style: Theme.of(context).textTheme.labelMedium,
             ),
           ),
         ],
@@ -520,23 +525,30 @@ class _AuthFormCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.xl),
-      decoration: BoxDecoration(
-        // Glass matte card
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xF0FFFFFF),
-            Color(0xD8FFFFFF),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(StarKidsRadii.hero),
-        border: Border.all(color: StarKidsColors.glassStroke),
-        boxShadow: StarKidsShadows.cosmicCard,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final cardDecoration = BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: isDark
+            ? [
+                Colors.white.withValues(alpha: 0.10),
+                Colors.white.withValues(alpha: 0.06),
+              ]
+            : const [
+                Color(0xF0FFFFFF),
+                Color(0xD8FFFFFF),
+              ],
       ),
-      child: AnimatedSize(
+      borderRadius: BorderRadius.circular(StarKidsRadii.hero),
+      border: Border.all(
+        color: isDark ? StarKidsDarkColors.glassStroke : StarKidsColors.glassStroke,
+      ),
+      boxShadow: isDark ? const [] : StarKidsShadows.cosmicCard,
+    );
+
+    final cardContent = AnimatedSize(
         duration: const Duration(milliseconds: 280),
         reverseDuration: const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
@@ -567,7 +579,6 @@ class _AuthFormCard extends StatelessWidget {
                           ? 'Заполните почту и пароль. Это займет меньше минуты.'
                           : 'Введите почту и пароль, чтобы открыть приложение.',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: StarKidsColors.textSecondary,
                             height: 1.36,
                           ),
                       textAlign: TextAlign.center,
@@ -696,7 +707,26 @@ class _AuthFormCard extends StatelessWidget {
             ],
           ),
         ),
-      ),
+      );
+
+    if (isDark) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(StarKidsRadii.hero),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          child: Container(
+            padding: const EdgeInsets.all(StarKidsSpacing.xl),
+            decoration: cardDecoration,
+            child: cardContent,
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(StarKidsSpacing.xl),
+      decoration: cardDecoration,
+      child: cardContent,
     );
   }
 }
@@ -877,7 +907,6 @@ class _AuthHintText extends StatelessWidget {
         key: ValueKey(isRegister),
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: StarKidsColors.textSecondary,
               height: 1.35,
             ),
       ),
@@ -899,12 +928,14 @@ class _AuthModeSwitch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isEnabled = onChanged != null;
-    final selectedStyle = Theme.of(context).textTheme.labelLarge?.copyWith(
-          color: StarKidsColors.textPrimary,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textTheme = Theme.of(context).textTheme;
+    final selectedStyle = textTheme.labelLarge?.copyWith(
+          color: isDark ? StarKidsDarkColors.textPrimary : StarKidsColors.textPrimary,
           fontWeight: FontWeight.w800,
         );
-    final idleStyle = Theme.of(context).textTheme.labelLarge?.copyWith(
-          color: StarKidsColors.textSecondary,
+    final idleStyle = textTheme.labelLarge?.copyWith(
+          color: isDark ? StarKidsDarkColors.textSecondary : StarKidsColors.textSecondary,
           fontWeight: FontWeight.w700,
         );
 
@@ -915,11 +946,17 @@ class _AuthModeSwitch extends StatelessWidget {
         height: 52,
         padding: const EdgeInsets.all(StarKidsSpacing.xs),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [StarKidsColors.cosmicBlush, StarKidsColors.cosmicLavender],
-          ),
+          gradient: isDark
+              ? const LinearGradient(
+                  colors: [Color(0x1AA855F7), Color(0x1A3B82F6)],
+                )
+              : const LinearGradient(
+                  colors: [StarKidsColors.cosmicBlush, StarKidsColors.cosmicLavender],
+                ),
           borderRadius: BorderRadius.circular(StarKidsRadii.full),
-          border: Border.all(color: StarKidsColors.glassStroke),
+          border: Border.all(
+            color: isDark ? StarKidsDarkColors.borderDefault : StarKidsColors.glassStroke,
+          ),
         ),
         child: Stack(
           children: [
@@ -933,12 +970,13 @@ class _AuthModeSwitch extends StatelessWidget {
                 heightFactor: 1,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: StarKidsColors.glassSurface,
+                    color: isDark
+                        ? StarKidsDarkColors.glassSurface
+                        : StarKidsColors.glassSurface,
                     borderRadius: BorderRadius.circular(StarKidsRadii.full),
                     boxShadow: [
                       BoxShadow(
-                        color:
-                            StarKidsColors.brandPrimary.withValues(alpha: 0.12),
+                        color: StarKidsColors.brandPrimary.withValues(alpha: 0.12),
                         blurRadius: 16,
                         offset: const Offset(0, 6),
                       ),
@@ -1022,13 +1060,22 @@ class _AuthErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final errorColor =
+        isDark ? StarKidsDarkColors.statusError : StarKidsColors.statusError;
+    final errorSurface = isDark
+        ? StarKidsDarkColors.statusErrorSurface
+        : StarKidsColors.statusErrorSurface;
+    final iconBg =
+        isDark ? StarKidsDarkColors.glassSurface : StarKidsColors.glassSurface;
+
     return Container(
       padding: const EdgeInsets.all(StarKidsSpacing.md),
       decoration: BoxDecoration(
-        color: StarKidsColors.statusErrorSurface,
+        color: errorSurface,
         borderRadius: BorderRadius.circular(StarKidsRadii.lg),
         border: Border.all(
-          color: StarKidsColors.statusError.withValues(alpha: 0.18),
+          color: errorColor.withValues(alpha: 0.18),
         ),
       ),
       child: Row(
@@ -1038,13 +1085,13 @@ class _AuthErrorBanner extends StatelessWidget {
             width: 28,
             height: 28,
             decoration: BoxDecoration(
-              color: StarKidsColors.glassSurface,
+              color: iconBg,
               borderRadius: BorderRadius.circular(StarKidsRadii.full),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.error_outline_rounded,
               size: StarKidsIconSizes.sm,
-              color: StarKidsColors.statusError,
+              color: errorColor,
             ),
           ),
           const SizedBox(width: StarKidsSpacing.md),
@@ -1052,7 +1099,7 @@ class _AuthErrorBanner extends StatelessWidget {
             child: Text(
               message,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: StarKidsColors.statusError,
+                    color: errorColor,
                     height: 1.34,
                   ),
             ),

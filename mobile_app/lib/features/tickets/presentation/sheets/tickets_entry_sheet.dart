@@ -3,16 +3,18 @@ import 'package:flutter/material.dart';
 import '../../../../core/design_system/foundations/star_kids_colors.dart';
 import '../../../../core/design_system/foundations/star_kids_icon_sizes.dart';
 import '../../../../core/design_system/foundations/star_kids_radii.dart';
-import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
 
 enum TicketsEntryAction { myTickets, buyTicket }
 
 Future<TicketsEntryAction?> showTicketsEntrySheet(BuildContext context) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
   return showStarKidsModalBottomSheet<TicketsEntryAction>(
     context: context,
-    backgroundColor: StarKidsColors.surfacePrimary,
+    backgroundColor: isDark
+        ? StarKidsDarkColors.surfaceElevated
+        : StarKidsColors.surfacePrimary,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
@@ -26,6 +28,7 @@ class _TicketsEntrySheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SafeArea(
       top: false,
@@ -45,7 +48,9 @@ class _TicketsEntrySheet extends StatelessWidget {
                 width: 44,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: StarKidsColors.borderDefault,
+                  color: isDark
+                      ? StarKidsDarkColors.borderDefault
+                      : StarKidsColors.borderDefault,
                   borderRadius: BorderRadius.circular(StarKidsRadii.full),
                 ),
               ),
@@ -56,7 +61,9 @@ class _TicketsEntrySheet extends StatelessWidget {
             Text(
               'Выберите, что хотите сделать сейчас.',
               style: textTheme.bodyMedium?.copyWith(
-                color: StarKidsColors.textSecondary,
+                color: isDark
+                    ? StarKidsDarkColors.textSecondary
+                    : StarKidsColors.textSecondary,
               ),
             ),
             const SizedBox(height: StarKidsSpacing.lg),
@@ -101,9 +108,24 @@ class _TicketsEntryActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark
+        ? StarKidsDarkColors.surfacePrimary
+        : StarKidsColors.surfacePrimary;
+    final iconBg = isDark
+        ? StarKidsDarkColors.glassSurface
+        : StarKidsColors.surfaceSecondary;
+    final borderColor = isDark
+        ? StarKidsDarkColors.borderDefault
+        : StarKidsColors.borderDefault;
+    final accentColor =
+        isDark ? StarKidsDarkColors.accentPink : StarKidsColors.brandPrimary;
+    final secondaryText = isDark
+        ? StarKidsDarkColors.textSecondary
+        : StarKidsColors.textSecondary;
 
     return Material(
-      color: StarKidsColors.surfacePrimary,
+      color: cardBg,
       borderRadius: BorderRadius.circular(StarKidsRadii.xl),
       child: InkWell(
         onTap: onTap,
@@ -112,8 +134,7 @@ class _TicketsEntryActionCard extends StatelessWidget {
           padding: const EdgeInsets.all(StarKidsSpacing.lg),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-            border: Border.all(color: StarKidsColors.borderDefault),
-            boxShadow: StarKidsShadows.depth1,
+            border: Border.all(color: borderColor),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -122,13 +143,13 @@ class _TicketsEntryActionCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: StarKidsColors.surfaceSecondary,
+                  color: iconBg,
                   borderRadius: BorderRadius.circular(StarKidsRadii.lg),
                 ),
                 child: Icon(
                   icon,
                   size: StarKidsIconSizes.md,
-                  color: StarKidsColors.brandPrimary,
+                  color: accentColor,
                 ),
               ),
               const SizedBox(width: StarKidsSpacing.md),
@@ -141,16 +162,16 @@ class _TicketsEntryActionCard extends StatelessWidget {
                     Text(
                       subtitle,
                       style: textTheme.bodyMedium?.copyWith(
-                        color: StarKidsColors.textSecondary,
+                        color: secondaryText,
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: StarKidsSpacing.sm),
-              const Icon(
+              Icon(
                 Icons.chevron_right_rounded,
-                color: StarKidsColors.textSecondary,
+                color: secondaryText,
               ),
             ],
           ),

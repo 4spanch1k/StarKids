@@ -164,12 +164,20 @@ class _HistoryHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.all(StarKidsSpacing.lg),
       decoration: BoxDecoration(
-        color: StarKidsColors.surfaceSecondary,
+        color: isDark
+            ? StarKidsDarkColors.glassSurface
+            : StarKidsColors.surfaceSecondary,
         borderRadius: BorderRadius.circular(StarKidsRadii.lg),
-        border: Border.all(color: StarKidsColors.borderDefault),
+        border: Border.all(
+          color: isDark
+              ? StarKidsDarkColors.borderDefault
+              : StarKidsColors.borderDefault,
+        ),
       ),
       child: Text(
         total == 1 ? 'Найдена 1 заявка.' : 'Найдено $total заявок.',
@@ -187,16 +195,23 @@ class _RequestHistoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final createdAtLabel = _formatCreatedAt(context, item.createdAt);
     final details = _buildDetails(context, item);
 
     return Container(
       padding: const EdgeInsets.all(StarKidsSpacing.lg),
       decoration: BoxDecoration(
-        color: StarKidsColors.surfacePrimary,
+        color: isDark
+            ? StarKidsDarkColors.surfaceElevated
+            : StarKidsColors.surfacePrimary,
         borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-        border: Border.all(color: StarKidsColors.borderDefault),
-        boxShadow: StarKidsShadows.depth1,
+        border: Border.all(
+          color: isDark
+              ? StarKidsDarkColors.borderDefault
+              : StarKidsColors.borderDefault,
+        ),
+        boxShadow: isDark ? null : StarKidsShadows.depth1,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -213,7 +228,9 @@ class _RequestHistoryCard extends StatelessWidget {
                     Text(
                       'Создана $createdAtLabel',
                       style: textTheme.bodySmall?.copyWith(
-                        color: StarKidsColors.textSecondary,
+                        color: isDark
+                            ? StarKidsDarkColors.textSecondary
+                            : StarKidsColors.textSecondary,
                       ),
                     ),
                   ],
@@ -293,6 +310,7 @@ class _HistoryFactRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Row(
       children: [
@@ -300,7 +318,9 @@ class _HistoryFactRow extends StatelessWidget {
           child: Text(
             label,
             style: textTheme.labelMedium?.copyWith(
-              color: StarKidsColors.textSecondary,
+              color: isDark
+                  ? StarKidsDarkColors.textSecondary
+                  : StarKidsColors.textSecondary,
             ),
           ),
         ),
@@ -324,20 +344,26 @@ class _HistoryStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: StarKidsSpacing.md,
         vertical: StarKidsSpacing.xs,
       ),
       decoration: BoxDecoration(
-        color: StarKidsColors.brandHighlight,
+        color: isDark
+            ? StarKidsDarkColors.glassSurface
+            : StarKidsColors.brandHighlight,
         borderRadius: BorderRadius.circular(StarKidsRadii.full),
       ),
       child: Text(
         label,
-        style: Theme.of(
-          context,
-        ).textTheme.labelMedium?.copyWith(color: StarKidsColors.textPrimary),
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: isDark
+                  ? StarKidsDarkColors.textPrimary
+                  : StarKidsColors.textPrimary,
+            ),
       ),
     );
   }
@@ -365,15 +391,25 @@ class _HistoryStateView extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accentColor =
+        isDark ? StarKidsDarkColors.accentPink : StarKidsColors.brandPrimary;
+
     return Center(
       child: Container(
         constraints: const BoxConstraints(maxWidth: 520),
         padding: const EdgeInsets.all(StarKidsSpacing.xl),
         decoration: BoxDecoration(
-          color: StarKidsColors.surfacePrimary,
+          color: isDark
+              ? StarKidsDarkColors.surfaceElevated
+              : StarKidsColors.surfacePrimary,
           borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-          border: Border.all(color: StarKidsColors.borderDefault),
-          boxShadow: StarKidsShadows.depth1,
+          border: Border.all(
+            color: isDark
+                ? StarKidsDarkColors.borderDefault
+                : StarKidsColors.borderDefault,
+          ),
+          boxShadow: isDark ? null : StarKidsShadows.depth1,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -385,7 +421,7 @@ class _HistoryStateView extends StatelessWidget {
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
             else
-              Icon(icon, size: 36, color: StarKidsColors.brandPrimary),
+              Icon(icon, size: 36, color: accentColor),
             const SizedBox(height: StarKidsSpacing.lg),
             Text(
               title,

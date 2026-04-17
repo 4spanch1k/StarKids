@@ -615,16 +615,8 @@ class _ChildrenSection extends StatelessWidget {
           ],
         );
       case ChildrenStatus.empty:
-        content = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(l.noChildren, style: textTheme.bodyMedium),
-            const SizedBox(height: StarKidsSpacing.lg),
-            StarKidsButton.primary(
-              label: l.addChild,
-              onPressed: () => _showAddChildSheet(context),
-            ),
-          ],
+        content = _ChildrenEmptyState(
+          onAdd: () => _showAddChildSheet(context),
         );
       case ChildrenStatus.success:
         content = Column(
@@ -636,28 +628,29 @@ class _ChildrenSection extends StatelessWidget {
                 onEdit: () => _showEditChildSheet(context, child),
                 onDelete: () => _confirmDelete(context, child),
               ),
-              const SizedBox(height: StarKidsSpacing.sm),
+              const SizedBox(height: StarKidsSpacing.lg),
             ],
-            const SizedBox(height: StarKidsSpacing.sm),
-            StarKidsButton.secondary(
-              label: l.addChild,
-              onPressed: () => _showAddChildSheet(context),
-            ),
           ],
         );
     }
 
-    return ProfileSectionCard(
+    return _ChildrenSectionFrame(
       title: l.children,
+      subtitle: null,
+      trailing: controller.status == ChildrenStatus.success
+          ? _AddChildButton(onTap: () => _showAddChildSheet(context))
+          : null,
       child: content,
     );
   }
 
   void _showAddChildSheet(BuildContext context) {
-    showModalBottomSheet<void>(
+    showStarKidsModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      clipBehavior: Clip.antiAlias,
       shape: const RoundedRectangleBorder(
         borderRadius:
             BorderRadius.vertical(top: Radius.circular(StarKidsRadii.xl)),
@@ -670,10 +663,12 @@ class _ChildrenSection extends StatelessWidget {
   }
 
   void _showEditChildSheet(BuildContext context, Child child) {
-    showModalBottomSheet<void>(
+    showStarKidsModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      clipBehavior: Clip.antiAlias,
       shape: const RoundedRectangleBorder(
         borderRadius:
             BorderRadius.vertical(top: Radius.circular(StarKidsRadii.xl)),
@@ -710,6 +705,406 @@ class _ChildrenSection extends StatelessWidget {
   }
 }
 
+class _ChildrenSectionFrame extends StatelessWidget {
+  const _ChildrenSectionFrame({
+    required this.title,
+    required this.child,
+    this.subtitle,
+    this.trailing,
+  });
+
+  final String title;
+  final String? subtitle;
+  final Widget child;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBorder =
+        isDark ? StarKidsDarkColors.borderDefault : const Color(0xFFE7D8F7);
+
+    return Container(
+      clipBehavior: Clip.hardEdge,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [
+                  const Color(0xFF1B1732),
+                  StarKidsDarkColors.surfaceElevated,
+                ]
+              : [
+                  StarKidsColors.surfacePrimary,
+                  const Color(0xFFFFFBFF),
+                ],
+        ),
+        borderRadius: BorderRadius.circular(StarKidsRadii.xl + 4),
+        border: Border.all(color: cardBorder),
+        boxShadow: isDark
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.24),
+                  blurRadius: 28,
+                  offset: const Offset(0, 18),
+                ),
+              ]
+            : StarKidsShadows.depth1,
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -46,
+            right: -26,
+            child: _DecorativeCloud(
+              width: 168,
+              height: 132,
+              color: isDark
+                  ? StarKidsDarkColors.accentPink.withValues(alpha: 0.12)
+                  : const Color(0xFFEDE0FF),
+            ),
+          ),
+          Positioned(
+            left: -36,
+            bottom: -58,
+            child: _DecorativeCloud(
+              width: 184,
+              height: 142,
+              color: isDark ? const Color(0x224D9FFF) : const Color(0xFFF1E8FF),
+            ),
+          ),
+          Positioned(
+            left: 72,
+            top: 22,
+            child: _DecorativeCloud(
+              width: 62,
+              height: 62,
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.04)
+                  : Colors.white.withValues(alpha: 0.68),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(StarKidsSpacing.xl),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isCompact = constraints.maxWidth < 480;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (isCompact) ...[
+                      Text(
+                        title,
+                        style: textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: StarKidsSpacing.sm),
+                        Text(
+                          subtitle!,
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: isDark
+                                ? StarKidsDarkColors.textSecondary
+                                : StarKidsColors.textSecondary,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                      if (trailing != null) ...[
+                        const SizedBox(height: StarKidsSpacing.lg),
+                        Align(
+                            alignment: Alignment.centerLeft, child: trailing!),
+                      ],
+                    ] else ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  title,
+                                  style: textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                if (subtitle != null) ...[
+                                  const SizedBox(height: StarKidsSpacing.sm),
+                                  ConstrainedBox(
+                                    constraints:
+                                        const BoxConstraints(maxWidth: 420),
+                                    child: Text(
+                                      subtitle!,
+                                      style: textTheme.bodyMedium?.copyWith(
+                                        color: isDark
+                                            ? StarKidsDarkColors.textSecondary
+                                            : StarKidsColors.textSecondary,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          if (trailing != null) ...[
+                            const SizedBox(width: StarKidsSpacing.lg),
+                            trailing!,
+                          ],
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: StarKidsSpacing.xl),
+                    child,
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChildrenEmptyState extends StatelessWidget {
+  const _ChildrenEmptyState({required this.onAdd});
+
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
+    final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final panelColor = isDark
+        ? Colors.white.withValues(alpha: 0.04)
+        : Colors.white.withValues(alpha: 0.78);
+    final panelBorder =
+        isDark ? StarKidsDarkColors.borderDefault : const Color(0xFFE9DCF8);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 460;
+
+        return Container(
+          clipBehavior: Clip.hardEdge,
+          decoration: BoxDecoration(
+            color: panelColor,
+            borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+            border: Border.all(color: panelBorder),
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                top: -18,
+                right: -20,
+                child: _DecorativeCloud(
+                  width: 118,
+                  height: 84,
+                  color: isDark
+                      ? const Color(0x1AFFFFFF)
+                      : const Color(0xFFF3E8FF),
+                ),
+              ),
+              Positioned(
+                left: -18,
+                bottom: -22,
+                child: _DecorativeCloud(
+                  width: 120,
+                  height: 90,
+                  color: isDark
+                      ? const Color(0x224D9FFF)
+                      : const Color(0xFFE8F0FF),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(StarKidsSpacing.xl),
+                child: Flex(
+                  direction: isCompact ? Axis.vertical : Axis.horizontal,
+                  crossAxisAlignment: isCompact
+                      ? CrossAxisAlignment.start
+                      : CrossAxisAlignment.center,
+                  children: [
+                    if (isCompact)
+                      Row(
+                        children: [
+                          const _ChildAvatarBadge.placeholder(size: 76),
+                          const SizedBox(width: StarKidsSpacing.lg),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  l.addChildSheetTitle,
+                                  style: textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                const SizedBox(height: StarKidsSpacing.xs),
+                                Text(
+                                  l.childrenEmptyHint,
+                                  style: textTheme.bodyMedium?.copyWith(
+                                    color: isDark
+                                        ? StarKidsDarkColors.textSecondary
+                                        : StarKidsColors.textSecondary,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const _ChildAvatarBadge.placeholder(size: 76),
+                            const SizedBox(width: StarKidsSpacing.lg),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    l.addChildSheetTitle,
+                                    style: textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: StarKidsSpacing.xs),
+                                  Text(
+                                    l.childrenEmptyHint,
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: isDark
+                                          ? StarKidsDarkColors.textSecondary
+                                          : StarKidsColors.textSecondary,
+                                      height: 1.35,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    SizedBox(
+                      width: isCompact ? 0 : StarKidsSpacing.lg,
+                      height: isCompact ? StarKidsSpacing.lg : 0,
+                    ),
+                    _AddChildButton(onTap: onAdd, expand: isCompact),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AddChildButton extends StatelessWidget {
+  const _AddChildButton({
+    required this.onTap,
+    this.expand = false,
+  });
+
+  final VoidCallback onTap;
+  final bool expand;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
+    final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark
+        ? StarKidsDarkColors.accentPink.withValues(alpha: 0.54)
+        : StarKidsColors.brandPrimary.withValues(alpha: 0.34);
+    final fillColor = isDark
+        ? StarKidsDarkColors.accentPink.withValues(alpha: 0.08)
+        : Colors.white.withValues(alpha: 0.96);
+    final fgColor =
+        isDark ? StarKidsDarkColors.textPrimary : StarKidsColors.brandPrimary;
+
+    final button = Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(StarKidsRadii.full),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: fillColor,
+            borderRadius: BorderRadius.circular(StarKidsRadii.full),
+            border: Border.all(color: borderColor, width: 1.4),
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: StarKidsSpacing.lg,
+            vertical: 14,
+          ),
+          child: Row(
+            mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.add_rounded, size: 20, color: fgColor),
+              const SizedBox(width: StarKidsSpacing.sm),
+              Text(
+                l.add,
+                style: textTheme.labelLarge?.copyWith(
+                  color: fgColor,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (expand) {
+      return SizedBox(width: double.infinity, child: button);
+    }
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 138),
+      child: button,
+    );
+  }
+}
+
+class _DecorativeCloud extends StatelessWidget {
+  const _DecorativeCloud({
+    required this.width,
+    required this.height,
+    required this.color,
+  });
+
+  final double width;
+  final double height;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(height),
+        ),
+      ),
+    );
+  }
+}
+
 class _ChildCard extends StatelessWidget {
   const _ChildCard({
     required this.child,
@@ -727,68 +1122,104 @@ class _ChildCard extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l = AppL10n.of(context);
 
-    final cardBg = isDark
-        ? StarKidsDarkColors.surfaceElevated
-        : StarKidsColors.surfacePrimary;
-    final cardBorder = isDark
-        ? StarKidsDarkColors.borderDefault
-        : StarKidsColors.borderDefault;
-    final avatarBg = isDark
-        ? StarKidsDarkColors.glassSurface
-        : (child.gender == ChildGender.female
-            ? StarKidsColors.surfaceTertiary
-            : StarKidsColors.cosmicSky);
-    final avatarEmoji = child.gender == ChildGender.female ? '👧' : '👦';
-
     return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.md),
       decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(StarKidsRadii.md),
-        border: Border.all(color: cardBorder),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.05)
+            : Colors.white.withValues(alpha: 0.84),
+        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+        border: Border.all(
+          color: isDark
+              ? StarKidsDarkColors.borderDefault
+              : const Color(0xFFE8DBF7),
+        ),
       ),
-      child: Row(
+      child: Stack(
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(color: avatarBg, shape: BoxShape.circle),
-            child: Center(
-              child: Text(avatarEmoji, style: const TextStyle(fontSize: 22)),
+          Positioned(
+            top: -16,
+            right: -12,
+            child: _DecorativeCloud(
+              width: 120,
+              height: 86,
+              color: isDark
+                  ? StarKidsDarkColors.accentPink.withValues(alpha: 0.10)
+                  : const Color(0xFFF0E3FF),
             ),
           ),
-          const SizedBox(width: StarKidsSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  child.name,
-                  style: textTheme.bodyLarge
-                      ?.copyWith(fontWeight: FontWeight.w600),
-                ),
-                Text(
-                  _formatDate(child.birthDate),
-                  style: textTheme.bodySmall,
-                ),
-                Text(
-                  child.gender == ChildGender.female
-                      ? l.genderGirl
-                      : l.genderBoy,
-                  style: textTheme.bodySmall,
-                ),
-              ],
+          Positioned(
+            left: -20,
+            bottom: -24,
+            child: _DecorativeCloud(
+              width: 112,
+              height: 88,
+              color: isDark ? const Color(0x224D9FFF) : const Color(0xFFE5F1FF),
             ),
           ),
-          IconButton(
-            onPressed: onEdit,
-            icon: const Icon(Icons.edit_outlined, size: 18),
-            tooltip: l.edit,
-          ),
-          IconButton(
-            onPressed: onDelete,
-            icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
-            tooltip: l.delete,
+          Padding(
+            padding: const EdgeInsets.all(StarKidsSpacing.xl),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final genderLabel = child.gender == ChildGender.female
+                    ? l.genderGirl
+                    : l.genderBoy;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _ChildAvatarBadge(child: child, size: 76),
+                        const SizedBox(width: StarKidsSpacing.lg),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  child.name,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 24,
+                                  ),
+                                ),
+                                const SizedBox(height: StarKidsSpacing.sm),
+                                _HighlightedDateChip(
+                                  label: l.childBirthDate,
+                                  value: _formatDate(child.birthDate),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: StarKidsSpacing.sm),
+                        _ChildActionMenu(
+                          onEdit: onEdit,
+                          onDelete: onDelete,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: StarKidsSpacing.md),
+                    Wrap(
+                      spacing: StarKidsSpacing.sm,
+                      runSpacing: StarKidsSpacing.sm,
+                      children: [
+                        _SoftMetaChip(
+                          icon: child.gender == ChildGender.female
+                              ? Icons.girl_rounded
+                              : Icons.boy_rounded,
+                          label: genderLabel,
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -797,6 +1228,263 @@ class _ChildCard extends StatelessWidget {
 
   String _formatDate(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
+}
+
+enum _ChildCardMenuAction { edit, delete }
+
+class _ChildAvatarBadge extends StatelessWidget {
+  const _ChildAvatarBadge({
+    required this.child,
+    required this.size,
+  }) : placeholder = false;
+
+  const _ChildAvatarBadge.placeholder({
+    required this.size,
+  })  : child = null,
+        placeholder = true;
+
+  final Child? child;
+  final double size;
+  final bool placeholder;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final gender = child?.gender;
+    final emoji = placeholder
+        ? '🧸'
+        : gender == ChildGender.female
+            ? '👧'
+            : '👦';
+    final ringColors = isDark
+        ? [
+            StarKidsDarkColors.accentPink.withValues(alpha: 0.34),
+            const Color(0x334D9FFF),
+          ]
+        : gender == ChildGender.female
+            ? [
+                const Color(0xFFF7D8F0),
+                const Color(0xFFE9DFFF),
+              ]
+            : [
+                const Color(0xFFDDF3FF),
+                const Color(0xFFE9E2FF),
+              ];
+
+    return Container(
+      width: size,
+      height: size,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: ringColors,
+        ),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: isDark ? const Color(0xFF241E42) : Colors.white,
+        ),
+        child: Center(
+          child: Text(
+            emoji,
+            style: TextStyle(fontSize: size * 0.38),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HighlightedDateChip extends StatelessWidget {
+  const _HighlightedDateChip({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent =
+        isDark ? StarKidsDarkColors.accentPink : StarKidsColors.brandPrimary;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: StarKidsSpacing.md,
+        vertical: StarKidsSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: isDark ? 0.14 : 0.10),
+        borderRadius: BorderRadius.circular(StarKidsRadii.full),
+        border: Border.all(color: accent.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.cake_rounded, size: 16, color: accent),
+          const SizedBox(width: StarKidsSpacing.sm),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: textTheme.labelSmall?.copyWith(
+                  color: accent,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                value,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: accent,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SoftMetaChip extends StatelessWidget {
+  const _SoftMetaChip({
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: StarKidsSpacing.md,
+        vertical: 10,
+      ),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.05)
+            : const Color(0xFFF8F2FF),
+        borderRadius: BorderRadius.circular(StarKidsRadii.full),
+        border: Border.all(
+          color: isDark
+              ? StarKidsDarkColors.borderDefault
+              : const Color(0xFFE7DCF8),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: isDark
+                ? StarKidsDarkColors.textSecondary
+                : StarKidsColors.textSecondary,
+          ),
+          const SizedBox(width: StarKidsSpacing.xs),
+          Text(
+            label,
+            style: textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChildActionMenu extends StatelessWidget {
+  const _ChildActionMenu({
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final menuBg = isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : Colors.white.withValues(alpha: 0.94);
+    final menuBorder =
+        isDark ? StarKidsDarkColors.borderDefault : const Color(0xFFE8DBF7);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: menuBg,
+        shape: BoxShape.circle,
+        border: Border.all(color: menuBorder),
+      ),
+      child: PopupMenuButton<_ChildCardMenuAction>(
+        tooltip: '',
+        padding: const EdgeInsets.all(10),
+        icon: Icon(
+          Icons.more_horiz_rounded,
+          color: isDark
+              ? StarKidsDarkColors.textPrimary
+              : StarKidsColors.textPrimary,
+        ),
+        onSelected: (value) {
+          switch (value) {
+            case _ChildCardMenuAction.edit:
+              onEdit();
+              break;
+            case _ChildCardMenuAction.delete:
+              onDelete();
+              break;
+          }
+        },
+        itemBuilder: (context) => [
+          PopupMenuItem(
+            value: _ChildCardMenuAction.edit,
+            child: Row(
+              children: [
+                const Icon(Icons.edit_outlined, size: 18),
+                const SizedBox(width: StarKidsSpacing.sm),
+                Text(l.edit),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: _ChildCardMenuAction.delete,
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.delete_outline_rounded,
+                  size: 18,
+                  color: StarKidsColors.statusError,
+                ),
+                const SizedBox(width: StarKidsSpacing.sm),
+                Text(
+                  l.delete,
+                  style: const TextStyle(color: StarKidsColors.statusError),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ─── Child form sheet ─────────────────────────────────────────────────────────
@@ -912,7 +1600,11 @@ class _ChildFormSheetState extends State<_ChildFormSheet> {
       confirmText: l.datePickerConfirm,
     );
     if (picked != null) {
-      setState(() => _birthDate = picked);
+      setState(() {
+        _birthDate = picked;
+        _birthDateError = null;
+      });
+      widget.controller.clearFormError();
     }
   }
 
@@ -922,107 +1614,328 @@ class _ChildFormSheetState extends State<_ChildFormSheet> {
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
-    final textTheme = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final sheetBg = isDark
-        ? StarKidsDarkColors.surfacePrimary
-        : StarKidsColors.surfacePrimary;
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+    final isDark = theme.brightness == Brightness.dark;
     final isEditing = widget.childToEdit != null;
+    final fieldFill =
+        isDark ? const Color(0xFF221D3F) : const Color(0xFFFDF9FF);
+    final fieldBorder =
+        isDark ? StarKidsDarkColors.borderDefault : const Color(0xFFE7D8F7);
+    final localTheme = theme.copyWith(
+      inputDecorationTheme: theme.inputDecorationTheme.copyWith(
+        fillColor: fieldFill,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: StarKidsSpacing.lg,
+          vertical: 18,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+          borderSide: BorderSide(color: fieldBorder),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+          borderSide: BorderSide(color: fieldBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+          borderSide: BorderSide(
+            color: isDark
+                ? StarKidsDarkColors.accentPink
+                : StarKidsColors.brandPrimary,
+            width: 1.8,
+          ),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+          borderSide: BorderSide(
+            color: isDark
+                ? StarKidsDarkColors.borderError
+                : StarKidsColors.borderError,
+            width: 1.8,
+          ),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+          borderSide: BorderSide(
+            color: isDark
+                ? StarKidsDarkColors.borderError
+                : StarKidsColors.borderError,
+            width: 1.8,
+          ),
+        ),
+      ),
+    );
 
     return AnimatedBuilder(
       animation: widget.controller,
       builder: (context, _) {
-        return Container(
-          color: sheetBg,
-          padding: EdgeInsets.only(
-            left: StarKidsSpacing.xl,
-            right: StarKidsSpacing.xl,
-            top: StarKidsSpacing.xl,
-            bottom:
-                MediaQuery.of(context).viewInsets.bottom + StarKidsSpacing.xl,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? StarKidsDarkColors.borderDefault
-                        : StarKidsColors.borderDefault,
-                    borderRadius: BorderRadius.circular(2),
+        return Theme(
+          data: localTheme,
+          child: Material(
+            color: Colors.transparent,
+            child: SingleChildScrollView(
+              padding: EdgeInsets.only(
+                left: StarKidsSpacing.lg,
+                right: StarKidsSpacing.lg,
+                top: StarKidsSpacing.lg,
+                bottom: MediaQuery.of(context).viewInsets.bottom +
+                    StarKidsSpacing.lg,
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 560),
+                  child: Container(
+                    clipBehavior: Clip.hardEdge,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: isDark
+                            ? [
+                                StarKidsDarkColors.surfacePrimary,
+                                const Color(0xFF1D1936),
+                              ]
+                            : [
+                                StarKidsColors.surfacePrimary,
+                                const Color(0xFFFFFBFF),
+                              ],
+                      ),
+                      borderRadius: BorderRadius.circular(StarKidsRadii.x2l),
+                      border: Border.all(color: fieldBorder),
+                      boxShadow: isDark
+                          ? [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.26),
+                                blurRadius: 28,
+                                offset: const Offset(0, 16),
+                              ),
+                            ]
+                          : StarKidsShadows.depth1,
+                    ),
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          top: -28,
+                          right: -24,
+                          child: _DecorativeCloud(
+                            width: 156,
+                            height: 112,
+                            color: isDark
+                                ? StarKidsDarkColors.accentPink
+                                    .withValues(alpha: 0.10)
+                                : const Color(0xFFF0E3FF),
+                          ),
+                        ),
+                        Positioned(
+                          left: -26,
+                          bottom: -30,
+                          child: _DecorativeCloud(
+                            width: 144,
+                            height: 112,
+                            color: isDark
+                                ? const Color(0x224D9FFF)
+                                : const Color(0xFFE6F0FF),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(StarKidsSpacing.xl),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Center(
+                                child: Container(
+                                  width: 42,
+                                  height: 4,
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                        ? StarKidsDarkColors.borderStrong
+                                        : StarKidsColors.borderStrong,
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: StarKidsSpacing.lg),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _ChildFormAvatar(gender: _gender),
+                                  const SizedBox(width: StarKidsSpacing.lg),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          isEditing
+                                              ? l.editChild
+                                              : l.addChildSheetTitle,
+                                          style: textTheme.titleLarge?.copyWith(
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                        const SizedBox(
+                                          height: StarKidsSpacing.xs,
+                                        ),
+                                        Text(
+                                          l.childFormHint,
+                                          style: textTheme.bodyMedium?.copyWith(
+                                            color: isDark
+                                                ? StarKidsDarkColors
+                                                    .textSecondary
+                                                : StarKidsColors.textSecondary,
+                                            height: 1.35,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: StarKidsSpacing.xl),
+                              StarKidsInputField(
+                                controller: _nameController,
+                                label: l.childName,
+                                errorText: _nameError,
+                                onChanged: (_) {
+                                  if (_nameError != null) {
+                                    setState(() => _nameError = null);
+                                  }
+                                  widget.controller.clearFormError();
+                                },
+                                textCapitalization: TextCapitalization.words,
+                                textInputAction: TextInputAction.next,
+                              ),
+                              const SizedBox(height: StarKidsSpacing.md),
+                              _DatePickerField(
+                                label: l.childBirthDate,
+                                selectedDate: _birthDate,
+                                errorText: _birthDateError,
+                                dateLabel: _birthDate != null
+                                    ? _formatDate(_birthDate!)
+                                    : l.dateNotSet,
+                                onTap: () => _pickDate(context, l),
+                              ),
+                              const SizedBox(height: StarKidsSpacing.md),
+                              _GenderSelector(
+                                selected: _gender,
+                                errorText: _genderError,
+                                onSelected: (g) => setState(() {
+                                  _gender = g;
+                                  _genderError = null;
+                                  widget.controller.clearFormError();
+                                }),
+                              ),
+                              if (widget.controller.formError != null) ...[
+                                const SizedBox(height: StarKidsSpacing.md),
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(
+                                    StarKidsSpacing.md,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: (isDark
+                                            ? StarKidsDarkColors.statusError
+                                            : StarKidsColors.statusError)
+                                        .withValues(alpha: 0.10),
+                                    borderRadius: BorderRadius.circular(
+                                      StarKidsRadii.lg,
+                                    ),
+                                    border: Border.all(
+                                      color: isDark
+                                          ? StarKidsDarkColors.statusError
+                                              .withValues(alpha: 0.22)
+                                          : StarKidsColors.statusError
+                                              .withValues(alpha: 0.18),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    widget.controller.formError!,
+                                    style: textTheme.bodySmall?.copyWith(
+                                      color: isDark
+                                          ? StarKidsDarkColors.statusError
+                                          : StarKidsColors.statusError,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(height: StarKidsSpacing.xl),
+                              StarKidsButton.primary(
+                                label: isEditing ? l.save : l.add,
+                                isLoading: widget.controller.isSaving,
+                                onPressed: widget.controller.isSaving
+                                    ? null
+                                    : () => _submit(l),
+                              ),
+                              const SizedBox(height: StarKidsSpacing.sm),
+                              StarKidsButton.secondary(
+                                label: l.cancel,
+                                onPressed: widget.controller.isSaving
+                                    ? null
+                                    : () => Navigator.of(context).pop(),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(height: StarKidsSpacing.lg),
-              Text(
-                isEditing ? l.editChild : l.addChild,
-                style: textTheme.titleLarge,
-              ),
-              const SizedBox(height: StarKidsSpacing.xl),
-              // Name
-              StarKidsInputField(
-                controller: _nameController,
-                label: l.childName,
-                errorText: _nameError,
-                onChanged: (_) {
-                  if (_nameError != null) setState(() => _nameError = null);
-                },
-                textCapitalization: TextCapitalization.words,
-                textInputAction: TextInputAction.next,
-              ),
-              const SizedBox(height: StarKidsSpacing.md),
-              // Birth date
-              _DatePickerField(
-                label: l.childBirthDate,
-                selectedDate: _birthDate,
-                errorText: _birthDateError,
-                dateLabel: _birthDate != null
-                    ? _formatDate(_birthDate!)
-                    : l.dateNotSet,
-                onTap: () => _pickDate(context, l),
-              ),
-              const SizedBox(height: StarKidsSpacing.md),
-              // Gender
-              _GenderSelector(
-                selected: _gender,
-                errorText: _genderError,
-                onSelected: (g) => setState(() {
-                  _gender = g;
-                  _genderError = null;
-                }),
-              ),
-              if (widget.controller.formError != null) ...[
-                const SizedBox(height: StarKidsSpacing.md),
-                Text(
-                  widget.controller.formError!,
-                  style: textTheme.bodySmall?.copyWith(
-                    color: isDark
-                        ? StarKidsDarkColors.statusError
-                        : StarKidsColors.statusError,
-                  ),
-                ),
-              ],
-              const SizedBox(height: StarKidsSpacing.xl),
-              StarKidsButton.primary(
-                label: l.save,
-                isLoading: widget.controller.isSaving,
-                onPressed: widget.controller.isSaving ? null : () => _submit(l),
-              ),
-              const SizedBox(height: StarKidsSpacing.sm),
-              StarKidsButton.secondary(
-                label: l.cancel,
-                onPressed: widget.controller.isSaving
-                    ? null
-                    : () => Navigator.of(context).pop(),
-              ),
-            ],
+            ),
           ),
         );
       },
+    );
+  }
+}
+
+class _ChildFormAvatar extends StatelessWidget {
+  const _ChildFormAvatar({required this.gender});
+
+  final ChildGender? gender;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final emoji = gender == ChildGender.female
+        ? '👧'
+        : gender == ChildGender.male
+            ? '👦'
+            : '🧸';
+    final colors = isDark
+        ? [
+            StarKidsDarkColors.accentPink.withValues(alpha: 0.32),
+            const Color(0x334D9FFF),
+          ]
+        : [
+            const Color(0xFFF7DFF5),
+            const Color(0xFFE8E1FF),
+          ];
+
+    return Container(
+      width: 64,
+      height: 64,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: colors,
+        ),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: isDark ? const Color(0xFF241E42) : Colors.white,
+        ),
+        child: Center(
+          child: Text(emoji, style: const TextStyle(fontSize: 26)),
+        ),
+      ),
     );
   }
 }
@@ -1048,54 +1961,77 @@ class _DatePickerField extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final borderColor = errorText != null
         ? (isDark ? StarKidsDarkColors.borderError : StarKidsColors.borderError)
-        : (isDark
-            ? StarKidsDarkColors.borderDefault
-            : StarKidsColors.borderDefault);
+        : (isDark ? StarKidsDarkColors.borderDefault : const Color(0xFFE7D8F7));
     final fillColor =
-        isDark ? StarKidsDarkColors.glassSurface : StarKidsColors.glassSurface;
+        isDark ? const Color(0xFF221D3F) : const Color(0xFFFDF9FF);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        GestureDetector(
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: StarKidsSpacing.lg,
-              vertical: StarKidsSpacing.md,
-            ),
-            decoration: BoxDecoration(
-              color: fillColor,
-              border: Border.all(color: borderColor),
-              borderRadius: BorderRadius.circular(StarKidsRadii.md),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        label,
-                        style: textTheme.bodySmall?.copyWith(
-                          color: isDark
-                              ? StarKidsDarkColors.textSecondary
-                              : StarKidsColors.textSecondary,
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+            child: Ink(
+              decoration: BoxDecoration(
+                color: fillColor,
+                border: Border.all(color: borderColor),
+                borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: StarKidsSpacing.lg,
+                vertical: StarKidsSpacing.md,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          label,
+                          style: textTheme.bodySmall?.copyWith(
+                            color: isDark
+                                ? StarKidsDarkColors.textSecondary
+                                : StarKidsColors.textSecondary,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(dateLabel, style: textTheme.bodyMedium),
-                    ],
+                        const SizedBox(height: 4),
+                        Text(
+                          dateLabel,
+                          style: textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: selectedDate == null
+                                ? (isDark
+                                    ? StarKidsDarkColors.textSecondary
+                                    : StarKidsColors.textSecondary)
+                                : null,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                Icon(
-                  Icons.calendar_today_rounded,
-                  size: 18,
-                  color: isDark
-                      ? StarKidsDarkColors.textSecondary
-                      : StarKidsColors.textSecondary,
-                ),
-              ],
+                  const SizedBox(width: StarKidsSpacing.md),
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.06)
+                          : const Color(0xFFF7EEFF),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.calendar_today_rounded,
+                      size: 18,
+                      color: isDark
+                          ? StarKidsDarkColors.textSecondary
+                          : StarKidsColors.brandPrimary,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1147,26 +2083,52 @@ class _GenderSelector extends StatelessWidget {
           ),
         ),
         const SizedBox(height: StarKidsSpacing.sm),
-        Row(
-          children: [
-            Expanded(
-              child: _GenderOption(
-                label: l.genderBoy,
-                emoji: '👦',
-                isSelected: selected == ChildGender.male,
-                onTap: () => onSelected(ChildGender.male),
-              ),
-            ),
-            const SizedBox(width: StarKidsSpacing.sm),
-            Expanded(
-              child: _GenderOption(
-                label: l.genderGirl,
-                emoji: '👧',
-                isSelected: selected == ChildGender.female,
-                onTap: () => onSelected(ChildGender.female),
-              ),
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isCompact = constraints.maxWidth < 360;
+
+            if (isCompact) {
+              return Column(
+                children: [
+                  _GenderOption(
+                    label: l.genderBoy,
+                    emoji: '👦',
+                    isSelected: selected == ChildGender.male,
+                    onTap: () => onSelected(ChildGender.male),
+                  ),
+                  const SizedBox(height: StarKidsSpacing.sm),
+                  _GenderOption(
+                    label: l.genderGirl,
+                    emoji: '👧',
+                    isSelected: selected == ChildGender.female,
+                    onTap: () => onSelected(ChildGender.female),
+                  ),
+                ],
+              );
+            }
+
+            return Row(
+              children: [
+                Expanded(
+                  child: _GenderOption(
+                    label: l.genderBoy,
+                    emoji: '👦',
+                    isSelected: selected == ChildGender.male,
+                    onTap: () => onSelected(ChildGender.male),
+                  ),
+                ),
+                const SizedBox(width: StarKidsSpacing.sm),
+                Expanded(
+                  child: _GenderOption(
+                    label: l.genderGirl,
+                    emoji: '👧',
+                    isSelected: selected == ChildGender.female,
+                    onTap: () => onSelected(ChildGender.female),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
         if (errorText != null) ...[
           const SizedBox(height: 4),
@@ -1204,50 +2166,67 @@ class _GenderOption extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final selectedBg = isDark
-        ? StarKidsDarkColors.navIndicator
-        : StarKidsColors.brandPrimary.withValues(alpha: 0.08);
-    final selectedBorder =
+    final accent =
         isDark ? StarKidsDarkColors.accentPink : StarKidsColors.brandPrimary;
-    final idleBg =
-        isDark ? StarKidsDarkColors.glassSurface : StarKidsColors.glassSurface;
-    final idleBorder = isDark
-        ? StarKidsDarkColors.borderDefault
-        : StarKidsColors.borderDefault;
+    final selectedBg = isDark
+        ? StarKidsDarkColors.accentPink.withValues(alpha: 0.12)
+        : StarKidsColors.brandPrimary.withValues(alpha: 0.08);
+    final selectedBorder = accent;
+    final idleBg = isDark ? const Color(0xFF221D3F) : const Color(0xFFFDF9FF);
+    final idleBorder =
+        isDark ? StarKidsDarkColors.borderDefault : const Color(0xFFE7D8F7);
 
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(
-          horizontal: StarKidsSpacing.md,
-          vertical: StarKidsSpacing.sm,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected ? selectedBg : idleBg,
-          borderRadius: BorderRadius.circular(StarKidsRadii.md),
-          border: Border.all(
-            color: isSelected ? selectedBorder : idleBorder,
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 18)),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: textTheme.bodyMedium?.copyWith(
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected
-                    ? (isDark
-                        ? StarKidsDarkColors.accentPink
-                        : StarKidsColors.brandPrimary)
-                    : null,
-              ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.all(StarKidsSpacing.md),
+          decoration: BoxDecoration(
+            color: isSelected ? selectedBg : idleBg,
+            borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+            border: Border.all(
+              color: isSelected ? selectedBorder : idleBorder,
+              width: isSelected ? 1.8 : 1,
             ),
-          ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isSelected
+                      ? accent.withValues(alpha: 0.12)
+                      : (isDark
+                          ? Colors.white.withValues(alpha: 0.05)
+                          : Colors.white),
+                ),
+                child: Center(
+                  child: Text(emoji, style: const TextStyle(fontSize: 20)),
+                ),
+              ),
+              const SizedBox(width: StarKidsSpacing.md),
+              Expanded(
+                child: Text(
+                  label,
+                  style: textTheme.bodyMedium?.copyWith(
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                    color: isSelected ? accent : null,
+                  ),
+                ),
+              ),
+              if (isSelected)
+                Icon(
+                  Icons.check_circle_rounded,
+                  size: 18,
+                  color: accent,
+                ),
+            ],
+          ),
         ),
       ),
     );

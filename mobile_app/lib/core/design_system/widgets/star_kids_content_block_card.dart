@@ -22,15 +22,22 @@ class StarKidsContentBlockCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return StarKidsReveal(
       delay: revealDelay,
       child: Container(
         padding: const EdgeInsets.all(StarKidsSpacing.lg),
         decoration: BoxDecoration(
-          color: StarKidsColors.surfacePrimary,
+          color: isDark
+              ? StarKidsDarkColors.glassSurface
+              : StarKidsColors.surfacePrimary,
           borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-          border: Border.all(color: StarKidsColors.borderDefault),
+          border: Border.all(
+            color: isDark
+                ? StarKidsDarkColors.borderDefault
+                : StarKidsColors.borderDefault,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -42,7 +49,9 @@ class StarKidsContentBlockCard extends StatelessWidget {
                   vertical: StarKidsSpacing.sm,
                 ),
                 decoration: BoxDecoration(
-                  color: StarKidsColors.surfaceTertiary,
+                  color: isDark
+                      ? const Color(0x1AFF0F90)
+                      : StarKidsColors.surfaceTertiary,
                   borderRadius: BorderRadius.circular(StarKidsRadii.full),
                 ),
                 child: Text(
