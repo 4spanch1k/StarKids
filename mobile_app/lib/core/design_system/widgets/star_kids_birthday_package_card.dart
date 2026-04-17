@@ -37,6 +37,7 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final normalizedDescription = description.trim();
     final normalizedHighlights = highlights
         .map((item) => item.trim())
@@ -52,7 +53,9 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
           side: BorderSide(
             color: isFeatured
                 ? StarKidsColors.brandPrimary
-                : StarKidsColors.borderDefault,
+                : (isDark
+                    ? StarKidsDarkColors.borderDefault
+                    : StarKidsColors.borderDefault),
           ),
         ),
         child: InkWell(
@@ -79,7 +82,9 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
                           vertical: StarKidsSpacing.sm,
                         ),
                         decoration: BoxDecoration(
-                          color: StarKidsColors.surfaceTertiary,
+                          color: isDark
+                              ? const Color(0x1AFF0F90)
+                              : StarKidsColors.surfaceTertiary,
                           borderRadius: BorderRadius.circular(
                             StarKidsRadii.full,
                           ),

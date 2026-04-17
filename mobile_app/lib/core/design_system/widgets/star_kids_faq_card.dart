@@ -20,14 +20,21 @@ class StarKidsFaqCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return StarKidsReveal(
       delay: revealDelay,
       child: Container(
         decoration: BoxDecoration(
-          color: StarKidsColors.surfacePrimary,
+          color: isDark
+              ? StarKidsDarkColors.glassSurface
+              : StarKidsColors.surfacePrimary,
           borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-          border: Border.all(color: StarKidsColors.borderDefault),
+          border: Border.all(
+            color: isDark
+                ? StarKidsDarkColors.borderDefault
+                : StarKidsColors.borderDefault,
+          ),
         ),
         child: Theme(
           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -43,7 +50,9 @@ class StarKidsFaqCard extends StatelessWidget {
               StarKidsSpacing.lg,
             ),
             iconColor: StarKidsColors.brandPrimary,
-            collapsedIconColor: StarKidsColors.textSecondary,
+            collapsedIconColor: isDark
+                ? StarKidsDarkColors.textSecondary
+                : StarKidsColors.textSecondary,
             title: Text(question, style: textTheme.titleMedium),
             children: [
               Align(

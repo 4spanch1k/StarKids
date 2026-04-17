@@ -87,9 +87,12 @@ class _BootstrapErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: StarKidsColors.surfaceCanvas,
+      backgroundColor: isDark
+          ? StarKidsDarkColors.surfaceCanvas
+          : StarKidsColors.surfaceCanvas,
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -98,9 +101,15 @@ class _BootstrapErrorView extends StatelessWidget {
               constraints: const BoxConstraints(maxWidth: 360),
               padding: const EdgeInsets.all(StarKidsSpacing.xl),
               decoration: BoxDecoration(
-                color: StarKidsColors.surfacePrimary,
+                color: isDark
+                    ? StarKidsDarkColors.surfaceElevated
+                    : StarKidsColors.surfacePrimary,
                 borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-                border: Border.all(color: StarKidsColors.borderDefault),
+                border: Border.all(
+                  color: isDark
+                      ? StarKidsDarkColors.borderDefault
+                      : StarKidsColors.borderDefault,
+                ),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -120,7 +129,9 @@ class _BootstrapErrorView extends StatelessWidget {
                   Text(
                     'Попробуйте повторить загрузку. Маршруты не менялись, повторно запускается только инициализация приложения.',
                     style: textTheme.bodyMedium?.copyWith(
-                      color: StarKidsColors.textSecondary,
+                      color: isDark
+                          ? StarKidsDarkColors.textSecondary
+                          : StarKidsColors.textSecondary,
                     ),
                     textAlign: TextAlign.center,
                   ),

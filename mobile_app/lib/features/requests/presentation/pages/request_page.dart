@@ -233,7 +233,9 @@ class _RequestPageState extends State<RequestPage> {
 
     final selectedBranchId = await showStarKidsModalBottomSheet<String>(
       context: context,
-      backgroundColor: StarKidsColors.surfacePrimary,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? StarKidsDarkColors.surfaceElevated
+          : StarKidsColors.surfacePrimary,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -278,7 +280,9 @@ class _RequestPageState extends State<RequestPage> {
 
     final selectedPackageId = await showStarKidsModalBottomSheet<String>(
       context: context,
-      backgroundColor: StarKidsColors.surfacePrimary,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? StarKidsDarkColors.surfaceElevated
+          : StarKidsColors.surfacePrimary,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -365,8 +369,13 @@ class _RequestTypeOptionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accentColor =
+        isDark ? StarKidsDarkColors.accentPink : StarKidsColors.brandPrimary;
     return Material(
-      color: StarKidsColors.surfacePrimary,
+      color: isDark
+          ? StarKidsDarkColors.surfaceElevated
+          : StarKidsColors.surfacePrimary,
       borderRadius: BorderRadius.circular(StarKidsRadii.xl),
       child: InkWell(
         borderRadius: BorderRadius.circular(StarKidsRadii.xl),
@@ -377,8 +386,10 @@ class _RequestTypeOptionCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(StarKidsRadii.xl),
             border: Border.all(
               color: isSelected
-                  ? StarKidsColors.brandPrimary
-                  : StarKidsColors.borderDefault,
+                  ? accentColor
+                  : (isDark
+                      ? StarKidsDarkColors.borderDefault
+                      : StarKidsColors.borderDefault),
             ),
           ),
           child: Row(
@@ -388,14 +399,16 @@ class _RequestTypeOptionCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: StarKidsColors.surfaceSecondary,
+                  color: isDark
+                      ? StarKidsDarkColors.glassSurface
+                      : StarKidsColors.surfaceSecondary,
                   borderRadius: BorderRadius.circular(StarKidsRadii.lg),
                 ),
                 child: Icon(
                   type.isBirthdayRequest
                       ? Icons.cake_rounded
                       : Icons.support_agent_rounded,
-                  color: StarKidsColors.brandPrimary,
+                  color: accentColor,
                 ),
               ),
               const SizedBox(width: StarKidsSpacing.md),
@@ -442,6 +455,7 @@ class _BirthdayRequestFormView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SafeArea(
       child: Form(
@@ -464,9 +478,15 @@ class _BirthdayRequestFormView extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(StarKidsSpacing.lg),
               decoration: BoxDecoration(
-                color: StarKidsColors.surfacePrimary,
+                color: isDark
+                    ? StarKidsDarkColors.surfaceElevated
+                    : StarKidsColors.surfacePrimary,
                 borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-                border: Border.all(color: StarKidsColors.borderDefault),
+                border: Border.all(
+                  color: isDark
+                      ? StarKidsDarkColors.borderDefault
+                      : StarKidsColors.borderDefault,
+                ),
               ),
               child: Column(
                 children: [
@@ -497,8 +517,12 @@ class _BirthdayRequestFormView extends StatelessWidget {
               _RequestStatusBanner(
                 title: 'Заявка пока не отправлена',
                 description: controller.submissionErrorText!,
-                backgroundColor: StarKidsColors.statusErrorSurface,
-                foregroundColor: StarKidsColors.statusError,
+                backgroundColor: isDark
+                    ? StarKidsDarkColors.statusErrorSurface
+                    : StarKidsColors.statusErrorSurface,
+                foregroundColor: isDark
+                    ? StarKidsDarkColors.statusError
+                    : StarKidsColors.statusError,
                 icon: Icons.error_rounded,
               ),
               const SizedBox(height: StarKidsSpacing.lg),
@@ -592,6 +616,7 @@ class _ContactRequestFormView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SafeArea(
       child: Form(
@@ -624,8 +649,12 @@ class _ContactRequestFormView extends StatelessWidget {
               _RequestStatusBanner(
                 title: 'Запрос пока не отправлен',
                 description: controller.submissionErrorText!,
-                backgroundColor: StarKidsColors.statusErrorSurface,
-                foregroundColor: StarKidsColors.statusError,
+                backgroundColor: isDark
+                    ? StarKidsDarkColors.statusErrorSurface
+                    : StarKidsColors.statusErrorSurface,
+                foregroundColor: isDark
+                    ? StarKidsDarkColors.statusError
+                    : StarKidsColors.statusError,
                 icon: Icons.error_rounded,
               ),
               const SizedBox(height: StarKidsSpacing.lg),
@@ -712,6 +741,8 @@ class _RequestSuccessView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(StarKidsSpacing.xl),
@@ -719,17 +750,27 @@ class _RequestSuccessView extends StatelessWidget {
           _RequestStatusBanner(
             title: type.successTitle,
             description: type.successDescription,
-            backgroundColor: StarKidsColors.statusSuccessSurface,
-            foregroundColor: StarKidsColors.statusSuccess,
+            backgroundColor: isDark
+                ? StarKidsDarkColors.statusSuccessSurface
+                : StarKidsColors.statusSuccessSurface,
+            foregroundColor: isDark
+                ? StarKidsDarkColors.statusSuccess
+                : StarKidsColors.statusSuccess,
             icon: Icons.check_circle_rounded,
           ),
           const SizedBox(height: StarKidsSpacing.x2l),
           Container(
             padding: const EdgeInsets.all(StarKidsSpacing.lg),
             decoration: BoxDecoration(
-              color: StarKidsColors.surfacePrimary,
+              color: isDark
+                  ? StarKidsDarkColors.surfaceElevated
+                  : StarKidsColors.surfacePrimary,
               borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-              border: Border.all(color: StarKidsColors.borderDefault),
+              border: Border.all(
+                color: isDark
+                    ? StarKidsDarkColors.borderDefault
+                    : StarKidsColors.borderDefault,
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -784,6 +825,8 @@ class _ContactRequestSuccessView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(StarKidsSpacing.xl),
@@ -791,17 +834,27 @@ class _ContactRequestSuccessView extends StatelessWidget {
           _RequestStatusBanner(
             title: submission.type.successTitle,
             description: submission.type.successDescription,
-            backgroundColor: StarKidsColors.statusSuccessSurface,
-            foregroundColor: StarKidsColors.statusSuccess,
+            backgroundColor: isDark
+                ? StarKidsDarkColors.statusSuccessSurface
+                : StarKidsColors.statusSuccessSurface,
+            foregroundColor: isDark
+                ? StarKidsDarkColors.statusSuccess
+                : StarKidsColors.statusSuccess,
             icon: Icons.check_circle_rounded,
           ),
           const SizedBox(height: StarKidsSpacing.x2l),
           Container(
             padding: const EdgeInsets.all(StarKidsSpacing.lg),
             decoration: BoxDecoration(
-              color: StarKidsColors.surfacePrimary,
+              color: isDark
+                  ? StarKidsDarkColors.surfaceElevated
+                  : StarKidsColors.surfacePrimary,
               borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-              border: Border.all(color: StarKidsColors.borderDefault),
+              border: Border.all(
+                color: isDark
+                    ? StarKidsDarkColors.borderDefault
+                    : StarKidsColors.borderDefault,
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -855,13 +908,20 @@ class _RequestContextCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.all(StarKidsSpacing.lg),
       decoration: BoxDecoration(
-        color: StarKidsColors.surfaceSecondary,
+        color: isDark
+            ? StarKidsDarkColors.glassSurface
+            : StarKidsColors.surfaceSecondary,
         borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-        border: Border.all(color: StarKidsColors.borderDefault),
+        border: Border.all(
+          color: isDark
+              ? StarKidsDarkColors.borderDefault
+              : StarKidsColors.borderDefault,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -869,7 +929,9 @@ class _RequestContextCard extends StatelessWidget {
           Text(
             label,
             style: textTheme.titleMedium?.copyWith(
-              color: StarKidsColors.brandPrimary,
+              color: isDark
+                  ? StarKidsDarkColors.accentPink
+                  : StarKidsColors.brandPrimary,
             ),
           ),
           const SizedBox(height: StarKidsSpacing.xs),
@@ -900,6 +962,9 @@ class _SelectionSheet<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accentColor =
+        isDark ? StarKidsDarkColors.accentPink : StarKidsColors.brandPrimary;
 
     return SafeArea(
       child: Padding(
@@ -917,7 +982,9 @@ class _SelectionSheet<T> extends StatelessWidget {
               return Padding(
                 padding: const EdgeInsets.only(bottom: StarKidsSpacing.sm),
                 child: Material(
-                  color: StarKidsColors.surfacePrimary,
+                  color: isDark
+                      ? StarKidsDarkColors.surfacePrimary
+                      : StarKidsColors.surfacePrimary,
                   borderRadius: BorderRadius.circular(StarKidsRadii.lg),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(StarKidsRadii.lg),
@@ -928,8 +995,10 @@ class _SelectionSheet<T> extends StatelessWidget {
                         borderRadius: BorderRadius.circular(StarKidsRadii.lg),
                         border: Border.all(
                           color: isCurrent
-                              ? StarKidsColors.brandPrimary
-                              : StarKidsColors.borderDefault,
+                              ? accentColor
+                              : (isDark
+                                  ? StarKidsDarkColors.borderDefault
+                                  : StarKidsColors.borderDefault),
                         ),
                       ),
                       child: Row(
@@ -946,7 +1015,11 @@ class _SelectionSheet<T> extends StatelessWidget {
                                 const SizedBox(height: StarKidsSpacing.xs),
                                 Text(
                                   subtitleBuilder(item),
-                                  style: textTheme.bodyMedium,
+                                  style: textTheme.bodyMedium?.copyWith(
+                                    color: isDark
+                                        ? StarKidsDarkColors.textSecondary
+                                        : StarKidsColors.textSecondary,
+                                  ),
                                 ),
                               ],
                             ),
@@ -957,8 +1030,10 @@ class _SelectionSheet<T> extends StatelessWidget {
                                 ? Icons.check_circle_rounded
                                 : Icons.chevron_right_rounded,
                             color: isCurrent
-                                ? StarKidsColors.brandPrimary
-                                : StarKidsColors.textSecondary,
+                                ? accentColor
+                                : (isDark
+                                    ? StarKidsDarkColors.textSecondary
+                                    : StarKidsColors.textSecondary),
                           ),
                         ],
                       ),
@@ -992,6 +1067,7 @@ class _RequestStatusBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.all(StarKidsSpacing.lg),
@@ -1016,7 +1092,9 @@ class _RequestStatusBanner extends StatelessWidget {
                 Text(
                   description,
                   style: textTheme.bodyMedium?.copyWith(
-                    color: StarKidsColors.textPrimary,
+                    color: isDark
+                        ? StarKidsDarkColors.textPrimary
+                        : StarKidsColors.textPrimary,
                   ),
                 ),
               ],

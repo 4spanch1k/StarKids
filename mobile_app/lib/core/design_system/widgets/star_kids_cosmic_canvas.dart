@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-/// Wraps [child] with a soft pastel nebula background.
+/// Wraps [child] with a soft nebula background — light or dark based on theme brightness.
 /// Uses a single [CustomPaint] pass — no blur, no compositing overhead.
 class StarKidsCosmicCanvas extends StatelessWidget {
   const StarKidsCosmicCanvas({super.key, required this.child});
@@ -11,12 +11,13 @@ class StarKidsCosmicCanvas extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Stack(
       children: [
         Positioned.fill(
           child: RepaintBoundary(
             child: CustomPaint(
-              painter: _CosmicCanvasPainter(),
+              painter: _CosmicCanvasPainter(isDark: isDark),
             ),
           ),
         ),
@@ -27,9 +28,20 @@ class StarKidsCosmicCanvas extends StatelessWidget {
 }
 
 class _CosmicCanvasPainter extends CustomPainter {
+  const _CosmicCanvasPainter({required this.isDark});
+
+  final bool isDark;
+
   @override
   void paint(Canvas canvas, Size size) {
-    // Base gradient: warm pink top-left → lavender center → sky bottom-right
+    if (isDark) {
+      _paintDark(canvas, size);
+    } else {
+      _paintLight(canvas, size);
+    }
+  }
+
+  void _paintLight(Canvas canvas, Size size) {
     final bgPaint = Paint()
       ..shader = const LinearGradient(
         begin: Alignment.topLeft,
@@ -43,24 +55,44 @@ class _CosmicCanvasPainter extends CustomPainter {
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
 
-    // Soft nebula blobs — positioned so they look organic across all screen sizes
-    _drawBlob(canvas, size, Offset(size.width * 0.88, size.height * 0.07),
-        size.width * 0.54, const Color(0x30FFCCE7)); // top-right pink
-    _drawBlob(canvas, size, Offset(size.width * 0.04, size.height * 0.30),
-        size.width * 0.50, const Color(0x26D4BEFF)); // mid-left lavender
-    _drawBlob(canvas, size, Offset(size.width * 0.70, size.height * 0.52),
-        size.width * 0.46, const Color(0x22FFD8BE)); // center-right peach
-    _drawBlob(canvas, size, Offset(size.width * 0.18, size.height * 0.74),
-        size.width * 0.42, const Color(0x1ABEE8FF)); // bottom-left sky
-    _drawBlob(canvas, size, Offset(size.width * 0.52, size.height * 0.94),
-        size.width * 0.38, const Color(0x24E8BEFF)); // bottom-center lavender
+    _drawBlob(canvas, Offset(size.width * 0.88, size.height * 0.07),
+        size.width * 0.54, const Color(0x30FFCCE7));
+    _drawBlob(canvas, Offset(size.width * 0.04, size.height * 0.30),
+        size.width * 0.50, const Color(0x26D4BEFF));
+    _drawBlob(canvas, Offset(size.width * 0.70, size.height * 0.52),
+        size.width * 0.46, const Color(0x22FFD8BE));
+    _drawBlob(canvas, Offset(size.width * 0.18, size.height * 0.74),
+        size.width * 0.42, const Color(0x1ABEE8FF));
+    _drawBlob(canvas, Offset(size.width * 0.52, size.height * 0.94),
+        size.width * 0.38, const Color(0x24E8BEFF));
 
-    // Star dust — deterministic via seeded Random so shouldRepaint = false
-    _drawStarDust(canvas, size);
+    _drawStarDust(canvas, size, dark: false);
   }
 
-  void _drawBlob(
-      Canvas canvas, Size size, Offset center, double radius, Color color) {
+  void _paintDark(Canvas canvas, Size size) {
+    // Base: deep cosmic indigo
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Paint()..color = const Color(0xFF0B0B1E),
+    );
+
+    // Violet nebula — top-right
+    _drawBlob(canvas, Offset(size.width * 0.85, size.height * 0.10),
+        size.width * 0.62, const Color(0x38A855F7));
+    // Blue nebula — mid-left
+    _drawBlob(canvas, Offset(size.width * 0.06, size.height * 0.38),
+        size.width * 0.56, const Color(0x223B82F6));
+    // Violet — bottom center
+    _drawBlob(canvas, Offset(size.width * 0.55, size.height * 0.90),
+        size.width * 0.52, const Color(0x2CA855F7));
+    // Blue — lower-left accent
+    _drawBlob(canvas, Offset(size.width * 0.20, size.height * 0.72),
+        size.width * 0.38, const Color(0x183B82F6));
+
+    _drawStarDust(canvas, size, dark: true);
+  }
+
+  void _drawBlob(Canvas canvas, Offset center, double radius, Color color) {
     final paint = Paint()
       ..shader = RadialGradient(
         colors: [color, const Color(0x00000000)],
@@ -68,26 +100,33 @@ class _CosmicCanvasPainter extends CustomPainter {
     canvas.drawCircle(center, radius, paint);
   }
 
-  void _drawStarDust(Canvas canvas, Size size) {
+  void _drawStarDust(Canvas canvas, Size size, {required bool dark}) {
     final rng = math.Random(0xDEADBEEF);
     final dotPaint = Paint();
 
     for (int i = 0; i < 26; i++) {
       final x = size.width * (0.04 + rng.nextDouble() * 0.92);
       final y = size.height * (0.02 + rng.nextDouble() * 0.96);
-      final alpha = 0.15 + rng.nextDouble() * 0.35;
+      final alpha = dark
+          ? (0.30 + rng.nextDouble() * 0.45)
+          : (0.15 + rng.nextDouble() * 0.35);
       final r = 0.8 + rng.nextDouble() * 0.8;
 
-      // Pink star core
-      dotPaint.color = Color.fromRGBO(235, 8, 118, alpha);
-      canvas.drawCircle(Offset(x, y), r, dotPaint);
-
-      // White highlight offset
-      dotPaint.color = const Color(0x55FFFFFF);
-      canvas.drawCircle(Offset(x + r * 0.6, y - r * 0.6), r * 0.55, dotPaint);
+      if (dark) {
+        dotPaint.color = Color.fromRGBO(160, 180, 255, alpha);
+        canvas.drawCircle(Offset(x, y), r, dotPaint);
+        dotPaint.color = const Color(0x44FFFFFF);
+        canvas.drawCircle(Offset(x + r * 0.6, y - r * 0.6), r * 0.55, dotPaint);
+      } else {
+        dotPaint.color = Color.fromRGBO(235, 8, 118, alpha);
+        canvas.drawCircle(Offset(x, y), r, dotPaint);
+        dotPaint.color = const Color(0x55FFFFFF);
+        canvas.drawCircle(Offset(x + r * 0.6, y - r * 0.6), r * 0.55, dotPaint);
+      }
     }
   }
 
   @override
-  bool shouldRepaint(_CosmicCanvasPainter oldDelegate) => false;
+  bool shouldRepaint(_CosmicCanvasPainter oldDelegate) =>
+      oldDelegate.isDark != isDark;
 }

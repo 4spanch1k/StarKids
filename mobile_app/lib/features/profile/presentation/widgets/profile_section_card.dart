@@ -22,14 +22,21 @@ class ProfileSectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.all(StarKidsSpacing.xl),
       decoration: BoxDecoration(
-        color: StarKidsColors.surfacePrimary,
+        color: isDark
+            ? StarKidsDarkColors.surfaceElevated
+            : StarKidsColors.surfacePrimary,
         borderRadius: BorderRadius.circular(StarKidsRadii.lg),
-        border: Border.all(color: StarKidsColors.borderDefault),
-        boxShadow: StarKidsShadows.depth1,
+        border: Border.all(
+          color: isDark
+              ? StarKidsDarkColors.borderDefault
+              : StarKidsColors.borderDefault,
+        ),
+        boxShadow: isDark ? null : StarKidsShadows.depth1,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -50,7 +57,9 @@ class ProfileSectionCard extends StatelessWidget {
             Text(
               subtitle!,
               style: textTheme.bodyMedium?.copyWith(
-                color: StarKidsColors.textSecondary,
+                color: isDark
+                    ? StarKidsDarkColors.textSecondary
+                    : StarKidsColors.textSecondary,
               ),
             ),
           ],

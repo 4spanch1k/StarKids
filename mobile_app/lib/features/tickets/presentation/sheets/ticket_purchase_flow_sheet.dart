@@ -24,9 +24,12 @@ Future<void> showTicketPurchaseFlowSheet(BuildContext context) {
 }
 
 Future<void> showMyTicketsSheet(BuildContext context) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
   return showStarKidsModalBottomSheet<void>(
     context: context,
-    backgroundColor: StarKidsColors.surfacePrimary,
+    backgroundColor: isDark
+        ? StarKidsDarkColors.surfaceElevated
+        : StarKidsColors.surfacePrimary,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
@@ -115,7 +118,9 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
 
     final selectedBranch = await showStarKidsModalBottomSheet<BranchOption>(
       context: context,
-      backgroundColor: StarKidsColors.surfacePrimary,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? StarKidsDarkColors.surfaceElevated
+          : StarKidsColors.surfacePrimary,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -150,7 +155,9 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
 
     final selectedDate = await showStarKidsModalBottomSheet<DateTime>(
       context: context,
-      backgroundColor: StarKidsColors.surfacePrimary,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? StarKidsDarkColors.surfaceElevated
+          : StarKidsColors.surfacePrimary,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -367,13 +374,16 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return FractionallySizedBox(
       heightFactor: 0.92,
       child: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: StarKidsColors.surfaceCanvas,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        decoration: BoxDecoration(
+          color: isDark
+              ? StarKidsDarkColors.surfaceCanvas
+              : StarKidsColors.surfaceCanvas,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
         ),
         child: SafeArea(
           top: false,
@@ -384,7 +394,9 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                 width: 44,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: StarKidsColors.borderDefault,
+                  color: isDark
+                      ? StarKidsDarkColors.borderDefault
+                      : StarKidsColors.borderDefault,
                   borderRadius: BorderRadius.circular(StarKidsRadii.full),
                 ),
               ),
@@ -421,7 +433,9 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                                 ? 'Шаг 1 из 2'
                                 : 'Шаг 2 из 2',
                             style: textTheme.bodySmall?.copyWith(
-                              color: StarKidsColors.textSecondary,
+                              color: isDark
+                                  ? StarKidsDarkColors.textSecondary
+                                  : StarKidsColors.textSecondary,
                             ),
                           ),
                         ],
@@ -471,10 +485,16 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                   StarKidsSpacing.xl,
                   StarKidsSpacing.xl + bottomInset,
                 ),
-                decoration: const BoxDecoration(
-                  color: StarKidsColors.surfacePrimary,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? StarKidsDarkColors.surfacePrimary
+                      : StarKidsColors.surfacePrimary,
                   border: Border(
-                    top: BorderSide(color: StarKidsColors.borderDefault),
+                    top: BorderSide(
+                      color: isDark
+                          ? StarKidsDarkColors.borderDefault
+                          : StarKidsColors.borderDefault,
+                    ),
                   ),
                 ),
                 child: Column(
@@ -489,7 +509,9 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                           Text(
                             _formatTenge(_totalAmount),
                             style: textTheme.titleMedium?.copyWith(
-                              color: StarKidsColors.brandPrimary,
+                              color: isDark
+                                  ? StarKidsDarkColors.accentPink
+                                  : StarKidsColors.brandPrimary,
                             ),
                           ),
                         ],
@@ -500,7 +522,9 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                             ? 'Выберите хотя бы один платный билет.'
                             : 'Выбрано билетов: $_totalTickets',
                         style: textTheme.bodySmall?.copyWith(
-                          color: StarKidsColors.textSecondary,
+                          color: isDark
+                              ? StarKidsDarkColors.textSecondary
+                              : StarKidsColors.textSecondary,
                         ),
                       ),
                       const SizedBox(height: StarKidsSpacing.md),
@@ -541,8 +565,12 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                         _paymentMessage!,
                         style: textTheme.bodyMedium?.copyWith(
                           color: _paymentPhase == _TicketPaymentPhase.failed
-                              ? StarKidsColors.statusError
-                              : StarKidsColors.textSecondary,
+                              ? (isDark
+                                  ? StarKidsDarkColors.statusError
+                                  : StarKidsColors.statusError)
+                              : (isDark
+                                  ? StarKidsDarkColors.textSecondary
+                                  : StarKidsColors.textSecondary),
                         ),
                       ),
                     ],
@@ -600,6 +628,7 @@ class _StepSelectionView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(
@@ -614,7 +643,9 @@ class _StepSelectionView extends StatelessWidget {
           Text(
             'Сначала выберите филиал и день посещения. Мы не создаем оплату и бронь автоматически на этом этапе.',
             style: textTheme.bodyMedium?.copyWith(
-              color: StarKidsColors.textSecondary,
+              color: isDark
+                  ? StarKidsDarkColors.textSecondary
+                  : StarKidsColors.textSecondary,
             ),
           ),
           const SizedBox(height: StarKidsSpacing.xl),
@@ -690,6 +721,16 @@ class _StepTicketsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark
+        ? StarKidsDarkColors.surfacePrimary
+        : StarKidsColors.surfacePrimary;
+    final borderColor = isDark
+        ? StarKidsDarkColors.borderDefault
+        : StarKidsColors.borderDefault;
+    final secondaryText = isDark
+        ? StarKidsDarkColors.textSecondary
+        : StarKidsColors.textSecondary;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(
@@ -705,10 +746,10 @@ class _StepTicketsView extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(StarKidsSpacing.lg),
             decoration: BoxDecoration(
-              color: StarKidsColors.surfacePrimary,
+              color: cardBg,
               borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-              border: Border.all(color: StarKidsColors.borderDefault),
-              boxShadow: StarKidsShadows.depth1,
+              border: Border.all(color: borderColor),
+              boxShadow: isDark ? null : StarKidsShadows.depth1,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -720,7 +761,7 @@ class _StepTicketsView extends StatelessWidget {
                 Text(
                   _formatTicketDate(selectedDate),
                   style: textTheme.bodyMedium?.copyWith(
-                    color: StarKidsColors.textSecondary,
+                    color: secondaryText,
                   ),
                 ),
               ],
@@ -732,7 +773,7 @@ class _StepTicketsView extends StatelessWidget {
           Text(
             'Изменяйте количество по каждому типу отдельно. Значение не может уйти ниже нуля.',
             style: textTheme.bodyMedium?.copyWith(
-              color: StarKidsColors.textSecondary,
+              color: secondaryText,
             ),
           ),
           const SizedBox(height: StarKidsSpacing.lg),
@@ -771,9 +812,9 @@ class _StepTicketsView extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(StarKidsSpacing.lg),
               decoration: BoxDecoration(
-                color: StarKidsColors.surfacePrimary,
+                color: cardBg,
                 borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-                border: Border.all(color: StarKidsColors.borderDefault),
+                border: Border.all(color: borderColor),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -812,14 +853,21 @@ class _TicketCounterCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.all(StarKidsSpacing.lg),
       decoration: BoxDecoration(
-        color: StarKidsColors.surfacePrimary,
+        color: isDark
+            ? StarKidsDarkColors.surfacePrimary
+            : StarKidsColors.surfacePrimary,
         borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-        border: Border.all(color: StarKidsColors.borderDefault),
-        boxShadow: StarKidsShadows.depth1,
+        border: Border.all(
+          color: isDark
+              ? StarKidsDarkColors.borderDefault
+              : StarKidsColors.borderDefault,
+        ),
+        boxShadow: isDark ? null : StarKidsShadows.depth1,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -833,7 +881,9 @@ class _TicketCounterCard extends StatelessWidget {
                 Text(
                   _formatTenge(config.priceTenge),
                   style: textTheme.bodyLarge?.copyWith(
-                    color: StarKidsColors.brandPrimary,
+                    color: isDark
+                        ? StarKidsDarkColors.accentPink
+                        : StarKidsColors.brandPrimary,
                   ),
                 ),
                 if (config.description.isNotEmpty) ...[
@@ -841,7 +891,9 @@ class _TicketCounterCard extends StatelessWidget {
                   Text(
                     config.description,
                     style: textTheme.bodySmall?.copyWith(
-                      color: StarKidsColors.textSecondary,
+                      color: isDark
+                          ? StarKidsDarkColors.textSecondary
+                          : StarKidsColors.textSecondary,
                     ),
                   ),
                 ],
@@ -889,11 +941,18 @@ class _TicketCounterControl extends StatelessWidget {
     final canDecrease = count > 0;
     final textTheme = Theme.of(context).textTheme;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: StarKidsColors.surfaceSecondary,
+        color: isDark
+            ? StarKidsDarkColors.glassSurface
+            : StarKidsColors.surfaceSecondary,
         borderRadius: BorderRadius.circular(StarKidsRadii.full),
-        border: Border.all(color: StarKidsColors.borderDefault),
+        border: Border.all(
+          color: isDark
+              ? StarKidsDarkColors.borderDefault
+              : StarKidsColors.borderDefault,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -939,13 +998,18 @@ class _CounterButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return IconButton(
       onPressed: enabled ? onTap : null,
       icon: Icon(icon, size: StarKidsIconSizes.sm),
       color: enabled
-          ? StarKidsColors.textPrimary
+          ? (isDark ? StarKidsDarkColors.textPrimary : StarKidsColors.textPrimary)
+          : (isDark
+              ? StarKidsDarkColors.actionDisabledFg
+              : StarKidsColors.actionDisabledFg),
+      disabledColor: isDark
+          ? StarKidsDarkColors.actionDisabledFg
           : StarKidsColors.actionDisabledFg,
-      disabledColor: StarKidsColors.actionDisabledFg,
       splashRadius: 20,
       tooltip: null,
     );
@@ -988,20 +1052,29 @@ class _TicketBadgeChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: StarKidsSpacing.sm,
         vertical: StarKidsSpacing.xs,
       ),
       decoration: BoxDecoration(
-        color: StarKidsColors.surfaceSecondary,
+        color: isDark
+            ? StarKidsDarkColors.glassSurface
+            : StarKidsColors.surfaceSecondary,
         borderRadius: BorderRadius.circular(StarKidsRadii.full),
-        border: Border.all(color: StarKidsColors.borderDefault),
+        border: Border.all(
+          color: isDark
+              ? StarKidsDarkColors.borderDefault
+              : StarKidsColors.borderDefault,
+        ),
       ),
       child: Text(
         label,
         style: textTheme.labelSmall?.copyWith(
-          color: StarKidsColors.textPrimary,
+          color: isDark
+              ? StarKidsDarkColors.textPrimary
+              : StarKidsColors.textPrimary,
         ),
       ),
     );
@@ -1017,14 +1090,21 @@ class _TicketConfigPreviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(StarKidsSpacing.lg),
       decoration: BoxDecoration(
-        color: StarKidsColors.surfacePrimary,
+        color: isDark
+            ? StarKidsDarkColors.surfacePrimary
+            : StarKidsColors.surfacePrimary,
         borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-        border: Border.all(color: StarKidsColors.borderDefault),
-        boxShadow: StarKidsShadows.depth1,
+        border: Border.all(
+          color: isDark
+              ? StarKidsDarkColors.borderDefault
+              : StarKidsColors.borderDefault,
+        ),
+        boxShadow: isDark ? null : StarKidsShadows.depth1,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1046,7 +1126,9 @@ class _TicketConfigPreviewCard extends StatelessWidget {
                         Text(
                           config.items[index].description,
                           style: textTheme.bodySmall?.copyWith(
-                            color: StarKidsColors.textSecondary,
+                            color: isDark
+                                ? StarKidsDarkColors.textSecondary
+                                : StarKidsColors.textSecondary,
                           ),
                         ),
                       ],
@@ -1057,7 +1139,9 @@ class _TicketConfigPreviewCard extends StatelessWidget {
                 Text(
                   _formatTenge(config.items[index].priceTenge),
                   style: textTheme.titleMedium?.copyWith(
-                    color: StarKidsColors.brandPrimary,
+                    color: isDark
+                        ? StarKidsDarkColors.accentPink
+                        : StarKidsColors.brandPrimary,
                   ),
                 ),
               ],
@@ -1074,7 +1158,12 @@ class _TicketConfigPreviewCard extends StatelessWidget {
             ],
             if (index < config.items.length - 1) ...[
               const SizedBox(height: StarKidsSpacing.md),
-              const Divider(height: 1, color: StarKidsColors.borderDefault),
+              Divider(
+                height: 1,
+                color: isDark
+                    ? StarKidsDarkColors.borderDefault
+                    : StarKidsColors.borderDefault,
+              ),
               const SizedBox(height: StarKidsSpacing.md),
             ],
           ],
@@ -1097,13 +1186,20 @@ class _TicketConfigStateCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(StarKidsSpacing.lg),
       decoration: BoxDecoration(
-        color: StarKidsColors.surfacePrimary,
+        color: isDark
+            ? StarKidsDarkColors.surfacePrimary
+            : StarKidsColors.surfacePrimary,
         borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-        border: Border.all(color: StarKidsColors.borderDefault),
+        border: Border.all(
+          color: isDark
+              ? StarKidsDarkColors.borderDefault
+              : StarKidsColors.borderDefault,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1113,7 +1209,9 @@ class _TicketConfigStateCard extends StatelessWidget {
           Text(
             description,
             style: textTheme.bodyMedium?.copyWith(
-              color: StarKidsColors.textSecondary,
+              color: isDark
+                  ? StarKidsDarkColors.textSecondary
+                  : StarKidsColors.textSecondary,
             ),
           ),
         ],
@@ -1172,6 +1270,7 @@ class _MyTicketsSheetState extends State<_MyTicketsSheet> {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SafeArea(
       top: false,
       child: Padding(
@@ -1190,7 +1289,9 @@ class _MyTicketsSheetState extends State<_MyTicketsSheet> {
                 width: 44,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: StarKidsColors.borderDefault,
+                  color: isDark
+                      ? StarKidsDarkColors.borderDefault
+                      : StarKidsColors.borderDefault,
                   borderRadius: BorderRadius.circular(StarKidsRadii.full),
                 ),
               ),
@@ -1201,7 +1302,9 @@ class _MyTicketsSheetState extends State<_MyTicketsSheet> {
             Text(
               'Показываем только билеты, подтвержденные backend после оплаты.',
               style: textTheme.bodyMedium?.copyWith(
-                color: StarKidsColors.textSecondary,
+                color: isDark
+                    ? StarKidsDarkColors.textSecondary
+                    : StarKidsColors.textSecondary,
               ),
             ),
             const SizedBox(height: StarKidsSpacing.xl),
@@ -1264,14 +1367,21 @@ class _PurchasedTicketCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(StarKidsSpacing.lg),
       decoration: BoxDecoration(
-        color: StarKidsColors.surfacePrimary,
+        color: isDark
+            ? StarKidsDarkColors.surfacePrimary
+            : StarKidsColors.surfacePrimary,
         borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-        border: Border.all(color: StarKidsColors.borderDefault),
-        boxShadow: StarKidsShadows.depth1,
+        border: Border.all(
+          color: isDark
+              ? StarKidsDarkColors.borderDefault
+              : StarKidsColors.borderDefault,
+        ),
+        boxShadow: isDark ? null : StarKidsShadows.depth1,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1283,12 +1393,16 @@ class _PurchasedTicketCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: StarKidsColors.statusSuccessSurface,
+                  color: isDark
+                      ? StarKidsDarkColors.statusSuccessSurface
+                      : StarKidsColors.statusSuccessSurface,
                   borderRadius: BorderRadius.circular(StarKidsRadii.lg),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.confirmation_num_rounded,
-                  color: StarKidsColors.statusSuccess,
+                  color: isDark
+                      ? StarKidsDarkColors.statusSuccess
+                      : StarKidsColors.statusSuccess,
                 ),
               ),
               const SizedBox(width: StarKidsSpacing.md),
@@ -1303,7 +1417,9 @@ class _PurchasedTicketCard extends StatelessWidget {
                           ? 'Дата посещения не указана'
                           : _formatTicketDate(ticket.visitDate!),
                       style: textTheme.bodySmall?.copyWith(
-                        color: StarKidsColors.textSecondary,
+                        color: isDark
+                            ? StarKidsDarkColors.textSecondary
+                            : StarKidsColors.textSecondary,
                       ),
                     ),
                   ],
@@ -1313,7 +1429,9 @@ class _PurchasedTicketCard extends StatelessWidget {
               Text(
                 _formatTenge(ticket.amountTenge),
                 style: textTheme.titleSmall?.copyWith(
-                  color: StarKidsColors.brandPrimary,
+                  color: isDark
+                      ? StarKidsDarkColors.accentPink
+                      : StarKidsColors.brandPrimary,
                 ),
               ),
             ],
@@ -1329,7 +1447,9 @@ class _PurchasedTicketCard extends StatelessWidget {
           Text(
             'Заказ ${ticket.localOrderId}',
             style: textTheme.bodySmall?.copyWith(
-              color: StarKidsColors.textSecondary,
+              color: isDark
+                  ? StarKidsDarkColors.textSecondary
+                  : StarKidsColors.textSecondary,
             ),
           ),
         ],
@@ -1359,6 +1479,7 @@ class _SelectionSheet<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SafeArea(
       top: false,
       child: Padding(
@@ -1377,7 +1498,9 @@ class _SelectionSheet<T> extends StatelessWidget {
                 width: 44,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: StarKidsColors.borderDefault,
+                  color: isDark
+                      ? StarKidsDarkColors.borderDefault
+                      : StarKidsColors.borderDefault,
                   borderRadius: BorderRadius.circular(StarKidsRadii.full),
                 ),
               ),
@@ -1396,8 +1519,17 @@ class _SelectionSheet<T> extends StatelessWidget {
                   final itemId = itemIdBuilder(item);
                   final isSelected = itemId == currentId;
 
+                  final isDark = Theme.of(context).brightness == Brightness.dark;
+                  final accentColor = isDark
+                      ? StarKidsDarkColors.accentPink
+                      : StarKidsColors.brandPrimary;
+                  final secondaryText = isDark
+                      ? StarKidsDarkColors.textSecondary
+                      : StarKidsColors.textSecondary;
                   return Material(
-                    color: StarKidsColors.surfacePrimary,
+                    color: isDark
+                        ? StarKidsDarkColors.surfacePrimary
+                        : StarKidsColors.surfacePrimary,
                     borderRadius: BorderRadius.circular(StarKidsRadii.xl),
                     child: InkWell(
                       key: ValueKey('selection-item-$index'),
@@ -1409,8 +1541,10 @@ class _SelectionSheet<T> extends StatelessWidget {
                           borderRadius: BorderRadius.circular(StarKidsRadii.xl),
                           border: Border.all(
                             color: isSelected
-                                ? StarKidsColors.brandPrimary
-                                : StarKidsColors.borderDefault,
+                                ? accentColor
+                                : (isDark
+                                    ? StarKidsDarkColors.borderDefault
+                                    : StarKidsColors.borderDefault),
                             width: isSelected ? 2 : 1,
                           ),
                         ),
@@ -1429,7 +1563,7 @@ class _SelectionSheet<T> extends StatelessWidget {
                                   Text(
                                     subtitleBuilder(item),
                                     style: textTheme.bodySmall?.copyWith(
-                                      color: StarKidsColors.textSecondary,
+                                      color: secondaryText,
                                     ),
                                   ),
                                 ],
@@ -1440,9 +1574,7 @@ class _SelectionSheet<T> extends StatelessWidget {
                               isSelected
                                   ? Icons.check_circle_rounded
                                   : Icons.chevron_right_rounded,
-                              color: isSelected
-                                  ? StarKidsColors.brandPrimary
-                                  : StarKidsColors.textSecondary,
+                              color: isSelected ? accentColor : secondaryText,
                             ),
                           ],
                         ),

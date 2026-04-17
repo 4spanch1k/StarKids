@@ -93,6 +93,33 @@ abstract final class StarKidsComponentTheme {
     );
   }
 
+  static TextButtonThemeData textButtonTheme() {
+    return TextButtonThemeData(
+      style: ButtonStyle(
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(StarKidsRadii.full),
+          ),
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return StarKidsColors.actionDisabledFg;
+          }
+          if (states.contains(WidgetState.pressed)) {
+            return StarKidsColors.brandPrimaryPressed;
+          }
+          return StarKidsColors.brandPrimary;
+        }),
+        textStyle: WidgetStatePropertyAll(
+          StarKidsTextTheme.build().labelLarge,
+        ),
+      ),
+    );
+  }
+
   static InputDecorationTheme inputDecorationTheme() {
     return InputDecorationTheme(
       filled: true,
@@ -220,6 +247,85 @@ abstract final class StarKidsComponentTheme {
     );
   }
 
+  static BottomSheetThemeData bottomSheetTheme() {
+    return const BottomSheetThemeData(
+      backgroundColor: StarKidsColors.surfacePrimary,
+      modalBackgroundColor: StarKidsColors.surfacePrimary,
+      surfaceTintColor: Colors.transparent,
+      dragHandleColor: StarKidsColors.borderStrong,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+    );
+  }
+
+  static DialogThemeData dialogTheme() {
+    return DialogThemeData(
+      backgroundColor: StarKidsColors.surfacePrimary,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+      ),
+      titleTextStyle: StarKidsTextTheme.build().titleLarge,
+      contentTextStyle: StarKidsTextTheme.build().bodyMedium?.copyWith(
+            color: StarKidsColors.textSecondary,
+          ),
+    );
+  }
+
+  static PopupMenuThemeData popupMenuTheme() {
+    return PopupMenuThemeData(
+      color: StarKidsColors.surfacePrimary,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+        side: const BorderSide(color: StarKidsColors.borderDefault),
+      ),
+      textStyle: StarKidsTextTheme.build().bodyMedium,
+    );
+  }
+
+  static DatePickerThemeData datePickerTheme() {
+    return DatePickerThemeData(
+      backgroundColor: StarKidsColors.surfacePrimary,
+      surfaceTintColor: Colors.transparent,
+      headerBackgroundColor: StarKidsColors.cosmicBg,
+      headerForegroundColor: StarKidsColors.textPrimary,
+      dayForegroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return Colors.white;
+        if (states.contains(WidgetState.disabled)) {
+          return StarKidsColors.textDisabled;
+        }
+        return StarKidsColors.textPrimary;
+      }),
+      dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return StarKidsColors.brandPrimary;
+        }
+        return Colors.transparent;
+      }),
+      todayForegroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return Colors.white;
+        return StarKidsColors.brandPrimary;
+      }),
+      todayBorder: const BorderSide(color: StarKidsColors.brandPrimary),
+      yearForegroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return Colors.white;
+        return StarKidsColors.textPrimary;
+      }),
+      yearBackgroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return StarKidsColors.brandPrimary;
+        }
+        return Colors.transparent;
+      }),
+      dividerColor: StarKidsColors.borderDefault,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+      ),
+    );
+  }
+
   static List<BoxShadow> floatingShadow() => StarKidsShadows.depth2;
 
   // ─── Dark variants ────────────────────────────────────────────────────────
@@ -290,6 +396,33 @@ abstract final class StarKidsComponentTheme {
         side: WidgetStatePropertyAll(
           BorderSide(color: StarKidsDarkColors.borderDefault),
         ),
+        textStyle: WidgetStatePropertyAll(
+          StarKidsTextTheme.buildDark().labelLarge,
+        ),
+      ),
+    );
+  }
+
+  static TextButtonThemeData textButtonThemeDark() {
+    return TextButtonThemeData(
+      style: ButtonStyle(
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(StarKidsRadii.full),
+          ),
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return StarKidsDarkColors.actionDisabledFg;
+          }
+          if (states.contains(WidgetState.pressed)) {
+            return StarKidsDarkColors.accentPink.withValues(alpha: 0.82);
+          }
+          return StarKidsDarkColors.accentPink;
+        }),
         textStyle: WidgetStatePropertyAll(
           StarKidsTextTheme.buildDark().labelLarge,
         ),
@@ -407,6 +540,85 @@ abstract final class StarKidsComponentTheme {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(StarKidsRadii.lg),
         side: BorderSide(color: StarKidsDarkColors.glassStroke, width: 0.5),
+      ),
+    );
+  }
+
+  static BottomSheetThemeData bottomSheetThemeDark() {
+    return const BottomSheetThemeData(
+      backgroundColor: StarKidsDarkColors.surfaceElevated,
+      modalBackgroundColor: StarKidsDarkColors.surfaceElevated,
+      surfaceTintColor: Colors.transparent,
+      dragHandleColor: StarKidsDarkColors.borderStrong,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+    );
+  }
+
+  static DialogThemeData dialogThemeDark() {
+    return DialogThemeData(
+      backgroundColor: StarKidsDarkColors.surfaceElevated,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+      ),
+      titleTextStyle: StarKidsTextTheme.buildDark().titleLarge,
+      contentTextStyle: StarKidsTextTheme.buildDark().bodyMedium?.copyWith(
+            color: StarKidsDarkColors.textSecondary,
+          ),
+    );
+  }
+
+  static PopupMenuThemeData popupMenuThemeDark() {
+    return PopupMenuThemeData(
+      color: StarKidsDarkColors.surfaceElevated,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+        side: BorderSide(color: StarKidsDarkColors.borderDefault),
+      ),
+      textStyle: StarKidsTextTheme.buildDark().bodyMedium,
+    );
+  }
+
+  static DatePickerThemeData datePickerThemeDark() {
+    return DatePickerThemeData(
+      backgroundColor: StarKidsDarkColors.surfaceElevated,
+      surfaceTintColor: Colors.transparent,
+      headerBackgroundColor: StarKidsDarkColors.surfacePrimary,
+      headerForegroundColor: StarKidsDarkColors.textPrimary,
+      dayForegroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return Colors.white;
+        if (states.contains(WidgetState.disabled)) {
+          return StarKidsDarkColors.textDisabled;
+        }
+        return StarKidsDarkColors.textPrimary;
+      }),
+      dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return StarKidsDarkColors.accentPink;
+        }
+        return Colors.transparent;
+      }),
+      todayForegroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return Colors.white;
+        return StarKidsDarkColors.accentPink;
+      }),
+      todayBorder: const BorderSide(color: StarKidsDarkColors.accentPink),
+      yearForegroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return Colors.white;
+        return StarKidsDarkColors.textPrimary;
+      }),
+      yearBackgroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return StarKidsDarkColors.accentPink;
+        }
+        return Colors.transparent;
+      }),
+      dividerColor: StarKidsDarkColors.borderDefault,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
       ),
     );
   }

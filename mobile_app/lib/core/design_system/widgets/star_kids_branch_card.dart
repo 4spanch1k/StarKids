@@ -30,6 +30,9 @@ class StarKidsBranchCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final secondaryIconColor =
+        isDark ? StarKidsDarkColors.textSecondary : StarKidsColors.textSecondary;
 
     return StarKidsReveal(
       delay: revealDelay,
@@ -68,7 +71,9 @@ class StarKidsBranchCard extends StatelessWidget {
                             vertical: StarKidsSpacing.sm,
                           ),
                           decoration: BoxDecoration(
-                            color: StarKidsColors.surfacePrimary,
+                            color: isDark
+                                ? StarKidsDarkColors.glassSurface
+                                : StarKidsColors.surfacePrimary,
                             borderRadius: BorderRadius.circular(
                               StarKidsRadii.full,
                             ),
@@ -95,10 +100,10 @@ class StarKidsBranchCard extends StatelessWidget {
                     const SizedBox(height: StarKidsSpacing.sm),
                     Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.schedule_rounded,
                           size: StarKidsIconSizes.sm,
-                          color: StarKidsColors.textSecondary,
+                          color: secondaryIconColor,
                         ),
                         const SizedBox(width: StarKidsSpacing.sm),
                         Expanded(
@@ -107,10 +112,10 @@ class StarKidsBranchCard extends StatelessWidget {
                             style: textTheme.labelMedium,
                           ),
                         ),
-                        const Icon(
+                        Icon(
                           Icons.arrow_forward_ios_rounded,
                           size: StarKidsIconSizes.xs,
-                          color: StarKidsColors.textSecondary,
+                          color: secondaryIconColor,
                         ),
                       ],
                     ),

@@ -109,7 +109,12 @@ class ContactsMapPage extends StatelessWidget {
                   }
 
                   final textTheme = Theme.of(context).textTheme;
+                  final isDark =
+                      Theme.of(context).brightness == Brightness.dark;
                   final contact = snapshot.data!.contactLinks;
+                  final accentColor = isDark
+                      ? StarKidsDarkColors.accentPink
+                      : StarKidsColors.brandPrimary;
 
                   return StarKidsContentSwitcher(
                     child: ListView(
@@ -124,14 +129,18 @@ class ContactsMapPage extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(StarKidsSpacing.xl),
                           decoration: BoxDecoration(
-                            color: StarKidsColors.surfacePrimary,
+                            color: isDark
+                                ? StarKidsDarkColors.surfaceElevated
+                                : StarKidsColors.surfacePrimary,
                             borderRadius: BorderRadius.circular(
                               StarKidsRadii.hero,
                             ),
                             border: Border.all(
-                              color: StarKidsColors.borderDefault,
+                              color: isDark
+                                  ? StarKidsDarkColors.borderDefault
+                                  : StarKidsColors.borderDefault,
                             ),
-                            boxShadow: StarKidsShadows.depth1,
+                            boxShadow: isDark ? null : StarKidsShadows.depth1,
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -142,7 +151,9 @@ class ContactsMapPage extends StatelessWidget {
                                   vertical: StarKidsSpacing.sm,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: StarKidsColors.surfaceTertiary,
+                                  color: isDark
+                                      ? StarKidsDarkColors.glassSurface
+                                      : StarKidsColors.surfaceTertiary,
                                   borderRadius: BorderRadius.circular(
                                     StarKidsRadii.full,
                                   ),
@@ -150,7 +161,7 @@ class ContactsMapPage extends StatelessWidget {
                                 child: Text(
                                   branchDetail.shortLabel,
                                   style: textTheme.labelMedium?.copyWith(
-                                    color: StarKidsColors.brandPrimary,
+                                    color: accentColor,
                                   ),
                                 ),
                               ),
@@ -177,12 +188,16 @@ class ContactsMapPage extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(StarKidsSpacing.lg),
                           decoration: BoxDecoration(
-                            color: StarKidsColors.surfacePrimary,
+                            color: isDark
+                                ? StarKidsDarkColors.surfaceElevated
+                                : StarKidsColors.surfacePrimary,
                             borderRadius: BorderRadius.circular(
                               StarKidsRadii.xl,
                             ),
                             border: Border.all(
-                              color: StarKidsColors.borderDefault,
+                              color: isDark
+                                  ? StarKidsDarkColors.borderDefault
+                                  : StarKidsColors.borderDefault,
                             ),
                           ),
                           child: Column(
@@ -273,12 +288,16 @@ class ContactsMapPage extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(StarKidsSpacing.lg),
                           decoration: BoxDecoration(
-                            color: StarKidsColors.surfacePrimary,
+                            color: isDark
+                                ? StarKidsDarkColors.surfaceElevated
+                                : StarKidsColors.surfacePrimary,
                             borderRadius: BorderRadius.circular(
                               StarKidsRadii.xl,
                             ),
                             border: Border.all(
-                              color: StarKidsColors.borderDefault,
+                              color: isDark
+                                  ? StarKidsDarkColors.borderDefault
+                                  : StarKidsColors.borderDefault,
                             ),
                           ),
                           child: Column(
@@ -316,7 +335,9 @@ class ContactsMapPage extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(StarKidsSpacing.lg),
                           decoration: BoxDecoration(
-                            color: StarKidsColors.surfaceSecondary,
+                            color: isDark
+                                ? StarKidsDarkColors.glassSurface
+                                : StarKidsColors.surfaceSecondary,
                             borderRadius: BorderRadius.circular(
                               StarKidsRadii.xl,
                             ),
@@ -333,7 +354,7 @@ class ContactsMapPage extends StatelessWidget {
                                 Text(
                                   contact.routeLabel,
                                   style: textTheme.labelMedium?.copyWith(
-                                    color: StarKidsColors.brandPrimary,
+                                    color: accentColor,
                                   ),
                                 ),
                               ],
@@ -349,7 +370,9 @@ class ContactsMapPage extends StatelessWidget {
                                 Text(
                                   contact.arrivalHint!,
                                   style: textTheme.bodyMedium?.copyWith(
-                                    color: StarKidsColors.textSecondary,
+                                    color: isDark
+                                        ? StarKidsDarkColors.textSecondary
+                                        : StarKidsColors.textSecondary,
                                   ),
                                 ),
                               ],
@@ -473,13 +496,19 @@ class _ContactRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: StarKidsSpacing.md),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: StarKidsColors.brandPrimary),
+          Icon(
+            icon,
+            color: isDark
+                ? StarKidsDarkColors.accentPink
+                : StarKidsColors.brandPrimary,
+          ),
           const SizedBox(width: StarKidsSpacing.sm),
           Expanded(
             child: Column(
@@ -525,6 +554,8 @@ class _ContactsStateView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(StarKidsSpacing.xl),
@@ -532,9 +563,15 @@ class _ContactsStateView extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(StarKidsSpacing.xl),
             decoration: BoxDecoration(
-              color: StarKidsColors.surfacePrimary,
+              color: isDark
+                  ? StarKidsDarkColors.surfaceElevated
+                  : StarKidsColors.surfacePrimary,
               borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-              border: Border.all(color: StarKidsColors.borderDefault),
+              border: Border.all(
+                color: isDark
+                    ? StarKidsDarkColors.borderDefault
+                    : StarKidsColors.borderDefault,
+              ),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
