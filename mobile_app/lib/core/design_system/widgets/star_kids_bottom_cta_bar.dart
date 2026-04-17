@@ -16,14 +16,23 @@ class StarKidsBottomCtaBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      decoration: const BoxDecoration(
-        color: StarKidsColors.surfacePrimary,
+      decoration: BoxDecoration(
+        color: isDark
+            ? StarKidsDarkColors.surfaceElevated
+            : StarKidsColors.surfacePrimary,
         border: Border(
-          top: BorderSide(color: StarKidsColors.borderDefault),
+          top: BorderSide(
+            color: isDark
+                ? StarKidsDarkColors.borderDefault
+                : StarKidsColors.borderDefault,
+          ),
         ),
-        boxShadow: StarKidsShadows.depth2,
+        boxShadow: isDark
+            ? StarKidsShadows.depth1Dark
+            : StarKidsShadows.depth2,
       ),
       padding: EdgeInsets.fromLTRB(
         StarKidsSpacing.xl,

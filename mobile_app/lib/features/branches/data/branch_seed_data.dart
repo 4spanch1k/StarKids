@@ -25,30 +25,6 @@ const branchSeedData = <BranchOption>[
       'Безлимитный парк',
     ],
   ),
-  BranchOption(
-    id: 'shymkent-center',
-    name: 'Star Kids Family Hall',
-    shortLabel: 'Family Hall',
-    address: 'Шымкент, центральная зона, семейный формат',
-    workingHours: 'Ежедневно 11:00 - 22:00',
-    description:
-        'Праздничные программы, семейные выходные и удобный формат для повторных визитов.',
-    phone: '+7 707 303 98 18',
-    whatsAppPhone: '+7 707 303 98 18',
-    heroImagePath: 'assets/images/branch_hero.jpg',
-    galleryImagePaths: [
-      'assets/images/gallery_2.jpg',
-      'assets/images/birthday_hero.jpg',
-      'assets/images/gallery_1.jpg',
-    ],
-    facilities: [
-      'Фотозоны',
-      'Праздники под ключ',
-      'Игровые зоны',
-      'Семейный формат',
-      'Акции по филиалу',
-    ],
-  ),
 ];
 
 const defaultBranchId = 'shymkent-mega';

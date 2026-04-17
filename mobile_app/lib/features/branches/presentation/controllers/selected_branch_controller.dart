@@ -43,7 +43,12 @@ class SelectedBranchController extends ChangeNotifier {
         await _localStorage.savePreferredBranch(_selectedBranch.id);
       }
     } else {
-      _selectedBranch = await _resolveBranch(storedBranchId ?? defaultBranchId);
+      final resolvedBranch = await _resolveBranch(storedBranchId ?? defaultBranchId);
+      _selectedBranch = resolvedBranch;
+
+      if (storedBranchId != _selectedBranch.id) {
+        await _localStorage.savePreferredBranch(_selectedBranch.id);
+      }
     }
 
     notifyListeners();
@@ -53,19 +58,9 @@ class SelectedBranchController extends ChangeNotifier {
     String branchId, {
     BranchOption? selectedBranch,
   }) async {
-    if (_selectedBranch.id == branchId) {
-      _hasStoredSelection = true;
-      if (selectedBranch != null) {
-        _applySelectedBranch(selectedBranch);
-      }
-      await _localStorage.savePreferredBranch(branchId);
-      return;
-    }
-
     _hasStoredSelection = true;
-    _selectedBranch = selectedBranch ?? await _resolveBranch(branchId);
-    notifyListeners();
-    await _localStorage.savePreferredBranch(branchId);
+    _applySelectedBranch(selectedBranch ?? await _resolveBranch(branchId));
+    await _localStorage.savePreferredBranch(_selectedBranch.id);
   }
 
   Future<void> refreshSelectedBranch() async {
@@ -85,7 +80,11 @@ class SelectedBranchController extends ChangeNotifier {
     try {
       return await _branchRepository.getBranch(branchId);
     } catch (_) {
-      return getBranchById(branchId);
+      try {
+        return getBranchById(branchId);
+      } catch (_) {
+        return getBranchById(defaultBranchId);
+      }
     }
   }
 

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
@@ -91,7 +90,9 @@ class HomePage extends StatelessWidget {
                                       ? StarKidsDarkColors.glassStroke
                                       : StarKidsColors.glassStroke,
                                 ),
-                                boxShadow: StarKidsShadows.depth1,
+                                boxShadow: isDark
+                                    ? StarKidsShadows.depth1Dark
+                                    : StarKidsShadows.depth1,
                               ),
                               child: Row(
                                 children: [
@@ -608,6 +609,7 @@ class _FloatingNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -619,14 +621,15 @@ class _FloatingNavBar extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(StarKidsRadii.full),
-          boxShadow: StarKidsShadows.navFloat,
+          boxShadow: isDark
+              ? StarKidsShadows.navFloatDark
+              : StarKidsShadows.navFloat,
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(StarKidsRadii.full),
           child: Builder(
             builder: (ctx) {
               final l = AppL10n.of(ctx);
-              final isDark = Theme.of(ctx).brightness == Brightness.dark;
 
               final navBar = NavigationBar(
                 selectedIndex: selectedIndex,
@@ -644,8 +647,8 @@ class _FloatingNavBar extends StatelessWidget {
                     icon: const Icon(Icons.local_offer_rounded),
                     label: l.navPromotions,
                   ),
-                  NavigationDestination(
-                    icon: const Icon(Icons.confirmation_num_rounded),
+                  const NavigationDestination(
+                    icon: Icon(Icons.confirmation_num_rounded),
                     label: 'Билеты',
                   ),
                   NavigationDestination(
@@ -655,12 +658,7 @@ class _FloatingNavBar extends StatelessWidget {
                 ],
               );
 
-              if (!isDark) return navBar;
-
-              return BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                child: navBar,
-              );
+              return navBar;
             },
           ),
         ),
