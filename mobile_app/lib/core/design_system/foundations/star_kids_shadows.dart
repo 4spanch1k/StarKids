@@ -9,6 +9,14 @@ abstract final class StarKidsShadows {
     ),
   ];
 
+  static const List<BoxShadow> depth1Dark = [
+    BoxShadow(
+      color: Color(0x18000000),
+      blurRadius: 8,
+      offset: Offset(0, 3),
+    ),
+  ];
+
   static const List<BoxShadow> depth2 = [
     BoxShadow(
       color: Color(0x1A171316),
@@ -51,6 +59,20 @@ abstract final class StarKidsShadows {
       color: Color(0x18171316),
       blurRadius: 20,
       offset: Offset(0, -2),
+    ),
+  ];
+
+  static const List<BoxShadow> navFloatDark = [
+    BoxShadow(
+      color: Color(0x20FF0F90),
+      blurRadius: 16,
+      offset: Offset(0, -2),
+      spreadRadius: -6,
+    ),
+    BoxShadow(
+      color: Color(0x18000000),
+      blurRadius: 12,
+      offset: Offset(0, 6),
     ),
   ];
 

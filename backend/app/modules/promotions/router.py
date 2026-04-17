@@ -20,7 +20,7 @@ router = APIRouter()
     },
 )
 def list_promotions(
-    branch_id: str | None = Query(default=None, min_length=1, max_length=32),
+    branch_id: str | None = Query(default=None, min_length=1, max_length=120),
     session: Session = Depends(get_db_session),
 ) -> list[PromotionSummary]:
     service = PromotionsService(

@@ -28,7 +28,7 @@ class BirthdayRequestService:
         self,
         payload: BirthdayRequestCreate,
     ) -> BirthdayRequestCreatedResponse:
-        branch = self.branch_repository.get_active_by_id(payload.branch_id)
+        branch = self.branch_repository.get_active_by_id_or_slug(payload.branch_id)
         if branch is None:
             raise NotFoundException(
                 code='branch_not_found',
@@ -42,7 +42,7 @@ class BirthdayRequestService:
                     code='birthday_package_not_found',
                     message='Birthday package was not found.',
                 )
-            if package.branch_id != payload.branch_id:
+            if package.branch_id != branch.id:
                 raise DomainHTTPException(
                     code='birthday_package_branch_mismatch',
                     message='Birthday package does not belong to the selected branch.',
@@ -55,7 +55,9 @@ class BirthdayRequestService:
                     ],
                 )
 
-        created_request = self.request_repository.create(payload.model_dump())
+        request_payload = payload.model_dump()
+        request_payload['branch_id'] = branch.id
+        created_request = self.request_repository.create(request_payload)
 
         # Event trigger: notify staff when a new birthday request arrives.
         # Currently targets no users (admin push registration not yet implemented).

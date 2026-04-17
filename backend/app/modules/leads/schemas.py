@@ -24,7 +24,7 @@ class ContactLeadCreate(BaseModel):
 class BirthdayLeadCreate(BaseModel):
     name: str = Field(min_length=2, max_length=120)
     phone: str = Field(min_length=10, max_length=20, pattern=PHONE_PATTERN)
-    branchId: str = Field(min_length=1, max_length=32)
+    branchId: str = Field(min_length=1, max_length=120)
     preferredDate: date | None = None
     guestCount: int | None = Field(default=None, ge=1, le=60)
     comment: str | None = Field(default=None, max_length=1000)

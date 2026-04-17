@@ -49,7 +49,7 @@ class LeadService:
         *,
         mobile_user_id: str | None = None,
     ) -> BirthdayLeadSubmittedResponse:
-        branch = self.branch_repository.get_active_by_id(payload.branchId)
+        branch = self.branch_repository.get_active_by_id_or_slug(payload.branchId)
         if branch is None:
             raise NotFoundException(
                 code='branch_not_found',
@@ -65,7 +65,7 @@ class LeadService:
                     message='Selected package was not found.',
                     details=[{'field': 'packageId', 'message': 'Selected package was not found.'}],
                 )
-            if package.branch_id != payload.branchId:
+            if package.branch_id != branch.id:
                 raise DomainHTTPException(
                     code='package_branch_mismatch',
                     message='Selected package does not belong to the selected branch.',
@@ -81,7 +81,7 @@ class LeadService:
         request = self.repository.create_birthday_lead(
             {
                 'mobile_user_id': mobile_user_id,
-                'branch_id': payload.branchId,
+                'branch_id': branch.id,
                 'birthday_package_id': payload.packageId,
                 'customer_name': payload.name,
                 'phone': payload.phone,
