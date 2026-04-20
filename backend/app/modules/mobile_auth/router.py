@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Response, status
 
 from ...core.exceptions.schemas import ErrorResponse
+from ..auth_security.dependencies import AuthRequestContext, get_auth_request_context
 from .dependencies import (
     get_current_mobile_user,
     get_mobile_access_token,
@@ -9,7 +10,8 @@ from .dependencies import (
 from .schemas import (
     MobileAuthResponse,
     MobileCurrentUserResponse,
-    MobileEmailAuthRequest,
+    MobileEmailLoginRequest,
+    MobileEmailRegistrationRequest,
     MobileRefreshRequest,
     OTPRequest,
     OTPRequestResponse,
@@ -31,7 +33,7 @@ router = APIRouter()
     },
 )
 def register(
-    payload: MobileEmailAuthRequest,
+    payload: MobileEmailRegistrationRequest,
     service: MobileAuthService = Depends(get_mobile_auth_service),
 ) -> MobileAuthResponse:
     return service.register_with_email(payload)
@@ -43,15 +45,18 @@ def register(
     response_model_exclude_none=True,
     responses={
         401: {'model': ErrorResponse},
+        403: {'model': ErrorResponse},
+        429: {'model': ErrorResponse},
         422: {'model': ErrorResponse},
         503: {'model': ErrorResponse},
     },
 )
 def login(
-    payload: MobileEmailAuthRequest,
+    payload: MobileEmailLoginRequest,
+    context: AuthRequestContext = Depends(get_auth_request_context),
     service: MobileAuthService = Depends(get_mobile_auth_service),
 ) -> MobileAuthResponse:
-    return service.login_with_email(payload)
+    return service.login_with_email(payload, context=context)
 
 
 @router.post(

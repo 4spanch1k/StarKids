@@ -16,9 +16,16 @@ class OTPVerifyRequest(BaseModel):
     verification_id: str = Field(min_length=1)
 
 
-class MobileEmailAuthRequest(BaseModel):
+class MobileEmailRegistrationRequest(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
+    password: str = Field(min_length=1, max_length=128)
+
+
+class MobileEmailLoginRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=128)
+    captcha_id: str | None = Field(default=None, min_length=1)
+    captcha_answer: str | None = Field(default=None, min_length=1, max_length=16)
 
 
 class MobileRefreshRequest(BaseModel):

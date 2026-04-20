@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import logging
 from uuid import uuid4
 
 from fastapi import status
 
 from ...core.config.settings import Settings, get_settings
 from ...core.exceptions.http import DomainHTTPException
-from ...core.security.passwords import hash_password, verify_password
+from ...core.security.passwords import (
+    hash_password,
+    run_dummy_password_verification,
+    verify_and_upgrade_password,
+)
 from ...core.security.tokens import (
     TokenPair,
     TokenPayload,
@@ -15,11 +20,14 @@ from ...core.security.tokens import (
     create_admin_token_pair,
     decode_admin_token,
     hash_token_value,
+    verify_token_value,
 )
 from ...db.models.admin_session import AdminSession
 from ...db.models.admin_user import AdminUser
 from ...db.repositories.admin_session_repository import AdminSessionRepository
 from ...db.repositories.admin_user_repository import AdminUserRepository
+from ..auth_security.dependencies import AuthRequestContext
+from ..auth_security.service import AuthProtectionService
 from .constants import ADMIN_ROLES, DEFAULT_ADMIN_ROLE
 from .schemas import (
     AdminAuthResponse,
@@ -28,6 +36,8 @@ from .schemas import (
     AdminRefreshRequest,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class AdminAuthService:
     def __init__(
@@ -35,25 +45,97 @@ class AdminAuthService:
         *,
         user_repository: AdminUserRepository | None = None,
         session_repository: AdminSessionRepository | None = None,
+        auth_protection_service: AuthProtectionService | None = None,
         settings: Settings | None = None,
     ) -> None:
         self.user_repository = user_repository or AdminUserRepository()
         self.session_repository = session_repository or AdminSessionRepository()
         self.settings = settings or get_settings()
+        self.auth_protection_service = auth_protection_service
 
-    def login(self, payload: AdminLoginRequest) -> AdminAuthResponse:
+    def login(
+        self,
+        payload: AdminLoginRequest,
+        *,
+        context: AuthRequestContext | None = None,
+    ) -> AdminAuthResponse:
         self._ensure_runtime_configuration()
         self._ensure_bootstrap_admin()
+        context = context or AuthRequestContext(ip_address='unknown')
+        email = str(payload.email).lower().strip()
+        self._auth_protection_service.ensure_login_allowed(
+            auth_scope='admin_email',
+            context=context,
+            identifier=email,
+            captcha_id=payload.captcha_id,
+            captcha_answer=payload.captcha_answer,
+        )
 
-        user = self.user_repository.find_by_email(str(payload.email))
+        user = self.user_repository.find_by_email(email)
         if user is None or not user.is_active:
-            raise self.invalid_credentials_exception()
-        if not verify_password(payload.password, user.password_hash):
+            run_dummy_password_verification(payload.password)
+            logger.warning(
+                'Admin login failed: ip=%s identifier=%s reason=user_not_found',
+                context.ip_address,
+                email,
+            )
+            self._auth_protection_service.register_failed_login(
+                auth_scope='admin_email',
+                context=context,
+                identifier=email,
+            )
             raise self.invalid_credentials_exception()
         if user.role not in ADMIN_ROLES:
+            run_dummy_password_verification(payload.password)
+            self._auth_protection_service.register_failed_login(
+                auth_scope='admin_email',
+                context=context,
+                identifier=email,
+            )
+            logger.warning(
+                'Admin login failed: ip=%s identifier=%s reason=invalid_role',
+                context.ip_address,
+                email,
+            )
             raise self.invalid_credentials_exception()
 
+        password_verification = verify_and_upgrade_password(
+            payload.password,
+            user.password_hash,
+        )
+        if not password_verification.is_valid:
+            logger.warning(
+                'Admin login failed: ip=%s identifier=%s reason=invalid_password',
+                context.ip_address,
+                email,
+            )
+            self._auth_protection_service.register_failed_login(
+                auth_scope='admin_email',
+                context=context,
+                identifier=email,
+            )
+            raise self.invalid_credentials_exception()
+
+        if password_verification.upgraded_hash is not None:
+            self.user_repository.update_password_hash(
+                user,
+                password_hash=password_verification.upgraded_hash,
+            )
+            user = self.user_repository.get_by_id(user.id) or user
+
+        self.user_repository.record_successful_login(user)
+        self._auth_protection_service.register_successful_login(
+            auth_scope='admin_email',
+            context=context,
+            identifier=email,
+        )
         token_pair = self._create_session_for_user(user)
+        logger.info(
+            'Admin login succeeded: ip=%s identifier=%s role=%s',
+            context.ip_address,
+            email,
+            user.role,
+        )
         return self._build_auth_response(user, token_pair)
 
     def refresh(self, payload: AdminRefreshRequest) -> AdminAuthResponse:
@@ -67,7 +149,11 @@ class AdminAuthService:
 
         if session.admin_user_id != user.id:
             raise self.authentication_required_exception()
-        if session.refresh_token_hash != hash_token_value(payload.refresh_token):
+        if not verify_token_value(
+            payload.refresh_token,
+            session.refresh_token_hash,
+            secret_key=self.settings.jwt_secret_key,
+        ):
             raise self.authentication_required_exception()
 
         token_pair = self._rotate_session_for_user(user, session)
@@ -82,11 +168,20 @@ class AdminAuthService:
             raise self.authentication_required_exception()
         return self._serialize_user(user)
 
+    def logout(self, access_token: str) -> None:
+        self._ensure_runtime_configuration()
+        token_payload = self._decode_token(access_token, expected_type='access')
+        user = self._get_active_user(token_payload.subject)
+        session = self._get_active_session(token_payload.session_id)
+        if session.admin_user_id != user.id:
+            raise self.authentication_required_exception()
+        self.session_repository.revoke(session)
+
     @staticmethod
     def invalid_credentials_exception() -> DomainHTTPException:
         return DomainHTTPException(
             code='invalid_credentials',
-            message='Invalid email or password.',
+            message='Неверный логин или пароль.',
             status_code=status.HTTP_401_UNAUTHORIZED,
         )
 
@@ -148,7 +243,10 @@ class AdminAuthService:
         self.session_repository.create(
             session_id=session_id,
             admin_user_id=user.id,
-            refresh_token_hash=hash_token_value(token_pair.refresh_token),
+            refresh_token_hash=hash_token_value(
+                token_pair.refresh_token,
+                secret_key=self.settings.jwt_secret_key,
+            ),
             expires_at=token_pair.refresh_expires_at,
         )
         return token_pair
@@ -161,7 +259,10 @@ class AdminAuthService:
         token_pair = self._generate_token_pair(user=user, session_id=session.id)
         self.session_repository.rotate_refresh_token(
             session,
-            refresh_token_hash=hash_token_value(token_pair.refresh_token),
+            refresh_token_hash=hash_token_value(
+                token_pair.refresh_token,
+                secret_key=self.settings.jwt_secret_key,
+            ),
             expires_at=token_pair.refresh_expires_at,
         )
         return token_pair
@@ -233,3 +334,9 @@ class AdminAuthService:
         if value.tzinfo is None:
             return value.replace(tzinfo=UTC)
         return value.astimezone(UTC)
+
+    @property
+    def _auth_protection_service(self) -> AuthProtectionService:
+        if self.auth_protection_service is None:
+            raise RuntimeError('Auth protection service is not configured.')
+        return self.auth_protection_service
