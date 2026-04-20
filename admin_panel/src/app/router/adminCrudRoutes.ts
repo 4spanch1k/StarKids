@@ -96,6 +96,13 @@ export const adminCrudRouteNames = {
     edit: 'promotions-edit',
     idParam: 'promotionId',
   },
+  news: {
+    list: 'news',
+    detail: 'news-detail',
+    create: 'news-create',
+    edit: 'news-edit',
+    idParam: 'newsId',
+  },
   content: {
     list: 'content',
     detail: 'content-detail',

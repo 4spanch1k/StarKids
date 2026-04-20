@@ -5,7 +5,7 @@ import sqlalchemy as sa
 
 
 revision = '20260420_0014'
-down_revision = '20260416_0013'
+down_revision = '20260417_0014'
 branch_labels = None
 depends_on = None
 
@@ -66,7 +66,7 @@ def upgrade() -> None:
             'captcha_required',
             sa.Boolean(),
             nullable=False,
-            server_default=sa.text('0'),
+            server_default=sa.false(),
         ),
         sa.Column('captcha_id', sa.String(length=32), nullable=True),
         sa.Column('captcha_prompt', sa.String(length=255), nullable=True),

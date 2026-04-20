@@ -19,6 +19,7 @@ from .mobile_session import MobileSession
 from .mobile_notification_device import MobileNotificationDevice
 from .mobile_payment import MobilePayment
 from .mobile_user import MobileUser
+from .news import News
 from .promotion import Promotion
 from .promotion_branch import PromotionBranch
 
@@ -46,4 +47,5 @@ __all__ = [
     'MobileSession',
     'MobileNotificationDevice',
     'MobilePayment',
+    'News',
 ]

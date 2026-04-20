@@ -1,287 +1,190 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../core/design_system/foundations/star_kids_colors.dart';
-import '../../../../core/design_system/foundations/star_kids_icon_sizes.dart';
 import '../../../../core/design_system/foundations/star_kids_radii.dart';
 import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
-import '../../domain/notification_permission_status.dart';
-import '../../domain/push_registration_status.dart';
-import '../controllers/mobile_notifications_controller.dart';
-import '../controllers/push_token_controller.dart';
+import '../../../news/domain/news_item.dart';
+import '../../../news/presentation/controllers/news_feed_controller.dart';
+import '../../../news/presentation/widgets/news_image_resolver.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({
     super.key,
-    this.notificationsController,
-    this.pushTokenController,
+    this.newsController,
   });
 
-  final MobileNotificationsController? notificationsController;
-  final PushTokenController? pushTokenController;
+  final NewsFeedController? newsController;
 
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
 }
 
 class _NotificationsPageState extends State<NotificationsPage> {
-  MobileNotificationsController get _controller =>
-      widget.notificationsController ??
-      ServiceRegistry.mobileNotificationsController;
-
-  PushTokenController get _pushController =>
-      widget.pushTokenController ?? ServiceRegistry.pushTokenController;
+  late final NewsFeedController _controller;
+  late final bool _ownsController;
 
   @override
   void initState() {
     super.initState();
+    _ownsController = widget.newsController == null;
+    _controller = widget.newsController ??
+        NewsFeedController(repository: ServiceRegistry.newsRepository);
     unawaited(_controller.bootstrap());
-    unawaited(_pushController.bootstrap());
+  }
+
+  @override
+  void dispose() {
+    if (_ownsController) {
+      _controller.dispose();
+    }
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: Listenable.merge([_controller, _pushController]),
-      builder: (context, _) {
-        final status = _controller.status;
-        final action = _primaryActionForStatus(status);
-        final errorMessage = _controller.errorMessage;
-        final pushStatus = _pushController.status;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Новости')),
+      body: SafeArea(
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) {
+            final items = _controller.items;
 
-        return Scaffold(
-          appBar: AppBar(title: const Text('Уведомления')),
-          body: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(StarKidsSpacing.xl),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _NotificationsSummaryCard(
-                    status: status,
-                    pushStatus: pushStatus,
-                    isLoading: _controller.isLoading,
-                    actionLabel: action?.label,
-                    isActionLoading: _controller.isRequestingPermission ||
-                        _controller.isOpeningSettings,
-                    onActionTap: action?.onTap,
-                    onRetryRegistration:
-                        pushStatus == PushRegistrationStatus.failed
-                            ? _pushController.retryRegistration
-                            : null,
-                  ),
-                  if (errorMessage != null) ...[
+            if (_controller.isLoading && items.isEmpty) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (_controller.errorMessage != null && items.isEmpty) {
+              return _NewsPageStateView(
+                title: 'Не удалось загрузить новости',
+                description: _controller.errorMessage!,
+                actionLabel: 'Повторить',
+                onActionTap: _controller.refresh,
+              );
+            }
+
+            if (items.isEmpty) {
+              return const _NewsPageStateView(
+                title: 'Пока нет новостей',
+                description:
+                    'Когда появятся новые публикации, они сразу отобразятся в этом разделе.',
+              );
+            }
+
+            return RefreshIndicator(
+              onRefresh: _controller.refresh,
+              child: ListView.separated(
+                padding: const EdgeInsets.all(StarKidsSpacing.xl),
+                itemCount: items.length + (_controller.errorMessage == null ? 0 : 1),
+                separatorBuilder: (_, __) =>
                     const SizedBox(height: StarKidsSpacing.lg),
-                    _NotificationsErrorCard(
-                      message: errorMessage,
-                      onDismiss: _controller.clearError,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
+                itemBuilder: (context, index) {
+                  if (_controller.errorMessage != null && index == 0) {
+                    return _NewsInlineErrorCard(
+                      message: _controller.errorMessage!,
+                      onRetry: _controller.refresh,
+                    );
+                  }
 
-  _NotificationsAction? _primaryActionForStatus(
-    NotificationPermissionStatus status,
-  ) {
-    return switch (status) {
-      NotificationPermissionStatus.unknown => _NotificationsAction(
-          label: 'Разрешить уведомления',
-          onTap: _controller.requestPermission,
+                  final offset = _controller.errorMessage == null ? 0 : 1;
+                  final item = items[index - offset];
+                  return _NewsListCard(item: item);
+                },
+              ),
+            );
+          },
         ),
-      NotificationPermissionStatus.granted => _NotificationsAction(
-          label: 'Открыть настройки приложения',
-          onTap: _controller.openSystemSettings,
-        ),
-      NotificationPermissionStatus.denied => _NotificationsAction(
-          label: 'Открыть настройки приложения',
-          onTap: _controller.openSystemSettings,
-        ),
-      NotificationPermissionStatus.unavailable => null,
-    };
+      ),
+    );
   }
 }
 
-class _NotificationsSummaryCard extends StatelessWidget {
-  const _NotificationsSummaryCard({
-    required this.status,
-    required this.pushStatus,
-    required this.isLoading,
-    required this.actionLabel,
-    required this.isActionLoading,
-    required this.onActionTap,
-    required this.onRetryRegistration,
+class _NewsPageStateView extends StatelessWidget {
+  const _NewsPageStateView({
+    required this.title,
+    required this.description,
+    this.actionLabel,
+    this.onActionTap,
   });
 
-  final NotificationPermissionStatus status;
-  final PushRegistrationStatus pushStatus;
-  final bool isLoading;
+  final String title;
+  final String description;
   final String? actionLabel;
-  final bool isActionLoading;
   final Future<void> Function()? onActionTap;
-  final Future<void> Function()? onRetryRegistration;
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.xl),
-      decoration: BoxDecoration(
-        color: StarKidsColors.surfacePrimary,
-        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-        border: Border.all(color: StarKidsColors.borderDefault),
-        boxShadow: StarKidsShadows.depth1,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(StarKidsSpacing.xl),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(StarKidsSpacing.xl),
+          decoration: BoxDecoration(
+            color: StarKidsColors.surfacePrimary,
+            borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+            border: Border.all(color: StarKidsColors.borderDefault),
+            boxShadow: StarKidsShadows.depth1,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  'Статус уведомлений',
-                  style: textTheme.headlineMedium,
+              Text(title, style: Theme.of(context).textTheme.headlineMedium),
+              const SizedBox(height: StarKidsSpacing.sm),
+              Text(description, style: Theme.of(context).textTheme.bodyLarge),
+              if (actionLabel != null && onActionTap != null) ...[
+                const SizedBox(height: StarKidsSpacing.xl),
+                StarKidsButton.primary(
+                  label: actionLabel!,
+                  onPressed: () => onActionTap!(),
                 ),
-              ),
-              _NotificationStatusChip(status: status),
+              ],
             ],
           ),
-          const SizedBox(height: StarKidsSpacing.md),
-          Text(
-            _descriptionForStatus(status),
-            style: textTheme.bodyLarge,
-          ),
-          const SizedBox(height: StarKidsSpacing.xl),
-          _NotificationFactRow(
-            label: 'Системное разрешение',
-            value: _labelForStatus(status),
-          ),
-          const SizedBox(height: StarKidsSpacing.md),
-          _NotificationFactRow(
-            label: 'Регистрация устройства',
-            value: _registrationLabel(pushStatus),
-          ),
-          const SizedBox(height: StarKidsSpacing.md),
-          _NotificationFactRow(
-            label: 'Токен уведомлений',
-            value: _tokenLabel(pushStatus),
-          ),
-          if (isLoading) ...[
-            const SizedBox(height: StarKidsSpacing.lg),
-            const LinearProgressIndicator(),
-          ],
-          if (actionLabel != null) ...[
-            const SizedBox(height: StarKidsSpacing.xl),
-            StarKidsButton.primary(
-              label: actionLabel!,
-              onPressed: onActionTap == null ? null : () => onActionTap!(),
-              isLoading: isActionLoading,
-            ),
-          ],
-          if (onRetryRegistration != null) ...[
-            const SizedBox(height: StarKidsSpacing.md),
-            StarKidsButton.secondary(
-              label: 'Повторить регистрацию',
-              onPressed: () => onRetryRegistration!(),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
-
-  String _labelForStatus(NotificationPermissionStatus status) {
-    return switch (status) {
-      NotificationPermissionStatus.unknown => 'Не запрашивалось',
-      NotificationPermissionStatus.granted => 'Разрешено',
-      NotificationPermissionStatus.denied => 'Отключено',
-      NotificationPermissionStatus.unavailable => 'Недоступно',
-    };
-  }
-
-  String _descriptionForStatus(NotificationPermissionStatus status) {
-    return switch (status) {
-      NotificationPermissionStatus.unknown =>
-        'Приложение еще не запрашивало системное разрешение на уведомления.',
-      NotificationPermissionStatus.granted =>
-        'Системное разрешение выдано. Устройство регистрируется для получения уведомлений.',
-      NotificationPermissionStatus.denied =>
-        'Системное разрешение отключено. Уведомления не будут доставляться.',
-      NotificationPermissionStatus.unavailable =>
-        'На этой платформе или сборке управление уведомлениями недоступно.',
-    };
-  }
-
-  String _registrationLabel(PushRegistrationStatus pushStatus) {
-    return switch (pushStatus) {
-      PushRegistrationStatus.idle => 'Ожидает',
-      PushRegistrationStatus.registering => 'Регистрация...',
-      PushRegistrationStatus.registered => 'Зарегистрировано',
-      PushRegistrationStatus.failed => 'Ошибка регистрации',
-      PushRegistrationStatus.permissionDenied => 'Нет разрешения',
-      PushRegistrationStatus.unavailable => 'Недоступно',
-      PushRegistrationStatus.unauthenticated => 'Требуется вход',
-    };
-  }
-
-  String _tokenLabel(PushRegistrationStatus pushStatus) {
-    return switch (pushStatus) {
-      PushRegistrationStatus.registered => 'Активен',
-      PushRegistrationStatus.registering => 'Получение...',
-      PushRegistrationStatus.failed => 'Не получен',
-      PushRegistrationStatus.permissionDenied => 'Не доступен',
-      PushRegistrationStatus.unavailable => 'Не доступен',
-      PushRegistrationStatus.unauthenticated => 'Не доступен',
-      PushRegistrationStatus.idle => 'Ожидает',
-    };
-  }
 }
 
-class _NotificationsErrorCard extends StatelessWidget {
-  const _NotificationsErrorCard({
+class _NewsInlineErrorCard extends StatelessWidget {
+  const _NewsInlineErrorCard({
     required this.message,
-    required this.onDismiss,
+    required this.onRetry,
   });
 
   final String message;
-  final VoidCallback onDismiss;
+  final Future<void> Function() onRetry;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(StarKidsSpacing.lg),
       decoration: BoxDecoration(
-        color: StarKidsColors.statusError.withValues(alpha: 0.08),
+        color: const Color(0xFFFDECEC),
         borderRadius: BorderRadius.circular(StarKidsRadii.lg),
-        border: Border.all(
-          color: StarKidsColors.statusError.withValues(alpha: 0.24),
-        ),
+        border: Border.all(color: const Color(0xFFF6B9B9)),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.error_outline_rounded,
-            color: StarKidsColors.statusError,
-            size: StarKidsIconSizes.md,
+          Text(
+            'Лента обновлена не полностью',
+            style: Theme.of(context).textTheme.titleMedium,
           ),
-          const SizedBox(width: StarKidsSpacing.md),
-          Expanded(child: Text(message)),
-          const SizedBox(width: StarKidsSpacing.sm),
-          IconButton(
-            onPressed: onDismiss,
-            icon: const Icon(Icons.close_rounded),
-            splashRadius: 18,
+          const SizedBox(height: StarKidsSpacing.xs),
+          Text(message, style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(height: StarKidsSpacing.md),
+          StarKidsButton.secondary(
+            label: 'Повторить',
+            onPressed: () => onRetry(),
           ),
         ],
       ),
@@ -289,100 +192,110 @@ class _NotificationsErrorCard extends StatelessWidget {
   }
 }
 
-class _NotificationStatusChip extends StatelessWidget {
-  const _NotificationStatusChip({
-    required this.status,
+class _NewsListCard extends StatelessWidget {
+  const _NewsListCard({
+    required this.item,
   });
 
-  final NotificationPermissionStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = switch (status) {
-      NotificationPermissionStatus.unknown => (
-          background: StarKidsColors.brandHighlight,
-          foreground: StarKidsColors.textPrimary,
-        ),
-      NotificationPermissionStatus.granted => (
-          background: StarKidsColors.statusSuccess.withValues(alpha: 0.14),
-          foreground: StarKidsColors.statusSuccess,
-        ),
-      NotificationPermissionStatus.denied => (
-          background: StarKidsColors.statusError.withValues(alpha: 0.12),
-          foreground: StarKidsColors.statusError,
-        ),
-      NotificationPermissionStatus.unavailable => (
-          background: StarKidsColors.surfaceSecondary,
-          foreground: StarKidsColors.textSecondary,
-        ),
-    };
-
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: StarKidsSpacing.md,
-        vertical: StarKidsSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: palette.background,
-        borderRadius: BorderRadius.circular(StarKidsRadii.full),
-      ),
-      child: Text(
-        switch (status) {
-          NotificationPermissionStatus.unknown => 'Не запрашивалось',
-          NotificationPermissionStatus.granted => 'Разрешено',
-          NotificationPermissionStatus.denied => 'Отключено',
-          NotificationPermissionStatus.unavailable => 'Недоступно',
-        },
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: palette.foreground,
-            ),
-      ),
-    );
-  }
-}
-
-class _NotificationFactRow extends StatelessWidget {
-  const _NotificationFactRow({
-    required this.label,
-    required this.value,
-  });
-
-  final String label;
-  final String value;
+  final NewsItem item;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final imageUrl = resolveNewsImageUrl(item.imageUrl);
 
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: textTheme.labelMedium?.copyWith(
-              color: StarKidsColors.textSecondary,
+    return Container(
+      decoration: BoxDecoration(
+        color: StarKidsColors.surfacePrimary,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: StarKidsColors.borderDefault),
+        boxShadow: StarKidsShadows.depth1,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: imageUrl.isEmpty
+                  ? const _NewsImagePlaceholder()
+                  : CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => const _NewsImagePlaceholder(),
+                      errorWidget: (_, __, ___) =>
+                          const _NewsImagePlaceholder(),
+                    ),
             ),
-          ),
+            Padding(
+              padding: const EdgeInsets.all(StarKidsSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _formatDate(item.createdAt),
+                    style: textTheme.labelMedium?.copyWith(
+                      color: StarKidsColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: StarKidsSpacing.sm),
+                  Text(
+                    item.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: textTheme.titleLarge,
+                  ),
+                  if ((item.description ?? '').trim().isNotEmpty) ...[
+                    const SizedBox(height: StarKidsSpacing.sm),
+                    Text(
+                      item.description!.trim(),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.bodyMedium,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: StarKidsSpacing.md),
-        Expanded(
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
-            style: textTheme.bodyLarge,
-          ),
-        ),
-      ],
+      ),
     );
+  }
+
+  String _formatDate(DateTime value) {
+    final localDate = value.toLocal();
+    final day = localDate.day.toString().padLeft(2, '0');
+    final month = localDate.month.toString().padLeft(2, '0');
+    final year = localDate.year.toString();
+    return '$day.$month.$year';
   }
 }
 
-class _NotificationsAction {
-  const _NotificationsAction({
-    required this.label,
-    required this.onTap,
-  });
+class _NewsImagePlaceholder extends StatelessWidget {
+  const _NewsImagePlaceholder();
 
-  final String label;
-  final Future<void> Function() onTap;
+  @override
+  Widget build(BuildContext context) {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFFCE1EC),
+            Color(0xFFE1EDFF),
+          ],
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          Icons.photo_library_rounded,
+          color: StarKidsColors.textSecondary,
+          size: 40,
+        ),
+      ),
+    );
+  }
 }

@@ -7,6 +7,9 @@ import 'package:star_kids_mobile/app/theme/app_theme.dart';
 import 'package:star_kids_mobile/core/utils/result.dart';
 import 'package:star_kids_mobile/features/branches/data/branch_seed_data.dart';
 import 'package:star_kids_mobile/features/home/presentation/pages/home_page.dart';
+import 'package:star_kids_mobile/features/news/domain/news_item.dart';
+import 'package:star_kids_mobile/features/news/domain/news_repository.dart';
+import 'package:star_kids_mobile/features/news/presentation/controllers/news_feed_controller.dart';
 import 'package:star_kids_mobile/features/tickets/data/seed_ticket_config_repository.dart';
 import 'package:star_kids_mobile/features/tickets/domain/branch_ticket_config.dart';
 import 'package:star_kids_mobile/features/tickets/domain/ticket_purchase.dart';
@@ -163,10 +166,21 @@ Future<void> _pumpHomePage(WidgetTester tester) async {
     MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
-      home: const HomePage(),
+      home: HomePage(
+        newsController: NewsFeedController(
+          repository: const _StaticNewsRepository(),
+        ),
+      ),
     ),
   );
   await tester.pump();
+}
+
+class _StaticNewsRepository implements NewsRepository {
+  const _StaticNewsRepository();
+
+  @override
+  Future<List<NewsItem>> listNews() async => const [];
 }
 
 class _FakeTicketPurchaseRepository implements TicketPurchaseRepository {

@@ -5,6 +5,7 @@ from ..modules.admin_birthday_packages.router import router as admin_birthday_pa
 from ..modules.admin_branches.router import router as admin_branches_router
 from ..modules.admin_content.router import router as admin_content_router
 from ..modules.admin_leads.router import router as admin_leads_router
+from ..modules.admin_news.router import router as admin_news_router
 from ..modules.admin_promotions.router import router as admin_promotions_router
 from ..modules.birthdays.router import router as birthdays_router
 from ..modules.branches.router import router as branches_router
@@ -18,6 +19,7 @@ from ..modules.mobile_payments.router import mobile_router as mobile_payments_ro
 from ..modules.mobile_payments.router import public_router as public_payments_router
 from ..modules.mobile_profile.router import router as mobile_profile_router
 from ..modules.mobile_request_history.router import router as mobile_request_history_router
+from ..modules.news.router import router as news_router
 from ..modules.notifications.router import router as notifications_router
 from ..modules.promotions.router import router as promotions_router
 
@@ -31,6 +33,7 @@ api_router.include_router(home_router, prefix='/mobile', tags=['mobile-home'])
 api_router.include_router(branches_router, prefix='/mobile', tags=['mobile-branches'])
 api_router.include_router(birthdays_router, prefix='/mobile', tags=['mobile-birthdays'])
 api_router.include_router(promotions_router, prefix='/mobile', tags=['mobile-promotions'])
+api_router.include_router(news_router, prefix='/mobile', tags=['mobile-news'])
 api_router.include_router(content_router, prefix='/mobile', tags=['mobile-content'])
 api_router.include_router(leads_router, prefix='/mobile', tags=['mobile-leads'])
 api_router.include_router(
@@ -61,5 +64,6 @@ api_router.include_router(
     tags=['admin-birthday-packages'],
 )
 api_router.include_router(admin_promotions_router, prefix='/admin', tags=['admin-promotions'])
+api_router.include_router(admin_news_router, prefix='/admin', tags=['admin-news'])
 api_router.include_router(admin_content_router, prefix='/admin', tags=['admin-content'])
 api_router.include_router(admin_leads_router, prefix='/admin', tags=['admin-leads'])

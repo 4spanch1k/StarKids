@@ -9,6 +9,7 @@ export const primaryNavigationItems: NavigationItem[] = [
   { name: 'branches', label: 'Филиалы', to: '/branches' },
   { name: 'birthday-packages', label: 'Пакеты дней рождения', to: '/birthday-packages' },
   { name: 'promotions', label: 'Акции', to: '/promotions' },
+  { name: 'news', label: 'Новости', to: '/news' },
   { name: 'content', label: 'Контент', to: '/content' },
   { name: 'gallery', label: 'Галерея', to: '/gallery' },
   { name: 'faq', label: 'Частые вопросы', to: '/faq' },
