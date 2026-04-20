@@ -23,6 +23,8 @@ import '../../../birthdays/domain/birthday_package.dart';
 import '../../../branches/domain/branch_option.dart';
 import '../../../content/domain/public_content_block.dart';
 import '../../../content/domain/public_faq_item.dart';
+import '../../../news/presentation/controllers/news_feed_controller.dart';
+import '../../../news/presentation/widgets/home_news_section.dart';
 import '../../../promotions/domain/promotion_offer.dart';
 import '../../../requests/domain/request_type.dart';
 import '../../../requests/presentation/models/request_page_args.dart';
@@ -30,7 +32,12 @@ import '../../../tickets/presentation/sheets/ticket_purchase_flow_sheet.dart';
 import '../../../tickets/presentation/sheets/tickets_entry_sheet.dart';
 
 class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+  const HomePage({
+    super.key,
+    this.newsController,
+  });
+
+  final NewsFeedController? newsController;
 
   @override
   Widget build(BuildContext context) {
@@ -64,68 +71,83 @@ class HomePage extends StatelessWidget {
                     ),
                     sliver: SliverList(
                       delegate: SliverChildListDelegate([
-                        // Branch selector chip — glass look
                         StarKidsReveal(
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(
-                              StarKidsRadii.full,
-                            ),
-                            onTap: () => Navigator.of(
-                              context,
-                            ).pushNamed(AppRoutes.branchSelection),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: StarKidsSpacing.lg,
-                                vertical: StarKidsSpacing.md,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? StarKidsDarkColors.glassSurface
-                                    : StarKidsColors.glassSurface,
-                                borderRadius: BorderRadius.circular(
-                                  StarKidsRadii.full,
-                                ),
-                                border: Border.all(
-                                  color: isDark
-                                      ? StarKidsDarkColors.glassStroke
-                                      : StarKidsColors.glassStroke,
-                                ),
-                                boxShadow: isDark
-                                    ? StarKidsShadows.depth1Dark
-                                    : StarKidsShadows.depth1,
-                              ),
-                              child: Row(
-                                children: [
-                                  ShaderMask(
-                                    shaderCallback: (bounds) =>
-                                        const LinearGradient(
-                                      colors: [
-                                        StarKidsColors.brandPrimary,
-                                        Color(0xFFB044EB),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(
+                                    StarKidsRadii.full,
+                                  ),
+                                  onTap: () => Navigator.of(
+                                    context,
+                                  ).pushNamed(AppRoutes.branchSelection),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: StarKidsSpacing.lg,
+                                      vertical: StarKidsSpacing.md,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isDark
+                                          ? StarKidsDarkColors.glassSurface
+                                          : StarKidsColors.glassSurface,
+                                      borderRadius: BorderRadius.circular(
+                                        StarKidsRadii.full,
+                                      ),
+                                      border: Border.all(
+                                        color: isDark
+                                            ? StarKidsDarkColors.glassStroke
+                                            : StarKidsColors.glassStroke,
+                                      ),
+                                      boxShadow: isDark
+                                          ? StarKidsShadows.depth1Dark
+                                          : StarKidsShadows.depth1,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        ShaderMask(
+                                          shaderCallback: (bounds) =>
+                                              const LinearGradient(
+                                            colors: [
+                                              StarKidsColors.brandPrimary,
+                                              Color(0xFFB044EB),
+                                            ],
+                                          ).createShader(bounds),
+                                          child: const Icon(
+                                            Icons.location_on_rounded,
+                                            size: StarKidsIconSizes.sm,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        const SizedBox(
+                                          width: StarKidsSpacing.sm,
+                                        ),
+                                        Expanded(
+                                          child: Text(
+                                            branch.name,
+                                            style: textTheme.labelLarge,
+                                          ),
+                                        ),
+                                        Icon(
+                                          Icons.expand_more_rounded,
+                                          color: isDark
+                                              ? StarKidsDarkColors
+                                                  .textSecondary
+                                              : StarKidsColors.textSecondary,
+                                        ),
                                       ],
-                                    ).createShader(bounds),
-                                    child: const Icon(
-                                      Icons.location_on_rounded,
-                                      size: StarKidsIconSizes.sm,
-                                      color: Colors.white,
                                     ),
                                   ),
-                                  const SizedBox(width: StarKidsSpacing.sm),
-                                  Expanded(
-                                    child: Text(
-                                      branch.name,
-                                      style: textTheme.labelLarge,
-                                    ),
-                                  ),
-                                  Icon(
-                                    Icons.expand_more_rounded,
-                                    color: isDark
-                                        ? StarKidsDarkColors.textSecondary
-                                        : StarKidsColors.textSecondary,
-                                  ),
-                                ],
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: StarKidsSpacing.md),
+                              _HomeActionButton(
+                                icon: Icons.notifications_none_rounded,
+                                onTap: () => Navigator.of(context).pushNamed(
+                                  AppRoutes.notifications,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: StarKidsSpacing.lg),
@@ -218,6 +240,8 @@ class HomePage extends StatelessWidget {
                             ),
                           ),
                         ),
+                        const SizedBox(height: StarKidsSpacing.x2l),
+                        HomeNewsSection(newsController: newsController),
                         const SizedBox(height: StarKidsSpacing.x2l),
                         const StarKidsReveal(
                           delay: Duration(milliseconds: 80),
@@ -770,6 +794,51 @@ class _QuickActionTile extends StatelessWidget {
                 ),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeActionButton extends StatelessWidget {
+  const _HomeActionButton({
+    required this.icon,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(StarKidsRadii.full),
+        onTap: onTap,
+        child: Ink(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            color: isDark
+                ? StarKidsDarkColors.glassSurface
+                : StarKidsColors.glassSurface,
+            borderRadius: BorderRadius.circular(StarKidsRadii.full),
+            border: Border.all(
+              color: isDark
+                  ? StarKidsDarkColors.glassStroke
+                  : StarKidsColors.glassStroke,
+            ),
+            boxShadow: isDark ? StarKidsShadows.depth1Dark : StarKidsShadows.depth1,
+          ),
+          child: Icon(
+            icon,
+            color: isDark
+                ? StarKidsDarkColors.textPrimary
+                : StarKidsColors.textPrimary,
           ),
         ),
       ),

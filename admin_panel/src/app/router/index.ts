@@ -16,6 +16,7 @@ import GalleryPage from '@/pages/gallery/GalleryPage.vue';
 import LeadsPage from '@/pages/leads/LeadsPage.vue';
 import LoginPage from '@/pages/login/LoginPage.vue';
 import MenuPage from '@/pages/menu/MenuPage.vue';
+import NewsPage from '@/pages/news/NewsPage.vue';
 import PromotionsPage from '@/pages/promotions/PromotionsPage.vue';
 import PushCampaignsPage from '@/pages/push-campaigns/PushCampaignsPage.vue';
 import TicketsPage from '@/pages/tickets/TicketsPage.vue';
@@ -78,6 +79,12 @@ const routes: RouteRecordRaw[] = [
         name: adminCrudRouteNames.promotions.list,
         component: PromotionsPage,
         idParam: adminCrudRouteNames.promotions.idParam,
+      }).routes,
+      ...buildAdminCrudRouteGroup({
+        path: 'news',
+        name: adminCrudRouteNames.news.list,
+        component: NewsPage,
+        idParam: adminCrudRouteNames.news.idParam,
       }).routes,
       ...buildAdminCrudRouteGroup({
         path: 'content',

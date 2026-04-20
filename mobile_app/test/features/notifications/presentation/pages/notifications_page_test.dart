@@ -1,130 +1,100 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:star_kids_mobile/app/theme/app_theme.dart';
-import 'package:star_kids_mobile/core/utils/result.dart';
-import 'package:star_kids_mobile/features/auth/domain/mobile_auth_repository.dart';
-import 'package:star_kids_mobile/features/auth/domain/mobile_auth_session.dart';
-import 'package:star_kids_mobile/features/auth/domain/mobile_auth_user.dart';
-import 'package:star_kids_mobile/features/auth/domain/otp_challenge.dart';
-import 'package:star_kids_mobile/features/auth/presentation/controllers/mobile_auth_controller.dart';
-import 'package:star_kids_mobile/features/notifications/data/fcm_token_gateway.dart';
-import 'package:star_kids_mobile/features/notifications/domain/notification_permission_status.dart';
-import 'package:star_kids_mobile/features/notifications/domain/notification_settings_repository.dart';
-import 'package:star_kids_mobile/features/notifications/domain/push_registration_status.dart';
-import 'package:star_kids_mobile/features/notifications/domain/push_token_repository.dart';
-import 'package:star_kids_mobile/features/notifications/presentation/controllers/mobile_notifications_controller.dart';
-import 'package:star_kids_mobile/features/notifications/presentation/controllers/push_token_controller.dart';
+import 'package:star_kids_mobile/features/news/domain/news_item.dart';
+import 'package:star_kids_mobile/features/news/domain/news_repository.dart';
+import 'package:star_kids_mobile/features/news/presentation/controllers/news_feed_controller.dart';
 import 'package:star_kids_mobile/features/notifications/presentation/pages/notifications_page.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('renders permission status and push state labels', (
+  testWidgets('renders news list with image, title and date', (
     WidgetTester tester,
   ) async {
-    final controller = MobileNotificationsController(
-      repository: const _FakeNotificationSettingsRepository(
-        loadStatus: NotificationPermissionStatus.granted,
+    final controller = NewsFeedController(
+      repository: _FakeNewsRepository(
+        items: [
+          NewsItem(
+            id: 'news-1',
+            title: 'Открылась новая игровая зона',
+            imageUrl: 'https://cdn.example/news-1.jpg',
+            description: 'Теперь в филиале еще больше активностей.',
+            createdAt: DateTime.utc(2026, 4, 20),
+          ),
+        ],
       ),
-    );
-    final pushController = _FixedStatusPushTokenController(
-      status: PushRegistrationStatus.registered,
     );
 
-    await tester.pumpWidget(_TestApp(
-      child: NotificationsPage(
-        notificationsController: controller,
-        pushTokenController: pushController,
+    await tester.pumpWidget(
+      _TestApp(
+        child: NotificationsPage(newsController: controller),
       ),
-    ));
+    );
     await tester.pump();
 
-    expect(find.text('Уведомления'), findsOneWidget);
-    expect(find.text('Разрешено'), findsWidgets);
-    expect(find.text('Регистрация устройства'), findsOneWidget);
-    expect(find.text('Зарегистрировано'), findsOneWidget);
-    expect(find.text('Токен уведомлений'), findsOneWidget);
-    expect(find.text('Активен'), findsOneWidget);
+    expect(find.text('Новости'), findsOneWidget);
+    expect(find.text('Открылась новая игровая зона'), findsOneWidget);
+    expect(find.text('20.04.2026'), findsOneWidget);
   });
 
-  testWidgets('renders denied permission state with system settings action', (
+  testWidgets('renders empty state when news feed has no items', (
     WidgetTester tester,
   ) async {
-    final controller = MobileNotificationsController(
-      repository: const _FakeNotificationSettingsRepository(
-        loadStatus: NotificationPermissionStatus.denied,
-      ),
-    );
-    final pushController = _FixedStatusPushTokenController(
-      status: PushRegistrationStatus.permissionDenied,
+    final controller = NewsFeedController(
+      repository: const _FakeNewsRepository(items: []),
     );
 
-    await tester.pumpWidget(_TestApp(
-      child: NotificationsPage(
-        notificationsController: controller,
-        pushTokenController: pushController,
+    await tester.pumpWidget(
+      _TestApp(
+        child: NotificationsPage(newsController: controller),
       ),
-    ));
+    );
     await tester.pump();
 
-    expect(find.text('Отключено'), findsWidgets);
-    expect(find.text('Открыть настройки приложения'), findsOneWidget);
-    expect(find.text('Нет разрешения'), findsOneWidget);
+    expect(find.text('Пока нет новостей'), findsOneWidget);
   });
 
-  testWidgets('shows retry button when push registration failed', (
+  testWidgets('renders error state with retry action', (
     WidgetTester tester,
   ) async {
-    final controller = MobileNotificationsController(
-      repository: const _FakeNotificationSettingsRepository(
-        loadStatus: NotificationPermissionStatus.granted,
-      ),
-    );
-    final pushController = _FixedStatusPushTokenController(
-      status: PushRegistrationStatus.failed,
+    final controller = NewsFeedController(
+      repository: const _ThrowingNewsRepository(),
     );
 
-    await tester.pumpWidget(_TestApp(
-      child: NotificationsPage(
-        notificationsController: controller,
-        pushTokenController: pushController,
+    await tester.pumpWidget(
+      _TestApp(
+        child: NotificationsPage(newsController: controller),
       ),
-    ));
+    );
     await tester.pump();
 
-    expect(find.text('Повторить регистрацию'), findsOneWidget);
-    expect(find.text('Ошибка регистрации'), findsOneWidget);
-    expect(find.text('Не получен'), findsOneWidget);
+    expect(find.text('Не удалось загрузить новости'), findsOneWidget);
+    expect(find.text('Повторить'), findsOneWidget);
   });
 
-  testWidgets('shows unauthenticated push state when user not logged in', (
+  testWidgets('renders loading indicator before feed finishes bootstrap', (
     WidgetTester tester,
   ) async {
-    final controller = MobileNotificationsController(
-      repository: const _FakeNotificationSettingsRepository(
-        loadStatus: NotificationPermissionStatus.unknown,
+    final controller = NewsFeedController(
+      repository: _DelayedNewsRepository(
+        completer: Completer<List<NewsItem>>(),
       ),
-    );
-    final pushController = _FixedStatusPushTokenController(
-      status: PushRegistrationStatus.unauthenticated,
     );
 
-    await tester.pumpWidget(_TestApp(
-      child: NotificationsPage(
-        notificationsController: controller,
-        pushTokenController: pushController,
+    await tester.pumpWidget(
+      _TestApp(
+        child: NotificationsPage(newsController: controller),
       ),
-    ));
+    );
     await tester.pump();
 
-    expect(find.text('Требуется вход'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
   });
 }
-
-// ---------------------------------------------------------------------------
-// Test widget wrapper
-// ---------------------------------------------------------------------------
 
 class _TestApp extends StatelessWidget {
   const _TestApp({required this.child});
@@ -140,129 +110,33 @@ class _TestApp extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Fakes
-// ---------------------------------------------------------------------------
-
-class _FakeNotificationSettingsRepository
-    implements NotificationSettingsRepository {
-  const _FakeNotificationSettingsRepository({
-    required this.loadStatus,
+class _FakeNewsRepository implements NewsRepository {
+  const _FakeNewsRepository({
+    required this.items,
   });
 
-  final NotificationPermissionStatus loadStatus;
+  final List<NewsItem> items;
 
   @override
-  Future<NotificationPermissionStatus> loadPermissionStatus() async =>
-      loadStatus;
-
-  @override
-  Future<bool> openSystemSettings() async => true;
-
-  @override
-  Future<NotificationPermissionStatus> requestPermission() async => loadStatus;
+  Future<List<NewsItem>> listNews() async => items;
 }
 
-/// A [PushTokenController] that exposes a fixed status, bypassing all async
-/// logic so widget tests can target specific UI states directly.
-class _FixedStatusPushTokenController extends PushTokenController {
-  _FixedStatusPushTokenController({
-    required PushRegistrationStatus status,
-  })  : _fixedStatus = status,
-        super(
-          authController: MobileAuthController(
-            repository: _StubAuthRepository(),
-          ),
-          notificationSettingsRepository:
-              const _FakeNotificationSettingsRepository(
-            loadStatus: NotificationPermissionStatus.granted,
-          ),
-          fcmTokenGateway: _NullFcmTokenGateway(),
-          pushTokenRepository: _NullPushTokenRepository(),
-        );
-
-  final PushRegistrationStatus _fixedStatus;
+class _ThrowingNewsRepository implements NewsRepository {
+  const _ThrowingNewsRepository();
 
   @override
-  PushRegistrationStatus get status => _fixedStatus;
-
-  @override
-  Future<void> bootstrap() async {}
-
-  @override
-  Future<void> retryRegistration() async {}
+  Future<List<NewsItem>> listNews() async {
+    throw StateError('boom');
+  }
 }
 
-class _NullFcmTokenGateway implements FcmTokenGateway {
-  @override
-  Future<String?> getToken() async => null;
+class _DelayedNewsRepository implements NewsRepository {
+  const _DelayedNewsRepository({
+    required this.completer,
+  });
+
+  final Completer<List<NewsItem>> completer;
 
   @override
-  Stream<String> get onTokenRefresh => const Stream.empty();
-}
-
-class _NullPushTokenRepository implements PushTokenRepository {
-  @override
-  Future<bool> registerToken({
-    required String token,
-    required String platform,
-    required String permissionStatus,
-    required String accessToken,
-  }) async =>
-      false;
-
-  @override
-  Future<void> removeToken({required String accessToken}) async {}
-}
-
-class _StubAuthRepository implements MobileAuthRepository {
-  @override
-  Future<void> clearSession() async {}
-
-  @override
-  Future<Result<MobileAuthUser>> getCurrentUser(String accessToken) async =>
-      const Failure('stub');
-
-  @override
-  Future<Result<void>> logout(MobileAuthSession session) async =>
-      const Success(null);
-
-  @override
-  Future<Result<OtpChallenge>> requestOtp(String phone) async =>
-      const Failure('stub');
-
-  @override
-  Future<Result<MobileAuthSession>> refreshSession(String refreshToken) async =>
-      const Failure('stub');
-
-  @override
-  Future<MobileAuthSession?> restoreSession() async => null;
-
-  @override
-  Future<Result<MobileAuthSession?>> syncSession(
-    MobileAuthSession session,
-  ) async =>
-      const Success(null);
-
-  @override
-  Future<Result<MobileAuthSession>> verifyOtp({
-    required String phone,
-    required String code,
-    required String verificationId,
-  }) async =>
-      const Failure('stub');
-
-  @override
-  Future<Result<MobileAuthSession>> registerWithEmail({
-    required String email,
-    required String password,
-  }) async =>
-      const Failure('stub');
-
-  @override
-  Future<Result<MobileAuthSession>> loginWithEmail({
-    required String email,
-    required String password,
-  }) async =>
-      const Failure('stub');
+  Future<List<NewsItem>> listNews() => completer.future;
 }
