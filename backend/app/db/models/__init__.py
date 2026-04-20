@@ -1,5 +1,6 @@
 from .admin_session import AdminSession
 from .admin_user import AdminUser
+from .auth_throttle_state import AuthThrottleState
 from .base import Base
 from .branch_pricing_profile import BranchPricingProfile
 from .branch_menu_category import BranchMenuCategory
@@ -25,6 +26,7 @@ __all__ = [
     'Base',
     'AdminSession',
     'AdminUser',
+    'AuthThrottleState',
     'Branch',
     'BranchPricingProfile',
     'BranchMenuCategory',

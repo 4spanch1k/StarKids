@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     jwt_secret_key: str = 'replace-me'
     jwt_access_token_ttl_minutes: int = 30
     jwt_refresh_token_ttl_days: int = 14
+    auth_password_min_length: int = 10
+    auth_login_max_failures: int = 5
+    auth_login_lockout_minutes: int = 10
+    auth_login_captcha_after_failures: int = 3
+    auth_captcha_ttl_minutes: int = 5
     admin_seed_email: str | None = None
     admin_seed_password: str | None = None
     admin_seed_full_name: str = 'Star Kids Admin'

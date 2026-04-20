@@ -13,7 +13,9 @@ AdminRole = Literal[
 
 class AdminLoginRequest(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
+    password: str = Field(min_length=1, max_length=128)
+    captcha_id: str | None = Field(default=None, min_length=1)
+    captcha_answer: str | None = Field(default=None, min_length=1, max_length=16)
 
 
 class AdminRefreshRequest(BaseModel):

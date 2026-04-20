@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -67,6 +67,25 @@ class MobileUserRepository(Repository):
             user.avatar_url = avatar_url
         if child_birth_date is not _SENTINEL:
             user.child_birth_date = child_birth_date
+        self.db.commit()
+        self.db.refresh(user)
+        return user
+
+    def update_password_hash(
+        self,
+        user: MobileUser,
+        *,
+        password_hash: str,
+    ) -> MobileUser:
+        user.password_hash = password_hash
+        self.db.add(user)
+        self.db.commit()
+        self.db.refresh(user)
+        return user
+
+    def record_successful_login(self, user: MobileUser) -> MobileUser:
+        user.last_login_at = datetime.now(UTC)
+        self.db.add(user)
         self.db.commit()
         self.db.refresh(user)
         return user
