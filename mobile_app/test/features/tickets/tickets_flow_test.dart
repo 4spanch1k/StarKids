@@ -19,6 +19,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() async {
+    NewsFeedController.clearCache();
     SharedPreferences.setMockInitialValues({});
     ServiceRegistry.ticketConfigRepository = const SeedTicketConfigRepository(
       config: BranchTicketConfig(
@@ -180,7 +181,31 @@ class _StaticNewsRepository implements NewsRepository {
   const _StaticNewsRepository();
 
   @override
-  Future<List<NewsItem>> listNews() async => const [];
+  Future<NewsItem> getNewsDetails(String newsId) async {
+    throw StateError('No news details in ticket test.');
+  }
+
+  @override
+  Future<List<NewsItem>> listNotificationHistory({
+    required int limit,
+    required int offset,
+  }) async {
+    return const [];
+  }
+
+  @override
+  Future<List<NewsItem>> listPromotedNews({
+    required int limit,
+    required int offset,
+  }) async {
+    return const [];
+  }
+
+  @override
+  Future<void> trackNewsEvent({
+    required String newsId,
+    required NewsEventType eventType,
+  }) async {}
 }
 
 class _FakeTicketPurchaseRepository implements TicketPurchaseRepository {

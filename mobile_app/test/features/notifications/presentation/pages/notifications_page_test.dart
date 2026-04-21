@@ -4,26 +4,33 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:star_kids_mobile/app/theme/app_theme.dart';
-import 'package:star_kids_mobile/features/news/domain/news_item.dart';
-import 'package:star_kids_mobile/features/news/domain/news_repository.dart';
-import 'package:star_kids_mobile/features/news/presentation/controllers/news_feed_controller.dart';
+import 'package:star_kids_mobile/features/notifications/domain/app_notification.dart';
+import 'package:star_kids_mobile/features/notifications/domain/notification_history_repository.dart';
+import 'package:star_kids_mobile/features/notifications/presentation/controllers/notification_history_controller.dart';
 import 'package:star_kids_mobile/features/notifications/presentation/pages/notifications_page.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('renders news list with image, title and date', (
+  setUp(() {
+    NotificationHistoryController.clearCache();
+  });
+
+  testWidgets('renders notification list with image, title and date', (
     WidgetTester tester,
   ) async {
-    final controller = NewsFeedController(
-      repository: _FakeNewsRepository(
+    final controller = NotificationHistoryController(
+      repository: _FakeNotificationRepository(
         items: [
-          NewsItem(
-            id: 'news-1',
+          AppNotification(
+            id: 'notification-1',
+            newsId: 'news-1',
+            type: NotificationType.news,
             title: 'Открылась новая игровая зона',
             imageUrl: 'https://cdn.example/news-1.jpg',
             description: 'Теперь в филиале еще больше активностей.',
             createdAt: DateTime.utc(2026, 4, 20),
+            isRead: false,
           ),
         ],
       ),
@@ -31,63 +38,64 @@ void main() {
 
     await tester.pumpWidget(
       _TestApp(
-        child: NotificationsPage(newsController: controller),
+        child: NotificationsPage(controller: controller),
       ),
     );
     await tester.pump();
 
-    expect(find.text('Новости'), findsOneWidget);
+    expect(find.text('Уведомления'), findsOneWidget);
     expect(find.text('Открылась новая игровая зона'), findsOneWidget);
     expect(find.text('20.04.2026'), findsOneWidget);
+    expect(find.text('Новость'), findsOneWidget);
   });
 
-  testWidgets('renders empty state when news feed has no items', (
+  testWidgets('renders empty state when notification feed has no items', (
     WidgetTester tester,
   ) async {
-    final controller = NewsFeedController(
-      repository: const _FakeNewsRepository(items: []),
+    final controller = NotificationHistoryController(
+      repository: const _FakeNotificationRepository(items: []),
     );
 
     await tester.pumpWidget(
       _TestApp(
-        child: NotificationsPage(newsController: controller),
+        child: NotificationsPage(controller: controller),
       ),
     );
     await tester.pump();
 
-    expect(find.text('Пока нет новостей'), findsOneWidget);
+    expect(find.text('Пока нет уведомлений'), findsOneWidget);
   });
 
   testWidgets('renders error state with retry action', (
     WidgetTester tester,
   ) async {
-    final controller = NewsFeedController(
-      repository: const _ThrowingNewsRepository(),
+    final controller = NotificationHistoryController(
+      repository: const _ThrowingNotificationRepository(),
     );
 
     await tester.pumpWidget(
       _TestApp(
-        child: NotificationsPage(newsController: controller),
+        child: NotificationsPage(controller: controller),
       ),
     );
     await tester.pump();
 
-    expect(find.text('Не удалось загрузить новости'), findsOneWidget);
+    expect(find.text('Не удалось загрузить уведомления'), findsOneWidget);
     expect(find.text('Повторить'), findsOneWidget);
   });
 
   testWidgets('renders loading indicator before feed finishes bootstrap', (
     WidgetTester tester,
   ) async {
-    final controller = NewsFeedController(
-      repository: _DelayedNewsRepository(
-        completer: Completer<List<NewsItem>>(),
+    final controller = NotificationHistoryController(
+      repository: _DelayedNotificationRepository(
+        completer: Completer<List<AppNotification>>(),
       ),
     );
 
     await tester.pumpWidget(
       _TestApp(
-        child: NotificationsPage(newsController: controller),
+        child: NotificationsPage(controller: controller),
       ),
     );
     await tester.pump();
@@ -110,33 +118,46 @@ class _TestApp extends StatelessWidget {
   }
 }
 
-class _FakeNewsRepository implements NewsRepository {
-  const _FakeNewsRepository({
+class _FakeNotificationRepository implements NotificationHistoryRepository {
+  const _FakeNotificationRepository({
     required this.items,
   });
 
-  final List<NewsItem> items;
+  final List<AppNotification> items;
 
   @override
-  Future<List<NewsItem>> listNews() async => items;
+  Future<List<AppNotification>> listNotifications({
+    required int limit,
+    required int offset,
+  }) async {
+    return items.skip(offset).take(limit).toList(growable: false);
+  }
 }
 
-class _ThrowingNewsRepository implements NewsRepository {
-  const _ThrowingNewsRepository();
+class _ThrowingNotificationRepository implements NotificationHistoryRepository {
+  const _ThrowingNotificationRepository();
 
   @override
-  Future<List<NewsItem>> listNews() async {
+  Future<List<AppNotification>> listNotifications({
+    required int limit,
+    required int offset,
+  }) async {
     throw StateError('boom');
   }
 }
 
-class _DelayedNewsRepository implements NewsRepository {
-  const _DelayedNewsRepository({
+class _DelayedNotificationRepository implements NotificationHistoryRepository {
+  const _DelayedNotificationRepository({
     required this.completer,
   });
 
-  final Completer<List<NewsItem>> completer;
+  final Completer<List<AppNotification>> completer;
 
   @override
-  Future<List<NewsItem>> listNews() => completer.future;
+  Future<List<AppNotification>> listNotifications({
+    required int limit,
+    required int offset,
+  }) {
+    return completer.future;
+  }
 }

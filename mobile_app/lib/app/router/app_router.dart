@@ -6,6 +6,8 @@ import '../../features/branches/presentation/pages/branch_details_page.dart';
 import '../../features/contacts/presentation/pages/contacts_map_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/menu/presentation/pages/menu_page.dart';
+import '../../features/news/presentation/models/news_details_page_args.dart';
+import '../../features/news/presentation/pages/news_details_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/onboarding/presentation/pages/onboarding_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
@@ -42,6 +44,13 @@ abstract final class AppRouter {
         );
       case AppRoutes.notifications:
         return _page(const NotificationsPage(), settings);
+      case AppRoutes.newsDetails:
+        return _page(
+          NewsDetailsPage(
+            args: settings.arguments as NewsDetailsPageArgs?,
+          ),
+          settings,
+        );
       case AppRoutes.profile:
         return _page(const ProfilePage(), settings);
       case AppRoutes.myRequests:

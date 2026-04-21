@@ -22,7 +22,9 @@ import '../../features/menu/data/api_menu_repository.dart';
 import '../../features/menu/domain/menu_repository.dart';
 import '../../features/news/data/api_news_repository.dart';
 import '../../features/news/domain/news_repository.dart';
+import '../../features/notifications/data/api_notification_history_repository.dart';
 import '../../features/notifications/data/api_push_token_repository.dart';
+import '../../features/notifications/domain/notification_history_repository.dart';
 import '../../features/notifications/data/device_notification_settings_repository.dart';
 import '../../features/notifications/data/fcm_token_gateway.dart';
 import '../../features/notifications/data/firebase_fcm_token_gateway.dart';
@@ -83,6 +85,8 @@ abstract final class ServiceRegistry {
   static final NewsRepository newsRepository = ApiNewsRepository(
     apiClient: apiClient,
   );
+  static final NotificationHistoryRepository notificationHistoryRepository =
+      ApiNotificationHistoryRepository(apiClient: apiClient);
   static TicketConfigRepository ticketConfigRepository =
       ApiTicketConfigRepository(apiClient: apiClient);
   static TicketPurchaseRepository ticketPurchaseRepository =

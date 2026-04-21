@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Literal
 
 from pydantic import BaseModel, field_serializer
 
@@ -19,3 +20,10 @@ class MobileNewsItem(BaseModel):
             '+00:00',
             'Z',
         )
+
+
+NewsEventType = Literal['view', 'click']
+
+
+class MobileNewsEventRequest(BaseModel):
+    event_type: NewsEventType

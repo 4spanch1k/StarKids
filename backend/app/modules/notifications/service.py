@@ -1,7 +1,12 @@
+from datetime import datetime, timezone
+
 from ...db.models.mobile_session import MobileSession
 from ...db.models.mobile_user import MobileUser
 from ...db.repositories.mobile_notification_device_repository import (
     MobileNotificationDeviceRepository,
+)
+from ...db.repositories.mobile_notification_repository import (
+    MobileNotificationRepository,
 )
 from ..mobile_auth.service import MobileAuthService
 from .schemas import NotificationItem
@@ -16,16 +21,44 @@ class NotificationService:
         self,
         *,
         device_repository: MobileNotificationDeviceRepository | None = None,
+        notification_repository: MobileNotificationRepository | None = None,
     ) -> None:
         self.device_repository = device_repository
+        self.notification_repository = notification_repository
 
-    def list_notifications(self) -> list[NotificationItem]:
+    def list_notifications(
+        self,
+        *,
+        limit: int = 10,
+        offset: int = 0,
+    ) -> list[NotificationItem]:
+        if self.notification_repository is None:
+            return [
+                NotificationItem(
+                    id='notification-1',
+                    news_id=None,
+                    type='system',
+                    title='Welcome to Star Kids',
+                    description=None,
+                    image_url=None,
+                    created_at=datetime.now(timezone.utc),
+                    is_read=False,
+                )
+            ]
+
+        items = self.notification_repository.list_mobile(limit=limit, offset=offset)
         return [
             NotificationItem(
-                id='notification-1',
-                title='Welcome to Star Kids',
+                id=item.id,
+                news_id=item.news_id,
+                type=item.notification_type,  # type: ignore[arg-type]
+                title=item.title,
+                description=item.description,
+                image_url=item.image_url,
+                created_at=item.created_at,
                 is_read=False,
             )
+            for item in items
         ]
 
     def register_device(

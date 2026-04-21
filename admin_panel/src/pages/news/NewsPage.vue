@@ -2,7 +2,7 @@
   <AdminCrudWorkspace
     eyebrow="Контент приложения"
     title="Новости"
-    description="Новости для главного экрана и списка в колоколе мобильного приложения."
+    description="Новости для главного экрана и истории уведомлений мобильного приложения."
     :show-detail="showInlineDetail"
     :route-panel-open="isRoutePanelOpen"
     :route-panel-title="routePanelTitle"
@@ -78,7 +78,8 @@
             <tr>
               <th>Превью</th>
               <th>Заголовок</th>
-              <th>Дата</th>
+              <th>Порядок</th>
+              <th>Публикация</th>
               <th>Статус</th>
             </tr>
           </thead>
@@ -103,11 +104,12 @@
                 <strong>{{ item.title }}</strong>
                 <p>{{ item.description || 'Без описания' }}</p>
               </td>
-              <td>{{ formatDate(item.createdAt) }}</td>
+              <td>{{ item.displayOrder }}</td>
+              <td>{{ formatDateTime(item.publishAt) || 'Сразу' }}</td>
               <td>
                 <StatusBadge
-                  :label="resolveNewsStatus(item.isActive).label"
-                  :tone="resolveNewsStatus(item.isActive).tone"
+                  :label="resolveNewsStatus(item).label"
+                  :tone="resolveNewsStatus(item).tone"
                 />
               </td>
             </tr>
@@ -152,10 +154,52 @@
                 v-model="newsManager.createForm.title"
                 name="title"
                 class="admin-control"
+                :maxlength="NEWS_TITLE_MAX_LENGTH"
                 @input="clearCreateFieldError('title')"
               />
+              <span class="news-page__field-hint">
+                {{ newsManager.createForm.title.length }}/{{ NEWS_TITLE_MAX_LENGTH }}
+              </span>
               <p v-if="createFieldErrors.title" class="admin-field__error">
                 {{ createFieldErrors.title }}
+              </p>
+            </label>
+
+            <label
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.displayOrder) }"
+              data-field="displayOrder"
+            >
+              <span class="admin-field__label">Порядок</span>
+              <input
+                v-model.number="newsManager.createForm.displayOrder"
+                name="displayOrder"
+                type="number"
+                min="0"
+                max="1000"
+                class="admin-control"
+                @input="clearCreateFieldError('displayOrder')"
+              />
+              <p v-if="createFieldErrors.displayOrder" class="admin-field__error">
+                {{ createFieldErrors.displayOrder }}
+              </p>
+            </label>
+
+            <label
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.publishAt) }"
+              data-field="publishAt"
+            >
+              <span class="admin-field__label">Дата публикации</span>
+              <input
+                v-model="newsManager.createForm.publishAt"
+                name="publishAt"
+                type="datetime-local"
+                class="admin-control"
+                @input="clearCreateFieldError('publishAt')"
+              />
+              <p v-if="createFieldErrors.publishAt" class="admin-field__error">
+                {{ createFieldErrors.publishAt }}
               </p>
             </label>
 
@@ -216,6 +260,30 @@
               :src="newsManager.createForm.imageUrl"
               alt="Предпросмотр новости"
             />
+          </div>
+
+          <div class="news-preview-card">
+            <div
+              class="news-preview-card__media"
+              :class="{ 'news-preview-card__media--empty': !newsManager.createForm.imageUrl }"
+            >
+              <img
+                v-if="newsManager.createForm.imageUrl"
+                :src="newsManager.createForm.imageUrl"
+                alt="Предпросмотр карточки новости"
+              />
+              <span v-else>Изображение обязательно</span>
+            </div>
+            <div class="news-preview-card__body">
+              <p class="news-preview-card__eyebrow">Предпросмотр перед сохранением</p>
+              <strong>{{ newsManager.createForm.title || 'Заголовок новости' }}</strong>
+              <p>
+                {{
+                  newsManager.createForm.description ||
+                    'Короткий анонс появится здесь после заполнения описания.'
+                }}
+              </p>
+            </div>
           </div>
 
           <div class="news-page__switches">
@@ -279,10 +347,52 @@
                 v-model="newsManager.form.title"
                 name="title"
                 class="admin-control"
+                :maxlength="NEWS_TITLE_MAX_LENGTH"
                 @input="clearEditFieldError('title')"
               />
+              <span class="news-page__field-hint">
+                {{ (newsManager.form.title || '').length }}/{{ NEWS_TITLE_MAX_LENGTH }}
+              </span>
               <p v-if="editFieldErrors.title" class="admin-field__error">
                 {{ editFieldErrors.title }}
+              </p>
+            </label>
+
+            <label
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(editFieldErrors.displayOrder) }"
+              data-field="displayOrder"
+            >
+              <span class="admin-field__label">Порядок</span>
+              <input
+                v-model.number="newsManager.form.displayOrder"
+                name="displayOrder"
+                type="number"
+                min="0"
+                max="1000"
+                class="admin-control"
+                @input="clearEditFieldError('displayOrder')"
+              />
+              <p v-if="editFieldErrors.displayOrder" class="admin-field__error">
+                {{ editFieldErrors.displayOrder }}
+              </p>
+            </label>
+
+            <label
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(editFieldErrors.publishAt) }"
+              data-field="publishAt"
+            >
+              <span class="admin-field__label">Дата публикации</span>
+              <input
+                v-model="newsManager.form.publishAt"
+                name="publishAt"
+                type="datetime-local"
+                class="admin-control"
+                @input="clearEditFieldError('publishAt')"
+              />
+              <p v-if="editFieldErrors.publishAt" class="admin-field__error">
+                {{ editFieldErrors.publishAt }}
               </p>
             </label>
 
@@ -345,6 +455,30 @@
             />
           </div>
 
+          <div class="news-preview-card">
+            <div
+              class="news-preview-card__media"
+              :class="{ 'news-preview-card__media--empty': !newsManager.form.imageUrl }"
+            >
+              <img
+                v-if="newsManager.form.imageUrl"
+                :src="newsManager.form.imageUrl || ''"
+                alt="Предпросмотр карточки новости"
+              />
+              <span v-else>Изображение обязательно</span>
+            </div>
+            <div class="news-preview-card__body">
+              <p class="news-preview-card__eyebrow">Предпросмотр перед сохранением</p>
+              <strong>{{ newsManager.form.title || 'Заголовок новости' }}</strong>
+              <p>
+                {{
+                  newsManager.form.description ||
+                    'Короткий анонс появится здесь после заполнения описания.'
+                }}
+              </p>
+            </div>
+          </div>
+
           <div class="news-page__switches">
             <AdminSwitchField
               v-model="newsIsActive"
@@ -402,8 +536,8 @@
 
           <div class="news-detail-view__actions">
             <StatusBadge
-              :label="resolveNewsStatus(newsManager.selectedNews.isActive).label"
-              :tone="resolveNewsStatus(newsManager.selectedNews.isActive).tone"
+              :label="resolveNewsStatus(newsManager.selectedNews).label"
+              :tone="resolveNewsStatus(newsManager.selectedNews).tone"
             />
             <button
               type="button"
@@ -455,7 +589,8 @@ import {
   clearFieldError,
   focusFirstFieldError,
   replaceFieldErrors,
-  validateOptionalText,
+  validateMaxTextLength,
+  validateNonNegativeNumber,
   validateRequiredText,
   validateRequiredUrl,
 } from '@/shared/lib/adminFormValidation';
@@ -491,6 +626,7 @@ const editFieldErrors = reactive<AdminFieldErrors>({});
 
 const createDirty = useFormSnapshotDirty(() => ({ ...newsManager.createForm }));
 const editDirty = useFormSnapshotDirty(() => ({ ...newsManager.form }));
+const NEWS_TITLE_MAX_LENGTH = 80;
 
 const { confirmLeave } = useUnsavedChangesGuard(() => {
   if (routeMode.value === 'create') {
@@ -576,6 +712,8 @@ const newsMetaItems = computed(() => {
 
   return [
     { label: 'Дата создания', value: formatDate(item.createdAt) },
+    { label: 'Дата публикации', value: formatDateTime(item.publishAt) || 'Сразу' },
+    { label: 'Порядок', value: String(item.displayOrder) },
     { label: 'Показывать в приложении', value: item.isActive ? 'Да' : 'Нет' },
   ];
 });
@@ -584,6 +722,8 @@ const newsFieldLabels: Record<string, string> = {
   title: 'заголовок',
   imageUrl: 'изображение',
   description: 'описание',
+  displayOrder: 'порядок',
+  publishAt: 'дата публикации',
 };
 
 watch(
@@ -633,16 +773,26 @@ async function handlePanelClose() {
 
 async function handleCreateSubmit() {
   const errors = compactErrors({
-    title: validateRequiredText(newsManager.createForm.title, 'Введите заголовок.', 2),
-    description: validateOptionalText(
+    title:
+      validateRequiredText(newsManager.createForm.title, 'Введите заголовок.', 2) ||
+      validateMaxTextLength(
+        newsManager.createForm.title,
+        NEWS_TITLE_MAX_LENGTH,
+        `Заголовок должен быть не длиннее ${NEWS_TITLE_MAX_LENGTH} символов.`,
+      ),
+    description: validateRequiredText(
       newsManager.createForm.description,
-      'Описание должно быть осмысленным.',
+      'Введите описание новости.',
       3,
     ),
     imageUrl: validateRequiredUrl(
       newsManager.createForm.imageUrl,
       'Добавьте изображение новости.',
       'Укажите корректную ссылку на изображение.',
+    ),
+    displayOrder: validateNonNegativeNumber(
+      Number(newsManager.createForm.displayOrder),
+      'Порядок должен быть числом от 0 и выше.',
     ),
   });
 
@@ -673,16 +823,26 @@ async function handleCreateSubmit() {
 
 async function handleSave() {
   const errors = compactErrors({
-    title: validateRequiredText(newsManager.form.title || '', 'Введите заголовок.', 2),
-    description: validateOptionalText(
+    title:
+      validateRequiredText(newsManager.form.title || '', 'Введите заголовок.', 2) ||
+      validateMaxTextLength(
+        newsManager.form.title || '',
+        NEWS_TITLE_MAX_LENGTH,
+        `Заголовок должен быть не длиннее ${NEWS_TITLE_MAX_LENGTH} символов.`,
+      ),
+    description: validateRequiredText(
       newsManager.form.description || '',
-      'Описание должно быть осмысленным.',
+      'Введите описание новости.',
       3,
     ),
     imageUrl: validateRequiredUrl(
       newsManager.form.imageUrl || '',
       'Добавьте изображение новости.',
       'Укажите корректную ссылку на изображение.',
+    ),
+    displayOrder: validateNonNegativeNumber(
+      Number(newsManager.form.displayOrder ?? 0),
+      'Порядок должен быть числом от 0 и выше.',
     ),
   });
 
@@ -802,10 +962,19 @@ function formatValidationSummary(errors: AdminFieldErrors): string {
   return `Проверьте поля: ${labels.join(', ')}.`;
 }
 
-function resolveNewsStatus(isActive: boolean) {
-  return isActive
-    ? { label: 'Активна', tone: 'closed' as const }
-    : { label: 'Выключена', tone: 'warning' as const };
+function resolveNewsStatus(item: { isActive: boolean; publishAt?: string | null }) {
+  if (!item.isActive) {
+    return { label: 'Выключена', tone: 'warning' as const };
+  }
+
+  if (item.publishAt) {
+    const publishAt = new Date(item.publishAt);
+    if (!Number.isNaN(publishAt.getTime()) && publishAt.getTime() > Date.now()) {
+      return { label: 'Запланирована', tone: 'in-progress' as const };
+    }
+  }
+
+  return { label: 'Активна', tone: 'closed' as const };
 }
 
 function formatDate(value: string) {
@@ -818,6 +987,25 @@ function formatDate(value: string) {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
+  });
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) {
+    return '';
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return 'Не указано';
+  }
+
+  return parsed.toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 </script>
@@ -905,12 +1093,70 @@ function formatDate(value: string) {
   font-size: 12px;
 }
 
+.news-page__field-hint {
+  margin-top: 6px;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
 .news-page__image-preview {
   display: inline-flex;
   padding: 12px;
   border: 1px solid var(--color-border);
   border-radius: 18px;
   background: var(--color-surface-subtle);
+}
+
+.news-preview-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  background: var(--color-surface-subtle);
+}
+
+.news-preview-card__media {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(255, 214, 228, 0.9), rgba(219, 233, 255, 0.9));
+}
+
+.news-preview-card__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.news-preview-card__media--empty {
+  border: 1px dashed var(--color-border);
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.news-preview-card__body {
+  display: grid;
+  gap: 8px;
+}
+
+.news-preview-card__body strong,
+.news-preview-card__body p {
+  margin: 0;
+}
+
+.news-preview-card__body p:last-child {
+  color: var(--color-muted);
+}
+
+.news-preview-card__eyebrow {
+  color: var(--color-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .news-page__image-preview--detail img {

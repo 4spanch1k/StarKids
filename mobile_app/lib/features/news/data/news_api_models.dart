@@ -17,7 +17,7 @@ class NewsItemDto {
 
   factory NewsItemDto.fromJson(Map<String, dynamic> json) {
     return NewsItemDto(
-      id: json['id'] as String? ?? '',
+      id: json['news_id'] as String? ?? json['id'] as String? ?? '',
       title: json['title'] as String? ?? '',
       imageUrl: json['image_url'] as String? ?? '',
       description: json['description'] as String?,

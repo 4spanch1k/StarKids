@@ -9,6 +9,7 @@ from fastapi import status
 
 from ...core.config.settings import Settings, get_settings
 from ...core.exceptions.http import DomainHTTPException
+from ...core.rate_limit.service import RateLimitService, get_rate_limit_service
 from ...core.security.tokens import hash_secret_value, verify_secret_value
 from ...db.models.auth_throttle_state import AuthThrottleState
 from ...db.repositories.auth_throttle_state_repository import AuthThrottleStateRepository
@@ -25,9 +26,11 @@ class AuthProtectionService:
         self,
         *,
         throttle_repository: AuthThrottleStateRepository,
+        rate_limit_service: RateLimitService | None = None,
         settings: Settings | None = None,
     ) -> None:
         self._throttle_repository = throttle_repository
+        self._rate_limit_service = rate_limit_service or get_rate_limit_service()
         self._settings = settings or get_settings()
 
     def ensure_login_allowed(
@@ -39,6 +42,10 @@ class AuthProtectionService:
         captcha_id: str | None = None,
         captcha_answer: str | None = None,
     ) -> None:
+        self._ensure_ip_rate_limit_not_exceeded(
+            auth_scope=auth_scope,
+            context=context,
+        )
         now = datetime.now(UTC)
         states = self._existing_states(
             auth_scope=auth_scope,
@@ -106,6 +113,12 @@ class AuthProtectionService:
             identifier=identifier,
         )
         self._normalize_states(states, now)
+        ip_rate_limit = self._rate_limit_service.consume(
+            self._ip_rate_limit_key(auth_scope, context.ip_address),
+            limit=self._settings.auth_login_max_failures,
+            window_seconds=self._settings.auth_login_lockout_minutes * 60,
+            block_on_limit=True,
+        )
 
         for state in states:
             state.failed_attempts += 1
@@ -142,6 +155,15 @@ class AuthProtectionService:
             )
             raise self.locked_exception(locked_state, now=now)
 
+        if not ip_rate_limit.allowed:
+            logger.warning(
+                'Auth login blocked by rate limit: scope=%s ip=%s identifier=%s',
+                auth_scope,
+                context.ip_address,
+                self._mask_identifier(identifier),
+            )
+            raise self.retry_after_exception(ip_rate_limit.retry_after_seconds)
+
         captcha_state = self._captcha_state(states, now)
         if captcha_state is not None:
             logger.warning(
@@ -166,12 +188,18 @@ class AuthProtectionService:
             identifier=identifier,
         )
         if not states:
+            self._rate_limit_service.clear(
+                self._ip_rate_limit_key(auth_scope, context.ip_address),
+            )
             return
 
         for state in states:
             self._reset_state(state, now=now)
 
         self._throttle_repository.save_many(states)
+        self._rate_limit_service.clear(
+            self._ip_rate_limit_key(auth_scope, context.ip_address),
+        )
 
     @staticmethod
     def locked_exception(
@@ -220,6 +248,41 @@ class AuthProtectionService:
                 },
             ],
         )
+
+    @staticmethod
+    def retry_after_exception(retry_after_seconds: int) -> DomainHTTPException:
+        return DomainHTTPException(
+            code='login_temporarily_locked',
+            message='Слишком много неудачных попыток входа. Попробуйте позже.',
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            details=[
+                {
+                    'field': 'retry_after_seconds',
+                    'message': str(max(1, retry_after_seconds)),
+                }
+            ],
+        )
+
+    def _ensure_ip_rate_limit_not_exceeded(
+        self,
+        *,
+        auth_scope: str,
+        context: AuthRequestContext,
+    ) -> None:
+        status_snapshot = self._rate_limit_service.peek(
+            self._ip_rate_limit_key(auth_scope, context.ip_address),
+            limit=self._settings.auth_login_max_failures,
+            window_seconds=self._settings.auth_login_lockout_minutes * 60,
+            block_on_limit=True,
+        )
+        if status_snapshot.allowed:
+            return
+        raise self.retry_after_exception(status_snapshot.retry_after_seconds)
+
+    @staticmethod
+    def _ip_rate_limit_key(auth_scope: str, ip_address: str) -> str:
+        normalized_ip = ip_address.strip() or 'unknown'
+        return f'login:{auth_scope}:{normalized_ip}'
 
     def _existing_states(
         self,

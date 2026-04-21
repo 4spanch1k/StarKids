@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 from pathlib import Path
 from uuid import uuid4
 
@@ -9,11 +11,21 @@ from ...core.config.settings import Settings, get_settings
 from ...core.exceptions.http import DomainHTTPException, NotFoundException
 from ...core.storage.backend import StorageBackend
 from ...db.models.news import News
+from ...db.repositories.mobile_notification_repository import (
+    MobileNotificationRepository,
+)
+from ...db.repositories.news_event_repository import (
+    NewsEventRepository,
+    NewsTopStatsSnapshot,
+)
 from ...db.repositories.news_repository import NewsRepository
 from .schemas import (
     AdminNewsCreateRequest,
     AdminNewsImageUploadResponse,
     AdminNewsResponse,
+    AdminNewsStatsResponse,
+    AdminNewsTopStatsItem,
+    AdminNewsTopStatsResponse,
     AdminNewsUpdateRequest,
 )
 
@@ -30,10 +42,16 @@ class AdminNewsService:
         self,
         *,
         repository: NewsRepository | None = None,
+        notification_repository: MobileNotificationRepository | None = None,
+        event_repository: NewsEventRepository | None = None,
         storage: StorageBackend | None = None,
         settings: Settings | None = None,
     ) -> None:
         self.repository = repository or NewsRepository()
+        self.notification_repository = (
+            notification_repository or MobileNotificationRepository()
+        )
+        self.event_repository = event_repository or NewsEventRepository()
         self.storage = storage
         self.settings = settings or get_settings()
 
@@ -47,12 +65,15 @@ class AdminNewsService:
     def create_news(self, payload: AdminNewsCreateRequest) -> AdminNewsResponse:
         item = self.repository.create(
             payload={
-                'title': payload.title.strip(),
-                'image_url': payload.image_url.strip(),
-                'description': self._normalize_optional_text(payload.description),
+                'title': payload.title,
+                'image_url': payload.image_url,
+                'description': payload.description,
                 'is_active': payload.is_active,
+                'display_order': payload.display_order,
+                'publish_at': payload.publish_at,
             }
         )
+        self._sync_news_notification(item)
         return self._serialize(item)
 
     def update_news(
@@ -66,23 +87,55 @@ class AdminNewsService:
             return self._serialize(item)
 
         if 'title' in changes:
-            item.title = str(changes['title']).strip()
+            item.title = str(changes['title'])
         if 'image_url' in changes and changes['image_url'] is not None:
-            item.image_url = str(changes['image_url']).strip()
+            item.image_url = str(changes['image_url'])
         if 'description' in changes:
             item.description = self._normalize_optional_text(changes['description'])
         if 'is_active' in changes:
             item.is_active = bool(changes['is_active'])
+        if 'display_order' in changes and changes['display_order'] is not None:
+            item.display_order = int(changes['display_order'])
+        if 'publish_at' in changes:
+            item.publish_at = self._normalize_datetime(changes['publish_at'])
 
         saved = self.repository.save(item)
+        self._sync_news_notification(saved)
         return self._serialize(saved)
 
     def delete_news(self, news_id: str) -> None:
         item = self._get_news_or_404(news_id)
         storage_key = self._extract_storage_key(item.image_url)
         self.repository.delete(item)
+        self.notification_repository.delete_by_news_id(news_id)
         if storage_key is not None:
             self._require_storage().delete(storage_key)
+
+    def get_news_stats(self, news_id: str) -> AdminNewsStatsResponse:
+        self._get_news_or_404(news_id)
+        snapshot = self.event_repository.get_stats(news_id=news_id)
+        return AdminNewsStatsResponse(
+            views_count=snapshot.views_count,
+            clicks_count=snapshot.clicks_count,
+            ctr=self._calculate_ctr(snapshot.clicks_count, snapshot.views_count),
+        )
+
+    def get_top_stats(self, *, limit: int = 5) -> AdminNewsTopStatsResponse:
+        now = datetime.now(UTC)
+        return AdminNewsTopStatsResponse(
+            last_24_hours=self._serialize_top_stats(
+                self.event_repository.list_top_news_stats(
+                    since=now - timedelta(hours=24),
+                    limit=limit,
+                )
+            ),
+            last_7_days=self._serialize_top_stats(
+                self.event_repository.list_top_news_stats(
+                    since=now - timedelta(days=7),
+                    limit=limit,
+                )
+            ),
+        )
 
     async def upload_image(
         self,
@@ -137,6 +190,8 @@ class AdminNewsService:
             image_url=item.image_url,
             description=item.description,
             is_active=item.is_active,
+            display_order=item.display_order,
+            publish_at=item.publish_at,
             created_at=item.created_at,
         )
 
@@ -145,6 +200,61 @@ class AdminNewsService:
             return None
         normalized = str(value).strip()
         return normalized or None
+
+    def _normalize_datetime(self, value: object) -> datetime | None:
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            if value.tzinfo is not None:
+                return value.astimezone(UTC)
+            return value.replace(tzinfo=UTC)
+        raise ValueError('Expected datetime value.')
+
+    def _sync_news_notification(self, news: News) -> None:
+        notification = self.notification_repository.get_by_news_id(news.id)
+        payload = {
+            'id': news.id,
+            'news_id': news.id,
+            'notification_type': 'news',
+            'title': news.title,
+            'description': news.description,
+            'image_url': news.image_url,
+            'is_active': news.is_active,
+            'publish_at': news.publish_at,
+        }
+
+        if notification is None:
+            self.notification_repository.create(payload=payload)
+            return
+
+        notification.title = news.title
+        notification.description = news.description
+        notification.image_url = news.image_url
+        notification.is_active = news.is_active
+        notification.publish_at = news.publish_at
+        self.notification_repository.save(notification)
+
+    def _serialize_top_stats(
+        self,
+        items: list[NewsTopStatsSnapshot],
+    ) -> list[AdminNewsTopStatsItem]:
+        return [
+            AdminNewsTopStatsItem(
+                news_id=item.news_id,
+                title=item.title,
+                image_url=item.image_url,
+                views_count=item.views_count,
+                clicks_count=item.clicks_count,
+                ctr=self._calculate_ctr(item.clicks_count, item.views_count),
+            )
+            for item in items
+        ]
+
+    @staticmethod
+    def _calculate_ctr(clicks_count: int, views_count: int) -> float:
+        if views_count <= 0:
+            return 0.0
+        return round(clicks_count / views_count, 4)
 
     def _normalize_public_url(
         self,

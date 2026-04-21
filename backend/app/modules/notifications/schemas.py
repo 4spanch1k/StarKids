@@ -3,11 +3,28 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_serializer
 
+NotificationType = Literal['news', 'system', 'promo']
+
 
 class NotificationItem(BaseModel):
     id: str
+    news_id: str | None = None
+    type: NotificationType
     title: str
+    description: str | None = None
+    image_url: str | None = None
+    created_at: datetime
     is_read: bool
+
+    @field_serializer('created_at')
+    def serialize_created_at(self, value: datetime) -> str:
+        normalized = value if value.tzinfo is not None else value.replace(
+            tzinfo=timezone.utc,
+        )
+        return normalized.astimezone(timezone.utc).isoformat().replace(
+            '+00:00',
+            'Z',
+        )
 
 
 NotificationDevicePlatform = Literal['android', 'ios', 'macos', 'web']

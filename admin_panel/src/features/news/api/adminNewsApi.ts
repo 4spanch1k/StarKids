@@ -18,6 +18,8 @@ type AdminNewsResponse = {
   image_url: string;
   description: string | null;
   is_active: boolean;
+  display_order: number;
+  publish_at: string | null;
   created_at: string;
 };
 
@@ -127,6 +129,8 @@ function mapNews(response: AdminNewsResponse): AdminNews {
     imageUrl: response.image_url,
     description: response.description ?? '',
     isActive: response.is_active,
+    displayOrder: response.display_order ?? 0,
+    publishAt: response.publish_at,
     createdAt: response.created_at,
   };
 }
@@ -139,5 +143,21 @@ function serializeNewsPayload(
     image_url: payload.imageUrl,
     description: payload.description?.trim() ? payload.description.trim() : null,
     is_active: payload.isActive,
+    display_order: payload.displayOrder ?? 0,
+    publish_at: serializePublishAt(payload.publishAt),
   };
+}
+
+function serializePublishAt(value: string | null | undefined): string | null {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) {
+    return normalized;
+  }
+
+  return parsed.toISOString();
 }

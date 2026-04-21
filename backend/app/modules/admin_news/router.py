@@ -1,15 +1,21 @@
-from fastapi import APIRouter, Depends, Request, Response, UploadFile, status
+from fastapi import APIRouter, Depends, Query, Request, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from ...core.database.session import get_db_session
 from ...core.exceptions.schemas import ErrorResponse
 from ...core.storage.backend import get_storage_backend
+from ...db.repositories.mobile_notification_repository import (
+    MobileNotificationRepository,
+)
+from ...db.repositories.news_event_repository import NewsEventRepository
 from ...db.repositories.news_repository import NewsRepository
 from ..admin_auth.dependencies import require_admin_roles
 from .schemas import (
     AdminNewsCreateRequest,
     AdminNewsImageUploadResponse,
     AdminNewsResponse,
+    AdminNewsStatsResponse,
+    AdminNewsTopStatsResponse,
     AdminNewsUpdateRequest,
 )
 from .service import AdminNewsService, NEWS_ADMIN_ALLOWED_ROLES
@@ -28,6 +34,8 @@ def get_admin_news_service(
     storage = get_storage_backend(settings)
     return AdminNewsService(
         repository=NewsRepository(session),
+        notification_repository=MobileNotificationRepository(session),
+        event_repository=NewsEventRepository(session),
         storage=storage,
         settings=settings,
     )
@@ -45,6 +53,18 @@ def list_admin_news(
 
 
 @router.get(
+    '/news/stats/top',
+    response_model=AdminNewsTopStatsResponse,
+    responses={401: {'model': ErrorResponse}, 403: {'model': ErrorResponse}},
+)
+def get_admin_news_top_stats(
+    limit: int = Query(default=5, ge=1, le=20),
+    service: AdminNewsService = Depends(get_admin_news_service),
+) -> AdminNewsTopStatsResponse:
+    return service.get_top_stats(limit=limit)
+
+
+@router.get(
     '/news/{news_id}',
     response_model=AdminNewsResponse,
     responses={
@@ -58,6 +78,22 @@ def get_admin_news(
     service: AdminNewsService = Depends(get_admin_news_service),
 ) -> AdminNewsResponse:
     return service.get_news(news_id)
+
+
+@router.get(
+    '/news/{news_id}/stats',
+    response_model=AdminNewsStatsResponse,
+    responses={
+        401: {'model': ErrorResponse},
+        403: {'model': ErrorResponse},
+        404: {'model': ErrorResponse},
+    },
+)
+def get_admin_news_stats(
+    news_id: str,
+    service: AdminNewsService = Depends(get_admin_news_service),
+) -> AdminNewsStatsResponse:
+    return service.get_news_stats(news_id)
 
 
 @router.post(
