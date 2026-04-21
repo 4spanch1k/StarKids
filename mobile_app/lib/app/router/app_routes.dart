@@ -9,6 +9,7 @@ abstract final class AppRoutes {
   static const contacts = '/contacts';
   static const requests = '/requests';
   static const notifications = '/notifications';
+  static const newsDetails = '/news/details';
   static const profile = '/profile';
   static const myRequests = '/profile/requests';
 }

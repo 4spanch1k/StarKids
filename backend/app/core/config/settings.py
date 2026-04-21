@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     auth_login_lockout_minutes: int = 10
     auth_login_captcha_after_failures: int = 3
     auth_captcha_ttl_minutes: int = 5
+    redis_url: str | None = None
+    redis_key_prefix: str = 'star_kids'
+    news_event_rate_limit_per_minute: int = 20
+    news_event_rate_limit_window_seconds: int = 60
     admin_seed_email: str | None = None
     admin_seed_password: str | None = None
     admin_seed_full_name: str = 'Star Kids Admin'

@@ -4,6 +4,8 @@ export type AdminNews = {
   imageUrl: string;
   description: string;
   isActive: boolean;
+  displayOrder: number;
+  publishAt: string | null;
   createdAt: string;
 };
 

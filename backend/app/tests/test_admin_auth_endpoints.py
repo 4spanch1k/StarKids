@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.database.session import get_db_session
+from app.core.rate_limit.service import reset_rate_limit_state
 from app.core.security.passwords import hash_password
 from app.db.models import Base
 from app.db.models.auth_throttle_state import AuthThrottleState
@@ -64,6 +65,7 @@ class AdminAuthEndpointTests(unittest.TestCase):
         Base.metadata.drop_all(cls.engine)
 
     def setUp(self) -> None:
+        reset_rate_limit_state()
         with self.SessionLocal() as session:
             session.query(AuthThrottleState).delete()
             session.query(AdminSession).delete()
@@ -218,3 +220,32 @@ class AdminAuthEndpointTests(unittest.TestCase):
             json={'refresh_token': auth_body['refresh_token']},
         )
         self.assertEqual(refresh_response.status_code, 401)
+
+    def test_login_blocks_after_five_failed_attempts_for_same_ip(self) -> None:
+        headers = {'X-Forwarded-For': '203.0.113.70'}
+
+        for _ in range(4):
+            response = self.client.post(
+                '/api/v1/admin/auth/login',
+                json={
+                    'email': 'admin@starkids.kz',
+                    'password': 'wrong-password',
+                },
+                headers=headers,
+            )
+            self.assertEqual(response.status_code, 401)
+
+        blocked_response = self.client.post(
+            '/api/v1/admin/auth/login',
+            json={
+                'email': 'admin@starkids.kz',
+                'password': 'wrong-password',
+            },
+            headers=headers,
+        )
+
+        self.assertEqual(blocked_response.status_code, 429)
+        self.assertEqual(
+            blocked_response.json()['error']['code'],
+            'login_temporarily_locked',
+        )

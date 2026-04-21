@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.database.session import get_db_session
+from app.core.rate_limit.service import reset_rate_limit_state
 from app.core.security.passwords import (
     SCRYPT_DKLEN,
     SCRYPT_N,
@@ -58,6 +59,7 @@ class MobileAuthEndpointTests(unittest.TestCase):
         Base.metadata.drop_all(cls.engine)
 
     def setUp(self) -> None:
+        reset_rate_limit_state()
         with self.SessionLocal() as session:
             session.query(AuthThrottleState).delete()
             session.query(MobileSession).delete()
@@ -594,6 +596,7 @@ class MobileAuthEndpointTests(unittest.TestCase):
         return str(int(match.group(1)) + int(match.group(2)))
 
     def _expire_lockouts(self) -> None:
+        reset_rate_limit_state()
         with self.SessionLocal() as session:
             for state in session.query(AuthThrottleState).all():
                 state.lockout_until = datetime.now(UTC) - timedelta(seconds=1)

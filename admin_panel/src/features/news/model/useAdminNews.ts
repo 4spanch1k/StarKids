@@ -22,6 +22,8 @@ const defaultForm = (): AdminNewsCreatePayload => ({
   imageUrl: '',
   description: '',
   isActive: true,
+  displayOrder: 0,
+  publishAt: null,
 });
 
 export function useAdminNews() {
@@ -117,6 +119,8 @@ export function useAdminNews() {
         imageUrl: response.imageUrl,
         description: response.description,
         isActive: response.isActive,
+        displayOrder: response.displayOrder,
+        publishAt: toDateTimeLocalValue(response.publishAt),
       });
     } catch (error) {
       detailErrorMessage.value = resolveAdminRequestError(
@@ -301,4 +305,18 @@ export function useAdminNews() {
     uploadCreateImage,
     uploadEditImage,
   };
+}
+
+function toDateTimeLocalValue(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  const local = new Date(parsed.getTime() - parsed.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
 }

@@ -12,6 +12,7 @@ import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../domain/news_item.dart';
 import '../controllers/news_feed_controller.dart';
+import '../models/news_details_page_args.dart';
 import 'news_image_resolver.dart';
 
 class HomeNewsSection extends StatefulWidget {
@@ -37,7 +38,11 @@ class _HomeNewsSectionState extends State<HomeNewsSection> {
     super.initState();
     _ownsController = widget.newsController == null;
     _controller = widget.newsController ??
-        NewsFeedController(repository: ServiceRegistry.newsRepository);
+        NewsFeedController(
+          repository: ServiceRegistry.newsRepository,
+          feedKind: NewsFeedKind.promotions,
+          pageSize: 6,
+        );
     unawaited(_controller.bootstrap());
   }
 
@@ -79,40 +84,76 @@ class _HomeNewsSectionState extends State<HomeNewsSection> {
                 description: 'Подтягиваем последние публикации с сервера.',
                 showProgress: true,
               )
+            else if (_controller.isOffline && items.isEmpty)
+              _NewsStateCard(
+                title: 'Нет соединения',
+                description:
+                    'Показаны последние данные после первой успешной загрузки.',
+                actionLabel: 'Повторить',
+                onActionTap: _controller.forceRefresh,
+              )
             else if (_controller.errorMessage != null && items.isEmpty)
               _NewsStateCard(
                 title: 'Не удалось загрузить новости',
                 description: _controller.errorMessage!,
                 actionLabel: 'Повторить',
-                onActionTap: _controller.refresh,
+                onActionTap: _controller.forceRefresh,
               )
             else if (items.isEmpty)
               const _NewsStateCard(
                 title: 'Пока нет новостей',
-                description: 'Новые публикации появятся здесь, как только их добавят в админке.',
+                description:
+                    'Новые публикации появятся здесь, как только их добавят в админке.',
               )
             else
-              SizedBox(
-                height: 224,
-                child: PageView.builder(
-                  controller: _pageController,
-                  allowImplicitScrolling: true,
-                  itemCount: items.length,
-                  itemBuilder: (context, index) {
-                    final item = items[index];
-                    return Padding(
-                      padding: EdgeInsets.only(
-                        right: index == items.length - 1 ? 0 : StarKidsSpacing.md,
-                      ),
-                      child: _HomeNewsCard(
-                        item: item,
-                        onTap: () => Navigator.of(context).pushNamed(
-                          AppRoutes.notifications,
-                        ),
-                      ),
-                    );
-                  },
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_controller.isOffline) ...[
+                    const _NewsInlineInfoCard(
+                      title: 'Нет соединения',
+                      description: 'Показаны последние данные',
+                    ),
+                    const SizedBox(height: StarKidsSpacing.md),
+                  ] else if (_controller.errorMessage != null) ...[
+                    _NewsInlineInfoCard(
+                      title: 'Не удалось обновить новости',
+                      description: _controller.errorMessage!,
+                    ),
+                    const SizedBox(height: StarKidsSpacing.md),
+                  ],
+                  SizedBox(
+                    height: 224,
+                    child: PageView.builder(
+                      controller: _pageController,
+                      allowImplicitScrolling: true,
+                      itemCount: items.length,
+                      itemBuilder: (context, index) {
+                        final item = items[index];
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            right: index == items.length - 1
+                                ? 0
+                                : StarKidsSpacing.md,
+                          ),
+                          child: _HomeNewsCard(
+                            item: item,
+                            onTap: () {
+                              unawaited(_controller.trackClick(item.id));
+                              Navigator.of(context).pushNamed(
+                                AppRoutes.newsDetails,
+                                arguments: NewsDetailsPageArgs(
+                                  newsId: item.id,
+                                  initialItem: item,
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
           ],
         );
@@ -151,6 +192,37 @@ class _HomeNewsSectionState extends State<HomeNewsSection> {
         }
       }
     });
+  }
+}
+
+class _NewsInlineInfoCard extends StatelessWidget {
+  const _NewsInlineInfoCard({
+    required this.title,
+    required this.description,
+  });
+
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7E8),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFF2D49B)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: StarKidsSpacing.xs),
+          Text(description, style: Theme.of(context).textTheme.bodyMedium),
+        ],
+      ),
+    );
   }
 }
 
