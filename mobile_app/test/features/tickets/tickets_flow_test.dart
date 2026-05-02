@@ -83,7 +83,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.byKey(const ValueKey('ticket-day-select')), findsOneWidget);
-      expect(find.text('Доступные билеты'), findsOneWidget);
+      expect(find.text('ДОСТУПНЫЕ ТАРИФЫ'), findsOneWidget);
       expect(find.text('Детские билеты 1–3 лет'), findsOneWidget);
       expect(find.text('2 700 тг'), findsOneWidget);
 

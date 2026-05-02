@@ -4,8 +4,8 @@ import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/design_system/foundations/star_kids_colors.dart';
 import '../../../../core/design_system/foundations/star_kids_radii.dart';
-import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
+import '../../../../core/design_system/foundations/sk_tokens.dart';
 import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_content_block_card.dart';
@@ -43,7 +43,7 @@ class ContactsMapPage extends StatelessWidget {
 
             return Scaffold(
               appBar: AppBar(
-                title: const Text('Связаться в один тап.'),
+                title: const Text('Контакты'),
                 actions: [
                   IconButton(
                     tooltip: 'Сменить филиал',
@@ -122,61 +122,48 @@ class ContactsMapPage extends StatelessWidget {
                         StarKidsSpacing.x5l,
                       ),
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(StarKidsSpacing.xl),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? StarKidsDarkColors.surfaceElevated
-                                : StarKidsColors.surfacePrimary,
-                            borderRadius: BorderRadius.circular(
-                              StarKidsRadii.hero,
-                            ),
-                            border: Border.all(
-                              color: isDark
-                                  ? StarKidsDarkColors.borderDefault
-                                  : StarKidsColors.borderDefault,
-                            ),
-                            boxShadow: isDark ? null : StarKidsShadows.depth1,
-                          ),
+                        StarKidsReveal(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: StarKidsSpacing.md,
-                                  vertical: StarKidsSpacing.sm,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isDark
-                                      ? StarKidsDarkColors.glassSurface
-                                      : StarKidsColors.surfaceTertiary,
-                                  borderRadius: BorderRadius.circular(
-                                    StarKidsRadii.full,
-                                  ),
-                                ),
-                                child: Text(
-                                  branchDetail.shortLabel,
-                                  style: textTheme.labelMedium?.copyWith(
-                                    color: accentColor,
-                                  ),
+                              Text(
+                                'Star Kids · ${branchDetail.shortLabel}'
+                                    .toUpperCase(),
+                                style: const TextStyle(
+                                  fontFamily: 'GeistMono',
+                                  fontSize: 11,
+                                  letterSpacing: 1.32,
+                                  color: SK.ink3,
                                 ),
                               ),
-                              const SizedBox(height: StarKidsSpacing.md),
-                              Text(
-                                'Связаться в один тап.',
-                                style: textTheme.headlineMedium,
-                              ),
-                              const SizedBox(height: StarKidsSpacing.md),
-                              Text(
-                                'Адрес, режим работы, телефон и WhatsApp — всё в одном месте.',
-                                style: textTheme.bodyLarge,
+                              const SizedBox(height: SK.s3),
+                              const Text.rich(
+                                TextSpan(
+                                  children: [
+                                    TextSpan(text: 'Связаться\n'),
+                                    TextSpan(
+                                      text: 'в один тап.',
+                                      style: TextStyle(
+                                          fontStyle: FontStyle.italic),
+                                    ),
+                                  ],
+                                ),
+                                style: TextStyle(
+                                  fontFamily: 'Fraunces',
+                                  fontSize: 34,
+                                  height: 1.05,
+                                  letterSpacing: -0.85,
+                                  color: SK.ink,
+                                ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: StarKidsSpacing.x2l),
+                        const SizedBox(height: StarKidsSpacing.lg),
+                        const _MapPlaceholder(),
+                        const SizedBox(height: StarKidsSpacing.xl),
                         const StarKidsSectionHeader(
-                          title: 'Все, что нужно перед визитом',
+                          title: 'Адрес и связь',
                         ),
                         const SizedBox(height: StarKidsSpacing.lg),
                         Container(
@@ -500,7 +487,8 @@ class _WhatsAppButtonState extends State<_WhatsAppButton> {
           child: InkWell(
             borderRadius: BorderRadius.circular(StarKidsRadii.full),
             onTap: widget.enabled ? widget.onTap : null,
-            onTapDown: widget.enabled ? (_) => setState(() => _pressed = true) : null,
+            onTapDown:
+                widget.enabled ? (_) => setState(() => _pressed = true) : null,
             onTapUp: (_) => setState(() => _pressed = false),
             onTapCancel: () => setState(() => _pressed = false),
             splashColor: Colors.white.withValues(alpha: 0.18),
@@ -511,7 +499,8 @@ class _WhatsAppButtonState extends State<_WhatsAppButton> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.chat_bubble_outline, color: Colors.white, size: 18),
+                  Icon(Icons.chat_bubble_outline,
+                      color: Colors.white, size: 18),
                   SizedBox(width: StarKidsSpacing.sm),
                   Text(
                     'Написать в WhatsApp',
@@ -530,6 +519,84 @@ class _WhatsAppButtonState extends State<_WhatsAppButton> {
       ),
     );
   }
+}
+
+class _MapPlaceholder extends StatelessWidget {
+  const _MapPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(SK.rLg),
+      child: AspectRatio(
+        aspectRatio: 16 / 10,
+        child: Stack(
+          children: [
+            const Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFFE5E7EB), Color(0xFFD1D5DB)],
+                  ),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: CustomPaint(painter: _MapGridPainter()),
+            ),
+            Center(
+              child: Transform.rotate(
+                angle: -0.785398,
+                child: Container(
+                  width: 42,
+                  height: 42,
+                  decoration: const BoxDecoration(
+                    color: SK.accent,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(SK.rPill),
+                      topRight: Radius.circular(SK.rPill),
+                      bottomLeft: Radius.circular(SK.rPill),
+                    ),
+                    boxShadow: SK.shadowMd,
+                  ),
+                  child: Transform.rotate(
+                    angle: 0.785398,
+                    child: const Icon(
+                      Icons.star,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MapGridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.42)
+      ..strokeWidth = 1;
+    for (var x = 0.0; x < size.width; x += 28) {
+      canvas.drawLine(
+          Offset(x, 0), Offset(x + size.height * 0.35, size.height), paint);
+    }
+    for (var y = 10.0; y < size.height; y += 28) {
+      canvas.drawLine(
+          Offset(0, y), Offset(size.width, y - size.width * 0.12), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _MapGridPainter oldDelegate) => false;
 }
 
 class _ContactRow extends StatelessWidget {

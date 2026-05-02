@@ -30,9 +30,7 @@ class StarKidsBottomCtaBar extends StatelessWidget {
                 : StarKidsColors.borderDefault,
           ),
         ),
-        boxShadow: isDark
-            ? StarKidsShadows.depth1Dark
-            : StarKidsShadows.depth2,
+        boxShadow: isDark ? StarKidsShadows.depth1Dark : StarKidsShadows.depth2,
       ),
       padding: EdgeInsets.fromLTRB(
         StarKidsSpacing.xl,

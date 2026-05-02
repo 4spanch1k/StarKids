@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../foundations/star_kids_colors.dart';
 import '../foundations/star_kids_radii.dart';
@@ -31,8 +30,7 @@ class SkDatePillRow extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.zero,
         itemCount: dates.length,
-        separatorBuilder: (_, __) =>
-            const SizedBox(width: StarKidsSpacing.sm),
+        separatorBuilder: (_, __) => const SizedBox(width: StarKidsSpacing.sm),
         itemBuilder: (context, i) {
           final date = dates[i];
           final isSelected = selectedDate != null &&
@@ -66,7 +64,7 @@ class SkDatePillRow extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    DateFormat.E('ru').format(date).toUpperCase(),
+                    _weekdayRu(date).toUpperCase(),
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
@@ -99,4 +97,9 @@ class SkDatePillRow extends StatelessWidget {
       ),
     );
   }
+}
+
+String _weekdayRu(DateTime date) {
+  const days = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'];
+  return days[date.weekday - 1];
 }

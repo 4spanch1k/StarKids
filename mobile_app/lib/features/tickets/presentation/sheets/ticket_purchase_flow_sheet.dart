@@ -1,3 +1,5 @@
+// ignore_for_file: unused_element
+
 import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
@@ -9,6 +11,7 @@ import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_select_field.dart';
+import '../../../../core/design_system/widgets/sk_stepper.dart';
 import '../../../../core/utils/result.dart';
 import '../../../branches/domain/branch_option.dart';
 import '../../domain/branch_ticket_config.dart';
@@ -422,9 +425,14 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                         children: [
                           Text(
                             _currentStep == _TicketPurchaseStep.selectEntry
-                                ? 'Купить входной билет'
-                                : 'Проверьте состав билетов',
-                            style: textTheme.titleLarge,
+                                ? 'Купить билет'
+                                : 'Купить билет',
+                            style: const TextStyle(
+                              fontFamily: 'Fraunces',
+                              fontSize: 22,
+                              height: 1.1,
+                              letterSpacing: -0.44,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: StarKidsSpacing.xs),
@@ -663,7 +671,10 @@ class _StepSelectionView extends StatelessWidget {
             onTap: onSelectDay,
           ),
           const SizedBox(height: StarKidsSpacing.xl),
-          Text('Доступные билеты', style: textTheme.titleLarge),
+          Text(
+            'ДОСТУПНЫЕ ТАРИФЫ',
+            style: textTheme.labelMedium,
+          ),
           const SizedBox(height: StarKidsSpacing.sm),
           if (isConfigLoading)
             const _TicketConfigStateCard(
@@ -762,7 +773,7 @@ class _StepTicketsView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: StarKidsSpacing.xl),
-          Text('Количество билетов', style: textTheme.titleLarge),
+          Text('ДОСТУПНЫЕ ТАРИФЫ', style: textTheme.labelMedium),
           const SizedBox(height: StarKidsSpacing.lg),
           if (isConfigLoading)
             const _TicketConfigStateCard(
@@ -778,8 +789,7 @@ class _StepTicketsView extends StatelessWidget {
           else if (ticketConfig == null || ticketConfig!.items.isEmpty)
             const _TicketConfigStateCard(
               title: 'Билеты пока недоступны',
-              description:
-                  'Для этого филиала пока нет активных билетов.',
+              description: 'Для этого филиала пока нет активных билетов.',
             )
           else
             ...ticketConfig!.items.map(
@@ -898,11 +908,18 @@ class _TicketCounterCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: StarKidsSpacing.md),
-          _TicketCounterControl(
-            ticketTypeId: config.id,
-            count: count,
-            onDecrease: onDecrease,
-            onIncrease: onIncrease,
+          SkStepper(
+            value: count,
+            keyPrefix: config.id,
+            min: 0,
+            max: 30,
+            onChanged: (next) {
+              if (next > count) {
+                onIncrease();
+              } else if (next < count) {
+                onDecrease();
+              }
+            },
           ),
         ],
       ),
@@ -990,7 +1007,9 @@ class _CounterButton extends StatelessWidget {
       onPressed: enabled ? onTap : null,
       icon: Icon(icon, size: StarKidsIconSizes.sm),
       color: enabled
-          ? (isDark ? StarKidsDarkColors.textPrimary : StarKidsColors.textPrimary)
+          ? (isDark
+              ? StarKidsDarkColors.textPrimary
+              : StarKidsColors.textPrimary)
           : (isDark
               ? StarKidsDarkColors.actionDisabledFg
               : StarKidsColors.actionDisabledFg),
@@ -1506,7 +1525,8 @@ class _SelectionSheet<T> extends StatelessWidget {
                   final itemId = itemIdBuilder(item);
                   final isSelected = itemId == currentId;
 
-                  final isDark = Theme.of(context).brightness == Brightness.dark;
+                  final isDark =
+                      Theme.of(context).brightness == Brightness.dark;
                   final accentColor = isDark
                       ? StarKidsDarkColors.accentPink
                       : StarKidsColors.brandPrimary;

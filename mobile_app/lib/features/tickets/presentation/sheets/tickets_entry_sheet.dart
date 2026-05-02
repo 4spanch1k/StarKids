@@ -72,7 +72,7 @@ class _TicketsEntrySheet extends StatelessWidget {
                 key: const ValueKey('my-tickets-action'),
                 icon: Icons.confirmation_num_rounded,
                 title: 'Мои билеты',
-                subtitle: 'Здесь будут ваши купленные и активные билеты.',
+                subtitle: 'История и активные билеты',
                 onTap: () =>
                     Navigator.of(context).pop(TicketsEntryAction.myTickets),
               ),
@@ -81,7 +81,7 @@ class _TicketsEntrySheet extends StatelessWidget {
                 key: const ValueKey('buy-ticket-action'),
                 icon: Icons.shopping_bag_rounded,
                 title: 'Купить входной билет',
-                subtitle: 'Выберите филиал, дату и нужное количество билетов.',
+                subtitle: 'Выберите филиал, дату и количество',
                 onTap: () =>
                     Navigator.of(context).pop(TicketsEntryAction.buyTicket),
               ),

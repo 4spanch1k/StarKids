@@ -5,9 +5,10 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../core/design_system/foundations/star_kids_colors.dart';
 import '../../../../core/design_system/foundations/star_kids_radii.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
+import '../../../../core/design_system/widgets/sk_button.dart';
+import '../../../../core/design_system/widgets/sk_hero.dart';
 import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
 import '../../../../core/design_system/widgets/star_kids_birthday_package_card.dart';
-import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_content_block_card.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
@@ -26,8 +27,6 @@ class BirthdaysPage extends StatelessWidget {
       animation: ServiceRegistry.selectedBranchController,
       builder: (context, _) {
         final branch = ServiceRegistry.selectedBranchController.selectedBranch;
-        final textTheme = Theme.of(context).textTheme;
-
         return Scaffold(
           appBar: AppBar(
             title: const Text('Дни рождения'),
@@ -41,9 +40,12 @@ class BirthdaysPage extends StatelessWidget {
             ],
           ),
           bottomNavigationBar: StarKidsBottomCtaBar(
-            child: StarKidsButton.primary(
-              label: 'Оставить заявку на праздник',
-              icon: Icons.cake_rounded,
+            child: SkButton(
+              label: 'Оставить заявку',
+              style: SkButtonStyle.accent,
+              block: true,
+              icon: const Icon(Icons.arrow_forward_rounded),
+              iconRight: true,
               onPressed: () => Navigator.of(context).pushNamed(
                 AppRoutes.requests,
                 arguments: const RequestPageArgs(
@@ -101,136 +103,86 @@ class BirthdaysPage extends StatelessWidget {
                     StarKidsSpacing.x5l,
                   ),
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(StarKidsRadii.hero),
-                      child: Stack(
-                        children: [
-                          AspectRatio(
-                            aspectRatio: 1,
-                            child: Image.asset(
-                              'assets/images/birthday_hero.jpg',
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                          const Positioned.fill(
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Color(0x1A171316),
-                                    StarKidsColors.overlayImageBottom,
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            left: StarKidsSpacing.lg,
-                            right: StarKidsSpacing.lg,
-                            bottom: StarKidsSpacing.lg,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: StarKidsSpacing.md,
-                                    vertical: StarKidsSpacing.sm,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: StarKidsColors.brandHighlight,
-                                    borderRadius: BorderRadius.circular(
-                                      StarKidsRadii.full,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    resolvedBranch.shortLabel,
-                                    style: textTheme.labelMedium?.copyWith(
-                                      color: StarKidsColors.textPrimary,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: StarKidsSpacing.md),
-                                Text(
-                                  'Праздник, который дети запомнят.',
-                                  style: textTheme.displayLarge?.copyWith(
-                                    color: StarKidsColors.textInverse,
-                                  ),
-                                ),
-                                const SizedBox(height: StarKidsSpacing.md),
-                                Text(
-                                  'Выберите пакет и оставьте заявку. Менеджер свяжется в течение часа.',
-                                  style: textTheme.bodyLarge?.copyWith(
-                                    color: StarKidsColors.textInverse,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                    SkHero(
+                      imageUrl:
+                          'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?auto=format&fit=crop&w=900&q=80',
+                      aspectRatio: 5 / 4,
+                      chip: resolvedBranch.shortLabel,
+                      title: 'Праздник, который дети запомнят.',
+                      italicText: 'запомнят',
+                      meta:
+                          'Игровая зона, аниматор, кафе и торт в одном сценарии.',
                     ),
                     const SizedBox(height: StarKidsSpacing.x2l),
                     const StarKidsSectionHeader(
-                      title: 'Что входит в праздник',
+                      title: 'Что входит',
                     ),
                     const SizedBox(height: StarKidsSpacing.lg),
                     const Column(
                       children: [
                         _IncludedRow(
+                          title: 'Аниматоры и шоу',
+                          subtitle: 'Авторские программы под возраст',
+                          icon: Icons.auto_awesome_rounded,
+                        ),
+                        _IncludedRow(
                           icon: Icons.sports_gymnastics_rounded,
-                          title: 'Безлимитный активити парк',
-                          subtitle: 'Все зоны в течение праздника',
+                          title: 'Безлимит активити-парк',
+                          subtitle: '3000 м² зон, лабиринты, батуты',
                         ),
                         _IncludedRow(
                           icon: Icons.cake_rounded,
-                          title: 'Аниматоры и шоу',
-                          subtitle: 'Весело для детей любого возраста',
+                          title: 'Торт и угощения',
+                          subtitle: 'Меню по бюджету',
                         ),
                         _IncludedRow(
-                          icon: Icons.confirmation_num_rounded,
-                          title: 'Пакеты под разный бюджет',
-                          subtitle: 'От базового до премиум формата',
-                        ),
-                        _IncludedRow(
-                          icon: Icons.flash_on_rounded,
-                          title: 'Быстрая заявка',
-                          subtitle: 'Менеджер свяжется в течение часа',
+                          icon: Icons.send_rounded,
+                          title: 'Заявка без переписок',
+                          subtitle: 'Менеджер свяжется в течение 30 мин',
                         ),
                       ],
                     ),
                     const SizedBox(height: StarKidsSpacing.x2l),
                     const StarKidsSectionHeader(
-                      title: 'Пакеты для разных сценариев',
+                      title: 'Пакеты',
                     ),
                     const SizedBox(height: StarKidsSpacing.md),
-                    ...packages.asMap().entries.map(
-                          (entry) => Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: StarKidsSpacing.lg,
-                            ),
+                    SizedBox(
+                      height: 318,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: packages.length,
+                        separatorBuilder: (_, __) => const SizedBox(
+                          width: StarKidsSpacing.md,
+                        ),
+                        itemBuilder: (context, index) {
+                          final package = packages[index];
+                          return SizedBox(
+                            width: 280,
                             child: StarKidsBirthdayPackageCard(
-                              revealDelay: starKidsStaggerDelay(entry.key),
-                              title: entry.value.name,
-                              priceLabel: entry.value.priceLabel,
-                              guestLabel: entry.value.guestLabel,
-                              description: entry.value.description,
-                              highlights: entry.value.highlights,
-                              imagePath: entry.value.imagePath,
-                              isFeatured: entry.value.isFeatured,
+                              revealDelay: starKidsStaggerDelay(index),
+                              title: package.name,
+                              priceLabel: package.priceLabel,
+                              guestLabel: package.guestLabel,
+                              description: package.description,
+                              highlights: package.highlights,
+                              imagePath: package.imagePath,
+                              isFeatured: package.isFeatured,
                               onActionTap: () =>
                                   Navigator.of(context).pushNamed(
                                 AppRoutes.requests,
                                 arguments: RequestPageArgs(
                                   initialType: RequestType.birthdayRequest,
-                                  initialPackageId: entry.value.id,
-                                  initialPackage: entry.value,
+                                  initialPackageId: package.id,
+                                  initialPackage: package,
                                 ),
                               ),
                             ),
-                          ),
-                        ),
+                          );
+                        },
+                      ),
+                    ),
                     const SizedBox(height: StarKidsSpacing.xl),
                     if (data?.contentBlocks.isNotEmpty == true) ...[
                       const StarKidsSectionHeader(

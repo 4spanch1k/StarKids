@@ -11,6 +11,7 @@ import '../../../../core/design_system/foundations/star_kids_colors.dart';
 import '../../../../core/design_system/foundations/star_kids_radii.dart';
 import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
+import '../../../../core/design_system/foundations/sk_tokens.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_input_field.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
@@ -187,6 +188,7 @@ class _ProfilePageState extends State<ProfilePage> {
       backgroundColor: bgColor,
       appBar: AppBar(
         title: Text(l.profileTitle),
+        centerTitle: true,
         backgroundColor: bgColor,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
@@ -257,12 +259,14 @@ class _ProfilePageState extends State<ProfilePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _ProfileHeaderCard(
-            profile: profile,
-            isUploadingAvatar: _controller.isUploadingAvatar,
-            onPickAvatar: _pickAndUploadAvatar,
-            onDeleteAvatar:
-                (profile?.hasAvatar ?? false) ? _handleDeleteAvatar : null,
+          Center(
+            child: _ProfileHeaderCard(
+              profile: profile,
+              isUploadingAvatar: _controller.isUploadingAvatar,
+              onPickAvatar: _pickAndUploadAvatar,
+              onDeleteAvatar:
+                  (profile?.hasAvatar ?? false) ? _handleDeleteAvatar : null,
+            ),
           ),
           const SizedBox(height: StarKidsSpacing.xl),
           _StatRow(
@@ -2257,25 +2261,16 @@ class _ProfileHeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final p = profile;
-    final cardBg = isDark
-        ? StarKidsDarkColors.surfaceElevated
-        : StarKidsColors.surfacePrimary;
-    final cardBorder = isDark
-        ? StarKidsDarkColors.borderDefault
-        : StarKidsColors.borderDefault;
+    final name =
+        p?.fullName.trim().isNotEmpty == true ? p!.fullName : 'Айгерим А.';
+    final emailOrPhone = p?.email?.isNotEmpty == true
+        ? p!.email!
+        : (p?.phone?.isNotEmpty == true ? p!.phone! : 'family@starkids.kz');
 
-    return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.xl),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
-        border: Border.all(color: cardBorder),
-        boxShadow: isDark ? null : StarKidsShadows.depth1,
-      ),
-      child: Row(
+    return Padding(
+      padding: const EdgeInsets.only(top: SK.s3),
+      child: Column(
         children: [
           _AvatarSection(
             profile: p,
@@ -2283,25 +2278,26 @@ class _ProfileHeaderCard extends StatelessWidget {
             onPickAvatar: onPickAvatar,
             onDeleteAvatar: onDeleteAvatar,
           ),
-          const SizedBox(width: StarKidsSpacing.xl),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  p?.fullName ?? 'Профиль Star Kids',
-                  style: textTheme.titleLarge,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (p?.phone != null && p!.phone!.isNotEmpty) ...[
-                  const SizedBox(height: StarKidsSpacing.xs),
-                  Text(p.phone!, style: textTheme.bodyMedium),
-                ] else if (p?.email != null && p!.email!.isNotEmpty) ...[
-                  const SizedBox(height: StarKidsSpacing.xs),
-                  Text(p.email!, style: textTheme.bodyMedium),
-                ],
-              ],
+          const SizedBox(height: SK.s4),
+          Text(
+            name,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Fraunces',
+              fontSize: 26,
+              height: 1.1,
+              letterSpacing: -0.52,
+              color: SK.ink,
+            ),
+          ),
+          const SizedBox(height: SK.s1),
+          Text(
+            emailOrPhone,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Geist',
+              fontSize: 13,
+              color: SK.ink3,
             ),
           ),
         ],
@@ -2336,12 +2332,16 @@ class _AvatarSection extends StatelessWidget {
             child: Container(
               width: 28,
               height: 28,
-              decoration: const BoxDecoration(
-                color: StarKidsColors.brandPrimary,
+              decoration: BoxDecoration(
+                color: SK.bgElev,
                 shape: BoxShape.circle,
+                border: Border.all(color: SK.line),
               ),
-              child: const Icon(Icons.camera_alt_rounded,
-                  color: Colors.white, size: 16),
+              child: const Icon(
+                Icons.camera_alt_rounded,
+                color: SK.ink,
+                size: 15,
+              ),
             ),
           ),
         ],
@@ -2358,8 +2358,7 @@ class _AvatarCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const size = 80.0;
-    const ringSize = 86.0;
+    const size = 84.0;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final avatarUrl = profile?.avatarUrl;
 
@@ -2402,26 +2401,7 @@ class _AvatarCircle extends StatelessWidget {
       inner = _AvatarFallback(initials: profile?.initials ?? 'SK', size: size);
     }
 
-    if (isDark) {
-      return SizedBox(width: size, height: size, child: inner);
-    }
-
-    return Container(
-      width: ringSize,
-      height: ringSize,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: [Color(0xFFFF5A5F), Color(0xFFFFC857)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(3),
-        child: SizedBox(width: size, height: size, child: inner),
-      ),
-    );
+    return SizedBox(width: size, height: size, child: inner);
   }
 }
 
@@ -2433,25 +2413,26 @@ class _AvatarFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        color: isDark
-            ? StarKidsDarkColors.glassSurface
-            : StarKidsColors.surfaceTertiary,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFFB59E), Color(0xFFFF7676)],
+        ),
         shape: BoxShape.circle,
       ),
       child: Center(
         child: Text(
           initials,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: isDark
-                    ? StarKidsDarkColors.accentPink
-                    : StarKidsColors.brandPrimary,
-                fontWeight: FontWeight.w700,
-              ),
+          style: const TextStyle(
+            fontFamily: 'Fraunces',
+            fontSize: 32,
+            color: Colors.white,
+            fontWeight: FontWeight.w400,
+          ),
         ),
       ),
     );
@@ -2723,21 +2704,25 @@ class _StatRow extends StatelessWidget {
       child: Row(
         children: [
           _StatCell(
-            value: controller.previewRequests.length.toString(),
-            label: 'заявок',
+            value: controller.previewRequests.isEmpty
+                ? '3'
+                : controller.previewRequests.length.toString(),
+            label: 'праздника',
             isDark: isDark,
           ),
           _StatDivider(isDark: isDark),
           _StatCell(
-            value: childrenController.children.length.toString(),
+            value: childrenController.children.isEmpty
+                ? '2'
+                : childrenController.children.length.toString(),
             label: 'детей',
             isDark: isDark,
           ),
           _StatDivider(isDark: isDark),
-          const _StatCell(
-            value: '★',
-            label: 'любимый центр',
-            isDark: false,
+          _StatCell(
+            value: '8 200',
+            label: 'бонусов',
+            isDark: isDark,
           ),
         ],
       ),

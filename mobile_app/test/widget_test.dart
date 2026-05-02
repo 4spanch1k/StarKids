@@ -26,7 +26,7 @@ void main() {
     expect(find.text('Star Kids'), findsOneWidget);
     expect(find.text('Вход'), findsWidgets);
     expect(find.text('Регистрация'), findsOneWidget);
-    expect(find.text('Электронная почта'), findsOneWidget);
+    expect(find.text('Email'), findsOneWidget);
     expect(find.text('Пароль'), findsOneWidget);
 
     await tester.tap(find.text('Войти').last);
