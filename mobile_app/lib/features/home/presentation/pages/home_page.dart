@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
@@ -10,12 +8,13 @@ import '../../../../core/design_system/foundations/star_kids_icon_sizes.dart';
 import '../../../../core/design_system/foundations/star_kids_radii.dart';
 import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
+import '../../../../core/design_system/widgets/sk_button.dart';
+import '../../../../core/design_system/widgets/sk_hero.dart';
+import '../../../../core/design_system/widgets/sk_tab_bar.dart';
 import '../../../../core/design_system/widgets/star_kids_birthday_package_card.dart';
-import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_content_block_card.dart';
 import '../../../../core/design_system/widgets/star_kids_cosmic_canvas.dart';
 import '../../../../core/design_system/widgets/star_kids_faq_card.dart';
-import '../../../../core/design_system/widgets/star_kids_media_image.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_promo_card.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
@@ -185,107 +184,24 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ),
                           const SizedBox(height: StarKidsSpacing.lg),
-                          // Hero image card
                           StarKidsReveal(
                             delay: starKidsStaggerDelay(1),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(
-                                StarKidsRadii.hero,
-                              ),
-                              child: Stack(
-                                children: [
-                                  AspectRatio(
-                                    aspectRatio: 1,
-                                    child: StarKidsMediaImage(
-                                      source: branch.heroImagePath,
-                                      fallbackSource:
-                                          'assets/images/home_hero.jpg',
-                                    ),
-                                  ),
-                                  const Positioned.fill(
-                                    child: DecoratedBox(
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          begin: Alignment.topCenter,
-                                          end: Alignment.bottomCenter,
-                                          colors: [
-                                            Color(0x24171316),
-                                            StarKidsColors.overlayImageBottom,
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  Positioned(
-                                    left: StarKidsSpacing.lg,
-                                    right: StarKidsSpacing.lg,
-                                    bottom: StarKidsSpacing.lg,
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        ClipRRect(
-                                          borderRadius: BorderRadius.circular(
-                                              StarKidsRadii.full),
-                                          child: BackdropFilter(
-                                            filter: ImageFilter.blur(
-                                                sigmaX: 12, sigmaY: 12),
-                                            child: Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: StarKidsSpacing.md,
-                                                vertical: StarKidsSpacing.sm,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: Colors.white
-                                                    .withValues(alpha: 0.22),
-                                                borderRadius:
-                                                    BorderRadius.circular(
-                                                        StarKidsRadii.full),
-                                                border: Border.all(
-                                                  color: Colors.white
-                                                      .withValues(alpha: 0.35),
-                                                ),
-                                              ),
-                                              child: Text(
-                                                'Любят дети — доверяют родители',
-                                                style: textTheme.labelMedium
-                                                    ?.copyWith(
-                                                  color: Colors.white,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(
-                                            height: StarKidsSpacing.md),
-                                        Text(
-                                          'Яркий семейный отдых и дни рождения в Star Kids',
-                                          style:
-                                              textTheme.displayLarge?.copyWith(
-                                            color: StarKidsColors.textInverse,
-                                          ),
-                                        ),
-                                        const SizedBox(
-                                            height: StarKidsSpacing.md),
-                                        Text(
-                                          'Выберите филиал, посмотрите пакеты и отправьте заявку без лишних шагов.',
-                                          style: textTheme.bodyLarge?.copyWith(
-                                            color: StarKidsColors.textInverse,
-                                          ),
-                                        ),
-                                        const SizedBox(
-                                            height: StarKidsSpacing.lg),
-                                        StarKidsButton.primary(
-                                          label: 'Организовать день рождения',
-                                          onPressed: () => Navigator.of(
-                                            context,
-                                          ).pushNamed(AppRoutes.birthdays),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
+                            child: SkHero(
+                              imageUrl:
+                                  'https://images.unsplash.com/photo-1576094848989-1ee5b58cdb86?auto=format&fit=crop&w=900&q=80',
+                              chip: '✦ Любят дети · доверяют родители',
+                              title: 'Семейный отдых\nи яркие дни рождения.',
+                              italicText: 'яркие',
+                              meta: '3000 м² · 11:00 — 23:00',
+                              action: SkButton(
+                                label: 'Организовать день рождения',
+                                style: SkButtonStyle.accent,
+                                block: true,
+                                icon: const Icon(Icons.arrow_forward_rounded),
+                                iconRight: true,
+                                onPressed: () => Navigator.of(
+                                  context,
+                                ).pushNamed(AppRoutes.birthdays),
                               ),
                             ),
                           ),
@@ -680,70 +596,24 @@ class _FloatingNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = MediaQuery.paddingOf(context).bottom;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        StarKidsSpacing.lg,
-        StarKidsSpacing.sm,
-        StarKidsSpacing.lg,
-        StarKidsSpacing.md + bottomPadding,
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(StarKidsRadii.full),
-          boxShadow:
-              isDark ? StarKidsShadows.navFloatDark : StarKidsShadows.navFloat,
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(StarKidsRadii.full),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-            child: Container(
-              height: 66,
-              padding: const EdgeInsets.all(StarKidsSpacing.xs),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? StarKidsDarkColors.navBarBg
-                    : Colors.white.withValues(alpha: 0.88),
-                borderRadius: BorderRadius.circular(StarKidsRadii.full),
-                border: Border.all(
-                  color: isDark
-                      ? StarKidsDarkColors.borderDefault
-                      : StarKidsColors.borderDefault,
-                ),
-              ),
-              child: Builder(
-                builder: (ctx) {
-                  final l = AppL10n.of(ctx);
-                  final items = [
-                    (Icons.home_outlined, l.navHome),
-                    (Icons.cake_outlined, l.navBirthdays),
-                    (Icons.local_offer_outlined, l.navPromotions),
-                    (Icons.confirmation_num_outlined, 'Билеты'),
-                    (Icons.person_outline, l.navProfile),
-                  ];
-
-                  return Row(
-                    children: [
-                      for (var i = 0; i < items.length; i++)
-                        Expanded(
-                          child: _FloatingNavItem(
-                            icon: items[i].$1,
-                            label: items[i].$2,
-                            selected: i == selectedIndex,
-                            onTap: () => onDestinationSelected(i),
-                          ),
-                        ),
-                    ],
-                  );
-                },
-              ),
+    return Builder(
+      builder: (ctx) {
+        final l = AppL10n.of(ctx);
+        return SkTabBar(
+          selectedIndex: selectedIndex,
+          onSelected: onDestinationSelected,
+          items: [
+            SkTabItem(icon: Icons.home_outlined, label: l.navHome),
+            SkTabItem(icon: Icons.cake_outlined, label: l.navBirthdays),
+            SkTabItem(icon: Icons.local_offer_outlined, label: l.navPromotions),
+            const SkTabItem(
+              icon: Icons.confirmation_num_outlined,
+              label: 'Билеты',
             ),
-          ),
-        ),
-      ),
+            SkTabItem(icon: Icons.person_outline, label: l.navProfile),
+          ],
+        );
+      },
     );
   }
 }
@@ -792,7 +662,9 @@ class _FloatingNavItemState extends State<_FloatingNavItem> {
           height: double.infinity,
           decoration: BoxDecoration(
             color: widget.selected
-                ? (isDark ? StarKidsDarkColors.navIndicator : StarKidsColors.surfaceTertiary)
+                ? (isDark
+                    ? StarKidsDarkColors.navIndicator
+                    : StarKidsColors.surfaceTertiary)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(StarKidsRadii.full),
           ),
@@ -808,7 +680,8 @@ class _FloatingNavItemState extends State<_FloatingNavItem> {
                 style: TextStyle(
                   fontFamily: 'Geist',
                   fontSize: 11,
-                  fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w500,
+                  fontWeight:
+                      widget.selected ? FontWeight.w600 : FontWeight.w500,
                   color: fg,
                 ),
               ),

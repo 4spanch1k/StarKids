@@ -6,6 +6,7 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../core/design_system/foundations/star_kids_colors.dart';
 import '../../../../core/design_system/foundations/star_kids_radii.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
+import '../../../../core/design_system/foundations/sk_tokens.dart';
 import '../../../../core/design_system/widgets/sk_date_pill_row.dart';
 import '../../../../core/design_system/widgets/sk_guest_stepper.dart';
 import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
@@ -471,18 +472,27 @@ class _BirthdayRequestFormView extends StatelessWidget {
             StarKidsSpacing.x5l,
           ),
           children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: StarKidsSpacing.xl),
-              child: Text(
-                'Соберём праздник за пару минут.',
-                style: Theme.of(context).textTheme.displayLarge,
+            const Padding(
+              padding: EdgeInsets.only(bottom: StarKidsSpacing.xl),
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(text: 'Соберём праздник\nза '),
+                    TextSpan(
+                      text: 'пару минут.',
+                      style: TextStyle(fontStyle: FontStyle.italic),
+                    ),
+                  ],
+                ),
+                style: TextStyle(
+                  fontFamily: 'Fraunces',
+                  fontSize: 34,
+                  height: 1.05,
+                  letterSpacing: -0.85,
+                  color: SK.ink,
+                ),
               ),
             ),
-            StarKidsSectionHeader(
-              title: type.formTitle,
-              description: type.formDescription,
-            ),
-            const SizedBox(height: StarKidsSpacing.lg),
             Container(
               padding: const EdgeInsets.all(StarKidsSpacing.lg),
               decoration: BoxDecoration(
@@ -614,7 +624,7 @@ class _BirthdayRequestFormView extends StatelessWidget {
             ),
             const SizedBox(height: StarKidsSpacing.xl),
             Text(
-              'После отправки менеджер свяжется с вами, подтвердит дату и подскажет по пакету.',
+              'Запрос уйдёт менеджеру по филиалу Al-Farabi.',
               style: textTheme.bodyMedium,
             ),
           ],
@@ -656,17 +666,39 @@ class _ContactRequestFormView extends StatelessWidget {
             StarKidsSpacing.x5l,
           ),
           children: [
-            StarKidsSectionHeader(
-              title: type.formTitle,
-              description: type.formDescription,
+            const Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(text: 'Короткий запрос\n'),
+                  TextSpan(
+                    text: 'без переписок.',
+                    style: TextStyle(fontStyle: FontStyle.italic),
+                  ),
+                ],
+              ),
+              style: TextStyle(
+                fontFamily: 'Fraunces',
+                fontSize: 34,
+                height: 1.05,
+                letterSpacing: -0.85,
+                color: SK.ink,
+              ),
+            ),
+            const SizedBox(height: StarKidsSpacing.sm),
+            const Text(
+              'Опишите вопрос — перезвоним и поможем без лишних уточнений.',
+              style: TextStyle(
+                fontFamily: 'Geist',
+                fontSize: 15,
+                height: 1.45,
+                color: SK.ink3,
+              ),
             ),
             const SizedBox(height: StarKidsSpacing.lg),
             if (contextLabel != null) ...[
               _RequestContextCard(
                 label: contextLabel!,
-                description: controller.hasInitialMessage
-                    ? 'Контекст по выбранному филиалу уже добавлен в текст запроса. Можно оставить как есть или отредактировать.'
-                    : 'Контекст по выбранному филиалу сохранится в запросе для менеджера.',
+                description: 'Запрос уйдёт менеджеру по выбранному филиалу.',
               ),
               const SizedBox(height: StarKidsSpacing.lg),
             ],
@@ -723,11 +755,8 @@ class _ContactRequestFormView extends StatelessWidget {
             StarKidsInputField(
               controller: controller.messageController,
               label: 'Что нужно уточнить',
-              hintText:
-                  'Свободные даты, формат праздника, цены или другой вопрос',
-              helperText: controller.hasInitialMessage
-                  ? 'Мы уже добавили стартовый контекст по выбранному филиалу. При желании уточните вопрос своими словами.'
-                  : 'Необязательно. Чем точнее вопрос, тем быстрее менеджер подготовит ответ.',
+              hintText: 'Например: свободные даты на 12 мая',
+              helperText: null,
               maxLines: 4,
               minLines: 4,
               textInputAction: TextInputAction.newline,
@@ -736,7 +765,7 @@ class _ContactRequestFormView extends StatelessWidget {
             ),
             const SizedBox(height: StarKidsSpacing.xl),
             Text(
-              'После отправки менеджер перезвонит и поможет выбрать подходящий сценарий без лишних шагов.',
+              'Запрос уйдёт менеджеру по филиалу Al-Farabi.',
               style: textTheme.bodyMedium,
             ),
           ],
@@ -779,6 +808,11 @@ class _RequestSuccessViewState extends State<_RequestSuccessView> {
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _confettiController.play();
+    });
+    Future<void>.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        widget.onBackHome();
+      }
     });
   }
 
@@ -914,6 +948,11 @@ class _ContactRequestSuccessViewState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _confettiController.play();
     });
+    Future<void>.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        widget.onBackHome();
+      }
+    });
   }
 
   @override
@@ -975,8 +1014,7 @@ class _ContactRequestSuccessViewState
                         value: widget.submission.requestId),
                     const SizedBox(height: StarKidsSpacing.md),
                     _SuccessRow(
-                        label: 'Статус',
-                        value: widget.submission.status.label),
+                        label: 'Статус', value: widget.submission.status.label),
                     const SizedBox(height: StarKidsSpacing.md),
                     const _SuccessRow(
                       label: 'Следующий шаг',

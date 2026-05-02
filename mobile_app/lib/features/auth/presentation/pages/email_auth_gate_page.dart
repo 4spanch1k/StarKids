@@ -1,3 +1,5 @@
+// ignore_for_file: unused_element, unused_element_parameter
+
 import 'dart:async';
 import 'dart:ui';
 
@@ -10,8 +12,12 @@ import '../../../../core/design_system/foundations/star_kids_icon_sizes.dart';
 import '../../../../core/design_system/foundations/star_kids_radii.dart';
 import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
+import '../../../../core/design_system/foundations/sk_tokens.dart';
+import '../../../../core/design_system/widgets/sk_button.dart';
+import '../../../../core/design_system/widgets/sk_fade.dart';
+import '../../../../core/design_system/widgets/sk_field.dart';
+import '../../../../core/design_system/widgets/sk_segment.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
-import '../../../../core/design_system/widgets/star_kids_cosmic_canvas.dart';
 import '../controllers/mobile_auth_controller.dart';
 
 enum _EmailAuthMode {
@@ -127,95 +133,374 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
 
         return Scaffold(
           resizeToAvoidBottomInset: true,
-          body: StarKidsCosmicCanvas(
-            child: SafeArea(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
-                  final minContentHeight = (constraints.maxHeight -
-                          StarKidsSpacing.xl -
-                          keyboardInset)
-                      .clamp(0.0, double.infinity)
-                      .toDouble();
-
-                  return SingleChildScrollView(
-                    keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
-                    padding: EdgeInsets.fromLTRB(
-                      StarKidsSpacing.xl,
-                      StarKidsSpacing.xl,
-                      StarKidsSpacing.xl,
-                      StarKidsSpacing.xl + keyboardInset,
+          body: Stack(
+            children: [
+              const Positioned.fill(child: ColoredBox(color: SK.bg)),
+              Positioned(
+                top: -120,
+                right: -90,
+                child: Container(
+                  width: 330,
+                  height: 250,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        SK.accent.withValues(alpha: 0.18),
+                        Colors.transparent,
+                      ],
                     ),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: minContentHeight,
+                  ),
+                ),
+              ),
+              Positioned(
+                left: -90,
+                bottom: -70,
+                child: Container(
+                  width: 260,
+                  height: 230,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        SK.plum.withValues(alpha: 0.34),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              SafeArea(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final keyboardInset =
+                        MediaQuery.viewInsetsOf(context).bottom;
+                    final minContentHeight =
+                        (constraints.maxHeight - keyboardInset)
+                            .clamp(0.0, double.infinity)
+                            .toDouble();
+
+                    return SingleChildScrollView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      padding: EdgeInsets.fromLTRB(
+                        SK.s5,
+                        SK.s5,
+                        SK.s5,
+                        SK.s5 + keyboardInset,
                       ),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 440),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _RevealMotion(
-                                animation: _entryInterval(0, 0.58),
-                                offset: const Offset(0, 0.08),
-                                child: _AuthBrandIntro(isRegister: isRegister),
-                              ),
-                              const SizedBox(height: StarKidsSpacing.x2l),
-                              _RevealMotion(
-                                animation: _entryInterval(0.16, 0.82),
-                                offset: const Offset(0, 0.1),
-                                child: _AuthFormCard(
-                                  formKey: _formKey,
-                                  autovalidateMode: _autovalidateMode,
-                                  mode: _mode,
-                                  emailController: _emailController,
-                                  passwordController: _passwordController,
-                                  confirmPasswordController:
-                                      _confirmPasswordController,
-                                  isLoading: isLoading,
-                                  errorMessage: errorMessage,
-                                  isPasswordVisible: _isPasswordVisible,
-                                  isConfirmPasswordVisible:
-                                      _isConfirmPasswordVisible,
-                                  onModeChanged: _setMode,
-                                  onSubmit: _submit,
-                                  onPasswordVisibilityChanged:
-                                      _togglePasswordVisibility,
-                                  onConfirmPasswordVisibilityChanged:
-                                      _toggleConfirmPasswordVisibility,
-                                  emailValidator:
-                                      _authController.validateEmailInput,
-                                  passwordValidator:
-                                      _authController.validatePasswordInput,
-                                  confirmationValidator: (value) =>
-                                      _authController
-                                          .validatePasswordConfirmation(
-                                    password: _passwordController.text,
-                                    confirmation: value,
+                      child: ConstrainedBox(
+                        constraints:
+                            BoxConstraints(minHeight: minContentHeight),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 440),
+                            child: Form(
+                              key: _formKey,
+                              autovalidateMode: _autovalidateMode,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  const SkFade(
+                                    delayMs: 40,
+                                    child: _RedesignAuthHeader(),
                                   ),
-                                ),
+                                  SizedBox(
+                                    height: constraints.maxHeight < 700
+                                        ? SK.s7
+                                        : SK.s8 * 1.8,
+                                  ),
+                                  SkFade(
+                                    delayMs: 120,
+                                    child: _RedesignAuthIntro(
+                                      isRegister: isRegister,
+                                    ),
+                                  ),
+                                  const SizedBox(height: SK.s6),
+                                  SkFade(
+                                    delayMs: 200,
+                                    child: SkSegment<_EmailAuthMode>(
+                                      items: const [
+                                        _EmailAuthMode.login,
+                                        _EmailAuthMode.register,
+                                      ],
+                                      selected: _mode,
+                                      labelBuilder: (mode) =>
+                                          mode == _EmailAuthMode.login
+                                              ? 'Вход'
+                                              : 'Регистрация',
+                                      onSelected: _setMode,
+                                      enabled: !isLoading,
+                                    ),
+                                  ),
+                                  const SizedBox(height: SK.s4),
+                                  if (errorMessage != null) ...[
+                                    _AuthErrorBanner(message: errorMessage),
+                                    const SizedBox(height: SK.s4),
+                                  ],
+                                  SkFade(
+                                    delayMs: 280,
+                                    child: SkField(
+                                      controller: _emailController,
+                                      label: 'Email',
+                                      hintText: 'name@example.com',
+                                      icon: Icons.email_outlined,
+                                      keyboardType: TextInputType.emailAddress,
+                                      textInputAction: TextInputAction.next,
+                                      validator:
+                                          _authController.validateEmailInput,
+                                    ),
+                                  ),
+                                  const SizedBox(height: SK.s3),
+                                  SkFade(
+                                    delayMs: 360,
+                                    child: SkField(
+                                      controller: _passwordController,
+                                      label: 'Пароль',
+                                      hintText: 'Минимум 8 символов',
+                                      icon: Icons.lock_outline,
+                                      obscureText: !_isPasswordVisible,
+                                      textInputAction: isRegister
+                                          ? TextInputAction.next
+                                          : TextInputAction.done,
+                                      validator:
+                                          _authController.validatePasswordInput,
+                                      trailing: IconButton(
+                                        onPressed: isLoading
+                                            ? null
+                                            : _togglePasswordVisibility,
+                                        icon: Icon(
+                                          _isPasswordVisible
+                                              ? Icons.visibility_off_outlined
+                                              : Icons.visibility_outlined,
+                                          color: SK.ink3,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 240),
+                                    child: isRegister
+                                        ? Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: SK.s3,
+                                            ),
+                                            child: SkField(
+                                              controller:
+                                                  _confirmPasswordController,
+                                              label: 'Повтор пароля',
+                                              hintText: 'Ещё раз пароль',
+                                              icon: Icons.lock_outline,
+                                              obscureText:
+                                                  !_isConfirmPasswordVisible,
+                                              textInputAction:
+                                                  TextInputAction.done,
+                                              validator: (value) => _authController
+                                                  .validatePasswordConfirmation(
+                                                password:
+                                                    _passwordController.text,
+                                                confirmation: value,
+                                              ),
+                                              trailing: IconButton(
+                                                onPressed: isLoading
+                                                    ? null
+                                                    : _toggleConfirmPasswordVisibility,
+                                                icon: Icon(
+                                                  _isConfirmPasswordVisible
+                                                      ? Icons
+                                                          .visibility_off_outlined
+                                                      : Icons
+                                                          .visibility_outlined,
+                                                  color: SK.ink3,
+                                                ),
+                                              ),
+                                            ),
+                                          )
+                                        : const SizedBox.shrink(),
+                                  ),
+                                  const SizedBox(height: SK.s5),
+                                  SkFade(
+                                    delayMs: 440,
+                                    child: SkButton(
+                                      label: isRegister
+                                          ? 'Создать аккаунт'
+                                          : 'Войти',
+                                      icon: const Icon(
+                                          Icons.arrow_forward_rounded),
+                                      iconRight: true,
+                                      block: true,
+                                      onPressed: isLoading
+                                          ? null
+                                          : () async {
+                                              await Future<void>.delayed(
+                                                const Duration(
+                                                    milliseconds: 250),
+                                              );
+                                              await _submit();
+                                            },
+                                    ),
+                                  ),
+                                  const SizedBox(height: SK.s5),
+                                  const _RedesignSessionHint(),
+                                  const SizedBox(height: SK.s8),
+                                  const Text(
+                                    'Продолжая, вы соглашаетесь с правилами Star Kids.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontFamily: 'Geist',
+                                      color: SK.ink4,
+                                      fontSize: 11,
+                                      height: 1.35,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: StarKidsSpacing.lg),
-                              _RevealMotion(
-                                animation: _entryInterval(0.34, 1),
-                                offset: const Offset(0, 0.06),
-                                child: _AuthHintText(isRegister: isRegister),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
+            ],
           ),
         );
       },
+    );
+  }
+}
+
+class _RedesignAuthHeader extends StatelessWidget {
+  const _RedesignAuthHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: SK.accent2,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Center(
+            child: Text(
+              '★',
+              style: TextStyle(
+                fontFamily: 'Fraunces',
+                fontSize: 18,
+                color: SK.bg,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: SK.s3),
+        const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Star Kids',
+              style: TextStyle(
+                fontFamily: 'Geist',
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+                color: SK.ink,
+              ),
+            ),
+            SizedBox(height: 2),
+            Text(
+              'Almaty · Al-Farabi',
+              style: TextStyle(
+                fontFamily: 'Geist',
+                fontSize: 12,
+                color: SK.ink3,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _RedesignAuthIntro extends StatelessWidget {
+  const _RedesignAuthIntro({required this.isRegister});
+
+  final bool isRegister;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 260),
+      child: Column(
+        key: ValueKey(isRegister),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(text: 'Привет, '),
+                TextSpan(
+                  text: 'родители',
+                  style: TextStyle(fontStyle: FontStyle.italic),
+                ),
+                TextSpan(text: '.\nПраздник в один тап.'),
+              ],
+            ),
+            style: TextStyle(
+              fontFamily: 'Fraunces',
+              fontSize: 44,
+              height: 1,
+              letterSpacing: -1.32,
+              fontWeight: FontWeight.w400,
+              color: SK.ink,
+            ),
+          ),
+          const SizedBox(height: SK.s4),
+          SizedBox(
+            width: 260,
+            child: Text(
+              isRegister
+                  ? 'Создайте аккаунт, чтобы заявки и профиль были под рукой.'
+                  : 'Войдите, чтобы открыть заявки, профиль и любимый филиал.',
+              style: const TextStyle(
+                fontFamily: 'Geist',
+                fontSize: 15,
+                height: 1.45,
+                color: SK.ink3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RedesignSessionHint extends StatelessWidget {
+  const _RedesignSessionHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.lock_outline, size: 12, color: SK.ink3),
+        SizedBox(width: SK.s2),
+        Flexible(
+          child: Text(
+            'Сессия сохраняется на этом устройстве',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Geist',
+              fontSize: 12,
+              color: SK.ink3,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -511,171 +796,170 @@ class _AuthFormCard extends StatelessWidget {
       ),
       borderRadius: BorderRadius.circular(StarKidsRadii.hero),
       border: Border.all(
-        color: isDark ? StarKidsDarkColors.glassStroke : StarKidsColors.glassStroke,
+        color: isDark
+            ? StarKidsDarkColors.glassStroke
+            : StarKidsColors.glassStroke,
       ),
       boxShadow: isDark ? const [] : StarKidsShadows.cosmicCard,
     );
 
     final cardContent = AnimatedSize(
-        duration: const Duration(milliseconds: 280),
-        reverseDuration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        alignment: Alignment.topCenter,
-        clipBehavior: Clip.none,
-        child: Form(
-          key: formKey,
-          autovalidateMode: autovalidateMode,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 240),
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
-                transitionBuilder: _slideFadeTransition,
-                child: Column(
-                  key: ValueKey('copy-${mode.name}'),
-                  children: [
-                    Text(
-                      _isRegister ? 'Создать аккаунт' : 'С возвращением',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: StarKidsSpacing.xs),
-                    Text(
-                      _isRegister
-                          ? 'Заполните почту и пароль. Это займет меньше минуты.'
-                          : 'Введите почту и пароль, чтобы открыть приложение.',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            height: 1.36,
-                          ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
+      duration: const Duration(milliseconds: 280),
+      reverseDuration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      clipBehavior: Clip.none,
+      child: Form(
+        key: formKey,
+        autovalidateMode: autovalidateMode,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 240),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: _slideFadeTransition,
+              child: Column(
+                key: ValueKey('copy-${mode.name}'),
+                children: [
+                  Text(
+                    _isRegister ? 'Создать аккаунт' : 'С возвращением',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: StarKidsSpacing.xs),
+                  Text(
+                    _isRegister
+                        ? 'Заполните почту и пароль. Это займет меньше минуты.'
+                        : 'Введите почту и пароль, чтобы открыть приложение.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          height: 1.36,
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
-              const SizedBox(height: StarKidsSpacing.lg),
-              _AuthModeSwitch(
-                mode: mode,
-                onChanged: isLoading ? null : onModeChanged,
-              ),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 220),
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
-                transitionBuilder: _slideFadeTransition,
-                child: errorMessage == null
-                    ? const SizedBox.shrink()
-                    : Padding(
-                        key: ValueKey(errorMessage),
-                        padding: const EdgeInsets.only(top: StarKidsSpacing.lg),
-                        child: _AuthErrorBanner(message: errorMessage!),
-                      ),
-              ),
-              const SizedBox(height: StarKidsSpacing.lg),
-              AutofillGroup(
-                child: Column(
-                  children: [
-                    _AuthTextField(
-                      controller: emailController,
-                      label: 'Электронная почта',
-                      hintText: 'name@example.com',
-                      keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.next,
-                      prefixIcon: Icons.email_rounded,
-                      enabled: !isLoading,
-                      validator: emailValidator,
-                      autofillHints: const [AutofillHints.email],
+            ),
+            const SizedBox(height: StarKidsSpacing.lg),
+            _AuthModeSwitch(
+              mode: mode,
+              onChanged: isLoading ? null : onModeChanged,
+            ),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: _slideFadeTransition,
+              child: errorMessage == null
+                  ? const SizedBox.shrink()
+                  : Padding(
+                      key: ValueKey(errorMessage),
+                      padding: const EdgeInsets.only(top: StarKidsSpacing.lg),
+                      child: _AuthErrorBanner(message: errorMessage!),
                     ),
-                    const SizedBox(height: StarKidsSpacing.md),
-                    _AuthTextField(
-                      controller: passwordController,
-                      label: 'Пароль',
-                      hintText: 'Минимум 8 символов',
-                      textInputAction: _isRegister
-                          ? TextInputAction.next
-                          : TextInputAction.done,
-                      prefixIcon: Icons.lock_rounded,
-                      enabled: !isLoading,
-                      obscureText: !isPasswordVisible,
-                      validator: passwordValidator,
-                      autofillHints: const [AutofillHints.password],
-                      onFieldSubmitted: (_) {
-                        if (!_isRegister && !isLoading) {
-                          onSubmit();
-                        }
-                      },
-                      suffix: _PasswordVisibilityButton(
-                        isVisible: isPasswordVisible,
-                        onPressed:
-                            isLoading ? null : onPasswordVisibilityChanged,
-                      ),
+            ),
+            const SizedBox(height: StarKidsSpacing.lg),
+            AutofillGroup(
+              child: Column(
+                children: [
+                  _AuthTextField(
+                    controller: emailController,
+                    label: 'Электронная почта',
+                    hintText: 'name@example.com',
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    prefixIcon: Icons.email_rounded,
+                    enabled: !isLoading,
+                    validator: emailValidator,
+                    autofillHints: const [AutofillHints.email],
+                  ),
+                  const SizedBox(height: StarKidsSpacing.md),
+                  _AuthTextField(
+                    controller: passwordController,
+                    label: 'Пароль',
+                    hintText: 'Минимум 8 символов',
+                    textInputAction: _isRegister
+                        ? TextInputAction.next
+                        : TextInputAction.done,
+                    prefixIcon: Icons.lock_rounded,
+                    enabled: !isLoading,
+                    obscureText: !isPasswordVisible,
+                    validator: passwordValidator,
+                    autofillHints: const [AutofillHints.password],
+                    onFieldSubmitted: (_) {
+                      if (!_isRegister && !isLoading) {
+                        onSubmit();
+                      }
+                    },
+                    suffix: _PasswordVisibilityButton(
+                      isVisible: isPasswordVisible,
+                      onPressed: isLoading ? null : onPasswordVisibilityChanged,
                     ),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 260),
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeInCubic,
-                      transitionBuilder: _slideFadeTransition,
-                      child: _isRegister
-                          ? Padding(
-                              key: const ValueKey('confirm-password'),
-                              padding: const EdgeInsets.only(
-                                top: StarKidsSpacing.md,
+                  ),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 260),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: _slideFadeTransition,
+                    child: _isRegister
+                        ? Padding(
+                            key: const ValueKey('confirm-password'),
+                            padding: const EdgeInsets.only(
+                              top: StarKidsSpacing.md,
+                            ),
+                            child: _AuthTextField(
+                              controller: confirmPasswordController,
+                              label: 'Подтверждение пароля',
+                              hintText: 'Повторите пароль',
+                              textInputAction: TextInputAction.done,
+                              prefixIcon: Icons.verified_user_rounded,
+                              enabled: !isLoading,
+                              obscureText: !isConfirmPasswordVisible,
+                              validator: confirmationValidator,
+                              autofillHints: const [AutofillHints.newPassword],
+                              onFieldSubmitted: (_) {
+                                if (!isLoading) {
+                                  onSubmit();
+                                }
+                              },
+                              suffix: _PasswordVisibilityButton(
+                                isVisible: isConfirmPasswordVisible,
+                                onPressed: isLoading
+                                    ? null
+                                    : onConfirmPasswordVisibilityChanged,
                               ),
-                              child: _AuthTextField(
-                                controller: confirmPasswordController,
-                                label: 'Подтверждение пароля',
-                                hintText: 'Повторите пароль',
-                                textInputAction: TextInputAction.done,
-                                prefixIcon: Icons.verified_user_rounded,
-                                enabled: !isLoading,
-                                obscureText: !isConfirmPasswordVisible,
-                                validator: confirmationValidator,
-                                autofillHints: const [
-                                  AutofillHints.newPassword
-                                ],
-                                onFieldSubmitted: (_) {
-                                  if (!isLoading) {
-                                    onSubmit();
-                                  }
-                                },
-                                suffix: _PasswordVisibilityButton(
-                                  isVisible: isConfirmPasswordVisible,
-                                  onPressed: isLoading
-                                      ? null
-                                      : onConfirmPasswordVisibilityChanged,
-                                ),
-                              ),
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                  ],
-                ),
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                ],
               ),
-              const SizedBox(height: StarKidsSpacing.xl),
-              AnimatedScale(
-                duration: const Duration(milliseconds: 160),
+            ),
+            const SizedBox(height: StarKidsSpacing.xl),
+            AnimatedScale(
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOutCubic,
+              scale: isLoading ? 0.98 : 1,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
                 curve: Curves.easeOutCubic,
-                scale: isLoading ? 0.98 : 1,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOutCubic,
-                  constraints: const BoxConstraints(minHeight: 56),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(StarKidsRadii.full),
-                    boxShadow: isLoading ? const [] : StarKidsShadows.brandGlow,
-                  ),
-                  child: StarKidsButton.primary(
-                    label: _isRegister ? 'Зарегистрироваться' : 'Войти',
-                    onPressed: isLoading ? null : () => onSubmit(),
-                    isLoading: isLoading,
-                  ),
+                constraints: const BoxConstraints(minHeight: 56),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(StarKidsRadii.full),
+                  boxShadow: isLoading ? const [] : StarKidsShadows.brandGlow,
+                ),
+                child: StarKidsButton.primary(
+                  label: _isRegister ? 'Зарегистрироваться' : 'Войти',
+                  onPressed: isLoading ? null : () => onSubmit(),
+                  isLoading: isLoading,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      );
+      ),
+    );
 
     if (isDark) {
       return ClipRRect(
@@ -899,13 +1183,16 @@ class _AuthModeSwitch extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textTheme = Theme.of(context).textTheme;
     final selectedStyle = textTheme.labelLarge?.copyWith(
-          color: isDark ? StarKidsDarkColors.textPrimary : StarKidsColors.textPrimary,
-          fontWeight: FontWeight.w800,
-        );
+      color:
+          isDark ? StarKidsDarkColors.textPrimary : StarKidsColors.textPrimary,
+      fontWeight: FontWeight.w800,
+    );
     final idleStyle = textTheme.labelLarge?.copyWith(
-          color: isDark ? StarKidsDarkColors.textSecondary : StarKidsColors.textSecondary,
-          fontWeight: FontWeight.w700,
-        );
+      color: isDark
+          ? StarKidsDarkColors.textSecondary
+          : StarKidsColors.textSecondary,
+      fontWeight: FontWeight.w700,
+    );
 
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 160),
@@ -923,7 +1210,9 @@ class _AuthModeSwitch extends StatelessWidget {
                 ),
           borderRadius: BorderRadius.circular(StarKidsRadii.full),
           border: Border.all(
-            color: isDark ? StarKidsDarkColors.borderDefault : StarKidsColors.glassStroke,
+            color: isDark
+                ? StarKidsDarkColors.borderDefault
+                : StarKidsColors.glassStroke,
           ),
         ),
         child: Stack(
@@ -944,7 +1233,8 @@ class _AuthModeSwitch extends StatelessWidget {
                     borderRadius: BorderRadius.circular(StarKidsRadii.full),
                     boxShadow: [
                       BoxShadow(
-                        color: StarKidsColors.brandPrimary.withValues(alpha: 0.12),
+                        color:
+                            StarKidsColors.brandPrimary.withValues(alpha: 0.12),
                         blurRadius: 16,
                         offset: const Offset(0, 6),
                       ),

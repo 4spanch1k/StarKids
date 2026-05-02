@@ -38,10 +38,15 @@ class StarKidsSelectField extends StatelessWidget {
             ? StarKidsDarkColors.borderDefault
             : StarKidsColors.borderDefault);
     final fillColor = enabled
-        ? (isDark ? StarKidsDarkColors.glassSurface : StarKidsColors.surfacePrimary)
-        : (isDark ? StarKidsDarkColors.actionDisabledBg : StarKidsColors.surfaceSecondary);
-    final iconColor =
-        isDark ? StarKidsDarkColors.textSecondary : StarKidsColors.textSecondary;
+        ? (isDark
+            ? StarKidsDarkColors.glassSurface
+            : StarKidsColors.surfacePrimary)
+        : (isDark
+            ? StarKidsDarkColors.actionDisabledBg
+            : StarKidsColors.surfaceSecondary);
+    final iconColor = isDark
+        ? StarKidsDarkColors.textSecondary
+        : StarKidsColors.textSecondary;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

@@ -3,18 +3,28 @@ import 'package:flutter/material.dart';
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/design_system/foundations/star_kids_colors.dart';
-import '../../../../core/design_system/foundations/star_kids_radii.dart';
-import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
+import '../../../../core/design_system/foundations/sk_tokens.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_media_image.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
-import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../../branches/domain/branch_option.dart';
 import '../../domain/branch_menu.dart';
 
-class MenuPage extends StatelessWidget {
+class MenuPage extends StatefulWidget {
   const MenuPage({super.key});
+
+  @override
+  State<MenuPage> createState() => _MenuPageState();
+}
+
+class _MenuPageState extends State<MenuPage> {
+  int _selectedCategoryIndex = 0;
+  final Map<String, GlobalKey> _categoryKeys = <String, GlobalKey>{};
+
+  GlobalKey _keyForCategory(String id) {
+    return _categoryKeys.putIfAbsent(id, GlobalKey.new);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,8 +72,6 @@ class MenuPage extends StatelessWidget {
               }
 
               final data = snapshot.data!;
-              final textTheme = Theme.of(context).textTheme;
-
               if (data.menu.categories.isEmpty) {
                 return StarKidsContentSwitcher(
                   child: _MenuStateView(
@@ -78,80 +86,109 @@ class MenuPage extends StatelessWidget {
                 );
               }
 
+              final categories = data.menu.categories;
+              if (_selectedCategoryIndex >= categories.length) {
+                _selectedCategoryIndex = 0;
+              }
+
               return StarKidsContentSwitcher(
-                child: ListView(
+                child: CustomScrollView(
                   key: ValueKey('menu-loaded-${data.branch.id}'),
-                  padding: const EdgeInsets.fromLTRB(
-                    StarKidsSpacing.xl,
-                    StarKidsSpacing.lg,
-                    StarKidsSpacing.xl,
-                    StarKidsSpacing.x4l,
-                  ),
-                  children: [
-                    StarKidsReveal(
-                      child: Container(
-                        padding: const EdgeInsets.all(StarKidsSpacing.xl),
-                        decoration: BoxDecoration(
-                          color: StarKidsColors.surfacePrimary,
-                          borderRadius: BorderRadius.circular(
-                            StarKidsRadii.hero,
-                          ),
-                          border: Border.all(
-                            color: StarKidsColors.borderDefault,
-                          ),
-                          boxShadow: StarKidsShadows.depth1,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: StarKidsSpacing.md,
-                                vertical: StarKidsSpacing.sm,
-                              ),
-                              decoration: BoxDecoration(
-                                color: StarKidsColors.surfaceTertiary,
-                                borderRadius: BorderRadius.circular(
-                                  StarKidsRadii.full,
+                  physics: const BouncingScrollPhysics(),
+                  slivers: [
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(
+                        SK.s5,
+                        SK.s5,
+                        SK.s5,
+                        SK.s7,
+                      ),
+                      sliver: SliverList.list(
+                        children: [
+                          StarKidsReveal(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${data.branch.shortLabel} · 11:00 — 23:00'
+                                      .toUpperCase(),
+                                  style: const TextStyle(
+                                    fontFamily: 'GeistMono',
+                                    fontSize: 11,
+                                    letterSpacing: 1.32,
+                                    color: SK.ink3,
+                                  ),
                                 ),
-                              ),
-                              child: Text(
-                                data.branch.shortLabel,
-                                style: textTheme.labelMedium?.copyWith(
-                                  color: StarKidsColors.brandPrimary,
+                                const SizedBox(height: SK.s3),
+                                const Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      TextSpan(text: 'Перекус '),
+                                      TextSpan(
+                                        text: 'между играми.',
+                                        style: TextStyle(
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  style: TextStyle(
+                                    fontFamily: 'Fraunces',
+                                    fontSize: 34,
+                                    height: 1.05,
+                                    letterSpacing: -0.85,
+                                    color: SK.ink,
+                                  ),
                                 ),
-                              ),
+                              ],
                             ),
-                            const SizedBox(height: StarKidsSpacing.md),
-                            Text('Перекус между играми.', style: textTheme.headlineMedium),
-                            const SizedBox(height: StarKidsSpacing.md),
-                            Text(
-                              'Горячие блюда, перекусы и напитки для всей семьи.',
-                              style: textTheme.bodyLarge,
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: StarKidsSpacing.x2l),
-                    const StarKidsReveal(
-                      delay: Duration(milliseconds: 80),
-                      child: StarKidsSectionHeader(
-                        title: 'Категории',
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _MenuChipHeader(
+                        categories: categories,
+                        selectedIndex: _selectedCategoryIndex,
+                        onSelected: (index) {
+                          setState(() => _selectedCategoryIndex = index);
+                          final key = _keyForCategory(categories[index].id);
+                          final context = key.currentContext;
+                          if (context != null) {
+                            Scrollable.ensureVisible(
+                              context,
+                              duration: const Duration(milliseconds: 320),
+                              curve: Curves.easeOutCubic,
+                            );
+                          }
+                        },
                       ),
                     ),
-                    const SizedBox(height: StarKidsSpacing.lg),
-                    ...data.menu.categories.asMap().entries.map(
-                          (entry) => Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: StarKidsSpacing.xl,
-                            ),
-                            child: _MenuCategoryCard(
-                              revealDelay: starKidsStaggerDelay(entry.key),
-                              category: entry.value,
-                            ),
-                          ),
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(
+                        SK.s5,
+                        SK.s4,
+                        SK.s5,
+                        SK.s8,
+                      ),
+                      sliver: SliverList.separated(
+                        itemCount: categories.length,
+                        separatorBuilder: (_, __) => const SizedBox(
+                          height: SK.s7,
                         ),
+                        itemBuilder: (context, index) {
+                          final category = categories[index];
+                          return KeyedSubtree(
+                            key: _keyForCategory(category.id),
+                            child: _MenuCategorySection(
+                              revealDelay: starKidsStaggerDelay(index),
+                              category: category,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                   ],
                 ),
               );
@@ -177,8 +214,95 @@ class MenuPage extends StatelessWidget {
   }
 }
 
-class _MenuCategoryCard extends StatelessWidget {
-  const _MenuCategoryCard({
+class _MenuChipHeader extends SliverPersistentHeaderDelegate {
+  const _MenuChipHeader({
+    required this.categories,
+    required this.selectedIndex,
+    required this.onSelected,
+  });
+
+  final List<MenuCategory> categories;
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  @override
+  double get minExtent => 64;
+
+  @override
+  double get maxExtent => 64;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return ColoredBox(
+      color: isDark ? SK.darkBg : SK.bg,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: SK.s5, vertical: SK.s2),
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: categories.length,
+        separatorBuilder: (_, __) => const SizedBox(width: SK.s2),
+        itemBuilder: (context, index) {
+          final selected = index == selectedIndex;
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+            child: Material(
+              color: selected
+                  ? (isDark ? SK.darkInk : SK.accent2)
+                  : (isDark ? SK.darkBgElev : SK.bgElev),
+              borderRadius: BorderRadius.circular(SK.rPill),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(SK.rPill),
+                onTap: () => onSelected(index),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: SK.s4,
+                    vertical: SK.s2,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(SK.rPill),
+                    border: Border.all(
+                      color: selected
+                          ? Colors.transparent
+                          : (isDark ? SK.darkLine : SK.line),
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    categories[index].title,
+                    style: TextStyle(
+                      fontFamily: 'Geist',
+                      color: selected
+                          ? (isDark ? SK.darkBg : SK.bg)
+                          : (isDark ? SK.darkInk : SK.ink),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      height: 1,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _MenuChipHeader oldDelegate) {
+    return oldDelegate.selectedIndex != selectedIndex ||
+        oldDelegate.categories != categories;
+  }
+}
+
+class _MenuCategorySection extends StatelessWidget {
+  const _MenuCategorySection({
     required this.category,
     this.revealDelay = Duration.zero,
   });
@@ -188,53 +312,45 @@ class _MenuCategoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
     return StarKidsReveal(
       delay: revealDelay,
-      child: Container(
-        padding: const EdgeInsets.all(StarKidsSpacing.lg),
-        decoration: BoxDecoration(
-          color: StarKidsColors.surfacePrimary,
-          borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-          border: Border.all(color: StarKidsColors.borderDefault),
-          boxShadow: StarKidsShadows.depth1,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          RichText(
+            text: TextSpan(
               children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: StarKidsColors.surfaceSecondary,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(
-                    Icons.restaurant_menu_rounded,
-                    color: StarKidsColors.textPrimary,
+                TextSpan(
+                  text: category.title,
+                  style: const TextStyle(
+                    fontFamily: 'Fraunces',
+                    fontSize: 22,
+                    height: 1.1,
+                    letterSpacing: -0.44,
+                    color: SK.ink,
                   ),
                 ),
-                const SizedBox(width: StarKidsSpacing.md),
-                Expanded(
-                  child: Text(
-                    category.title,
-                    style: textTheme.titleLarge,
+                TextSpan(
+                  text: ' · ${category.items.length}',
+                  style: const TextStyle(
+                    fontFamily: 'Geist',
+                    fontSize: 13,
+                    color: SK.ink3,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: StarKidsSpacing.lg),
-            ...category.items.map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: StarKidsSpacing.md),
-                child: _MenuItemCard(item: item),
-              ),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: SK.s4),
+          Column(
+            children: [
+              for (final item in category.items) ...[
+                _MenuItemCard(item: item),
+                const SizedBox(height: SK.s2),
+              ],
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -251,11 +367,13 @@ class _MenuItemCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.md),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: StarKidsColors.surfaceCanvas,
-        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+        color: isDark ? SK.darkBgElev : SK.bgElev,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: isDark ? SK.darkLine : SK.line),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -265,7 +383,11 @@ class _MenuItemCard extends StatelessWidget {
             child: SizedBox(
               width: 64,
               height: 64,
-              child: StarKidsMediaImage(source: item.imageUrl),
+              child: StarKidsMediaImage(
+                source: item.imageUrl.isEmpty
+                    ? _redesignMenuImage(item.title)
+                    : item.imageUrl,
+              ),
             ),
           ),
           const SizedBox(width: StarKidsSpacing.md),
@@ -309,12 +431,12 @@ class _MenuItemCard extends StatelessWidget {
                       width: 36,
                       height: 36,
                       decoration: BoxDecoration(
-                        color: StarKidsColors.warmCoral,
+                        color: isDark ? SK.darkBgSoft : SK.accentSoft,
                         borderRadius: BorderRadius.circular(18),
                       ),
                       child: const Icon(
-                        Icons.add_rounded,
-                        color: StarKidsColors.brandAccent,
+                        Icons.add,
+                        color: SK.accent,
                         size: 20,
                       ),
                     ),
@@ -337,6 +459,61 @@ class _MenuItemCard extends StatelessWidget {
     }
     return buf.toString();
   }
+}
+
+String _redesignMenuImage(String title) {
+  const images = <String, String>{
+    'Куриный суп с домашней лапшой':
+        'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=300&q=80',
+    'Суп ребра':
+        'https://images.unsplash.com/photo-1604152135912-04a022e23696?auto=format&fit=crop&w=300&q=80',
+    'Пельмени с говядиной':
+        'https://images.unsplash.com/photo-1626804475297-41608ea09aeb?auto=format&fit=crop&w=300&q=80',
+    'Пельмени с курицей':
+        'https://images.unsplash.com/photo-1518983546435-91f8b87fe561?auto=format&fit=crop&w=300&q=80',
+    'Хрустящие баклажаны':
+        'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=300&q=80',
+    'Цезарь с курицей':
+        'https://images.unsplash.com/photo-1551248429-40975aa4de74?auto=format&fit=crop&w=300&q=80',
+    'Греческий':
+        'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=300&q=80',
+    'Свежий микс':
+        'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=300&q=80',
+    'Пепперони':
+        'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=300&q=80',
+    'Маргарита':
+        'https://images.unsplash.com/photo-1604068549290-dea0e4a305ca?auto=format&fit=crop&w=300&q=80',
+    'Болоньезе':
+        'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=300&q=80',
+    '4 сезона':
+        'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=300&q=80',
+    '4 сыра':
+        'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=300&q=80',
+    'Манты домашние':
+        'https://images.unsplash.com/photo-1585032226651-759b368d7246?auto=format&fit=crop&w=300&q=80',
+    'Курица в соусе терияки':
+        'https://images.unsplash.com/photo-1532550907401-a500c9a57435?auto=format&fit=crop&w=300&q=80',
+    'Сырная паста':
+        'https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=300&q=80',
+    'Чизбургер Beef':
+        'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=300&q=80',
+    'Наггетсы':
+        'https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=300&q=80',
+    'Сырные палочки':
+        'https://images.unsplash.com/photo-1531749668029-2db88e4276c7?auto=format&fit=crop&w=300&q=80',
+    'Крылышки (16 шт)':
+        'https://images.unsplash.com/photo-1608039755401-742074f0548d?auto=format&fit=crop&w=300&q=80',
+    'Фри':
+        'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=300&q=80',
+    'Чёрный / Зелёный':
+        'https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=300&q=80',
+    'Чай с молоком':
+        'https://images.unsplash.com/photo-1545487343-5b5f2da9ffbb?auto=format&fit=crop&w=300&q=80',
+    'Ташкентский / Ягодный':
+        'https://images.unsplash.com/photo-1597318181409-cf64d0b5d8a2?auto=format&fit=crop&w=300&q=80',
+  };
+  return images[title] ??
+      'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=300&q=80';
 }
 
 class _MenuStateView extends StatelessWidget {

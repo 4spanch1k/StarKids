@@ -94,15 +94,17 @@ class _StarKidsButtonState extends State<StarKidsButton> {
           child: InkWell(
             borderRadius: BorderRadius.circular(SK.rPill),
             onTap: isDisabled ? null : widget.onPressed,
-            onTapDown: isDisabled ? null : (_) => setState(() => _pressed = true),
+            onTapDown:
+                isDisabled ? null : (_) => setState(() => _pressed = true),
             onTapUp: (_) => setState(() => _pressed = false),
             onTapCancel: () => setState(() => _pressed = false),
             splashColor: Colors.white.withValues(alpha: 0.15),
             highlightColor: Colors.transparent,
             child: Container(
-              width: widget.expand && widget.variant != StarKidsButtonVariant.ghost
-                  ? double.infinity
-                  : null,
+              width:
+                  widget.expand && widget.variant != StarKidsButtonVariant.ghost
+                      ? double.infinity
+                      : null,
               padding: const EdgeInsets.symmetric(
                 horizontal: 22,
                 vertical: 16,

@@ -31,8 +31,9 @@ class StarKidsBranchCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final secondaryIconColor =
-        isDark ? StarKidsDarkColors.textSecondary : StarKidsColors.textSecondary;
+    final secondaryIconColor = isDark
+        ? StarKidsDarkColors.textSecondary
+        : StarKidsColors.textSecondary;
 
     return StarKidsReveal(
       delay: revealDelay,

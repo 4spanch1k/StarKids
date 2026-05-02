@@ -25,7 +25,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Менеджеру'), findsWidgets);
-    expect(find.text('Короткий запрос без переписок'), findsOneWidget);
+    expect(find.textContaining('Короткий запрос'), findsOneWidget);
+    expect(find.textContaining('без переписок.'), findsOneWidget);
     expect(find.text('Отправить запрос'), findsOneWidget);
     expect(find.text('Пакет праздника'), findsNothing);
   });
@@ -46,7 +47,7 @@ void main() {
     expect(find.text('Пакет праздника'), findsOneWidget);
     expect(find.text('Отправить заявку'), findsOneWidget);
 
-    expect(find.text('Короткий запрос без переписок'), findsNothing);
+    expect(find.textContaining('Короткий запрос'), findsNothing);
     expect(find.text('Отправить запрос'), findsNothing);
   });
 
@@ -68,7 +69,7 @@ void main() {
 
     expect(find.text('Филиал: Star Kids Main'), findsOneWidget);
     expect(
-      find.textContaining('Контекст по выбранному филиалу уже добавлен'),
+      find.textContaining('Запрос уйдёт менеджеру по выбранному филиалу'),
       findsOneWidget,
     );
   });
