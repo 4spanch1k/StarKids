@@ -50,7 +50,7 @@ class StarKidsContentBlockCard extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: isDark
-                      ? const Color(0x1AFF0F90)
+                      ? const Color(0x24FF5A5F)
                       : StarKidsColors.surfaceTertiary,
                   borderRadius: BorderRadius.circular(StarKidsRadii.full),
                 ),

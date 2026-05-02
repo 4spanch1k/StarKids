@@ -23,7 +23,7 @@ void main() {
     await tester.pumpWidget(const StarKidsApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('Вход в приложение'), findsOneWidget);
+    expect(find.text('Star Kids'), findsOneWidget);
     expect(find.text('Вход'), findsWidgets);
     expect(find.text('Регистрация'), findsOneWidget);
     expect(find.text('Электронная почта'), findsOneWidget);

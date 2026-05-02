@@ -32,59 +32,61 @@ class _TicketsEntrySheet extends StatelessWidget {
 
     return SafeArea(
       top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          StarKidsSpacing.xl,
-          StarKidsSpacing.md,
-          StarKidsSpacing.xl,
-          StarKidsSpacing.xl,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 44,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? StarKidsDarkColors.borderDefault
-                      : StarKidsColors.borderDefault,
-                  borderRadius: BorderRadius.circular(StarKidsRadii.full),
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            StarKidsSpacing.xl,
+            StarKidsSpacing.md,
+            StarKidsSpacing.xl,
+            StarKidsSpacing.xl,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? StarKidsDarkColors.borderDefault
+                        : StarKidsColors.borderDefault,
+                    borderRadius: BorderRadius.circular(StarKidsRadii.full),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: StarKidsSpacing.lg),
-            Text('Билеты', style: textTheme.headlineSmall),
-            const SizedBox(height: StarKidsSpacing.sm),
-            Text(
-              'Выберите, что хотите сделать сейчас.',
-              style: textTheme.bodyMedium?.copyWith(
-                color: isDark
-                    ? StarKidsDarkColors.textSecondary
-                    : StarKidsColors.textSecondary,
+              const SizedBox(height: StarKidsSpacing.lg),
+              Text('Билеты', style: textTheme.headlineSmall),
+              const SizedBox(height: StarKidsSpacing.sm),
+              Text(
+                'Выберите, что хотите сделать сейчас.',
+                style: textTheme.bodyMedium?.copyWith(
+                  color: isDark
+                      ? StarKidsDarkColors.textSecondary
+                      : StarKidsColors.textSecondary,
+                ),
               ),
-            ),
-            const SizedBox(height: StarKidsSpacing.lg),
-            _TicketsEntryActionCard(
-              key: const ValueKey('my-tickets-action'),
-              icon: Icons.confirmation_num_rounded,
-              title: 'Мои билеты',
-              subtitle: 'Здесь будут ваши купленные и активные билеты.',
-              onTap: () =>
-                  Navigator.of(context).pop(TicketsEntryAction.myTickets),
-            ),
-            const SizedBox(height: StarKidsSpacing.md),
-            _TicketsEntryActionCard(
-              key: const ValueKey('buy-ticket-action'),
-              icon: Icons.shopping_bag_rounded,
-              title: 'Купить входной билет',
-              subtitle: 'Выберите филиал, дату и нужное количество билетов.',
-              onTap: () =>
-                  Navigator.of(context).pop(TicketsEntryAction.buyTicket),
-            ),
-          ],
+              const SizedBox(height: StarKidsSpacing.lg),
+              _TicketsEntryActionCard(
+                key: const ValueKey('my-tickets-action'),
+                icon: Icons.confirmation_num_rounded,
+                title: 'Мои билеты',
+                subtitle: 'Здесь будут ваши купленные и активные билеты.',
+                onTap: () =>
+                    Navigator.of(context).pop(TicketsEntryAction.myTickets),
+              ),
+              const SizedBox(height: StarKidsSpacing.md),
+              _TicketsEntryActionCard(
+                key: const ValueKey('buy-ticket-action'),
+                icon: Icons.shopping_bag_rounded,
+                title: 'Купить входной билет',
+                subtitle: 'Выберите филиал, дату и нужное количество билетов.',
+                onTap: () =>
+                    Navigator.of(context).pop(TicketsEntryAction.buyTicket),
+              ),
+            ],
+          ),
         ),
       ),
     );

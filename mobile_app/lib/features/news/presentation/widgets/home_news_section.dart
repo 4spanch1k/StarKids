@@ -68,8 +68,6 @@ class _HomeNewsSectionState extends State<HomeNewsSection> {
           children: [
             StarKidsSectionHeader(
               title: 'Новости',
-              description:
-                  'Свежие анонсы и обновления из админки доступны сразу на главном экране.',
               actionLabel: items.isEmpty ? null : 'Все новости',
               onActionTap: items.isEmpty
                   ? null
@@ -103,7 +101,7 @@ class _HomeNewsSectionState extends State<HomeNewsSection> {
               const _NewsStateCard(
                 title: 'Пока нет новостей',
                 description:
-                    'Новые публикации появятся здесь, как только их добавят в админке.',
+                    'Новые публикации появятся здесь немного позже.',
               )
             else
               Column(

@@ -23,6 +23,10 @@ dependencies:
   package_info_plus: ^8.0.2
   firebase_core: ^3.13.1
   firebase_messaging: ^15.2.5
+  google_fonts: ^6.2.1
+  intl: ^0.20.2
+  confetti: ^0.7.0
+  flutter_svg: ^2.0.10+1
 
 dev_dependencies:
   flutter_test:
@@ -33,3 +37,20 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - assets/fonts/
+  fonts:
+    - family: Fraunces
+      fonts:
+        - asset: assets/fonts/Fraunces-Regular.ttf
+        - asset: assets/fonts/Fraunces-Italic.ttf
+          style: italic
+    - family: Geist
+      fonts:
+        - asset: assets/fonts/Geist-Regular.ttf
+        - asset: assets/fonts/Geist-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Geist-SemiBold.ttf
+          weight: 600
+    - family: GeistMono
+      fonts:
+        - asset: assets/fonts/GeistMono-Regular.ttf

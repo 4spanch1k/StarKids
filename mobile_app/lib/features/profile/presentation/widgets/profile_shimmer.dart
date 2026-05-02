@@ -86,13 +86,13 @@ class ProfileLoadingSkeleton extends StatelessWidget {
         children: [
           _HeaderSkeleton(),
           const SizedBox(height: StarKidsSpacing.xl),
-          _CardSkeleton(lineCount: 4),
+          const _CardSkeleton(lineCount: 4),
           const SizedBox(height: StarKidsSpacing.xl),
-          _CardSkeleton(lineCount: 3),
+          const _CardSkeleton(lineCount: 3),
           const SizedBox(height: StarKidsSpacing.xl),
-          _CardSkeleton(lineCount: 3),
+          const _CardSkeleton(lineCount: 3),
           const SizedBox(height: StarKidsSpacing.xl),
-          _CardSkeleton(lineCount: 2),
+          const _CardSkeleton(lineCount: 2),
         ],
       ),
     );
@@ -109,20 +109,20 @@ class _HeaderSkeleton extends StatelessWidget {
         borderRadius: BorderRadius.circular(StarKidsRadii.lg),
         border: Border.all(color: StarKidsColors.borderDefault),
       ),
-      child: Row(
+      child: const Row(
         children: [
           ProfileShimmerBlock(
             height: 80,
             width: 80,
             borderRadius: 40,
           ),
-          const SizedBox(width: StarKidsSpacing.xl),
+          SizedBox(width: StarKidsSpacing.xl),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 ProfileShimmerBlock(height: 20, width: 160),
-                const SizedBox(height: StarKidsSpacing.sm),
+                SizedBox(height: StarKidsSpacing.sm),
                 ProfileShimmerBlock(height: 16, width: 120),
               ],
             ),
@@ -150,11 +150,11 @@ class _CardSkeleton extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ProfileShimmerBlock(height: 20, width: 140),
+          const ProfileShimmerBlock(height: 20, width: 140),
           const SizedBox(height: StarKidsSpacing.lg),
           for (var i = 0; i < lineCount; i++) ...[
             if (i > 0) const SizedBox(height: StarKidsSpacing.md),
-            ProfileShimmerBlock(height: 16),
+            const ProfileShimmerBlock(height: 16),
           ],
         ],
       ),

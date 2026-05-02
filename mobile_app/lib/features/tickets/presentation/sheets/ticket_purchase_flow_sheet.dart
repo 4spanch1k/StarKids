@@ -377,7 +377,7 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return FractionallySizedBox(
-      heightFactor: 0.92,
+      heightFactor: 0.98,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: isDark
@@ -508,10 +508,14 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                           const Spacer(),
                           Text(
                             _formatTenge(_totalAmount),
-                            style: textTheme.titleMedium?.copyWith(
+                            style: TextStyle(
+                              fontFamily: 'Fraunces',
+                              fontSize: 24,
+                              fontWeight: FontWeight.w400,
+                              letterSpacing: -0.48,
                               color: isDark
-                                  ? StarKidsDarkColors.accentPink
-                                  : StarKidsColors.brandPrimary,
+                                  ? StarKidsDarkColors.textPrimary
+                                  : StarKidsColors.textPrimary,
                             ),
                           ),
                         ],
@@ -628,7 +632,6 @@ class _StepSelectionView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(
@@ -640,15 +643,6 @@ class _StepSelectionView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Сначала выберите филиал и день посещения. Мы не создаем оплату и бронь автоматически на этом этапе.',
-            style: textTheme.bodyMedium?.copyWith(
-              color: isDark
-                  ? StarKidsDarkColors.textSecondary
-                  : StarKidsColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: StarKidsSpacing.xl),
           StarKidsSelectField(
             key: const ValueKey('ticket-branch-select'),
             label: 'Филиал',
@@ -769,13 +763,6 @@ class _StepTicketsView extends StatelessWidget {
           ),
           const SizedBox(height: StarKidsSpacing.xl),
           Text('Количество билетов', style: textTheme.titleLarge),
-          const SizedBox(height: StarKidsSpacing.sm),
-          Text(
-            'Изменяйте количество по каждому типу отдельно. Значение не может уйти ниже нуля.',
-            style: textTheme.bodyMedium?.copyWith(
-              color: secondaryText,
-            ),
-          ),
           const SizedBox(height: StarKidsSpacing.lg),
           if (isConfigLoading)
             const _TicketConfigStateCard(
@@ -792,7 +779,7 @@ class _StepTicketsView extends StatelessWidget {
             const _TicketConfigStateCard(
               title: 'Билеты пока недоступны',
               description:
-                  'В админке для этого филиала пока не опубликованы активные билеты.',
+                  'Для этого филиала пока нет активных билетов.',
             )
           else
             ...ticketConfig!.items.map(
@@ -883,7 +870,7 @@ class _TicketCounterCard extends StatelessWidget {
                   style: textTheme.bodyLarge?.copyWith(
                     color: isDark
                         ? StarKidsDarkColors.accentPink
-                        : StarKidsColors.brandPrimary,
+                        : StarKidsColors.textPrimary,
                   ),
                 ),
                 if (config.description.isNotEmpty) ...[
@@ -1141,7 +1128,7 @@ class _TicketConfigPreviewCard extends StatelessWidget {
                   style: textTheme.titleMedium?.copyWith(
                     color: isDark
                         ? StarKidsDarkColors.accentPink
-                        : StarKidsColors.brandPrimary,
+                        : StarKidsColors.textPrimary,
                   ),
                 ),
               ],
@@ -1300,7 +1287,7 @@ class _MyTicketsSheetState extends State<_MyTicketsSheet> {
             Text('Мои билеты', style: textTheme.headlineSmall),
             const SizedBox(height: StarKidsSpacing.sm),
             Text(
-              'Показываем только билеты, подтвержденные backend после оплаты.',
+              'Все подтверждённые билеты в одном месте.',
               style: textTheme.bodyMedium?.copyWith(
                 color: isDark
                     ? StarKidsDarkColors.textSecondary

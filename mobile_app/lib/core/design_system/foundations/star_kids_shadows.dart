@@ -33,10 +33,10 @@ abstract final class StarKidsShadows {
     ),
   ];
 
-  // Cosmic card shadow — soft pink-tinted glow
+  // Soft coral-tinted card shadow.
   static const List<BoxShadow> cosmicCard = [
     BoxShadow(
-      color: Color(0x20EB0876),
+      color: Color(0x20FF5A5F),
       blurRadius: 24,
       offset: Offset(0, 8),
     ),
@@ -47,10 +47,10 @@ abstract final class StarKidsShadows {
     ),
   ];
 
-  // Floating nav bar shadow — upward pink glow
+  // Floating nav bar shadow.
   static const List<BoxShadow> navFloat = [
     BoxShadow(
-      color: Color(0x28EB0876),
+      color: Color(0x24FF5A5F),
       blurRadius: 32,
       offset: Offset(0, -4),
       spreadRadius: -4,
@@ -64,7 +64,7 @@ abstract final class StarKidsShadows {
 
   static const List<BoxShadow> navFloatDark = [
     BoxShadow(
-      color: Color(0x20FF0F90),
+      color: Color(0x20FF5A5F),
       blurRadius: 16,
       offset: Offset(0, -2),
       spreadRadius: -6,
@@ -79,7 +79,7 @@ abstract final class StarKidsShadows {
   // Icon glow for quick-action tiles
   static const List<BoxShadow> iconGlow = [
     BoxShadow(
-      color: Color(0x40EB0876),
+      color: Color(0x33FF5A5F),
       blurRadius: 12,
       offset: Offset(0, 4),
       spreadRadius: -2,
@@ -89,7 +89,7 @@ abstract final class StarKidsShadows {
   // Brand button glow
   static const List<BoxShadow> brandGlow = [
     BoxShadow(
-      color: Color(0x38EB0876),
+      color: Color(0x38FF5A5F),
       blurRadius: 26,
       offset: Offset(0, 14),
     ),

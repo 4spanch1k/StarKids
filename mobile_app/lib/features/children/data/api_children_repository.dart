@@ -94,7 +94,7 @@ class ApiChildrenRepository implements ChildrenRepository {
         '/me/children/$childId',
         headers: buildMobileAuthAuthorizationHeader(s),
       ),
-      map: (_) => null,
+      map: (_) {},
       error: _errDelete,
     );
   }

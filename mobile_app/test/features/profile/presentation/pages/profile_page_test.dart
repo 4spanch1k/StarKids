@@ -98,7 +98,7 @@ void main() {
       expect(find.text('Личные данные'), findsOneWidget);
       expect(find.text('Мои заявки'), findsOneWidget);
       expect(find.text('Настройки'), findsOneWidget);
-      expect(find.text('Связь с менеджером'), findsOneWidget);
+      expect(find.text('Менеджеру'), findsOneWidget);
     });
 
     testWidgets('error state shows message and retry button', (tester) async {
@@ -217,7 +217,7 @@ class _FakeChildrenRepository implements ChildrenRepository {
     required DateTime birthDate,
     required ChildGender gender,
   }) async =>
-      Failure<Child>('not implemented');
+      const Failure<Child>('not implemented');
 
   @override
   Future<Result<Child>> updateChild({
@@ -226,7 +226,7 @@ class _FakeChildrenRepository implements ChildrenRepository {
     DateTime? birthDate,
     ChildGender? gender,
   }) async =>
-      Failure<Child>('not implemented');
+      const Failure<Child>('not implemented');
 
   @override
   Future<Result<void>> deleteChild(String childId) async =>

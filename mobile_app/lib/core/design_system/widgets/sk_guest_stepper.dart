@@ -1,0 +1,157 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../foundations/star_kids_colors.dart';
+import '../foundations/star_kids_radii.dart';
+import '../foundations/star_kids_spacing.dart';
+
+class SkGuestStepper extends StatelessWidget {
+  const SkGuestStepper({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.min = 1,
+    this.max = 30,
+    this.label = 'Количество гостей',
+  });
+
+  final int value;
+  final ValueChanged<int> onChanged;
+  final int min;
+  final int max;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: StarKidsSpacing.lg,
+        vertical: StarKidsSpacing.md,
+      ),
+      decoration: BoxDecoration(
+        color: isDark
+            ? StarKidsDarkColors.surfaceElevated
+            : StarKidsColors.surfacePrimary,
+        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+        border: Border.all(
+          color: isDark
+              ? StarKidsDarkColors.borderDefault
+              : StarKidsColors.borderDefault,
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: textTheme.labelMedium,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$value гостей',
+                  style: textTheme.titleMedium,
+                ),
+              ],
+            ),
+          ),
+          _StepButton(
+            icon: Icons.remove_rounded,
+            enabled: value > min,
+            onTap: () {
+              if (value > min) {
+                HapticFeedback.selectionClick();
+                onChanged(value - 1);
+              }
+            },
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: StarKidsSpacing.md),
+            child: Text(
+              value.toString(),
+              style: textTheme.titleLarge?.copyWith(
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+          _StepButton(
+            icon: Icons.add_rounded,
+            enabled: value < max,
+            onTap: () {
+              if (value < max) {
+                HapticFeedback.selectionClick();
+                onChanged(value + 1);
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StepButton extends StatefulWidget {
+  const _StepButton({
+    required this.icon,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  State<_StepButton> createState() => _StepButtonState();
+}
+
+class _StepButtonState extends State<_StepButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return GestureDetector(
+      onTap: widget.enabled ? widget.onTap : null,
+      onTapDown: widget.enabled ? (_) => setState(() => _pressed = true) : null,
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.92 : 1.0,
+        duration: const Duration(milliseconds: 140),
+        child: AnimatedOpacity(
+          opacity: widget.enabled ? 1.0 : 0.4,
+          duration: const Duration(milliseconds: 200),
+          child: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: isDark
+                  ? StarKidsDarkColors.glassSurface
+                  : StarKidsColors.surfaceSecondary,
+              borderRadius: BorderRadius.circular(StarKidsRadii.full),
+              border: Border.all(
+                color: isDark
+                    ? StarKidsDarkColors.borderDefault
+                    : StarKidsColors.borderDefault,
+              ),
+            ),
+            child: Icon(
+              widget.icon,
+              size: 18,
+              color: isDark
+                  ? StarKidsDarkColors.textPrimary
+                  : StarKidsColors.textPrimary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

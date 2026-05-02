@@ -123,10 +123,10 @@ class MenuPage extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: StarKidsSpacing.md),
-                            Text('Меню кафе', style: textTheme.headlineMedium),
+                            Text('Перекус между играми.', style: textTheme.headlineMedium),
                             const SizedBox(height: StarKidsSpacing.md),
                             Text(
-                              'Все позиции, цены и картинки приходят из админки. Категории разделены так, чтобы меню было удобно читать на телефоне.',
+                              'Горячие блюда, перекусы и напитки для всей семьи.',
                               style: textTheme.bodyLarge,
                             ),
                           ],
@@ -138,8 +138,6 @@ class MenuPage extends StatelessWidget {
                       delay: Duration(milliseconds: 80),
                       child: StarKidsSectionHeader(
                         title: 'Категории',
-                        description:
-                            'Каждое блюдо показывает отдельную картинку и точную цену в тенге.',
                       ),
                     ),
                     const SizedBox(height: StarKidsSpacing.lg),
@@ -211,12 +209,12 @@ class _MenuCategoryCard extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: StarKidsColors.surfaceTertiary,
+                    color: StarKidsColors.surfaceSecondary,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Icon(
                     Icons.restaurant_menu_rounded,
-                    color: StarKidsColors.brandPrimary,
+                    color: StarKidsColors.textPrimary,
                   ),
                 ),
                 const SizedBox(width: StarKidsSpacing.md),
@@ -263,10 +261,10 @@ class _MenuItemCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(14),
             child: SizedBox(
-              width: 96,
-              height: 96,
+              width: 64,
+              height: 64,
               child: StarKidsMediaImage(source: item.imageUrl),
             ),
           ),
@@ -280,11 +278,47 @@ class _MenuItemCard extends StatelessWidget {
                   style: textTheme.titleMedium,
                 ),
                 const SizedBox(height: StarKidsSpacing.sm),
-                Text(
-                  _formatPrice(item.priceTenge),
-                  style: textTheme.titleLarge?.copyWith(
-                    color: StarKidsColors.brandPrimary,
-                  ),
+                Row(
+                  children: [
+                    RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: _formatPriceNumber(item.priceTenge),
+                            style: const TextStyle(
+                              fontFamily: 'Fraunces',
+                              fontSize: 16,
+                              fontWeight: FontWeight.w400,
+                              letterSpacing: -0.32,
+                              color: StarKidsColors.textPrimary,
+                            ),
+                          ),
+                          const TextSpan(
+                            text: ' ₸',
+                            style: TextStyle(
+                              fontFamily: 'Geist',
+                              fontSize: 12,
+                              color: StarKidsColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: StarKidsColors.warmCoral,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: const Icon(
+                        Icons.add_rounded,
+                        color: StarKidsColors.brandAccent,
+                        size: 20,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -294,8 +328,14 @@ class _MenuItemCard extends StatelessWidget {
     );
   }
 
-  String _formatPrice(int priceTenge) {
-    return '$priceTenge тг';
+  String _formatPriceNumber(int price) {
+    final s = price.toString();
+    final buf = StringBuffer();
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write(' ');
+      buf.write(s[i]);
+    }
+    return buf.toString();
   }
 }
 

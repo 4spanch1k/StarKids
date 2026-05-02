@@ -8,6 +8,7 @@ import '../../../../core/design_system/foundations/star_kids_colors.dart';
 import '../../../../core/design_system/foundations/star_kids_radii.dart';
 import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
+import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../data/api_news_repository.dart';
 import '../../domain/news_item.dart';
 import '../../domain/news_repository.dart';
@@ -257,9 +258,9 @@ class _NewsDetailsStateScaffold extends StatelessWidget {
                   const LinearProgressIndicator(),
                 ] else if (actionLabel != null && onPressed != null) ...[
                   const SizedBox(height: StarKidsSpacing.xl),
-                  FilledButton(
+                  StarKidsButton.primary(
                     onPressed: () => onPressed!(),
-                    child: Text(actionLabel!),
+                    label: actionLabel!,
                   ),
                 ],
               ],

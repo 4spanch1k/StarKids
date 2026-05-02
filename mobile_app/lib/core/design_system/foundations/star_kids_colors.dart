@@ -1,44 +1,53 @@
 import 'package:flutter/material.dart';
 
+import 'sk_tokens.dart';
+
 abstract final class StarKidsColors {
-  static const Color brandPrimary = Color(0xFFEB0876);
-  static const Color brandPrimaryPressed = Color(0xFFC70662);
-  static const Color brandSecondary = Color(0xFF09A284);
-  static const Color brandAccent = Color(0xFFF29F24);
-  static const Color brandHighlight = Color(0xFFFAEB0B);
+  // Brand
+  static const Color brandPrimary = SK.accent2;
+  static const Color brandPrimaryPressed = SK.ink;
+  static const Color brandSecondary = Color(0xFF1C9A6D);
+  static const Color brandAccent = SK.accent;
+  static const Color brandHighlight = SK.sun;
 
-  static const Color actionDisabledBg = Color(0xFFF2E8ED);
-  static const Color actionDisabledFg = Color(0xFFC9C1C8);
+  static const Color actionDisabledBg = Color(0xFFEDE8E4);
+  static const Color actionDisabledFg = Color(0xFFC2BAB4);
 
-  // Cosmic palette — soft pastel nebula tones
-  static const Color cosmicBlush = Color(0xFFFFD6E8); // soft pink
-  static const Color cosmicLavender = Color(0xFFE8D6FF); // lavender
-  static const Color cosmicPeach = Color(0xFFFFE4D6); // peach
-  static const Color cosmicSky = Color(0xFFD6EEFF); // sky blue
-  static const Color cosmicMint = Color(0xFFD6FFF0); // mint
+  static const Color warmSun = SK.sun;
+  static const Color warmMint = SK.mint;
+  static const Color warmSky = SK.sky;
+  static const Color warmPlum = SK.plum;
+  static const Color warmCoral = SK.accentSoft;
 
-  // Glass surfaces — light mode
-  static const Color glassSurface = Color(0xBFFFFFFF); // 75% white
-  static const Color glassStroke = Color(0x28EB0876); // 16% brand pink
-  static const Color glassHighlight = Color(0x33FFFFFF); // 20% white sheen
+  // Keep cosmicXxx as aliases pointing to warm equivalents for backwards compat
+  static const Color cosmicBlush = SK.accentSoft;
+  static const Color cosmicLavender = SK.plum;
+  static const Color cosmicPeach = Color(0xFFFFF0E8);
+  static const Color cosmicSky = SK.sky;
+  static const Color cosmicMint = SK.mint;
 
-  // Cosmic background — barely-there lavender-white
-  static const Color cosmicBg = Color(0xFFF8F5FF);
+  // Glass surfaces (warm-tinted)
+  static const Color glassSurface = Color(0xCCFFFFFF); // 80% white
+  static const Color glassStroke = Color(0x1A1A1614); // 10% ink
+  static const Color glassHighlight = Color(0x33FFFFFF);
 
-  static const Color surfaceCanvas = Color(0xFFF8F5FF);
-  static const Color surfacePrimary = Color(0xFFFFFFFF);
-  static const Color surfaceSecondary = Color(0xFFFFF1E3);
-  static const Color surfaceTertiary = Color(0xFFFCE3EF);
-  static const Color surfaceInverse = Color(0xFF171316);
+  // Background
+  static const Color cosmicBg = SK.bg;
 
-  static const Color textPrimary = Color(0xFF171316);
-  static const Color textSecondary = Color(0xFF6E6572);
-  static const Color textInverse = Color(0xFFFFFFFF);
-  static const Color textDisabled = Color(0xFFA69EA6);
+  static const Color surfaceCanvas = SK.bg;
+  static const Color surfacePrimary = SK.bgElev;
+  static const Color surfaceSecondary = SK.bgSoft;
+  static const Color surfaceTertiary = SK.accentSoft;
+  static const Color surfaceInverse = SK.ink;
 
-  static const Color borderDefault = Color(0xFFE9DDE4);
-  static const Color borderStrong = Color(0xFFDCC5D3);
-  static const Color borderFocus = Color(0xFFEB0876);
+  static const Color textPrimary = SK.ink;
+  static const Color textSecondary = SK.ink3;
+  static const Color textInverse = Colors.white;
+  static const Color textDisabled = SK.ink4;
+
+  static const Color borderDefault = SK.line;
+  static const Color borderStrong = SK.lineStrong;
+  static const Color borderFocus = SK.ink2;
   static const Color borderError = Color(0xFFD6455D);
 
   static const Color statusSuccess = Color(0xFF1C9A6D);
@@ -48,46 +57,41 @@ abstract final class StarKidsColors {
   static const Color statusError = Color(0xFFD6455D);
   static const Color statusErrorSurface = Color(0xFFFDEBED);
 
-  static const Color overlayScrim = Color(0x99171316);
-  static const Color overlayImageTop = Color(0x33171316);
-  static const Color overlayImageBottom = Color(0x80171316);
+  static const Color overlayScrim = Color(0x991A1614);
+  static const Color overlayImageTop = Color(0x331A1614);
+  static const Color overlayImageBottom = Color(0x801A1614);
 }
 
-/// Dark-mode colour tokens — deep cosmic indigo palette.
+/// Dark-mode colour tokens.
 abstract final class StarKidsDarkColors {
-  // Backgrounds
-  static const Color bg = Color(0xFF0B0B1E); // deep indigo
-  static const Color surfaceCanvas = Color(0xFF0B0B1E);
-  static const Color surfacePrimary = Color(0xFF121225); // slightly lifted
-  static const Color surfaceElevated = Color(0xFF191936); // cards / sheets
-  static const Color surfaceInverse =
-      Color(0xFFF0ECF8); // inverse (light on dark)
+  static const Color bg = SK.darkBg;
+  static const Color surfaceCanvas = SK.darkBg;
+  static const Color surfacePrimary = SK.darkBgElev;
+  static const Color surfaceElevated = SK.darkBgSoft;
+  static const Color surfaceInverse = SK.darkInk;
 
   // Glass surfaces
-  static const Color glassSurface = Color(0x14FFFFFF); // 8% white glass
-  static const Color glassStroke = Color(0x28FFFFFF); // 16% white border
-  static const Color glassHighlight = Color(0x0DFFFFFF); // 5% sheen at top
+  static const Color glassSurface = Color(0x14FFFFFF);
+  static const Color glassStroke = SK.darkLineStrong;
+  static const Color glassHighlight = Color(0x0DFFFFFF);
 
   // Nebula blobs (dark analogues)
-  static const Color nebulaViolet = Color(0x33A855F7); // neon purple 20%
-  static const Color nebulaBlue = Color(0x1A3B82F6); // electric blue 10%
-  static const Color nebulaEmerald = Color(0x1A10B981); // emerald drop 10%
+  static const Color nebulaViolet = Color(0x24E5D4F2);
+  static const Color nebulaBlue = Color(0x24C7DDEF);
+  static const Color nebulaEmerald = Color(0x24B6E3C8);
 
-  // Text
-  static const Color textPrimary = Color(0xFFF0ECF8); // off-white
-  static const Color textSecondary = Color(0xFF9B94B8); // grey-blue
-  static const Color textDisabled = Color(0xFF5A5478);
+  static const Color textPrimary = SK.darkInk;
+  static const Color textSecondary = SK.darkInk3;
+  static const Color textDisabled = Color(0xFF5B504A);
 
-  // Borders
-  static const Color borderDefault = Color(0xFF2A2645);
-  static const Color borderStrong = Color(0xFF3D3860);
-  static const Color borderFocus = Color(0xFFFF0F90); // vivid pink
+  static const Color borderDefault = SK.darkLine;
+  static const Color borderStrong = SK.darkLineStrong;
+  static const Color borderFocus = SK.darkInk2;
   static const Color borderError = Color(0xFFFF6B6B);
 
-  // Accents
-  static const Color accentPink = Color(0xFFFF0F90); // vivid pink
-  static const Color accentBlue = Color(0xFF4D9FFF); // electric blue
-  static const Color brandPrimary = Color(0xFFFF0F90); // brighter in dark
+  static const Color accentPink = SK.accent;
+  static const Color accentBlue = SK.sky;
+  static const Color brandPrimary = SK.accent;
 
   // Status
   static const Color statusSuccess = Color(0xFF34D399);
@@ -98,10 +102,9 @@ abstract final class StarKidsDarkColors {
   static const Color statusErrorSurface = Color(0xFF3D0F0F);
 
   // Action states
-  static const Color actionDisabledBg = Color(0xFF1E1B35);
-  static const Color actionDisabledFg = Color(0xFF4A4568);
+  static const Color actionDisabledBg = Color(0xFF2A2521);
+  static const Color actionDisabledFg = Color(0xFF6D625A);
 
-  // Nav bar
-  static const Color navBarBg = Color(0x99121225); // 60% dark surface
-  static const Color navIndicator = Color(0x33FF0F90); // glow indicator
+  static const Color navBarBg = Color(0x991A1715);
+  static const Color navIndicator = Color(0x33FF5A5F);
 }

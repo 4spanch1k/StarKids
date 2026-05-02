@@ -191,7 +191,7 @@ abstract final class StarKidsComponentTheme {
     return NavigationBarThemeData(
       height: 68,
       backgroundColor: StarKidsColors.glassSurface,
-      indicatorColor: StarKidsColors.cosmicBlush,
+      indicatorColor: StarKidsColors.warmCoral,
       indicatorShape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(StarKidsRadii.full),
       ),
@@ -393,7 +393,7 @@ abstract final class StarKidsComponentTheme {
           }
           return StarKidsDarkColors.textPrimary;
         }),
-        side: WidgetStatePropertyAll(
+        side: const WidgetStatePropertyAll(
           BorderSide(color: StarKidsDarkColors.borderDefault),
         ),
         textStyle: WidgetStatePropertyAll(
@@ -452,27 +452,27 @@ abstract final class StarKidsComponentTheme {
           ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(StarKidsRadii.md),
-        borderSide: BorderSide(color: StarKidsDarkColors.borderDefault),
+        borderSide: const BorderSide(color: StarKidsDarkColors.borderDefault),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(StarKidsRadii.md),
-        borderSide: BorderSide(color: StarKidsDarkColors.borderDefault),
+        borderSide: const BorderSide(color: StarKidsDarkColors.borderDefault),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(StarKidsRadii.md),
-        borderSide: BorderSide(color: StarKidsDarkColors.borderFocus, width: 2),
+        borderSide: const BorderSide(color: StarKidsDarkColors.borderFocus, width: 2),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(StarKidsRadii.md),
-        borderSide: BorderSide(color: StarKidsDarkColors.borderError, width: 2),
+        borderSide: const BorderSide(color: StarKidsDarkColors.borderError, width: 2),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(StarKidsRadii.md),
-        borderSide: BorderSide(color: StarKidsDarkColors.borderError, width: 2),
+        borderSide: const BorderSide(color: StarKidsDarkColors.borderError, width: 2),
       ),
       disabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(StarKidsRadii.md),
-        borderSide: BorderSide(color: StarKidsDarkColors.borderDefault),
+        borderSide: const BorderSide(color: StarKidsDarkColors.borderDefault),
       ),
     );
   }
@@ -485,7 +485,7 @@ abstract final class StarKidsComponentTheme {
       backgroundColor: StarKidsDarkColors.surfaceCanvas,
       foregroundColor: StarKidsDarkColors.textPrimary,
       titleTextStyle: StarKidsTextTheme.buildDark().titleLarge,
-      iconTheme: IconThemeData(
+      iconTheme: const IconThemeData(
         color: StarKidsDarkColors.textPrimary,
         size: 24,
       ),
@@ -511,9 +511,9 @@ abstract final class StarKidsComponentTheme {
       }),
       iconTheme: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
-          return IconThemeData(color: StarKidsDarkColors.accentPink, size: 22);
+          return const IconThemeData(color: StarKidsDarkColors.accentPink, size: 22);
         }
-        return IconThemeData(color: StarKidsDarkColors.textSecondary, size: 22);
+        return const IconThemeData(color: StarKidsDarkColors.textSecondary, size: 22);
       }),
     );
   }
@@ -539,7 +539,7 @@ abstract final class StarKidsComponentTheme {
       shadowColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(StarKidsRadii.lg),
-        side: BorderSide(color: StarKidsDarkColors.glassStroke, width: 0.5),
+        side: const BorderSide(color: StarKidsDarkColors.glassStroke, width: 0.5),
       ),
     );
   }
@@ -576,7 +576,7 @@ abstract final class StarKidsComponentTheme {
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(StarKidsRadii.lg),
-        side: BorderSide(color: StarKidsDarkColors.borderDefault),
+        side: const BorderSide(color: StarKidsDarkColors.borderDefault),
       ),
       textStyle: StarKidsTextTheme.buildDark().bodyMedium,
     );

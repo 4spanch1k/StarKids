@@ -1,3 +1,4 @@
+import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
@@ -5,6 +6,8 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../core/design_system/foundations/star_kids_colors.dart';
 import '../../../../core/design_system/foundations/star_kids_radii.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
+import '../../../../core/design_system/widgets/sk_date_pill_row.dart';
+import '../../../../core/design_system/widgets/sk_guest_stepper.dart';
 import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_input_field.dart';
@@ -468,8 +471,13 @@ class _BirthdayRequestFormView extends StatelessWidget {
             StarKidsSpacing.x5l,
           ),
           children: [
-            typeSelector,
-            const SizedBox(height: StarKidsSpacing.xl),
+            Padding(
+              padding: const EdgeInsets.only(bottom: StarKidsSpacing.xl),
+              child: Text(
+                'Соберём праздник за пару минут.',
+                style: Theme.of(context).textTheme.displayLarge,
+              ),
+            ),
             StarKidsSectionHeader(
               title: type.formTitle,
               description: type.formDescription,
@@ -550,8 +558,23 @@ class _BirthdayRequestFormView extends StatelessWidget {
               onChanged: (_) => controller.clearTransientFeedback(),
             ),
             const SizedBox(height: StarKidsSpacing.lg),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Ближайшие даты', style: textTheme.labelMedium),
+                const SizedBox(height: StarKidsSpacing.sm),
+                SkDatePillRow(
+                  selectedDate: controller.desiredDate,
+                  onDateSelected: (date) {
+                    controller.updateDesiredDate(date);
+                  },
+                  daysAhead: 30,
+                ),
+              ],
+            ),
+            const SizedBox(height: StarKidsSpacing.md),
             StarKidsSelectField(
-              label: 'Желаемая дата',
+              label: 'Или выберите другую дату',
               value: controller.desiredDate == null
                   ? null
                   : controller.formatDate(controller.desiredDate),
@@ -562,15 +585,19 @@ class _BirthdayRequestFormView extends StatelessWidget {
               errorText: controller.dateErrorText,
             ),
             const SizedBox(height: StarKidsSpacing.lg),
-            StarKidsInputField(
-              controller: controller.guestCountController,
-              label: 'Количество гостей',
-              hintText: 'Например, 12',
-              prefixIcon: Icons.groups_rounded,
-              keyboardType: TextInputType.number,
-              textInputAction: TextInputAction.next,
-              validator: controller.validateGuestCount,
-              onChanged: (_) => controller.clearTransientFeedback(),
+            AnimatedBuilder(
+              animation: controller,
+              builder: (context, _) {
+                final guests =
+                    int.tryParse(controller.guestCountController.text) ?? 10;
+                return SkGuestStepper(
+                  value: guests.clamp(1, 30),
+                  onChanged: (newVal) {
+                    controller.guestCountController.text = newVal.toString();
+                    controller.clearTransientFeedback();
+                  },
+                );
+              },
             ),
             const SizedBox(height: StarKidsSpacing.lg),
             StarKidsInputField(
@@ -629,8 +656,6 @@ class _ContactRequestFormView extends StatelessWidget {
             StarKidsSpacing.x5l,
           ),
           children: [
-            typeSelector,
-            const SizedBox(height: StarKidsSpacing.xl),
             StarKidsSectionHeader(
               title: type.formTitle,
               description: type.formDescription,
@@ -721,7 +746,7 @@ class _ContactRequestFormView extends StatelessWidget {
   }
 }
 
-class _RequestSuccessView extends StatelessWidget {
+class _RequestSuccessView extends StatefulWidget {
   const _RequestSuccessView({
     super.key,
     required this.branch,
@@ -740,76 +765,124 @@ class _RequestSuccessView extends StatelessWidget {
   final VoidCallback onCreateAnother;
 
   @override
+  State<_RequestSuccessView> createState() => _RequestSuccessViewState();
+}
+
+class _RequestSuccessViewState extends State<_RequestSuccessView> {
+  late final ConfettiController _confettiController;
+
+  @override
+  void initState() {
+    super.initState();
+    _confettiController = ConfettiController(
+      duration: const Duration(seconds: 3),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _confettiController.play();
+    });
+  }
+
+  @override
+  void dispose() {
+    _confettiController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.all(StarKidsSpacing.xl),
-        children: [
-          _RequestStatusBanner(
-            title: type.successTitle,
-            description: type.successDescription,
-            backgroundColor: isDark
-                ? StarKidsDarkColors.statusSuccessSurface
-                : StarKidsColors.statusSuccessSurface,
-            foregroundColor: isDark
-                ? StarKidsDarkColors.statusSuccess
-                : StarKidsColors.statusSuccess,
-            icon: Icons.check_circle_rounded,
-          ),
-          const SizedBox(height: StarKidsSpacing.x2l),
-          Container(
-            padding: const EdgeInsets.all(StarKidsSpacing.lg),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? StarKidsDarkColors.surfaceElevated
-                  : StarKidsColors.surfacePrimary,
-              borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-              border: Border.all(
-                color: isDark
-                    ? StarKidsDarkColors.borderDefault
-                    : StarKidsColors.borderDefault,
+    return Stack(
+      children: [
+        SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(StarKidsSpacing.xl),
+            children: [
+              _RequestStatusBanner(
+                title: widget.type.successTitle,
+                description: widget.type.successDescription,
+                backgroundColor: isDark
+                    ? StarKidsDarkColors.statusSuccessSurface
+                    : StarKidsColors.statusSuccessSurface,
+                foregroundColor: isDark
+                    ? StarKidsDarkColors.statusSuccess
+                    : StarKidsColors.statusSuccess,
+                icon: Icons.check_circle_rounded,
               ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _SuccessRow(label: 'Филиал', value: branch.name),
-                const SizedBox(height: StarKidsSpacing.md),
-                _SuccessRow(
-                  label: 'Пакет',
-                  value: selectedPackage?.name ?? 'Менеджер поможет подобрать',
+              const SizedBox(height: StarKidsSpacing.x2l),
+              Container(
+                padding: const EdgeInsets.all(StarKidsSpacing.lg),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? StarKidsDarkColors.surfaceElevated
+                      : StarKidsColors.surfacePrimary,
+                  borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+                  border: Border.all(
+                    color: isDark
+                        ? StarKidsDarkColors.borderDefault
+                        : StarKidsColors.borderDefault,
+                  ),
                 ),
-                const SizedBox(height: StarKidsSpacing.md),
-                _SuccessRow(label: 'Номер заявки', value: submission.requestId),
-                const SizedBox(height: StarKidsSpacing.md),
-                _SuccessRow(label: 'Следующий шаг', value: submission.nextStep),
-              ],
-            ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SuccessRow(label: 'Филиал', value: widget.branch.name),
+                    const SizedBox(height: StarKidsSpacing.md),
+                    _SuccessRow(
+                      label: 'Пакет',
+                      value: widget.selectedPackage?.name ??
+                          'Менеджер поможет подобрать',
+                    ),
+                    const SizedBox(height: StarKidsSpacing.md),
+                    _SuccessRow(
+                        label: 'Номер заявки',
+                        value: widget.submission.requestId),
+                    const SizedBox(height: StarKidsSpacing.md),
+                    _SuccessRow(
+                        label: 'Следующий шаг',
+                        value: widget.submission.nextStep),
+                  ],
+                ),
+              ),
+              const SizedBox(height: StarKidsSpacing.x2l),
+              StarKidsButton.primary(
+                label: 'На главную',
+                icon: Icons.home_rounded,
+                onPressed: widget.onBackHome,
+              ),
+              const SizedBox(height: StarKidsSpacing.sm),
+              Center(
+                child: StarKidsButton.ghost(
+                  label: widget.selectedPackage == null
+                      ? widget.type.createAnotherLabel
+                      : 'Оставить еще одну заявку по этому пакету',
+                  onPressed: widget.onCreateAnother,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: StarKidsSpacing.x2l),
-          StarKidsButton.primary(
-            label: 'На главную',
-            icon: Icons.home_rounded,
-            onPressed: onBackHome,
+        ),
+        Align(
+          alignment: Alignment.topCenter,
+          child: ConfettiWidget(
+            confettiController: _confettiController,
+            blastDirectionality: BlastDirectionality.explosive,
+            numberOfParticles: 30,
+            colors: const [
+              Color(0xFFFF5A5F),
+              Color(0xFFFFC857),
+              Color(0xFFB6E3C8),
+              Color(0xFFE5D4F2),
+              Color(0xFF2B1F1A),
+            ],
           ),
-          const SizedBox(height: StarKidsSpacing.sm),
-          Center(
-            child: StarKidsButton.ghost(
-              label: selectedPackage == null
-                  ? type.createAnotherLabel
-                  : 'Оставить еще одну заявку по этому пакету',
-              onPressed: onCreateAnother,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-class _ContactRequestSuccessView extends StatelessWidget {
+class _ContactRequestSuccessView extends StatefulWidget {
   const _ContactRequestSuccessView({
     super.key,
     required this.submission,
@@ -824,77 +897,127 @@ class _ContactRequestSuccessView extends StatelessWidget {
   final VoidCallback onCreateAnother;
 
   @override
+  State<_ContactRequestSuccessView> createState() =>
+      _ContactRequestSuccessViewState();
+}
+
+class _ContactRequestSuccessViewState
+    extends State<_ContactRequestSuccessView> {
+  late final ConfettiController _confettiController;
+
+  @override
+  void initState() {
+    super.initState();
+    _confettiController = ConfettiController(
+      duration: const Duration(seconds: 3),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _confettiController.play();
+    });
+  }
+
+  @override
+  void dispose() {
+    _confettiController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.all(StarKidsSpacing.xl),
-        children: [
-          _RequestStatusBanner(
-            title: submission.type.successTitle,
-            description: submission.type.successDescription,
-            backgroundColor: isDark
-                ? StarKidsDarkColors.statusSuccessSurface
-                : StarKidsColors.statusSuccessSurface,
-            foregroundColor: isDark
-                ? StarKidsDarkColors.statusSuccess
-                : StarKidsColors.statusSuccess,
-            icon: Icons.check_circle_rounded,
-          ),
-          const SizedBox(height: StarKidsSpacing.x2l),
-          Container(
-            padding: const EdgeInsets.all(StarKidsSpacing.lg),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? StarKidsDarkColors.surfaceElevated
-                  : StarKidsColors.surfacePrimary,
-              borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-              border: Border.all(
-                color: isDark
-                    ? StarKidsDarkColors.borderDefault
-                    : StarKidsColors.borderDefault,
+    return Stack(
+      children: [
+        SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(StarKidsSpacing.xl),
+            children: [
+              _RequestStatusBanner(
+                title: widget.submission.type.successTitle,
+                description: widget.submission.type.successDescription,
+                backgroundColor: isDark
+                    ? StarKidsDarkColors.statusSuccessSurface
+                    : StarKidsColors.statusSuccessSurface,
+                foregroundColor: isDark
+                    ? StarKidsDarkColors.statusSuccess
+                    : StarKidsColors.statusSuccess,
+                icon: Icons.check_circle_rounded,
               ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _SuccessRow(
-                  label: 'Тип обращения',
-                  value: submission.type.label,
+              const SizedBox(height: StarKidsSpacing.x2l),
+              Container(
+                padding: const EdgeInsets.all(StarKidsSpacing.lg),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? StarKidsDarkColors.surfaceElevated
+                      : StarKidsColors.surfacePrimary,
+                  borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+                  border: Border.all(
+                    color: isDark
+                        ? StarKidsDarkColors.borderDefault
+                        : StarKidsColors.borderDefault,
+                  ),
                 ),
-                if (contextLabel != null) ...[
-                  const SizedBox(height: StarKidsSpacing.md),
-                  _SuccessRow(label: 'Контекст', value: contextLabel!),
-                ],
-                const SizedBox(height: StarKidsSpacing.md),
-                _SuccessRow(label: 'Номер заявки', value: submission.requestId),
-                const SizedBox(height: StarKidsSpacing.md),
-                _SuccessRow(label: 'Статус', value: submission.status.label),
-                const SizedBox(height: StarKidsSpacing.md),
-                const _SuccessRow(
-                  label: 'Следующий шаг',
-                  value:
-                      'Менеджер свяжется с вами и поможет с вопросом по филиалу или формату праздника.',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SuccessRow(
+                      label: 'Тип обращения',
+                      value: widget.submission.type.label,
+                    ),
+                    if (widget.contextLabel != null) ...[
+                      const SizedBox(height: StarKidsSpacing.md),
+                      _SuccessRow(
+                          label: 'Контекст', value: widget.contextLabel!),
+                    ],
+                    const SizedBox(height: StarKidsSpacing.md),
+                    _SuccessRow(
+                        label: 'Номер заявки',
+                        value: widget.submission.requestId),
+                    const SizedBox(height: StarKidsSpacing.md),
+                    _SuccessRow(
+                        label: 'Статус',
+                        value: widget.submission.status.label),
+                    const SizedBox(height: StarKidsSpacing.md),
+                    const _SuccessRow(
+                      label: 'Следующий шаг',
+                      value:
+                          'Менеджер свяжется с вами и поможет с вопросом по филиалу или формату праздника.',
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: StarKidsSpacing.x2l),
+              StarKidsButton.primary(
+                label: 'На главную',
+                icon: Icons.home_rounded,
+                onPressed: widget.onBackHome,
+              ),
+              const SizedBox(height: StarKidsSpacing.sm),
+              Center(
+                child: StarKidsButton.ghost(
+                  label: widget.submission.type.createAnotherLabel,
+                  onPressed: widget.onCreateAnother,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: StarKidsSpacing.x2l),
-          StarKidsButton.primary(
-            label: 'На главную',
-            icon: Icons.home_rounded,
-            onPressed: onBackHome,
+        ),
+        Align(
+          alignment: Alignment.topCenter,
+          child: ConfettiWidget(
+            confettiController: _confettiController,
+            blastDirectionality: BlastDirectionality.explosive,
+            numberOfParticles: 30,
+            colors: const [
+              Color(0xFFFF5A5F),
+              Color(0xFFFFC857),
+              Color(0xFFB6E3C8),
+              Color(0xFFE5D4F2),
+              Color(0xFF2B1F1A),
+            ],
           ),
-          const SizedBox(height: StarKidsSpacing.sm),
-          Center(
-            child: StarKidsButton.ghost(
-              label: submission.type.createAnotherLabel,
-              onPressed: onCreateAnother,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
