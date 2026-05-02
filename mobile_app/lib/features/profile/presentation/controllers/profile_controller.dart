@@ -83,8 +83,9 @@ class ProfileController extends ChangeNotifier {
     final now = DateTime.now();
     if (d.isAfter(now)) return 'Дата рождения не может быть в будущем.';
     final eighteenYearsAgo = DateTime(now.year - 18, now.month, now.day);
-    if (d.isBefore(eighteenYearsAgo))
+    if (d.isBefore(eighteenYearsAgo)) {
       return 'Ребёнку не может быть больше 18 лет.';
+    }
     return null;
   }
 

@@ -107,7 +107,7 @@ class ApiProfileRepository implements ProfileRepository {
         '/me/avatar',
         headers: buildMobileAuthAuthorizationHeader(session),
       ),
-      mapSuccess: (_) => null,
+      mapSuccess: (_) {},
       errorMessage: _errorDeleteAvatar,
     );
   }

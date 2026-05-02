@@ -33,6 +33,7 @@ class ContactsMapPage extends StatelessWidget {
           builder: (context, snapshot) {
             final contactLinks = snapshot.data?.contactLinks;
             final branchDetail = snapshot.data?.branch ?? branch;
+            final whatsAppPhone = contactLinks?.whatsAppPhone ?? '';
             final canOpenWhatsApp =
                 contactLinks != null && _hasValue(contactLinks.whatsAppPhone);
             final canOpenMap =
@@ -42,7 +43,7 @@ class ContactsMapPage extends StatelessWidget {
 
             return Scaffold(
               appBar: AppBar(
-                title: const Text('Контакты и маршрут'),
+                title: const Text('Связаться в один тап.'),
                 actions: [
                   IconButton(
                     tooltip: 'Сменить филиал',
@@ -54,17 +55,12 @@ class ContactsMapPage extends StatelessWidget {
                 ],
               ),
               bottomNavigationBar: StarKidsBottomCtaBar(
-                child: StarKidsButton.primary(
-                  label: 'Написать в WhatsApp',
-                  icon: Icons.chat_bubble_rounded,
-                  onPressed: !canOpenWhatsApp
-                      ? null
-                      : () => _handleAction(
-                            context,
-                            () => ExternalLinkService.openWhatsApp(
-                              contactLinks.whatsAppPhone,
-                            ),
-                          ),
+                child: _WhatsAppButton(
+                  enabled: canOpenWhatsApp,
+                  onTap: () => _handleAction(
+                    context,
+                    () => ExternalLinkService.openWhatsApp(whatsAppPhone),
+                  ),
                 ),
               ),
               body: Builder(
@@ -167,12 +163,12 @@ class ContactsMapPage extends StatelessWidget {
                               ),
                               const SizedBox(height: StarKidsSpacing.md),
                               Text(
-                                'Контакты и маршрут должны быть понятны за несколько секунд.',
+                                'Связаться в один тап.',
                                 style: textTheme.headlineMedium,
                               ),
                               const SizedBox(height: StarKidsSpacing.md),
                               Text(
-                                'Родитель должен быстро открыть карту, позвонить или написать в WhatsApp без лишних переходов.',
+                                'Адрес, режим работы, телефон и WhatsApp — всё в одном месте.',
                                 style: textTheme.bodyLarge,
                               ),
                             ],
@@ -181,8 +177,6 @@ class ContactsMapPage extends StatelessWidget {
                         const SizedBox(height: StarKidsSpacing.x2l),
                         const StarKidsSectionHeader(
                           title: 'Все, что нужно перед визитом',
-                          description:
-                              'Один экран с адресом, режимом работы и быстрыми способами связи.',
                         ),
                         const SizedBox(height: StarKidsSpacing.lg),
                         Container(
@@ -304,12 +298,12 @@ class ContactsMapPage extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Если неудобно говорить сейчас',
+                                'Оставить запрос менеджеру',
                                 style: textTheme.titleLarge,
                               ),
                               const SizedBox(height: StarKidsSpacing.sm),
                               Text(
-                                'Оставьте короткий запрос менеджеру. Мы добавим в сообщение контекст по выбранному филиалу, чтобы оператору было проще помочь без лишних уточнений.',
+                                'Опишите вопрос — перезвоним и поможем.',
                                 style: textTheme.bodyMedium,
                               ),
                               const SizedBox(height: StarKidsSpacing.lg),
@@ -331,69 +325,62 @@ class ContactsMapPage extends StatelessWidget {
                             ],
                           ),
                         ),
-                        const SizedBox(height: StarKidsSpacing.x2l),
-                        Container(
-                          padding: const EdgeInsets.all(StarKidsSpacing.lg),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? StarKidsDarkColors.glassSurface
-                                : StarKidsColors.surfaceSecondary,
-                            borderRadius: BorderRadius.circular(
-                              StarKidsRadii.xl,
+                        if (_hasValue(contact.routeLabel) ||
+                            _hasValue(contact.parkingHint) ||
+                            _hasValue(contact.arrivalHint)) ...[
+                          const SizedBox(height: StarKidsSpacing.x2l),
+                          Container(
+                            padding: const EdgeInsets.all(StarKidsSpacing.lg),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? StarKidsDarkColors.glassSurface
+                                  : StarKidsColors.surfaceSecondary,
+                              borderRadius: BorderRadius.circular(
+                                StarKidsRadii.xl,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Как добраться',
+                                  style: textTheme.titleLarge,
+                                ),
+                                if (_hasValue(contact.routeLabel)) ...[
+                                  const SizedBox(height: StarKidsSpacing.sm),
+                                  Text(
+                                    contact.routeLabel,
+                                    style: textTheme.labelMedium?.copyWith(
+                                      color: accentColor,
+                                    ),
+                                  ),
+                                ],
+                                if (_hasValue(contact.parkingHint)) ...[
+                                  const SizedBox(height: StarKidsSpacing.md),
+                                  Text(
+                                    contact.parkingHint!,
+                                    style: textTheme.bodyLarge,
+                                  ),
+                                ],
+                                if (_hasValue(contact.arrivalHint)) ...[
+                                  const SizedBox(height: StarKidsSpacing.sm),
+                                  Text(
+                                    contact.arrivalHint!,
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: isDark
+                                          ? StarKidsDarkColors.textSecondary
+                                          : StarKidsColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Как добраться',
-                                style: textTheme.titleLarge,
-                              ),
-                              if (_hasValue(contact.routeLabel)) ...[
-                                const SizedBox(height: StarKidsSpacing.sm),
-                                Text(
-                                  contact.routeLabel,
-                                  style: textTheme.labelMedium?.copyWith(
-                                    color: accentColor,
-                                  ),
-                                ),
-                              ],
-                              if (_hasValue(contact.parkingHint)) ...[
-                                const SizedBox(height: StarKidsSpacing.md),
-                                Text(
-                                  contact.parkingHint!,
-                                  style: textTheme.bodyLarge,
-                                ),
-                              ],
-                              if (_hasValue(contact.arrivalHint)) ...[
-                                const SizedBox(height: StarKidsSpacing.sm),
-                                Text(
-                                  contact.arrivalHint!,
-                                  style: textTheme.bodyMedium?.copyWith(
-                                    color: isDark
-                                        ? StarKidsDarkColors.textSecondary
-                                        : StarKidsColors.textSecondary,
-                                  ),
-                                ),
-                              ],
-                              if (!_hasValue(contact.routeLabel) &&
-                                  !_hasValue(contact.parkingHint) &&
-                                  !_hasValue(contact.arrivalHint)) ...[
-                                const SizedBox(height: StarKidsSpacing.sm),
-                                Text(
-                                  'Маршрут и дополнительные подсказки скоро появятся для этого филиала.',
-                                  style: textTheme.bodyLarge,
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
+                        ],
                         if (snapshot.data!.contentBlocks.isNotEmpty) ...[
                           const SizedBox(height: StarKidsSpacing.x2l),
                           const StarKidsSectionHeader(
-                            title: 'Что еще важно знать',
-                            description:
-                                'Дополнительные подсказки по маршруту и визиту приходят из live-контента админки.',
+                            title: 'Полезно знать перед визитом',
                           ),
                           const SizedBox(height: StarKidsSpacing.md),
                           ...snapshot.data!.contentBlocks.map(
@@ -482,6 +469,69 @@ class ContactsMapPage extends StatelessWidget {
   }
 }
 
+class _WhatsAppButton extends StatefulWidget {
+  const _WhatsAppButton({
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  State<_WhatsAppButton> createState() => _WhatsAppButtonState();
+}
+
+class _WhatsAppButtonState extends State<_WhatsAppButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedScale(
+      scale: _pressed ? 0.965 : 1,
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      child: AnimatedOpacity(
+        opacity: widget.enabled ? 1 : 0.55,
+        duration: const Duration(milliseconds: 160),
+        child: Material(
+          color: const Color(0xFF25D366),
+          borderRadius: BorderRadius.circular(StarKidsRadii.full),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(StarKidsRadii.full),
+            onTap: widget.enabled ? widget.onTap : null,
+            onTapDown: widget.enabled ? (_) => setState(() => _pressed = true) : null,
+            onTapUp: (_) => setState(() => _pressed = false),
+            onTapCancel: () => setState(() => _pressed = false),
+            splashColor: Colors.white.withValues(alpha: 0.18),
+            highlightColor: Colors.transparent,
+            child: const SizedBox(
+              height: 56,
+              width: double.infinity,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.chat_bubble_outline, color: Colors.white, size: 18),
+                  SizedBox(width: StarKidsSpacing.sm),
+                  Text(
+                    'Написать в WhatsApp',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Geist',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ContactRow extends StatelessWidget {
   const _ContactRow({
     required this.icon,
@@ -507,7 +557,7 @@ class _ContactRow extends StatelessWidget {
             icon,
             color: isDark
                 ? StarKidsDarkColors.accentPink
-                : StarKidsColors.brandPrimary,
+                : StarKidsColors.textPrimary,
           ),
           const SizedBox(width: StarKidsSpacing.sm),
           Expanded(

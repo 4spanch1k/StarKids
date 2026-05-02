@@ -24,13 +24,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Связь с менеджером'), findsWidgets);
-    expect(find.text('Оставьте запрос на обратную связь'), findsOneWidget);
+    expect(find.text('Менеджеру'), findsWidgets);
+    expect(find.text('Короткий запрос без переписок'), findsOneWidget);
     expect(find.text('Отправить запрос'), findsOneWidget);
     expect(find.text('Пакет праздника'), findsNothing);
   });
 
-  testWidgets('switches from birthday request to contact request in one flow',
+  testWidgets('birthday request form does not render contact fields',
       (WidgetTester tester) async {
     await tester.pumpWidget(
       const MaterialApp(
@@ -46,12 +46,8 @@ void main() {
     expect(find.text('Пакет праздника'), findsOneWidget);
     expect(find.text('Отправить заявку'), findsOneWidget);
 
-    await tester.tap(find.text('Связь с менеджером').last);
-    await tester.pumpAndSettle();
-
-    expect(find.text('Пакет праздника'), findsNothing);
-    expect(find.text('Оставьте запрос на обратную связь'), findsOneWidget);
-    expect(find.text('Отправить запрос'), findsOneWidget);
+    expect(find.text('Короткий запрос без переписок'), findsNothing);
+    expect(find.text('Отправить запрос'), findsNothing);
   });
 
   testWidgets('shows contact context and prefilled message when provided',
@@ -69,18 +65,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView).first, const Offset(0, -500));
-    await tester.pumpAndSettle();
 
     expect(find.text('Филиал: Star Kids Main'), findsOneWidget);
     expect(
       find.textContaining('Контекст по выбранному филиалу уже добавлен'),
-      findsOneWidget,
-    );
-    expect(
-      find.text(
-        'Интересует филиал Star Kids Main. Нужна помощь по маршруту.',
-      ),
       findsOneWidget,
     );
   });

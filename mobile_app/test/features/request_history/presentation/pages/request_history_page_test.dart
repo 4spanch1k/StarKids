@@ -204,7 +204,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Связь с менеджером'), findsOneWidget);
+      expect(find.text('Менеджеру'), findsOneWidget);
       expect(
         find.text(
           'Запрос на обратную связь отправлен. Менеджер свяжется с вами по указанному номеру.',

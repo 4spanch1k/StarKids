@@ -153,14 +153,14 @@ class BirthdaysPage extends StatelessWidget {
                                 ),
                                 const SizedBox(height: StarKidsSpacing.md),
                                 Text(
-                                  'Праздник, который удобно продать и легко организовать',
+                                  'Праздник, который дети запомнят.',
                                   style: textTheme.displayLarge?.copyWith(
                                     color: StarKidsColors.textInverse,
                                   ),
                                 ),
                                 const SizedBox(height: StarKidsSpacing.md),
                                 Text(
-                                  'Готовые пакеты, понятная ценность и быстрый переход к заявке без сложной логики.',
+                                  'Выберите пакет и оставьте заявку. Менеджер свяжется в течение часа.',
                                   style: textTheme.bodyLarge?.copyWith(
                                     color: StarKidsColors.textInverse,
                                   ),
@@ -173,40 +173,36 @@ class BirthdaysPage extends StatelessWidget {
                     ),
                     const SizedBox(height: StarKidsSpacing.x2l),
                     const StarKidsSectionHeader(
-                      title: 'Почему родители выбирают этот формат',
-                      description:
-                          'Сначала показываем ценность, потом предложения. Так экран работает как коммерческий оффер.',
+                      title: 'Что входит в праздник',
                     ),
                     const SizedBox(height: StarKidsSpacing.lg),
-                    Wrap(
-                      spacing: StarKidsSpacing.sm,
-                      runSpacing: StarKidsSpacing.sm,
-                      children: _birthdayValueHighlights
-                          .map(
-                            (highlight) => Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: StarKidsSpacing.md,
-                                vertical: StarKidsSpacing.xs,
-                              ),
-                              decoration: BoxDecoration(
-                                color: StarKidsColors.surfaceSecondary,
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                highlight,
-                                style: textTheme.labelMedium?.copyWith(
-                                  color: StarKidsColors.textPrimary,
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
+                    const Column(
+                      children: [
+                        _IncludedRow(
+                          icon: Icons.sports_gymnastics_rounded,
+                          title: 'Безлимитный активити парк',
+                          subtitle: 'Все зоны в течение праздника',
+                        ),
+                        _IncludedRow(
+                          icon: Icons.cake_rounded,
+                          title: 'Аниматоры и шоу',
+                          subtitle: 'Весело для детей любого возраста',
+                        ),
+                        _IncludedRow(
+                          icon: Icons.confirmation_num_rounded,
+                          title: 'Пакеты под разный бюджет',
+                          subtitle: 'От базового до премиум формата',
+                        ),
+                        _IncludedRow(
+                          icon: Icons.flash_on_rounded,
+                          title: 'Быстрая заявка',
+                          subtitle: 'Менеджер свяжется в течение часа',
+                        ),
+                      ],
                     ),
                     const SizedBox(height: StarKidsSpacing.x2l),
                     const StarKidsSectionHeader(
                       title: 'Пакеты для разных сценариев',
-                      description:
-                          'Пользователь должен быстро понять бюджет, формат и самый подходящий пакет.',
                     ),
                     const SizedBox(height: StarKidsSpacing.md),
                     ...packages.asMap().entries.map(
@@ -238,9 +234,7 @@ class BirthdaysPage extends StatelessWidget {
                     const SizedBox(height: StarKidsSpacing.xl),
                     if (data?.contentBlocks.isNotEmpty == true) ...[
                       const StarKidsSectionHeader(
-                        title: 'Что важно по праздникам',
-                        description:
-                            'Этот блок управляется через live-контент и помогает быстро обновлять коммерческие акценты.',
+                        title: 'Полезно знать',
                       ),
                       const SizedBox(height: StarKidsSpacing.md),
                       ...data!.contentBlocks.asMap().entries.map(
@@ -258,9 +252,7 @@ class BirthdaysPage extends StatelessWidget {
                           ),
                     ] else ...[
                       const StarKidsSectionHeader(
-                        title: 'Как принять решение быстрее',
-                        description:
-                            'Минимальный comparison-блок вместо перегруженной таблицы. Достаточно для MVP и хорошо продает.',
+                        title: 'Какой пакет подойдет',
                       ),
                       const SizedBox(height: StarKidsSpacing.md),
                       Container(
@@ -324,12 +316,72 @@ class BirthdaysPage extends StatelessWidget {
   }
 }
 
-const _birthdayValueHighlights = <String>[
-  'Аниматоры и шоу',
-  'Безлимитный активити парк',
-  'Пакеты под разный бюджет',
-  'Быстрая заявка без долгой переписки',
-];
+class _IncludedRow extends StatelessWidget {
+  const _IncludedRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: StarKidsSpacing.md),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: isDark
+                  ? StarKidsDarkColors.glassSurface
+                  : StarKidsColors.surfaceSecondary,
+              borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+            ),
+            child: Icon(
+              icon,
+              size: 20,
+              color: isDark
+                  ? StarKidsDarkColors.textPrimary
+                  : StarKidsColors.textPrimary,
+            ),
+          ),
+          const SizedBox(width: StarKidsSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: textTheme.bodySmall?.copyWith(
+                    color: isDark
+                        ? StarKidsDarkColors.textSecondary
+                        : StarKidsColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _BirthdaysStateView extends StatelessWidget {
   const _BirthdaysStateView({

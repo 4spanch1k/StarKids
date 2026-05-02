@@ -111,7 +111,7 @@ void main() {
       final pushRepo = _RecordingPushTokenRepository(success: true);
       final controller = PushTokenController(
         authController: authController,
-        notificationSettingsRepository: _FakeNotificationSettingsRepository(
+        notificationSettingsRepository: const _FakeNotificationSettingsRepository(
           loadStatus: NotificationPermissionStatus.granted,
         ),
         fcmTokenGateway: fcmGateway,
@@ -144,7 +144,7 @@ void main() {
 
       final controller = PushTokenController(
         authController: authController,
-        notificationSettingsRepository: _FakeNotificationSettingsRepository(
+        notificationSettingsRepository: const _FakeNotificationSettingsRepository(
           loadStatus: NotificationPermissionStatus.granted,
         ),
         fcmTokenGateway: _FakeFcmTokenGateway(token: 'my-token'),
@@ -177,7 +177,7 @@ void main() {
 
       final controller = PushTokenController(
         authController: authController,
-        notificationSettingsRepository: _FakeNotificationSettingsRepository(
+        notificationSettingsRepository: const _FakeNotificationSettingsRepository(
           loadStatus: NotificationPermissionStatus.granted,
         ),
         fcmTokenGateway: _FakeFcmTokenGateway(token: 'retry-token'),
@@ -202,7 +202,7 @@ void main() {
       );
       final controller = PushTokenController(
         authController: authController,
-        notificationSettingsRepository: _FakeNotificationSettingsRepository(
+        notificationSettingsRepository: const _FakeNotificationSettingsRepository(
           loadStatus: NotificationPermissionStatus.granted,
         ),
         fcmTokenGateway: gateway,

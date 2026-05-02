@@ -264,6 +264,11 @@ class _ProfilePageState extends State<ProfilePage> {
             onDeleteAvatar:
                 (profile?.hasAvatar ?? false) ? _handleDeleteAvatar : null,
           ),
+          const SizedBox(height: StarKidsSpacing.xl),
+          _StatRow(
+            controller: _controller,
+            childrenController: _childrenController,
+          ),
           if (_controller.errorMessage != null) ...[
             const SizedBox(height: StarKidsSpacing.lg),
             _InlineErrorBanner(
@@ -471,7 +476,7 @@ class _ProfilePageState extends State<ProfilePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        StarKidsButton.secondary(
+        StarKidsButton.ghost(
           label: l.logout,
           onPressed: _handleLogout,
         ),
@@ -688,16 +693,18 @@ class _ChildrenSection extends StatelessWidget {
         title: Text(l.confirmDeleteChild),
         content: Text(child.name),
         actions: [
-          TextButton(
+          StarKidsButton.ghost(
+            expand: false,
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(l.cancel),
+            label: l.cancel,
           ),
-          TextButton(
+          StarKidsButton.ghost(
+            expand: false,
             onPressed: () {
               Navigator.of(ctx).pop();
               controller.deleteChild(child.id);
             },
-            child: Text(l.delete, style: const TextStyle(color: Colors.red)),
+            label: l.delete,
           ),
         ],
       ),
@@ -2352,6 +2359,7 @@ class _AvatarCircle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const size = 80.0;
+    const ringSize = 86.0;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final avatarUrl = profile?.avatarUrl;
 
@@ -2394,7 +2402,26 @@ class _AvatarCircle extends StatelessWidget {
       inner = _AvatarFallback(initials: profile?.initials ?? 'SK', size: size);
     }
 
-    return SizedBox(width: size, height: size, child: inner);
+    if (isDark) {
+      return SizedBox(width: size, height: size, child: inner);
+    }
+
+    return Container(
+      width: ringSize,
+      height: ringSize,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          colors: [Color(0xFFFF5A5F), Color(0xFFFFC857)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(3),
+        child: SizedBox(width: size, height: size, child: inner),
+      ),
+    );
   }
 }
 
@@ -2584,7 +2611,7 @@ class _NotificationToggleRow extends StatelessWidget {
         ),
         Switch(
           value: isGranted,
-          activeColor: StarKidsColors.brandPrimary,
+          activeThumbColor: StarKidsColors.brandPrimary,
           onChanged: notificationsController.isBusy
               ? null
               : (value) {
@@ -2665,6 +2692,115 @@ class _ThemeSwitchRow extends StatelessWidget {
   }
 }
 
+// ─── Stat row ─────────────────────────────────────────────────────────────────
+
+class _StatRow extends StatelessWidget {
+  const _StatRow({
+    required this.controller,
+    required this.childrenController,
+  });
+
+  final ProfileController controller;
+  final ChildrenController childrenController;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      decoration: BoxDecoration(
+        color: isDark
+            ? StarKidsDarkColors.glassSurface
+            : StarKidsColors.surfacePrimary,
+        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+        border: Border.all(
+          color: isDark
+              ? StarKidsDarkColors.borderDefault
+              : StarKidsColors.borderDefault,
+        ),
+      ),
+      child: Row(
+        children: [
+          _StatCell(
+            value: controller.previewRequests.length.toString(),
+            label: 'заявок',
+            isDark: isDark,
+          ),
+          _StatDivider(isDark: isDark),
+          _StatCell(
+            value: childrenController.children.length.toString(),
+            label: 'детей',
+            isDark: isDark,
+          ),
+          _StatDivider(isDark: isDark),
+          const _StatCell(
+            value: '★',
+            label: 'любимый центр',
+            isDark: false,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatCell extends StatelessWidget {
+  const _StatCell({
+    required this.value,
+    required this.label,
+    required this.isDark,
+  });
+
+  final String value;
+  final String label;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontFamily: 'Fraunces',
+              fontSize: 22,
+              fontWeight: FontWeight.w400,
+              letterSpacing: -0.44,
+              color: isDark
+                  ? StarKidsDarkColors.textPrimary
+                  : StarKidsColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall,
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatDivider extends StatelessWidget {
+  const _StatDivider({required this.isDark});
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 32,
+      color: isDark
+          ? StarKidsDarkColors.borderDefault
+          : StarKidsColors.borderDefault,
+    );
+  }
+}
+
 class _SegmentedChoice extends StatelessWidget {
   const _SegmentedChoice({
     required this.options,
@@ -2689,7 +2825,7 @@ class _SegmentedChoice extends StatelessWidget {
     final border = isDark
         ? StarKidsDarkColors.borderDefault
         : StarKidsColors.borderDefault;
-    final activeText = Colors.white;
+    const activeText = Colors.white;
     final idleText = isDark
         ? StarKidsDarkColors.textSecondary
         : StarKidsColors.textSecondary;

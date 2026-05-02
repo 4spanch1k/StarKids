@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
@@ -143,7 +144,7 @@ class _HomePageState extends State<HomePage> {
                                                 const LinearGradient(
                                               colors: [
                                                 StarKidsColors.brandPrimary,
-                                                Color(0xFFB044EB),
+                                                StarKidsColors.brandAccent,
                                               ],
                                             ).createShader(bounds),
                                             child: const Icon(
@@ -223,23 +224,36 @@ class _HomePageState extends State<HomePage> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: StarKidsSpacing.md,
-                                            vertical: StarKidsSpacing.sm,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color:
-                                                StarKidsColors.brandHighlight,
-                                            borderRadius: BorderRadius.circular(
-                                              StarKidsRadii.full,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            'Любят дети - доверяют родители',
-                                            style:
-                                                textTheme.labelMedium?.copyWith(
-                                              color: StarKidsColors.textPrimary,
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                              StarKidsRadii.full),
+                                          child: BackdropFilter(
+                                            filter: ImageFilter.blur(
+                                                sigmaX: 12, sigmaY: 12),
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: StarKidsSpacing.md,
+                                                vertical: StarKidsSpacing.sm,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white
+                                                    .withValues(alpha: 0.22),
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                        StarKidsRadii.full),
+                                                border: Border.all(
+                                                  color: Colors.white
+                                                      .withValues(alpha: 0.35),
+                                                ),
+                                              ),
+                                              child: Text(
+                                                'Любят дети — доверяют родители',
+                                                style: textTheme.labelMedium
+                                                    ?.copyWith(
+                                                  color: Colors.white,
+                                                ),
+                                              ),
                                             ),
                                           ),
                                         ),
@@ -282,8 +296,6 @@ class _HomePageState extends State<HomePage> {
                             delay: Duration(milliseconds: 80),
                             child: StarKidsSectionHeader(
                               title: 'Быстрые действия',
-                              description:
-                                  'Самые частые сценарии для родителей собраны в один блок.',
                             ),
                           ),
                           const SizedBox(height: StarKidsSpacing.lg),
@@ -340,9 +352,7 @@ class _HomePageState extends State<HomePage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     StarKidsSectionHeader(
-                                      title: 'Главный пакет для праздника',
-                                      description:
-                                          'Готовое коммерческое предложение, которое проще всего открыть с главного экрана.',
+                                      title: 'Лучший пакет для дня рождения',
                                       actionLabel: 'Все пакеты',
                                       onActionTap: () => Navigator.of(
                                         context,
@@ -386,10 +396,7 @@ class _HomePageState extends State<HomePage> {
                                       ),
                                     const SizedBox(height: StarKidsSpacing.x2l),
                                     const StarKidsSectionHeader(
-                                      title:
-                                          'Актуальные акции и поводы вернуться',
-                                      description:
-                                          'Живые предложения из админки должны быть заметны, но не превращаться в визуальный шум.',
+                                      title: 'Актуальные акции',
                                     ),
                                     const SizedBox(height: StarKidsSpacing.lg),
                                     if (content.promotions.isNotEmpty)
@@ -432,8 +439,6 @@ class _HomePageState extends State<HomePage> {
                                     if (content.contentBlocks.isNotEmpty) ...[
                                       const StarKidsSectionHeader(
                                         title: 'Что важно перед визитом',
-                                        description:
-                                            'Контентные блоки из админки помогают обновлять ключевые сообщения без ручной правки приложения.',
                                       ),
                                       const SizedBox(
                                           height: StarKidsSpacing.lg),
@@ -458,10 +463,9 @@ class _HomePageState extends State<HomePage> {
                                           ),
                                     ] else ...[
                                       const StarKidsSectionHeader(
-                                        title:
-                                            'Почему сюда удобно возвращаться',
+                                        title: 'Почему Star Kids',
                                         description:
-                                            'Четкий trust-block для повторного визита и быстрой заявки.',
+                                            'Пространство, которое дети любят, а родители ценят за удобство.',
                                       ),
                                       const SizedBox(
                                           height: StarKidsSpacing.lg),
@@ -472,8 +476,6 @@ class _HomePageState extends State<HomePage> {
                                           height: StarKidsSpacing.x2l),
                                       const StarKidsSectionHeader(
                                         title: 'Частые вопросы',
-                                        description:
-                                            'Ответы из live-контента помогают снять базовые вопросы до заявки или звонка.',
                                       ),
                                       const SizedBox(
                                           height: StarKidsSpacing.lg),
@@ -525,19 +527,19 @@ class _HomePageState extends State<HomePage> {
     final tileColors = isDark
         ? const [
             [Color(0x2A3B82F6), Color(0x1A10B981)],
-            [Color(0x2AA855F7), Color(0x1A3B82F6)],
-            [Color(0x2AFF6B6B), Color(0x1AA855F7)],
-            [Color(0x1A3B82F6), Color(0x2AA855F7)],
+            [Color(0x24E5D4F2), Color(0x18C7DDEF)],
+            [Color(0x24FF5A5F), Color(0x18E5D4F2)],
+            [Color(0x18C7DDEF), Color(0x24E5D4F2)],
             [Color(0x2AFBBF24), Color(0x1A10B981)],
-            [Color(0x2AFF0F90), Color(0x1AA855F7)],
+            [Color(0x24FF5A5F), Color(0x18E5D4F2)],
           ]
         : const [
-            [StarKidsColors.cosmicSky, StarKidsColors.cosmicMint],
-            [StarKidsColors.cosmicBlush, StarKidsColors.cosmicLavender],
-            [StarKidsColors.cosmicPeach, StarKidsColors.cosmicBlush],
-            [StarKidsColors.cosmicLavender, StarKidsColors.cosmicSky],
-            [StarKidsColors.cosmicPeach, StarKidsColors.cosmicMint],
-            [StarKidsColors.cosmicBlush, StarKidsColors.cosmicPeach],
+            [StarKidsColors.warmSky, StarKidsColors.warmMint],
+            [StarKidsColors.warmCoral, StarKidsColors.warmPlum],
+            [StarKidsColors.warmMint, StarKidsColors.warmSky],
+            [StarKidsColors.warmPlum, StarKidsColors.warmSky],
+            [Color(0xFFFFF0CC), StarKidsColors.warmMint],
+            [StarKidsColors.warmCoral, StarKidsColors.warmMint],
           ];
 
     return [
@@ -696,39 +698,121 @@ class _FloatingNavBar extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(StarKidsRadii.full),
-          child: Builder(
-            builder: (ctx) {
-              final l = AppL10n.of(ctx);
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Container(
+              height: 66,
+              padding: const EdgeInsets.all(StarKidsSpacing.xs),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? StarKidsDarkColors.navBarBg
+                    : Colors.white.withValues(alpha: 0.88),
+                borderRadius: BorderRadius.circular(StarKidsRadii.full),
+                border: Border.all(
+                  color: isDark
+                      ? StarKidsDarkColors.borderDefault
+                      : StarKidsColors.borderDefault,
+                ),
+              ),
+              child: Builder(
+                builder: (ctx) {
+                  final l = AppL10n.of(ctx);
+                  final items = [
+                    (Icons.home_outlined, l.navHome),
+                    (Icons.cake_outlined, l.navBirthdays),
+                    (Icons.local_offer_outlined, l.navPromotions),
+                    (Icons.confirmation_num_outlined, 'Билеты'),
+                    (Icons.person_outline, l.navProfile),
+                  ];
 
-              final navBar = NavigationBar(
-                selectedIndex: selectedIndex,
-                onDestinationSelected: onDestinationSelected,
-                destinations: [
-                  NavigationDestination(
-                    icon: const Icon(Icons.home_rounded),
-                    label: l.navHome,
-                  ),
-                  NavigationDestination(
-                    icon: const Icon(Icons.cake_rounded),
-                    label: l.navBirthdays,
-                  ),
-                  NavigationDestination(
-                    icon: const Icon(Icons.local_offer_rounded),
-                    label: l.navPromotions,
-                  ),
-                  const NavigationDestination(
-                    icon: Icon(Icons.confirmation_num_rounded),
-                    label: 'Билеты',
-                  ),
-                  NavigationDestination(
-                    icon: const Icon(Icons.person_rounded),
-                    label: l.navProfile,
-                  ),
-                ],
-              );
+                  return Row(
+                    children: [
+                      for (var i = 0; i < items.length; i++)
+                        Expanded(
+                          child: _FloatingNavItem(
+                            icon: items[i].$1,
+                            label: items[i].$2,
+                            selected: i == selectedIndex,
+                            onTap: () => onDestinationSelected(i),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
-              return navBar;
-            },
+class _FloatingNavItem extends StatefulWidget {
+  const _FloatingNavItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  State<_FloatingNavItem> createState() => _FloatingNavItemState();
+}
+
+class _FloatingNavItemState extends State<_FloatingNavItem> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fg = widget.selected
+        ? (isDark ? StarKidsDarkColors.textPrimary : StarKidsColors.textPrimary)
+        : (isDark
+            ? StarKidsDarkColors.textSecondary
+            : StarKidsColors.textSecondary);
+
+    return AnimatedScale(
+      scale: _pressed ? 0.96 : 1,
+      duration: const Duration(milliseconds: 160),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(StarKidsRadii.full),
+        onTap: widget.onTap,
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTapCancel: () => setState(() => _pressed = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          curve: const Cubic(0.2, 0.8, 0.2, 1),
+          height: double.infinity,
+          decoration: BoxDecoration(
+            color: widget.selected
+                ? (isDark ? StarKidsDarkColors.navIndicator : StarKidsColors.surfaceTertiary)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(StarKidsRadii.full),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(widget.icon, size: 20, color: fg),
+              const SizedBox(height: 2),
+              Text(
+                widget.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'Geist',
+                  fontSize: 11,
+                  fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w500,
+                  color: fg,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -921,7 +1005,7 @@ class _TrustBlock extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Star Kids помогает быстро решить семейный досуг: выбрать филиал, понять условия и сразу перейти к празднику или заявке.',
+            'Семейный центр для детского досуга, дней рождений и незабываемых праздников в Шымкенте.',
             style: textTheme.bodyLarge,
           ),
           const SizedBox(height: StarKidsSpacing.lg),
@@ -940,7 +1024,7 @@ class _TrustBlock extends StatelessWidget {
                       gradient: isDark
                           ? const LinearGradient(
                               colors: [
-                                Color(0x2AA855F7),
+                                Color(0x24E5D4F2),
                                 Color(0x1A3B82F6),
                               ],
                             )
@@ -964,19 +1048,26 @@ class _TrustBlock extends StatelessWidget {
                 .toList(),
           ),
           const SizedBox(height: StarKidsSpacing.lg),
-          Row(
+          const Row(
             children: [
-              const Expanded(
-                child: _TrustStat(
-                  title: '3000 кв.м',
-                  subtitle: 'пространства',
-                ),
-              ),
-              const SizedBox(width: StarKidsSpacing.md),
               Expanded(
                 child: _TrustStat(
-                  title: branch.workingHours.replaceFirst('Ежедневно ', ''),
-                  subtitle: 'ежедневно',
+                  title: '3 000',
+                  subtitle: 'м² пространства',
+                ),
+              ),
+              SizedBox(width: StarKidsSpacing.sm),
+              Expanded(
+                child: _TrustStat(
+                  title: '12+',
+                  subtitle: 'лет работы',
+                ),
+              ),
+              SizedBox(width: StarKidsSpacing.sm),
+              Expanded(
+                child: _TrustStat(
+                  title: '4.9',
+                  subtitle: 'рейтинг',
                 ),
               ),
             ],
@@ -1005,7 +1096,7 @@ class _TrustStat extends StatelessWidget {
             ? const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0x1A3B82F6), Color(0x1AA855F7)],
+                colors: [Color(0x18C7DDEF), Color(0x18B6E3C8)],
               )
             : const LinearGradient(
                 begin: Alignment.topLeft,
@@ -1025,7 +1116,18 @@ class _TrustStat extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: textTheme.titleLarge),
+          Text(
+            title,
+            style: TextStyle(
+              fontFamily: 'Fraunces',
+              fontSize: 24,
+              fontWeight: FontWeight.w400,
+              letterSpacing: -0.48,
+              color: isDark
+                  ? StarKidsDarkColors.textPrimary
+                  : StarKidsColors.textPrimary,
+            ),
+          ),
           const SizedBox(height: StarKidsSpacing.xs),
           Text(subtitle, style: textTheme.bodyMedium),
         ],

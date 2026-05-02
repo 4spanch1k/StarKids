@@ -1,15 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../foundations/star_kids_colors.dart';
-import '../foundations/star_kids_icon_sizes.dart';
-import '../foundations/star_kids_radii.dart';
-import '../foundations/star_kids_shadows.dart';
-import '../foundations/star_kids_spacing.dart';
-import 'star_kids_motion.dart';
+import '../foundations/sk_tokens.dart';
 
 enum StarKidsButtonVariant { primary, secondary, ghost }
 
-class StarKidsButton extends StatelessWidget {
+class StarKidsButton extends StatefulWidget {
   const StarKidsButton({
     super.key,
     required this.label,
@@ -55,78 +50,85 @@ class StarKidsButton extends StatelessWidget {
   }) : variant = StarKidsButtonVariant.ghost;
 
   @override
+  State<StarKidsButton> createState() => _StarKidsButtonState();
+}
+
+class _StarKidsButtonState extends State<StarKidsButton> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
-    final isDisabled = onPressed == null || isLoading;
+    final isDisabled = widget.onPressed == null || widget.isLoading;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final fgColor = _foregroundColor(isDisabled, isDark);
-
-    final content = _ButtonContent(
-      label: label,
-      icon: icon,
-      isLoading: isLoading,
-      foregroundColor: fgColor,
-    );
-
-    final button = switch (variant) {
-      StarKidsButtonVariant.primary => AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(StarKidsRadii.full),
-            boxShadow: isDisabled ? const [] : StarKidsShadows.depth1,
-          ),
-          child: FilledButton(
-            onPressed: isDisabled ? null : onPressed,
-            child: content,
-          ),
+    final (bg, fg, border, shadow) = switch (widget.variant) {
+      StarKidsButtonVariant.primary => (
+          isDark ? SK.accent : SK.accent2,
+          Colors.white,
+          null,
+          widget.isLoading || isDisabled ? null : SK.shadowMd,
         ),
-      StarKidsButtonVariant.secondary => OutlinedButton(
-          onPressed: isDisabled ? null : onPressed,
-          child: content,
+      StarKidsButtonVariant.secondary => (
+          isDark ? SK.darkBgSoft : SK.bgSoft,
+          isDark ? SK.darkInk : SK.ink,
+          null,
+          null,
         ),
-      StarKidsButtonVariant.ghost => TextButton(
-          onPressed: isDisabled ? null : onPressed,
-          style: TextButton.styleFrom(
-            foregroundColor: fgColor,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(StarKidsRadii.full),
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: StarKidsSpacing.lg,
-              vertical: StarKidsSpacing.md,
-            ),
-          ),
-          child: content,
+      StarKidsButtonVariant.ghost => (
+          Colors.transparent,
+          isDark ? SK.darkInk : SK.ink,
+          Border.all(color: isDark ? SK.darkLineStrong : SK.lineStrong),
+          null,
         ),
     };
 
-    final interactiveButton = StarKidsPressEffect(
-      enabled: !isDisabled,
-      child: button,
+    final button = AnimatedScale(
+      scale: _pressed ? 0.965 : 1,
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      child: AnimatedOpacity(
+        opacity: isDisabled ? 0.55 : 1,
+        duration: const Duration(milliseconds: 160),
+        child: Material(
+          color: bg,
+          borderRadius: BorderRadius.circular(SK.rPill),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(SK.rPill),
+            onTap: isDisabled ? null : widget.onPressed,
+            onTapDown: isDisabled ? null : (_) => setState(() => _pressed = true),
+            onTapUp: (_) => setState(() => _pressed = false),
+            onTapCancel: () => setState(() => _pressed = false),
+            splashColor: Colors.white.withValues(alpha: 0.15),
+            highlightColor: Colors.transparent,
+            child: Container(
+              width: widget.expand && widget.variant != StarKidsButtonVariant.ghost
+                  ? double.infinity
+                  : null,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 22,
+                vertical: 16,
+              ),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(SK.rPill),
+                border: border,
+                boxShadow: shadow,
+              ),
+              child: _ButtonContent(
+                label: widget.label,
+                icon: widget.icon,
+                isLoading: widget.isLoading,
+                foregroundColor: fg,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
 
-    if (!expand || variant == StarKidsButtonVariant.ghost) {
-      return interactiveButton;
+    if (!widget.expand || widget.variant == StarKidsButtonVariant.ghost) {
+      return button;
     }
 
-    return SizedBox(width: double.infinity, child: interactiveButton);
-  }
-
-  Color _foregroundColor(bool isDisabled, bool isDark) {
-    if (isDisabled) {
-      return isDark
-          ? StarKidsDarkColors.actionDisabledFg
-          : StarKidsColors.actionDisabledFg;
-    }
-
-    return switch (variant) {
-      StarKidsButtonVariant.primary => StarKidsColors.textInverse,
-      StarKidsButtonVariant.secondary => isDark
-          ? StarKidsDarkColors.textPrimary
-          : StarKidsColors.textPrimary,
-      StarKidsButtonVariant.ghost => isDark
-          ? StarKidsDarkColors.accentPink
-          : StarKidsColors.brandPrimary,
-    };
+    return SizedBox(width: double.infinity, child: button);
   }
 }
 
@@ -145,18 +147,29 @@ class _ButtonContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = Text(label, textAlign: TextAlign.center);
+    final text = Text(
+      label,
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        color: foregroundColor,
+        fontFamily: 'Geist',
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        height: 1.25,
+        letterSpacing: -0.16,
+      ),
+    );
 
     if (isLoading) {
       return Wrap(
         alignment: WrapAlignment.center,
         crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: StarKidsSpacing.sm,
-        runSpacing: StarKidsSpacing.xs,
+        spacing: SK.s2,
+        runSpacing: SK.s1,
         children: [
           SizedBox(
-            width: StarKidsIconSizes.sm,
-            height: StarKidsIconSizes.sm,
+            width: 18,
+            height: 18,
             child: CircularProgressIndicator(
               strokeWidth: 2,
               valueColor: AlwaysStoppedAnimation<Color>(foregroundColor),
@@ -174,10 +187,10 @@ class _ButtonContent extends StatelessWidget {
     return Wrap(
       alignment: WrapAlignment.center,
       crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: StarKidsSpacing.sm,
-      runSpacing: StarKidsSpacing.xs,
+      spacing: SK.s2,
+      runSpacing: SK.s1,
       children: [
-        Icon(icon, size: StarKidsIconSizes.sm),
+        Icon(icon, size: 18, color: foregroundColor),
         text,
       ],
     );
