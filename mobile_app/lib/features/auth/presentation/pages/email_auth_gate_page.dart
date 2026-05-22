@@ -13,7 +13,9 @@ import '../../../../core/design_system/foundations/star_kids_radii.dart';
 import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/foundations/sk_tokens.dart';
-import '../../../../core/design_system/widgets/sk_button.dart';
+import '../../../../core/design_system/sk_design_tokens.dart';
+import '../../../../core/design_system/sk_theme.dart';
+import '../../../../core/design_system/widgets/primary_button.dart';
 import '../../../../core/design_system/widgets/sk_fade.dart';
 import '../../../../core/design_system/widgets/sk_field.dart';
 import '../../../../core/design_system/widgets/sk_segment.dart';
@@ -127,6 +129,7 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
     return AnimatedBuilder(
       animation: _authController,
       builder: (context, _) {
+        final c = SKTheme.of(context).colors;
         final isRegister = _mode == _EmailAuthMode.register;
         final isLoading = _authController.status == MobileAuthStatus.loading;
         final errorMessage = _authController.errorMessage;
@@ -135,7 +138,7 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
           resizeToAvoidBottomInset: true,
           body: Stack(
             children: [
-              const Positioned.fill(child: ColoredBox(color: SK.bg)),
+              Positioned.fill(child: ColoredBox(color: c.bg)),
               Positioned(
                 top: -120,
                 right: -90,
@@ -146,7 +149,7 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
                       colors: [
-                        SK.accent.withValues(alpha: 0.18),
+                        c.accent.withValues(alpha: 0.18),
                         Colors.transparent,
                       ],
                     ),
@@ -273,7 +276,7 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
                                           _isPasswordVisible
                                               ? Icons.visibility_off_outlined
                                               : Icons.visibility_outlined,
-                                          color: SK.ink3,
+                                          color: c.textTertiary,
                                         ),
                                       ),
                                     ),
@@ -311,7 +314,7 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
                                                           .visibility_off_outlined
                                                       : Icons
                                                           .visibility_outlined,
-                                                  color: SK.ink3,
+                                                  color: c.textTertiary,
                                                 ),
                                               ),
                                             ),
@@ -321,14 +324,11 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
                                   const SizedBox(height: SK.s5),
                                   SkFade(
                                     delayMs: 440,
-                                    child: SkButton(
+                                    child: PrimaryButton(
                                       label: isRegister
                                           ? 'Создать аккаунт'
                                           : 'Войти',
-                                      icon: const Icon(
-                                          Icons.arrow_forward_rounded),
-                                      iconRight: true,
-                                      block: true,
+                                      icon: Icons.arrow_forward_rounded,
                                       onPressed: isLoading
                                           ? null
                                           : () async {
@@ -343,14 +343,13 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
                                   const SizedBox(height: SK.s5),
                                   const _RedesignSessionHint(),
                                   const SizedBox(height: SK.s8),
-                                  const Text(
+                                  Text(
                                     'Продолжая, вы соглашаетесь с правилами Star Kids.',
                                     textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontFamily: 'Geist',
-                                      color: SK.ink4,
+                                    style: SKTextStyles.small.copyWith(
                                       fontSize: 11,
                                       height: 1.35,
+                                      color: c.textDisabled,
                                     ),
                                   ),
                                 ],
@@ -376,46 +375,45 @@ class _RedesignAuthHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
     return Row(
       children: [
         Container(
           width: 36,
           height: 36,
           decoration: BoxDecoration(
-            color: SK.accent2,
+            color: c.textPrimary,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Center(
+          child: Center(
             child: Text(
               '★',
               style: TextStyle(
-                fontFamily: 'Fraunces',
+                fontFamily: SKTypography.display,
                 fontSize: 18,
-                color: SK.bg,
+                color: c.bg,
               ),
             ),
           ),
         ),
         const SizedBox(width: SK.s3),
-        const Column(
+        Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Star Kids',
-              style: TextStyle(
-                fontFamily: 'Geist',
+              style: SKTextStyles.h3.copyWith(
                 fontWeight: FontWeight.w600,
                 fontSize: 15,
-                color: SK.ink,
+                color: c.textPrimary,
               ),
             ),
-            SizedBox(height: 2),
+            const SizedBox(height: 2),
             Text(
               'Almaty · Al-Farabi',
-              style: TextStyle(
-                fontFamily: 'Geist',
+              style: SKTextStyles.small.copyWith(
                 fontSize: 12,
-                color: SK.ink3,
+                color: c.textTertiary,
               ),
             ),
           ],
@@ -432,14 +430,15 @@ class _RedesignAuthIntro extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 260),
       child: Column(
         key: ValueKey(isRegister),
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text.rich(
-            TextSpan(
+          Text.rich(
+            const TextSpan(
               children: [
                 TextSpan(text: 'Привет, '),
                 TextSpan(
@@ -449,13 +448,12 @@ class _RedesignAuthIntro extends StatelessWidget {
                 TextSpan(text: '.\nПраздник в один тап.'),
               ],
             ),
-            style: TextStyle(
-              fontFamily: 'Fraunces',
+            style: SKTextStyles.d1.copyWith(
               fontSize: 44,
               height: 1,
               letterSpacing: -1.32,
               fontWeight: FontWeight.w400,
-              color: SK.ink,
+              color: c.textPrimary,
             ),
           ),
           const SizedBox(height: SK.s4),
@@ -465,11 +463,9 @@ class _RedesignAuthIntro extends StatelessWidget {
               isRegister
                   ? 'Создайте аккаунт, чтобы заявки и профиль были под рукой.'
                   : 'Войдите, чтобы открыть заявки, профиль и любимый филиал.',
-              style: const TextStyle(
-                fontFamily: 'Geist',
-                fontSize: 15,
+              style: SKTextStyles.body.copyWith(
                 height: 1.45,
-                color: SK.ink3,
+                color: c.textSecondary,
               ),
             ),
           ),
@@ -484,19 +480,19 @@ class _RedesignSessionHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    final c = SKTheme.of(context).colors;
+    return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(Icons.lock_outline, size: 12, color: SK.ink3),
-        SizedBox(width: SK.s2),
+        Icon(Icons.lock_outline, size: 12, color: c.textTertiary),
+        const SizedBox(width: SK.s2),
         Flexible(
           child: Text(
             'Сессия сохраняется на этом устройстве',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: 'Geist',
+            style: SKTextStyles.small.copyWith(
               fontSize: 12,
-              color: SK.ink3,
+              color: c.textTertiary,
             ),
           ),
         ),
@@ -1318,22 +1314,15 @@ class _AuthErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final errorColor =
-        isDark ? StarKidsDarkColors.statusError : StarKidsColors.statusError;
-    final errorSurface = isDark
-        ? StarKidsDarkColors.statusErrorSurface
-        : StarKidsColors.statusErrorSurface;
-    final iconBg =
-        isDark ? StarKidsDarkColors.glassSurface : StarKidsColors.glassSurface;
+    final c = SKTheme.of(context).colors;
 
     return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.md),
+      padding: const EdgeInsets.all(SKSpacing.x4),
       decoration: BoxDecoration(
-        color: errorSurface,
-        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+        color: c.dangerSoft,
+        borderRadius: BorderRadius.circular(SKRadius.lg),
         border: Border.all(
-          color: errorColor.withValues(alpha: 0.18),
+          color: c.danger.withValues(alpha: 0.18),
         ),
       ),
       child: Row(
@@ -1343,23 +1332,23 @@ class _AuthErrorBanner extends StatelessWidget {
             width: 28,
             height: 28,
             decoration: BoxDecoration(
-              color: iconBg,
-              borderRadius: BorderRadius.circular(StarKidsRadii.full),
+              color: c.elevated,
+              borderRadius: BorderRadius.circular(SKRadius.pill),
             ),
             child: Icon(
               Icons.error_outline_rounded,
-              size: StarKidsIconSizes.sm,
-              color: errorColor,
+              size: 16,
+              color: c.danger,
             ),
           ),
-          const SizedBox(width: StarKidsSpacing.md),
+          const SizedBox(width: SKSpacing.x4),
           Expanded(
             child: Text(
               message,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: errorColor,
-                    height: 1.34,
-                  ),
+              style: SKTextStyles.body.copyWith(
+                color: c.danger,
+                height: 1.34,
+              ),
             ),
           ),
         ],
