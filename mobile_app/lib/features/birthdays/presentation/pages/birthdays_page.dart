@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_colors.dart';
-import '../../../../core/design_system/foundations/star_kids_radii.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
-import '../../../../core/design_system/widgets/sk_button.dart';
+import '../../../../core/design_system/sk_design_tokens.dart';
+import '../../../../core/design_system/sk_theme.dart';
+import '../../../../core/design_system/widgets/glass_app_bar.dart';
+import '../../../../core/design_system/widgets/glass_card.dart';
+import '../../../../core/design_system/widgets/glass_floating_button.dart';
 import '../../../../core/design_system/widgets/sk_hero.dart';
-import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
 import '../../../../core/design_system/widgets/star_kids_birthday_package_card.dart';
 import '../../../../core/design_system/widgets/star_kids_content_block_card.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
@@ -28,33 +29,27 @@ class BirthdaysPage extends StatelessWidget {
       builder: (context, _) {
         final branch = ServiceRegistry.selectedBranchController.selectedBranch;
         return Scaffold(
-          appBar: AppBar(
-            title: const Text('Дни рождения'),
-            actions: [
-              IconButton(
-                tooltip: 'Сменить филиал',
-                onPressed: () =>
-                    Navigator.of(context).pushNamed(AppRoutes.branchSelection),
-                icon: const Icon(Icons.swap_horiz_rounded),
-              ),
-            ],
-          ),
-          bottomNavigationBar: StarKidsBottomCtaBar(
-            child: SkButton(
-              label: 'Оставить заявку',
-              style: SkButtonStyle.accent,
-              block: true,
-              icon: const Icon(Icons.arrow_forward_rounded),
-              iconRight: true,
-              onPressed: () => Navigator.of(context).pushNamed(
-                AppRoutes.requests,
-                arguments: const RequestPageArgs(
-                  initialType: RequestType.birthdayRequest,
-                ),
-              ),
+          extendBody: true,
+          appBar: GlassAppBar(
+            leading: GlassIconButton(
+              icon: Icons.arrow_back_ios_new_rounded,
+              tooltip: 'Назад',
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            title: Text(
+              'Дни рождения',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            trailing: GlassIconButton(
+              icon: Icons.swap_horiz_rounded,
+              tooltip: 'Сменить филиал',
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(AppRoutes.branchSelection),
             ),
           ),
-          body: FutureBuilder<_BirthdaysScreenData>(
+          body: Stack(
+            children: [
+              FutureBuilder<_BirthdaysScreenData>(
             future: _loadScreenData(branch.id),
             builder: (context, snapshot) {
               final data = snapshot.data;
@@ -96,11 +91,11 @@ class BirthdaysPage extends StatelessWidget {
               return StarKidsContentSwitcher(
                 child: ListView(
                   key: ValueKey('birthdays-loaded-${resolvedBranch.id}'),
-                  padding: const EdgeInsets.fromLTRB(
+                  padding: EdgeInsets.fromLTRB(
                     StarKidsSpacing.xl,
                     StarKidsSpacing.lg,
                     StarKidsSpacing.xl,
-                    StarKidsSpacing.x5l,
+                    MediaQuery.viewPaddingOf(context).bottom + 88,
                   ),
                   children: [
                     SkHero(
@@ -207,16 +202,10 @@ class BirthdaysPage extends StatelessWidget {
                         title: 'Какой пакет подойдет',
                       ),
                       const SizedBox(height: StarKidsSpacing.md),
-                      Container(
-                        padding: const EdgeInsets.all(StarKidsSpacing.lg),
-                        decoration: BoxDecoration(
-                          color: StarKidsColors.surfacePrimary,
-                          borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-                          border: Border.all(
-                            color: StarKidsColors.borderDefault,
-                          ),
-                        ),
-                        child: const Column(
+                      const SolidCard(
+                        padding: EdgeInsets.all(StarKidsSpacing.lg),
+                        radius: SKRadius.xl,
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _ComparisonRow(
@@ -241,6 +230,27 @@ class BirthdaysPage extends StatelessWidget {
                 ),
               );
             },
+          ),
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: SafeArea(
+                  top: false,
+                  child: GlassFloatingButton(
+                    label: 'Оставить заявку',
+                    icon: Icons.arrow_forward_rounded,
+                    margin: const EdgeInsets.fromLTRB(
+                      SKSpacing.gutter, 0, SKSpacing.gutter, SKSpacing.x3,
+                    ),
+                    onPressed: () => Navigator.of(context).pushNamed(
+                      AppRoutes.requests,
+                      arguments: const RequestPageArgs(
+                        initialType: RequestType.birthdayRequest,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -281,8 +291,7 @@ class _IncludedRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: StarKidsSpacing.md),
@@ -293,18 +302,10 @@ class _IncludedRow extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: isDark
-                  ? StarKidsDarkColors.glassSurface
-                  : StarKidsColors.surfaceSecondary,
-              borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+              color: c.elevated,
+              borderRadius: BorderRadius.circular(SKRadius.lg),
             ),
-            child: Icon(
-              icon,
-              size: 20,
-              color: isDark
-                  ? StarKidsDarkColors.textPrimary
-                  : StarKidsColors.textPrimary,
-            ),
+            child: Icon(icon, size: 20, color: c.textPrimary),
           ),
           const SizedBox(width: StarKidsSpacing.md),
           Expanded(
@@ -313,17 +314,16 @@ class _IncludedRow extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: textTheme.bodyLarge?.copyWith(
+                  style: SKTextStyles.bodyL.copyWith(
                     fontWeight: FontWeight.w600,
+                    color: c.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: textTheme.bodySmall?.copyWith(
-                    color: isDark
-                        ? StarKidsDarkColors.textSecondary
-                        : StarKidsColors.textSecondary,
+                  style: SKTextStyles.small.copyWith(
+                    color: c.textSecondary,
                   ),
                 ),
               ],
@@ -351,13 +351,9 @@ class _BirthdaysStateView extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(StarKidsSpacing.xl),
         child: Center(
-          child: Container(
+          child: SolidCard(
             padding: const EdgeInsets.all(StarKidsSpacing.xl),
-            decoration: BoxDecoration(
-              color: StarKidsColors.surfacePrimary,
-              borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-              border: Border.all(color: StarKidsColors.borderDefault),
-            ),
+            radius: SKRadius.xl,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
