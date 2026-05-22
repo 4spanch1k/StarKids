@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'star_kids_theme.dart';
+import '../../core/design_system/sk_theme.dart';
 
 abstract final class AppTheme {
-  static ThemeData light() => StarKidsTheme.light();
-  static ThemeData dark() => StarKidsTheme.dark();
+  static ThemeData light() => SKTheme.buildMaterialTheme(dark: false);
+  static ThemeData dark()  => SKTheme.buildMaterialTheme(dark: true);
 }
