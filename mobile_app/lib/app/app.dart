@@ -48,11 +48,7 @@ class StarKidsApp extends StatelessWidget {
                   ? const _AuthGateLoadingPage()
                   : const EmailAuthGatePage()
               : null,
-          initialRoute: isAuthenticated
-              ? ServiceRegistry.selectedBranchController.hasStoredSelection
-                  ? AppRoutes.home
-                  : AppRoutes.onboarding
-              : null,
+          initialRoute: isAuthenticated ? AppRoutes.home : null,
           onGenerateRoute: isAuthenticated ? AppRouter.onGenerateRoute : null,
         );
       },
