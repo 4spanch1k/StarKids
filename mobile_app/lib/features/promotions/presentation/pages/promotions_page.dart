@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_colors.dart';
-import '../../../../core/design_system/foundations/star_kids_radii.dart';
-import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
-import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
-import '../../../../core/design_system/widgets/star_kids_button.dart';
+import '../../../../core/design_system/sk_design_tokens.dart';
+import '../../../../core/design_system/sk_theme.dart';
+import '../../../../core/design_system/widgets/glass_app_bar.dart';
+import '../../../../core/design_system/widgets/glass_card.dart';
+import '../../../../core/design_system/widgets/glass_floating_button.dart';
+import '../../../../core/design_system/widgets/primary_button.dart';
 import '../../../../core/design_system/widgets/star_kids_content_block_card.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_promo_card.dart';
@@ -29,30 +30,27 @@ class PromotionsPage extends StatelessWidget {
         final branch = ServiceRegistry.selectedBranchController.selectedBranch;
 
         return Scaffold(
-          appBar: AppBar(
-            title: const Text('Акции'),
-            actions: [
-              IconButton(
-                tooltip: 'Сменить филиал',
-                onPressed: () =>
-                    Navigator.of(context).pushNamed(AppRoutes.branchSelection),
-                icon: const Icon(Icons.swap_horiz_rounded),
-              ),
-            ],
-          ),
-          bottomNavigationBar: StarKidsBottomCtaBar(
-            child: StarKidsButton.primary(
-              label: 'Оставить заявку на праздник',
-              icon: Icons.chat_bubble_rounded,
-              onPressed: () => Navigator.of(context).pushNamed(
-                AppRoutes.requests,
-                arguments: const RequestPageArgs(
-                  initialType: RequestType.birthdayRequest,
-                ),
-              ),
+          extendBody: true,
+          appBar: GlassAppBar(
+            leading: GlassIconButton(
+              icon: Icons.arrow_back_ios_new_rounded,
+              tooltip: 'Назад',
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            title: Text(
+              'Акции',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            trailing: GlassIconButton(
+              icon: Icons.swap_horiz_rounded,
+              tooltip: 'Сменить филиал',
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(AppRoutes.branchSelection),
             ),
           ),
-          body: FutureBuilder<_PromotionsScreenData>(
+          body: Stack(
+            children: [
+              FutureBuilder<_PromotionsScreenData>(
             future: _loadScreenData(branch.id),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting &&
@@ -103,25 +101,21 @@ class PromotionsPage extends StatelessWidget {
               }
 
               final textTheme = Theme.of(context).textTheme;
+              final c = SKTheme.of(context).colors;
 
               return StarKidsContentSwitcher(
                 child: ListView(
                   key: ValueKey('promotions-loaded-${data.branch.id}'),
-                  padding: const EdgeInsets.fromLTRB(
+                  padding: EdgeInsets.fromLTRB(
                     StarKidsSpacing.xl,
                     StarKidsSpacing.lg,
                     StarKidsSpacing.xl,
-                    StarKidsSpacing.x5l,
+                    MediaQuery.viewPaddingOf(context).bottom + 88,
                   ),
                   children: [
-                    Container(
+                    SolidCard(
                       padding: const EdgeInsets.all(StarKidsSpacing.xl),
-                      decoration: BoxDecoration(
-                        color: StarKidsColors.surfacePrimary,
-                        borderRadius: BorderRadius.circular(StarKidsRadii.hero),
-                        border: Border.all(color: StarKidsColors.borderDefault),
-                        boxShadow: StarKidsShadows.depth1,
-                      ),
+                      radius: SKRadius.xl,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -131,15 +125,14 @@ class PromotionsPage extends StatelessWidget {
                               vertical: StarKidsSpacing.sm,
                             ),
                             decoration: BoxDecoration(
-                              color: StarKidsColors.brandHighlight,
-                              borderRadius: BorderRadius.circular(
-                                StarKidsRadii.full,
-                              ),
+                              color: c.accentSoft,
+                              borderRadius: BorderRadius.circular(SKRadius.pill),
                             ),
                             child: Text(
                               data.branch.shortLabel,
-                              style: textTheme.labelMedium?.copyWith(
-                                color: StarKidsColors.textPrimary,
+                              style: SKTextStyles.micro.copyWith(
+                                color: c.accent,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
@@ -200,12 +193,9 @@ class PromotionsPage extends StatelessWidget {
                             ),
                           )
                     else
-                      Container(
+                      SolidCard(
                         padding: const EdgeInsets.all(StarKidsSpacing.lg),
-                        decoration: BoxDecoration(
-                          color: StarKidsColors.surfaceSecondary,
-                          borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-                        ),
+                        radius: SKRadius.xl,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -225,6 +215,27 @@ class PromotionsPage extends StatelessWidget {
                 ),
               );
             },
+          ),
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: SafeArea(
+                  top: false,
+                  child: GlassFloatingButton(
+                    label: 'Оставить заявку на праздник',
+                    icon: Icons.chat_bubble_rounded,
+                    margin: const EdgeInsets.fromLTRB(
+                      SKSpacing.gutter, 0, SKSpacing.gutter, SKSpacing.x3,
+                    ),
+                    onPressed: () => Navigator.of(context).pushNamed(
+                      AppRoutes.requests,
+                      arguments: const RequestPageArgs(
+                        initialType: RequestType.birthdayRequest,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -272,13 +283,9 @@ class _PromotionsStateView extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(StarKidsSpacing.xl),
         child: Center(
-          child: Container(
+          child: SolidCard(
             padding: const EdgeInsets.all(StarKidsSpacing.xl),
-            decoration: BoxDecoration(
-              color: StarKidsColors.surfacePrimary,
-              borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-              border: Border.all(color: StarKidsColors.borderDefault),
-            ),
+            radius: SKRadius.xl,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -287,7 +294,7 @@ class _PromotionsStateView extends StatelessWidget {
                 const SizedBox(height: StarKidsSpacing.sm),
                 Text(description, style: Theme.of(context).textTheme.bodyLarge),
                 const SizedBox(height: StarKidsSpacing.lg),
-                StarKidsButton.secondary(
+                SecondaryButton(
                   label: actionLabel,
                   icon: Icons.swap_horiz_rounded,
                   onPressed: onActionTap,
