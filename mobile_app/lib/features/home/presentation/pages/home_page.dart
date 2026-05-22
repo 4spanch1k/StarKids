@@ -8,9 +8,13 @@ import '../../../../core/design_system/foundations/star_kids_icon_sizes.dart';
 import '../../../../core/design_system/foundations/star_kids_radii.dart';
 import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
+import '../../../../core/design_system/sk_design_tokens.dart';
+import '../../../../core/design_system/sk_theme.dart';
+import '../../../../core/design_system/widgets/glass_app_bar.dart';
+import '../../../../core/design_system/widgets/glass_bottom_nav.dart';
+import '../../../../core/design_system/widgets/glass_drawer.dart';
 import '../../../../core/design_system/widgets/sk_button.dart';
 import '../../../../core/design_system/widgets/sk_hero.dart';
-import '../../../../core/design_system/widgets/sk_tab_bar.dart';
 import '../../../../core/design_system/widgets/star_kids_birthday_package_card.dart';
 import '../../../../core/design_system/widgets/star_kids_content_block_card.dart';
 import '../../../../core/design_system/widgets/star_kids_cosmic_canvas.dart';
@@ -44,6 +48,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   late final NewsFeedController _newsController;
   late final bool _ownsNewsController;
 
@@ -73,17 +78,25 @@ class _HomePageState extends State<HomePage> {
       animation: ServiceRegistry.selectedBranchController,
       builder: (context, _) {
         final branch = ServiceRegistry.selectedBranchController.selectedBranch;
-        final textTheme = Theme.of(context).textTheme;
-
-        final isDark = Theme.of(context).brightness == Brightness.dark;
 
         return Scaffold(
-          // Glass floating nav bar
-          bottomNavigationBar: _FloatingNavBar(
-            selectedIndex: 0,
-            onDestinationSelected: (index) {
-              unawaited(_handleNavigationSelection(context, index));
-            },
+          key: _scaffoldKey,
+          extendBody: true,
+          appBar: GlassAppBar(
+            leading: GlassIconButton(
+              icon: Icons.menu_rounded,
+              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            ),
+            title: _BranchPill(branch: branch),
+            trailing: GlassIconButton(
+              icon: Icons.notifications_none_rounded,
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(AppRoutes.notifications),
+            ),
+          ),
+          drawer: const GlassDrawer(child: _AppDrawer()),
+          bottomNavigationBar: _GlassNav(
+            onChanged: (id) => unawaited(_handleNavChange(context, id)),
           ),
           body: StarKidsCosmicCanvas(
             child: SafeArea(
@@ -104,86 +117,6 @@ class _HomePageState extends State<HomePage> {
                       ),
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
-                          StarKidsReveal(
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(
-                                      StarKidsRadii.full,
-                                    ),
-                                    onTap: () => Navigator.of(
-                                      context,
-                                    ).pushNamed(AppRoutes.branchSelection),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: StarKidsSpacing.lg,
-                                        vertical: StarKidsSpacing.md,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: isDark
-                                            ? StarKidsDarkColors.glassSurface
-                                            : StarKidsColors.glassSurface,
-                                        borderRadius: BorderRadius.circular(
-                                          StarKidsRadii.full,
-                                        ),
-                                        border: Border.all(
-                                          color: isDark
-                                              ? StarKidsDarkColors.glassStroke
-                                              : StarKidsColors.glassStroke,
-                                        ),
-                                        boxShadow: isDark
-                                            ? StarKidsShadows.depth1Dark
-                                            : StarKidsShadows.depth1,
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          ShaderMask(
-                                            shaderCallback: (bounds) =>
-                                                const LinearGradient(
-                                              colors: [
-                                                StarKidsColors.brandPrimary,
-                                                StarKidsColors.brandAccent,
-                                              ],
-                                            ).createShader(bounds),
-                                            child: const Icon(
-                                              Icons.location_on_rounded,
-                                              size: StarKidsIconSizes.sm,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                          const SizedBox(
-                                            width: StarKidsSpacing.sm,
-                                          ),
-                                          Expanded(
-                                            child: Text(
-                                              branch.name,
-                                              style: textTheme.labelLarge,
-                                            ),
-                                          ),
-                                          Icon(
-                                            Icons.expand_more_rounded,
-                                            color: isDark
-                                                ? StarKidsDarkColors
-                                                    .textSecondary
-                                                : StarKidsColors.textSecondary,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: StarKidsSpacing.md),
-                                _HomeActionButton(
-                                  icon: Icons.notifications_none_rounded,
-                                  onTap: () => Navigator.of(context).pushNamed(
-                                    AppRoutes.notifications,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: StarKidsSpacing.lg),
                           StarKidsReveal(
                             delay: starKidsStaggerDelay(1),
                             child: SkHero(
@@ -553,142 +486,152 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-Future<void> _handleNavigationSelection(BuildContext context, int index) async {
-  switch (index) {
-    case 1:
+Future<void> _handleNavChange(BuildContext context, String id) async {
+  switch (id) {
+    case 'birthdays':
       Navigator.of(context).pushNamed(AppRoutes.birthdays);
-      return;
-    case 2:
+    case 'promotions':
       Navigator.of(context).pushNamed(AppRoutes.promotions);
-      return;
-    case 3:
+    case 'tickets':
       final action = await showTicketsEntrySheet(context);
-      if (!context.mounted || action == null) {
-        return;
-      }
-
+      if (!context.mounted || action == null) return;
       switch (action) {
         case TicketsEntryAction.myTickets:
           await showMyTicketsSheet(context);
-          return;
         case TicketsEntryAction.buyTicket:
           await showTicketPurchaseFlowSheet(context);
-          return;
       }
-    case 4:
+    case 'profile':
       Navigator.of(context).pushNamed(AppRoutes.profile);
-      return;
-    case 0:
-    default:
-      return;
   }
 }
 
-/// Floating glass navigation bar that appears to float above the content.
-class _FloatingNavBar extends StatelessWidget {
-  const _FloatingNavBar({
-    required this.selectedIndex,
-    required this.onDestinationSelected,
-  });
-
-  final int selectedIndex;
-  final ValueChanged<int> onDestinationSelected;
+class _GlassNav extends StatelessWidget {
+  final ValueChanged<String> onChanged;
+  const _GlassNav({required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
-    return Builder(
-      builder: (ctx) {
-        final l = AppL10n.of(ctx);
-        return SkTabBar(
-          selectedIndex: selectedIndex,
-          onSelected: onDestinationSelected,
-          items: [
-            SkTabItem(icon: Icons.home_outlined, label: l.navHome),
-            SkTabItem(icon: Icons.cake_outlined, label: l.navBirthdays),
-            SkTabItem(icon: Icons.local_offer_outlined, label: l.navPromotions),
-            const SkTabItem(
-              icon: Icons.confirmation_num_outlined,
-              label: 'Билеты',
-            ),
-            SkTabItem(icon: Icons.person_outline, label: l.navProfile),
-          ],
-        );
-      },
+    final l = AppL10n.of(context);
+    return GlassBottomNav(
+      value: 'home',
+      onChanged: onChanged,
+      items: [
+        GlassNavItem(id: 'home',       icon: Icons.home_outlined,             label: l.navHome),
+        GlassNavItem(id: 'birthdays',  icon: Icons.cake_outlined,             label: l.navBirthdays),
+        GlassNavItem(id: 'promotions', icon: Icons.local_offer_outlined,      label: l.navPromotions),
+        const GlassNavItem(id: 'tickets', icon: Icons.confirmation_num_outlined, label: 'Билеты'),
+        GlassNavItem(id: 'profile',    icon: Icons.person_outline,            label: l.navProfile),
+      ],
     );
   }
 }
 
-class _FloatingNavItem extends StatefulWidget {
-  const _FloatingNavItem({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  State<_FloatingNavItem> createState() => _FloatingNavItemState();
-}
-
-class _FloatingNavItemState extends State<_FloatingNavItem> {
-  bool _pressed = false;
+class _BranchPill extends StatelessWidget {
+  final BranchOption branch;
+  const _BranchPill({required this.branch});
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final fg = widget.selected
-        ? (isDark ? StarKidsDarkColors.textPrimary : StarKidsColors.textPrimary)
-        : (isDark
-            ? StarKidsDarkColors.textSecondary
-            : StarKidsColors.textSecondary);
-
-    return AnimatedScale(
-      scale: _pressed ? 0.96 : 1,
-      duration: const Duration(milliseconds: 160),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(StarKidsRadii.full),
-        onTap: widget.onTap,
-        onTapDown: (_) => setState(() => _pressed = true),
-        onTapUp: (_) => setState(() => _pressed = false),
-        onTapCancel: () => setState(() => _pressed = false),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          curve: const Cubic(0.2, 0.8, 0.2, 1),
-          height: double.infinity,
-          decoration: BoxDecoration(
-            color: widget.selected
-                ? (isDark
-                    ? StarKidsDarkColors.navIndicator
-                    : StarKidsColors.surfaceTertiary)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(StarKidsRadii.full),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(widget.icon, size: 20, color: fg),
-              const SizedBox(height: 2),
-              Text(
-                widget.label,
-                maxLines: 1,
+    final c = SKTheme.of(context).colors;
+    return InkWell(
+      borderRadius: BorderRadius.circular(SKRadius.pill),
+      onTap: () => Navigator.of(context).pushNamed(AppRoutes.branchSelection),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: SKSpacing.x4,
+          vertical: SKSpacing.x2,
+        ),
+        decoration: BoxDecoration(
+          color: c.elevated,
+          borderRadius: BorderRadius.circular(SKRadius.pill),
+          border: Border.all(color: c.hairline),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.location_on_rounded, size: 16, color: c.cta),
+            const SizedBox(width: SKSpacing.x2),
+            Flexible(
+              child: Text(
+                branch.name,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: 'Geist',
-                  fontSize: 11,
-                  fontWeight:
-                      widget.selected ? FontWeight.w600 : FontWeight.w500,
-                  color: fg,
+                style: SKTextStyles.small.copyWith(
+                  color: c.textPrimary,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-            ],
-          ),
+            ),
+            const SizedBox(width: SKSpacing.x1),
+            Icon(Icons.expand_more_rounded, size: 16, color: c.textTertiary),
+          ],
         ),
       ),
+    );
+  }
+}
+
+class _AppDrawer extends StatelessWidget {
+  const _AppDrawer();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            SKSpacing.x6, SKSpacing.x6, SKSpacing.x6, SKSpacing.x4,
+          ),
+          child: Text(
+            'Star Kids',
+            style: SKTextStyles.h1.copyWith(color: c.textPrimary),
+          ),
+        ),
+        Divider(color: c.hairline, height: 1, thickness: 0.5),
+        const SizedBox(height: SKSpacing.x2),
+        GlassDrawerRow(
+          icon: Icons.person_outline_rounded,
+          label: 'Профиль',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.of(context).pushNamed(AppRoutes.profile);
+          },
+        ),
+        GlassDrawerRow(
+          icon: Icons.history_rounded,
+          label: 'История заявок',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.of(context).pushNamed(AppRoutes.myRequests);
+          },
+        ),
+        GlassDrawerRow(
+          icon: Icons.local_offer_outlined,
+          label: 'Акции',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.of(context).pushNamed(AppRoutes.promotions);
+          },
+        ),
+        GlassDrawerRow(
+          icon: Icons.call_outlined,
+          label: 'Контакты',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.of(context).pushNamed(AppRoutes.contacts);
+          },
+        ),
+        GlassDrawerRow(
+          icon: Icons.notifications_none_rounded,
+          label: 'Уведомления',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.of(context).pushNamed(AppRoutes.notifications);
+          },
+        ),
+      ],
     );
   }
 }
@@ -797,52 +740,6 @@ class _QuickActionTile extends StatelessWidget {
                 ),
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _HomeActionButton extends StatelessWidget {
-  const _HomeActionButton({
-    required this.icon,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(StarKidsRadii.full),
-        onTap: onTap,
-        child: Ink(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            color: isDark
-                ? StarKidsDarkColors.glassSurface
-                : StarKidsColors.glassSurface,
-            borderRadius: BorderRadius.circular(StarKidsRadii.full),
-            border: Border.all(
-              color: isDark
-                  ? StarKidsDarkColors.glassStroke
-                  : StarKidsColors.glassStroke,
-            ),
-            boxShadow:
-                isDark ? StarKidsShadows.depth1Dark : StarKidsShadows.depth1,
-          ),
-          child: Icon(
-            icon,
-            color: isDark
-                ? StarKidsDarkColors.textPrimary
-                : StarKidsColors.textPrimary,
           ),
         ),
       ),
