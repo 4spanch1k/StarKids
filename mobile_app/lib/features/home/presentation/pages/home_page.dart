@@ -3,10 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_colors.dart';
-import '../../../../core/design_system/foundations/star_kids_icon_sizes.dart';
-import '../../../../core/design_system/foundations/star_kids_radii.dart';
-import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
@@ -148,7 +144,6 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ),
                           const SizedBox(height: StarKidsSpacing.lg),
-                          // Overflow fix: mainAxisExtent replaces childAspectRatio
                           GridView.builder(
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
@@ -354,7 +349,6 @@ class _HomePageState extends State<HomePage> {
                               );
                             },
                           ),
-                          // Bottom padding for floating nav bar clearance
                           const SizedBox(height: 96),
                         ]),
                       ),
@@ -372,7 +366,7 @@ class _HomePageState extends State<HomePage> {
   List<Widget> _quickActionTiles(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Dark mode uses nebula accent colors; light mode uses light pastels.
+    // Dark mode: semi-transparent tints. Light mode: warm pastel pairs.
     final tileColors = isDark
         ? const [
             [Color(0x2A3B82F6), Color(0x1A10B981)],
@@ -383,12 +377,12 @@ class _HomePageState extends State<HomePage> {
             [Color(0x24FF5A5F), Color(0x18E5D4F2)],
           ]
         : const [
-            [StarKidsColors.warmSky, StarKidsColors.warmMint],
-            [StarKidsColors.warmCoral, StarKidsColors.warmPlum],
-            [StarKidsColors.warmMint, StarKidsColors.warmSky],
-            [StarKidsColors.warmPlum, StarKidsColors.warmSky],
-            [Color(0xFFFFF0CC), StarKidsColors.warmMint],
-            [StarKidsColors.warmCoral, StarKidsColors.warmMint],
+            [Color(0xFFC7DDEF), Color(0xFFB6E3C8)],
+            [Color(0xFFFFE7E5), Color(0xFFE5D4F2)],
+            [Color(0xFFB6E3C8), Color(0xFFC7DDEF)],
+            [Color(0xFFE5D4F2), Color(0xFFC7DDEF)],
+            [Color(0xFFFFF0CC), Color(0xFFB6E3C8)],
+            [Color(0xFFFFE7E5), Color(0xFFB6E3C8)],
           ];
 
     return [
@@ -636,7 +630,6 @@ class _AppDrawer extends StatelessWidget {
   }
 }
 
-/// Glass matte quick-action tile with gradient icon and elastic press.
 class _QuickActionTile extends StatelessWidget {
   const _QuickActionTile({
     required this.icon,
@@ -657,6 +650,7 @@ class _QuickActionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final c = SKTheme.of(context).colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return StarKidsReveal(
@@ -677,17 +671,12 @@ class _QuickActionTile extends StatelessWidget {
                       Colors.white.withValues(alpha: 0.68),
                     ],
             ),
-            borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-            border: Border.all(
-              color: isDark
-                  ? StarKidsDarkColors.glassStroke
-                  : StarKidsColors.glassStroke,
-              width: 1.0,
-            ),
-            boxShadow: isDark ? const [] : StarKidsShadows.cosmicCard,
+            borderRadius: BorderRadius.circular(SKRadius.xl),
+            border: Border.all(color: c.glassBorder, width: 1.0),
+            boxShadow: isDark ? const [] : SKShadows.sm,
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+            borderRadius: BorderRadius.circular(SKRadius.xl),
             child: Material(
               color: Colors.transparent,
               child: InkWell(
@@ -699,7 +688,6 @@ class _QuickActionTile extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Icon container with gradient background
                       Container(
                         width: 42,
                         height: 42,
@@ -709,16 +697,12 @@ class _QuickActionTile extends StatelessWidget {
                             end: Alignment.bottomRight,
                             colors: gradientColors,
                           ),
-                          borderRadius: BorderRadius.circular(StarKidsRadii.md),
-                          boxShadow:
-                              isDark ? const [] : StarKidsShadows.iconGlow,
+                          borderRadius: BorderRadius.circular(SKRadius.md),
                         ),
                         child: Icon(
                           icon,
-                          color: isDark
-                              ? StarKidsDarkColors.accentPink
-                              : StarKidsColors.brandPrimary,
-                          size: StarKidsIconSizes.md,
+                          color: c.accent,
+                          size: 24,
                         ),
                       ),
                       const SizedBox(height: StarKidsSpacing.md),
@@ -755,21 +739,15 @@ class _TrustBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
 
     return Container(
       padding: const EdgeInsets.all(StarKidsSpacing.lg),
       decoration: BoxDecoration(
-        color: isDark
-            ? StarKidsDarkColors.glassSurface
-            : StarKidsColors.glassSurface,
-        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-        border: Border.all(
-          color: isDark
-              ? StarKidsDarkColors.glassStroke
-              : StarKidsColors.glassStroke,
-        ),
-        boxShadow: isDark ? const [] : StarKidsShadows.cosmicCard,
+        color: c.elevated,
+        borderRadius: BorderRadius.circular(SKRadius.xl),
+        border: Border.all(color: c.hairline, width: 0.5),
+        boxShadow: SKShadows.sm,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -791,23 +769,12 @@ class _TrustBlock extends StatelessWidget {
                       vertical: StarKidsSpacing.xs,
                     ),
                     decoration: BoxDecoration(
-                      gradient: isDark
-                          ? const LinearGradient(
-                              colors: [
-                                Color(0x24E5D4F2),
-                                Color(0x1A3B82F6),
-                              ],
-                            )
-                          : const LinearGradient(
-                              colors: [
-                                StarKidsColors.cosmicBlush,
-                                StarKidsColors.cosmicLavender,
-                              ],
-                            ),
-                      borderRadius: BorderRadius.circular(StarKidsRadii.full),
-                      border: isDark
-                          ? Border.all(color: StarKidsDarkColors.borderDefault)
-                          : null,
+                      color: c.accentSoft,
+                      borderRadius: BorderRadius.circular(SKRadius.pill),
+                      border: Border.all(
+                        color: c.hairline,
+                        width: 0.5,
+                      ),
                     ),
                     child: Text(
                       facility,
@@ -857,31 +824,14 @@ class _TrustStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
 
     return Container(
       padding: const EdgeInsets.all(StarKidsSpacing.md),
       decoration: BoxDecoration(
-        gradient: isDark
-            ? const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0x18C7DDEF), Color(0x18B6E3C8)],
-              )
-            : const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  StarKidsColors.cosmicLavender,
-                  StarKidsColors.cosmicSky
-                ],
-              ),
-        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
-        border: Border.all(
-          color: isDark
-              ? StarKidsDarkColors.borderDefault
-              : StarKidsColors.glassStroke,
-        ),
+        color: c.elevated,
+        borderRadius: BorderRadius.circular(SKRadius.lg),
+        border: Border.all(color: c.hairline, width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -893,9 +843,7 @@ class _TrustStat extends StatelessWidget {
               fontSize: 24,
               fontWeight: FontWeight.w400,
               letterSpacing: -0.48,
-              color: isDark
-                  ? StarKidsDarkColors.textPrimary
-                  : StarKidsColors.textPrimary,
+              color: c.textPrimary,
             ),
           ),
           const SizedBox(height: StarKidsSpacing.xs),
@@ -914,21 +862,15 @@ class _HomeStateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
 
     return Container(
       padding: const EdgeInsets.all(StarKidsSpacing.lg),
       decoration: BoxDecoration(
-        color: isDark
-            ? StarKidsDarkColors.glassSurface
-            : StarKidsColors.glassSurface,
-        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-        border: Border.all(
-          color: isDark
-              ? StarKidsDarkColors.glassStroke
-              : StarKidsColors.glassStroke,
-        ),
-        boxShadow: isDark ? const [] : StarKidsShadows.cosmicCard,
+        color: c.elevated,
+        borderRadius: BorderRadius.circular(SKRadius.xl),
+        border: Border.all(color: c.hairline, width: 0.5),
+        boxShadow: SKShadows.sm,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
