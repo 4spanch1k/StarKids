@@ -113,16 +113,15 @@ abstract final class SKShadows {
   ];
 }
 
-// ── Blur (capped for Android performance) ───────────────────────────────────
+// ── Blur (direct sigma values, capped at 14 for Android performance) ────────
 
 abstract final class SKBlur {
-  static const subtle = 10.0; // app bar strip
-  static const base   = 18.0; // default glass
-  static const heavy  = 24.0; // drawer (open infrequently)
-  static const max    = 28.0; // absolute ceiling — never exceed
+  static const subtle =  8.0; // app bar strip
+  static const base   = 13.0; // default glass (bottom nav)
+  static const heavy  = 14.0; // drawer (open infrequently)
+  static const max    = 14.0; // absolute ceiling — Android sigma cap
 
-  // Use as: ImageFilter.blur(sigmaX: value / 2, sigmaY: value / 2)
-  // Flutter sigma ≠ CSS px; dividing by 2 matches the prototype visually.
+  // Pass directly as ImageFilter.blur(sigmaX: value, sigmaY: value).
 }
 
 // ── Opacity tokens ──────────────────────────────────────────────────────────

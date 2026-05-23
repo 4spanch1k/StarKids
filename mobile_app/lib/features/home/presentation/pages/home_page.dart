@@ -7,6 +7,7 @@ import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/glass_app_bar.dart';
 import '../../../../core/design_system/widgets/glass_bottom_nav.dart';
+import '../../../../core/design_system/widgets/glass_container.dart';
 import '../../../../core/design_system/widgets/glass_drawer.dart';
 import '../../../../core/design_system/widgets/sk_button.dart';
 import '../../../../core/design_system/widgets/sk_hero.dart';
@@ -108,7 +109,7 @@ class _HomePageState extends State<HomePage> {
                         SKSpacing.x5,
                         SKSpacing.x4,
                         SKSpacing.x5,
-                        SKSpacing.x6,
+                        120.0, // floating nav: 80h + 12 bottom + 28 buffer
                       ),
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
@@ -526,40 +527,40 @@ class _BranchPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = SKTheme.of(context).colors;
-    return InkWell(
-      borderRadius: BorderRadius.circular(SKRadius.pill),
+    return GlassPill(
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: SKSpacing.x4),
       onTap: () => Navigator.of(context).pushNamed(AppRoutes.branchSelection),
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: SKSpacing.x4,
-          vertical: SKSpacing.x2,
-        ),
-        decoration: BoxDecoration(
-          color: c.elevated,
-          borderRadius: BorderRadius.circular(SKRadius.pill),
-          border: Border.all(color: c.hairline),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.location_on_rounded, size: 16, color: c.cta),
-            const SizedBox(width: SKSpacing.x2),
-            Flexible(
-              child: Text(
-                branch.name,
-                overflow: TextOverflow.ellipsis,
-                style: SKTextStyles.small.copyWith(
-                  color: c.textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+      child: _BranchPillContent(branch: branch),
+    );
+  }
+}
+
+class _BranchPillContent extends StatelessWidget {
+  final BranchOption branch;
+  const _BranchPillContent({required this.branch});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.location_on_rounded, size: 14, color: c.cta),
+        const SizedBox(width: SKSpacing.x2),
+        Flexible(
+          child: Text(
+            branch.name,
+            overflow: TextOverflow.ellipsis,
+            style: SKTextStyles.small.copyWith(
+              color: c.textPrimary,
+              fontWeight: FontWeight.w600,
             ),
-            const SizedBox(width: SKSpacing.x1),
-            Icon(Icons.expand_more_rounded, size: 16, color: c.textTertiary),
-          ],
+          ),
         ),
-      ),
+        const SizedBox(width: SKSpacing.x1),
+        Icon(Icons.expand_more_rounded, size: 14, color: c.textTertiary),
+      ],
     );
   }
 }

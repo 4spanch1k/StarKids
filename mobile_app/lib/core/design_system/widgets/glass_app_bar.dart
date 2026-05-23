@@ -1,5 +1,5 @@
-// GlassAppBar — sticky top bar with backdrop-blur strip.
-// Children: leading (44×44 pill) · title · trailing.
+// GlassAppBar — frosted-glass top bar with backdrop-blur strip.
+// Children: leading (44×44 glass pill) · title · trailing.
 // Implements PreferredSizeWidget so it can be used as Scaffold.appBar.
 
 import 'dart:ui';
@@ -29,25 +29,48 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final c = SKTheme.of(context).colors;
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(
-          sigmaX: SKBlur.subtle / 2,
-          sigmaY: SKBlur.subtle / 2,
+
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x14211E19),
+            blurRadius: 24,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(
+          bottom: Radius.circular(24),
         ),
-        child: Container(
-          color: c.bg.withValues(alpha: SKOpacity.glassPanel),
-          padding: padding,
-          child: SafeArea(
-            bottom: false,
-            child: Row(
-              children: [
-                if (leading != null) leading!,
-                if (leading != null) const SizedBox(width: SKSpacing.x2),
-                Expanded(child: title ?? const SizedBox.shrink()),
-                if (trailing != null) const SizedBox(width: SKSpacing.x2),
-                if (trailing != null) trailing!,
-              ],
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [c.glassTint, c.glassTint2],
+              ),
+              border: Border(
+                bottom: BorderSide(color: c.glassBorder, width: 1.0),
+              ),
+            ),
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: padding,
+                child: Row(
+                  children: [
+                    if (leading != null) leading!,
+                    if (leading != null) const SizedBox(width: SKSpacing.x2),
+                    Expanded(child: title ?? const SizedBox.shrink()),
+                    if (trailing != null) const SizedBox(width: SKSpacing.x2),
+                    if (trailing != null) trailing!,
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -56,12 +79,12 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 }
 
-/// Round icon button — 44×44 white pill with hairline, used in app bars.
-class GlassIconButton extends StatelessWidget {
+/// Circular glass icon button — 44×44, used in app bars.
+class GlassIconButton extends StatefulWidget {
   final IconData icon;
   final String? tooltip;
   final VoidCallback? onPressed;
-  final bool dot;   // shows a notification dot
+  final bool dot;
 
   const GlassIconButton({
     super.key,
@@ -72,27 +95,57 @@ class GlassIconButton extends StatelessWidget {
   });
 
   @override
+  State<GlassIconButton> createState() => _GlassIconButtonState();
+}
+
+class _GlassIconButtonState extends State<GlassIconButton> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
     final c = SKTheme.of(context).colors;
+
     final btn = Tooltip(
-      message: tooltip ?? '',
-      child: Material(
-        color: c.elevated,
-        shape: const StadiumBorder(),
-        elevation: 0,
-        shadowColor: const Color(0x10211E19),
-        child: InkWell(
-          customBorder: const StadiumBorder(),
-          onTap: onPressed,
-          child: SizedBox(
-            width: SKSpacing.tapTarget,
-            height: SKSpacing.tapTarget,
-            child: Icon(icon, size: 20, color: c.textPrimary),
+      message: widget.tooltip ?? '',
+      child: AnimatedScale(
+        scale: _pressed ? 0.88 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(22),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              width: SKSpacing.tapTarget,
+              height: SKSpacing.tapTarget,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: c.glassTint,
+                border: Border.all(color: c.glassBorder, width: 1.0),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: widget.onPressed,
+                  onTapDown: widget.onPressed == null
+                      ? null
+                      : (_) => setState(() => _pressed = true),
+                  onTapUp: (_) => setState(() => _pressed = false),
+                  onTapCancel: () => setState(() => _pressed = false),
+                  child: Center(
+                    child: Icon(widget.icon, size: 20, color: c.textPrimary),
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),
     );
-    if (!dot) return btn;
+
+    if (!widget.dot) return btn;
     return Stack(clipBehavior: Clip.none, children: [
       btn,
       Positioned(

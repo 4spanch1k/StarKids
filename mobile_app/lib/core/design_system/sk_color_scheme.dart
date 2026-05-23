@@ -131,10 +131,10 @@ class SKColorScheme {
     dangerSoft:    SKColors.danger100,
     divider:       Color(0x0F211E19), // 6%
     hairline:      Color(0x14211E19), // 8%
-    glassTint:     Color(0xB3FFFCF7), // ~70% warm white
-    glassTint2:    Color(0x80FFF5EB), // ~50%
-    glassBorder:   Color(0x0F211E19),
-    glassShine:    Color(0x8CFFFFFF), // 55% top highlight
+    glassTint:     Color(0x52FFFCF7), // ~32% warm white — lets blur show
+    glassTint2:    Color(0x38FFF5EB), // ~22%
+    glassBorder:   Color(0x33FFFFFF), // 20% white pearl edge
+    glassShine:    Color(0xA8FFFFFF), // 66% top highlight
   );
 
   factory SKColorScheme.dark() => const SKColorScheme._(
@@ -159,9 +159,9 @@ class SKColorScheme {
     dangerSoft:    Color(0x2EDC2626),
     divider:       Color(0x12FFFFFF),
     hairline:      Color(0x1AFFFFFF),
-    glassTint:     Color(0xB328241E),
-    glassTint2:    Color(0x803C362E),
-    glassBorder:   Color(0x14FFFFFF),
-    glassShine:    Color(0x0FFFFFFF),
+    glassTint:     Color(0x5C28241E), // ~36% dark brown — lets blur show
+    glassTint2:    Color(0x4A3C362E), // ~29%
+    glassBorder:   Color(0x3DFFFFFF), // 24% white
+    glassShine:    Color(0x2DFFFFFF), // 18%
   );
 }

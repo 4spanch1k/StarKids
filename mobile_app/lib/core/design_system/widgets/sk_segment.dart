@@ -33,9 +33,9 @@ class SkSegment<T> extends StatelessWidget {
         height: 52,
         padding: const EdgeInsets.all(SKSpacing.x1),
         decoration: BoxDecoration(
-          color: c.elevated,
+          color: c.glassTint,
           borderRadius: BorderRadius.circular(SKRadius.pill),
-          border: Border.all(color: c.hairline, width: 0.5),
+          border: Border.all(color: c.glassBorder, width: 1.0),
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {

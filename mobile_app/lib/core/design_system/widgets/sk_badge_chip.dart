@@ -1,9 +1,11 @@
 // SKBadge — pill label for statuses, counts, tags.
-// SKChip — tappable filter chip; active state inverts to solid textPrimary.
+// SKChip — tappable filter chip; inactive = glass-look; active = solid textPrimary.
+//   AnimatedContainer transitions fill + border. SkPressable for tap scale.
 
 import 'package:flutter/material.dart';
 import '../sk_design_tokens.dart';
 import '../sk_theme.dart';
+import 'sk_pressable.dart';
 
 enum SKTone { accent, cta, success, warning, danger, neutral }
 
@@ -68,43 +70,46 @@ class SKChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = SKTheme.of(context).colors;
-    return Material(
-      color: active ? c.textPrimary : c.elevated.withValues(alpha: 0.85),
-      shape: StadiumBorder(
-        side: BorderSide(
-          color: active ? Colors.transparent : c.hairline,
-          width: 0.5,
+    // Glass look for inactive: warm translucent tint + pearl border.
+    // Active: solid textPrimary (opaque, readable).
+    final bgColor = active ? c.textPrimary : c.glassTint;
+    final borderColor = active ? Colors.transparent : c.glassBorder;
+    final iconColor = active ? Colors.white : c.textPrimary;
+    final textColor = active ? Colors.white : c.textPrimary;
+    final fontWeight = active ? FontWeight.w600 : FontWeight.w500;
+
+    return SkPressable(
+      onTap: onTap,
+      scale: 0.94,
+      borderRadius: BorderRadius.circular(SKRadius.pill),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        constraints: const BoxConstraints(minHeight: SKSpacing.tapTarget - 10),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(SKRadius.pill),
+          border: Border.all(color: borderColor, width: 1.0),
         ),
-      ),
-      child: InkWell(
-        customBorder: const StadiumBorder(),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          constraints: const BoxConstraints(
-            minHeight: SKSpacing.tapTarget - 10,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(
-                  icon,
-                  size: 13,
-                  color: active ? Colors.white : c.textPrimary,
-                ),
-                const SizedBox(width: 6),
-              ],
-              Text(
-                label,
-                style: SKTextStyles.small.copyWith(
-                  color: active ? Colors.white : c.textPrimary,
-                  fontWeight: active ? FontWeight.w600 : FontWeight.w500,
-                  fontSize: 13,
-                ),
-              ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 13, color: iconColor),
+              const SizedBox(width: 6),
             ],
-          ),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              style: SKTextStyles.small.copyWith(
+                color: textColor,
+                fontWeight: fontWeight,
+                fontSize: 13,
+              ),
+              child: Text(label),
+            ),
+          ],
         ),
       ),
     );

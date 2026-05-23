@@ -1,9 +1,9 @@
 // GlassContainer — base Liquid Glass surface. Layering order:
 //   ClipRRect (radius)
-//     ├─ BackdropFilter (sigma = blur/2)
+//     ├─ BackdropFilter (sigma = blur directly; max 14 for Android)
 //     ├─ Container (linear-gradient tint)
 //     ├─ Inner shine (top 1px highlight)
-//     └─ Hairline border (0.5px)
+//     └─ Border (1px)
 // Drop-shadow lives OUTSIDE the clip so it isn't blurred.
 
 import 'dart:ui';
@@ -49,7 +49,7 @@ class GlassContainer extends StatelessWidget {
           if (b > 0)
             Positioned.fill(
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: b / 2, sigmaY: b / 2),
+                filter: ImageFilter.blur(sigmaX: b, sigmaY: b),
                 child: const SizedBox.shrink(),
               ),
             ),
@@ -75,7 +75,7 @@ class GlassContainer extends StatelessWidget {
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(r),
-                    border: Border.all(color: c.glassBorder, width: 0.5),
+                    border: Border.all(color: c.glassBorder, width: 1.0),
                   ),
                 ),
               ),
@@ -108,7 +108,8 @@ class GlassContainer extends StatelessWidget {
 }
 
 /// Capsule variant — used for nav icons, branch selector, hero badges.
-class GlassPill extends StatelessWidget {
+/// Adds AnimatedScale (0.94) tap feedback when onTap is provided.
+class GlassPill extends StatefulWidget {
   final Widget child;
   final double height;
   final EdgeInsetsGeometry padding;
@@ -123,17 +124,40 @@ class GlassPill extends StatelessWidget {
   });
 
   @override
+  State<GlassPill> createState() => _GlassPillState();
+}
+
+class _GlassPillState extends State<GlassPill> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: height,
+    final pill = SizedBox(
+      height: widget.height,
       child: GlassContainer(
         radius: SKRadius.pill,
         blur: SKBlur.base,
         shadow: SKShadows.sm,
-        padding: padding,
-        onTap: onTap,
-        child: Center(child: child),
+        padding: widget.padding,
+        onTap: widget.onTap == null ? null : _handleTap,
+        child: Center(child: widget.child),
+      ),
+    );
+
+    if (widget.onTap == null) return pill;
+
+    return Listener(
+      onPointerDown: (_) => setState(() => _pressed = true),
+      onPointerUp: (_) => setState(() => _pressed = false),
+      onPointerCancel: (_) => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.94 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: pill,
       ),
     );
   }
+
+  void _handleTap() => widget.onTap?.call();
 }

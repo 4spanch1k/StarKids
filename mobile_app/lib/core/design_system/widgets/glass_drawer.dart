@@ -22,12 +22,21 @@ class GlassDrawer extends StatelessWidget {
           bottomRight: Radius.circular(SKRadius.xl),
         ),
         child: BackdropFilter(
-          filter: ImageFilter.blur(
-            sigmaX: SKBlur.heavy / 2,
-            sigmaY: SKBlur.heavy / 2,
-          ),
+          filter: ImageFilter.blur(sigmaX: SKBlur.heavy, sigmaY: SKBlur.heavy),
           child: Container(
-            color: c.bg.withValues(alpha: SKOpacity.glassDrawer),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  c.bg.withValues(alpha: 0.80),
+                  c.bg.withValues(alpha: 0.76),
+                ],
+              ),
+              border: Border(
+                right: BorderSide(color: c.glassBorder, width: 1.0),
+              ),
+            ),
             child: SafeArea(child: child),
           ),
         ),

@@ -1,6 +1,8 @@
 // showGlassBottomSheet — modal with solid body (readability) and glass chrome.
 // Driven by DraggableScrollableSheet for drag + scroll.
+// Glass treatment: drag handle + title header only. Body stays solid.
 
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../sk_design_tokens.dart';
 import '../sk_theme.dart';
@@ -10,7 +12,7 @@ Future<T?> showGlassBottomSheet<T>({
   required Widget Function(BuildContext, ScrollController) builder,
   String? title,
   String? step,
-  Widget? action,          // sticky bottom CTA bar
+  Widget? action,
   double initialSize = 0.7,
   double minSize = 0.4,
   double maxSize = 0.92,
@@ -57,84 +59,104 @@ class _SheetShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = SKTheme.of(context).colors;
+    final hasHeader = title != null;
+
     return ClipRRect(
-      borderRadius: const BorderRadius.only(
-        topLeft: Radius.circular(28),
-        topRight: Radius.circular(28),
-      ),
-      child: Container(
-        color: c.elevated,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(0, 10, 0, 6),
-              child: Container(
-                width: 36,
-                height: 5,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Glass chrome header (drag handle + optional title)
+          ClipRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+              child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: c.textTertiary,
-                  borderRadius: BorderRadius.circular(SKRadius.pill),
-                ),
-              ),
-            ),
-            if (title != null) ...[
-              Container(
-                padding: const EdgeInsets.fromLTRB(
-                  SKSpacing.x5, SKSpacing.x2, SKSpacing.x5, SKSpacing.x4,
-                ),
-                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [c.glassTint, c.glassTint2],
+                  ),
                   border: Border(
-                    bottom: BorderSide(color: c.hairline, width: 0.5),
+                    bottom: BorderSide(color: c.glassBorder, width: 1.0),
                   ),
                 ),
-                child: Stack(
-                  alignment: Alignment.center,
+                child: Column(
                   children: [
-                    Column(children: [
-                      Text(
-                        title!,
-                        style: SKTextStyles.h2.copyWith(
-                          color: c.textPrimary,
-                          fontFamily: SKTypography.display,
+                    // Drag handle
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(0, 10, 0, hasHeader ? 6 : 10),
+                      child: Container(
+                        width: 36,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: c.textTertiary,
+                          borderRadius: BorderRadius.circular(SKRadius.pill),
                         ),
                       ),
-                      if (step != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            step!,
-                            style: SKTextStyles.small.copyWith(
-                              color: c.textTertiary,
-                            ),
-                          ),
+                    ),
+                    // Title row (optional)
+                    if (hasHeader)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          SKSpacing.x5, SKSpacing.x2, SKSpacing.x5, SKSpacing.x4,
                         ),
-                    ]),
-                    Positioned(right: 0, child: _CloseBtn()),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Column(children: [
+                              Text(
+                                title!,
+                                style: SKTextStyles.h2.copyWith(
+                                  color: c.textPrimary,
+                                  fontFamily: SKTypography.display,
+                                ),
+                              ),
+                              if (step != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    step!,
+                                    style: SKTextStyles.small.copyWith(
+                                      color: c.textTertiary,
+                                    ),
+                                  ),
+                                ),
+                            ]),
+                            Positioned(right: 0, child: _CloseBtn()),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),
-            ],
-            Expanded(
+            ),
+          ),
+          // Solid body
+          Expanded(
+            child: Container(
+              color: c.elevated,
               child: SingleChildScrollView(
                 controller: scrollController,
                 child: child,
               ),
             ),
-            if (action != null)
-              Container(
-                decoration: BoxDecoration(
-                  color: c.elevated,
-                  border: Border(
-                    top: BorderSide(color: c.hairline, width: 0.5),
-                  ),
+          ),
+          // Solid sticky CTA bar
+          if (action != null)
+            Container(
+              decoration: BoxDecoration(
+                color: c.elevated,
+                border: Border(
+                  top: BorderSide(color: c.hairline, width: 0.5),
                 ),
-                padding: const EdgeInsets.fromLTRB(
-                  SKSpacing.x4, SKSpacing.x3, SKSpacing.x4, SKSpacing.x4,
-                ),
-                child: SafeArea(top: false, child: action!),
               ),
-          ],
-        ),
+              padding: const EdgeInsets.fromLTRB(
+                SKSpacing.x4, SKSpacing.x3, SKSpacing.x4, SKSpacing.x4,
+              ),
+              child: SafeArea(top: false, child: action!),
+            ),
+        ],
       ),
     );
   }
@@ -148,14 +170,14 @@ class _CloseBtn extends StatelessWidget {
       button: true,
       label: 'Закрыть',
       child: Material(
-        color: c.bg,
+        color: c.glassTint,
         shape: const CircleBorder(),
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: () => Navigator.of(context).maybePop(),
           child: SizedBox(
-            width: 28,
-            height: 28,
+            width: 30,
+            height: 30,
             child: Icon(
               Icons.close_rounded,
               size: 16,
