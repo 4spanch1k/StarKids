@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/design_system/foundations/star_kids_colors.dart';
-import '../../../../core/design_system/foundations/star_kids_radii.dart';
-import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
+import '../../../../core/design_system/sk_design_tokens.dart';
+import '../../../../core/design_system/sk_theme.dart';
 
 class ProfileSectionCard extends StatelessWidget {
   const ProfileSectionCard({
@@ -22,21 +21,15 @@ class ProfileSectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
 
     return Container(
       padding: const EdgeInsets.all(StarKidsSpacing.xl),
       decoration: BoxDecoration(
-        color: isDark
-            ? StarKidsDarkColors.surfaceElevated
-            : StarKidsColors.surfacePrimary,
-        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
-        border: Border.all(
-          color: isDark
-              ? StarKidsDarkColors.borderDefault
-              : StarKidsColors.borderDefault,
-        ),
-        boxShadow: isDark ? null : StarKidsShadows.depth1,
+        color: c.elevated,
+        borderRadius: BorderRadius.circular(SKRadius.lg),
+        border: Border.all(color: c.hairline, width: 0.5),
+        boxShadow: SKShadows.sm,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -56,11 +49,7 @@ class ProfileSectionCard extends StatelessWidget {
             const SizedBox(height: StarKidsSpacing.xs),
             Text(
               subtitle!,
-              style: textTheme.bodyMedium?.copyWith(
-                color: isDark
-                    ? StarKidsDarkColors.textSecondary
-                    : StarKidsColors.textSecondary,
-              ),
+              style: textTheme.bodyMedium?.copyWith(color: c.textSecondary),
             ),
           ],
           const SizedBox(height: StarKidsSpacing.lg),

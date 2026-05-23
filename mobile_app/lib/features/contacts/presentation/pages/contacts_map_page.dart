@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_colors.dart';
-import '../../../../core/design_system/foundations/star_kids_radii.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/foundations/sk_tokens.dart';
+import '../../../../core/design_system/sk_design_tokens.dart';
+import '../../../../core/design_system/sk_theme.dart';
+import '../../../../core/design_system/widgets/glass_app_bar.dart';
+import '../../../../core/design_system/widgets/primary_button.dart';
 import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
-import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_content_block_card.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
@@ -42,17 +43,17 @@ class ContactsMapPage extends StatelessWidget {
                 contactLinks != null && _hasValue(contactLinks.phone);
 
             return Scaffold(
-              appBar: AppBar(
-                title: const Text('Контакты'),
-                actions: [
-                  IconButton(
-                    tooltip: 'Сменить филиал',
-                    onPressed: () => Navigator.of(
-                      context,
-                    ).pushNamed(AppRoutes.branchSelection),
-                    icon: const Icon(Icons.swap_horiz_rounded),
-                  ),
-                ],
+              appBar: GlassAppBar(
+                title: Text(
+                  'Контакты',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                trailing: GlassIconButton(
+                  icon: Icons.swap_horiz_rounded,
+                  tooltip: 'Сменить филиал',
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.branchSelection),
+                ),
               ),
               bottomNavigationBar: StarKidsBottomCtaBar(
                 child: _WhatsAppButton(
@@ -105,12 +106,8 @@ class ContactsMapPage extends StatelessWidget {
                   }
 
                   final textTheme = Theme.of(context).textTheme;
-                  final isDark =
-                      Theme.of(context).brightness == Brightness.dark;
+                  final c = SKTheme.of(context).colors;
                   final contact = snapshot.data!.contactLinks;
-                  final accentColor = isDark
-                      ? StarKidsDarkColors.accentPink
-                      : StarKidsColors.brandPrimary;
 
                   return StarKidsContentSwitcher(
                     child: ListView(
@@ -162,24 +159,14 @@ class ContactsMapPage extends StatelessWidget {
                         const SizedBox(height: StarKidsSpacing.lg),
                         const _MapPlaceholder(),
                         const SizedBox(height: StarKidsSpacing.xl),
-                        const StarKidsSectionHeader(
-                          title: 'Адрес и связь',
-                        ),
+                        const StarKidsSectionHeader(title: 'Адрес и связь'),
                         const SizedBox(height: StarKidsSpacing.lg),
                         Container(
                           padding: const EdgeInsets.all(StarKidsSpacing.lg),
                           decoration: BoxDecoration(
-                            color: isDark
-                                ? StarKidsDarkColors.surfaceElevated
-                                : StarKidsColors.surfacePrimary,
-                            borderRadius: BorderRadius.circular(
-                              StarKidsRadii.xl,
-                            ),
-                            border: Border.all(
-                              color: isDark
-                                  ? StarKidsDarkColors.borderDefault
-                                  : StarKidsColors.borderDefault,
-                            ),
+                            color: c.elevated,
+                            borderRadius: BorderRadius.circular(SKRadius.xl),
+                            border: Border.all(color: c.hairline, width: 0.5),
                           ),
                           child: Column(
                             children: [
@@ -222,9 +209,10 @@ class ContactsMapPage extends StatelessWidget {
                         Row(
                           children: [
                             Expanded(
-                              child: StarKidsButton.secondary(
+                              child: SecondaryButton(
                                 label: 'Построить маршрут',
                                 icon: Icons.map_rounded,
+                                fullWidth: true,
                                 onPressed: !canOpenMap
                                     ? null
                                     : () => _handleAction(
@@ -237,9 +225,10 @@ class ContactsMapPage extends StatelessWidget {
                             ),
                             const SizedBox(width: StarKidsSpacing.md),
                             Expanded(
-                              child: StarKidsButton.secondary(
+                              child: SecondaryButton(
                                 label: 'Позвонить',
                                 icon: Icons.call_rounded,
+                                fullWidth: true,
                                 onPressed: !canCall
                                     ? null
                                     : () => _handleAction(
@@ -253,9 +242,10 @@ class ContactsMapPage extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: StarKidsSpacing.md),
-                        StarKidsButton.secondary(
+                        SecondaryButton(
                           label: 'Написать в WhatsApp',
                           icon: Icons.chat_bubble_rounded,
+                          fullWidth: true,
                           onPressed: !canOpenWhatsApp
                               ? null
                               : () => _handleAction(
@@ -269,17 +259,9 @@ class ContactsMapPage extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(StarKidsSpacing.lg),
                           decoration: BoxDecoration(
-                            color: isDark
-                                ? StarKidsDarkColors.surfaceElevated
-                                : StarKidsColors.surfacePrimary,
-                            borderRadius: BorderRadius.circular(
-                              StarKidsRadii.xl,
-                            ),
-                            border: Border.all(
-                              color: isDark
-                                  ? StarKidsDarkColors.borderDefault
-                                  : StarKidsColors.borderDefault,
-                            ),
+                            color: c.elevated,
+                            borderRadius: BorderRadius.circular(SKRadius.xl),
+                            border: Border.all(color: c.hairline, width: 0.5),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -294,9 +276,10 @@ class ContactsMapPage extends StatelessWidget {
                                 style: textTheme.bodyMedium,
                               ),
                               const SizedBox(height: StarKidsSpacing.lg),
-                              StarKidsButton.secondary(
+                              SecondaryButton(
                                 label: 'Оставить запрос менеджеру',
                                 icon: Icons.support_agent_rounded,
+                                fullWidth: true,
                                 onPressed: () =>
                                     Navigator.of(context).pushNamed(
                                   AppRoutes.requests,
@@ -319,12 +302,9 @@ class ContactsMapPage extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.all(StarKidsSpacing.lg),
                             decoration: BoxDecoration(
-                              color: isDark
-                                  ? StarKidsDarkColors.glassSurface
-                                  : StarKidsColors.surfaceSecondary,
-                              borderRadius: BorderRadius.circular(
-                                StarKidsRadii.xl,
-                              ),
+                              color: c.elevated,
+                              borderRadius: BorderRadius.circular(SKRadius.xl),
+                              border: Border.all(color: c.hairline, width: 0.5),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -338,7 +318,7 @@ class ContactsMapPage extends StatelessWidget {
                                   Text(
                                     contact.routeLabel,
                                     style: textTheme.labelMedium?.copyWith(
-                                      color: accentColor,
+                                      color: c.cta,
                                     ),
                                   ),
                                 ],
@@ -354,9 +334,7 @@ class ContactsMapPage extends StatelessWidget {
                                   Text(
                                     contact.arrivalHint!,
                                     style: textTheme.bodyMedium?.copyWith(
-                                      color: isDark
-                                          ? StarKidsDarkColors.textSecondary
-                                          : StarKidsColors.textSecondary,
+                                      color: c.textSecondary,
                                     ),
                                   ),
                                 ],
@@ -451,7 +429,6 @@ class ContactsMapPage extends StatelessWidget {
     if (normalized == null || normalized.isEmpty) {
       return fallback;
     }
-
     return normalized;
   }
 }
@@ -483,9 +460,9 @@ class _WhatsAppButtonState extends State<_WhatsAppButton> {
         duration: const Duration(milliseconds: 160),
         child: Material(
           color: const Color(0xFF25D366),
-          borderRadius: BorderRadius.circular(StarKidsRadii.full),
+          borderRadius: BorderRadius.circular(SKRadius.pill),
           child: InkWell(
-            borderRadius: BorderRadius.circular(StarKidsRadii.full),
+            borderRadius: BorderRadius.circular(SKRadius.pill),
             onTap: widget.enabled ? widget.onTap : null,
             onTapDown:
                 widget.enabled ? (_) => setState(() => _pressed = true) : null,
@@ -613,19 +590,14 @@ class _ContactRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: StarKidsSpacing.md),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            color: isDark
-                ? StarKidsDarkColors.accentPink
-                : StarKidsColors.textPrimary,
-          ),
+          Icon(icon, color: c.cta),
           const SizedBox(width: StarKidsSpacing.sm),
           Expanded(
             child: Column(
@@ -671,7 +643,7 @@ class _ContactsStateView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
 
     return SafeArea(
       child: Padding(
@@ -680,15 +652,10 @@ class _ContactsStateView extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(StarKidsSpacing.xl),
             decoration: BoxDecoration(
-              color: isDark
-                  ? StarKidsDarkColors.surfaceElevated
-                  : StarKidsColors.surfacePrimary,
-              borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-              border: Border.all(
-                color: isDark
-                    ? StarKidsDarkColors.borderDefault
-                    : StarKidsColors.borderDefault,
-              ),
+              color: c.elevated,
+              borderRadius: BorderRadius.circular(SKRadius.xl),
+              border: Border.all(color: c.hairline, width: 0.5),
+              boxShadow: SKShadows.sm,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -698,7 +665,7 @@ class _ContactsStateView extends StatelessWidget {
                 const SizedBox(height: StarKidsSpacing.sm),
                 Text(description, style: Theme.of(context).textTheme.bodyLarge),
                 const SizedBox(height: StarKidsSpacing.lg),
-                StarKidsButton.secondary(
+                SecondaryButton(
                   label: actionLabel,
                   icon: Icons.swap_horiz_rounded,
                   onPressed: onActionTap,

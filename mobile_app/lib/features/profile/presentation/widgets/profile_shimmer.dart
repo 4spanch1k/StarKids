@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/design_system/foundations/star_kids_colors.dart';
-import '../../../../core/design_system/foundations/star_kids_radii.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
+import '../../../../core/design_system/sk_design_tokens.dart';
+import '../../../../core/design_system/sk_theme.dart';
 
 class ProfileShimmerBlock extends StatefulWidget {
   const ProfileShimmerBlock({
@@ -51,7 +51,7 @@ class _ProfileShimmerBlockState extends State<ProfileShimmerBlock>
           width: widget.width,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(
-              widget.borderRadius ?? StarKidsRadii.sm,
+              widget.borderRadius ?? SKRadius.sm,
             ),
             gradient: LinearGradient(
               begin: Alignment.centerLeft,
@@ -102,20 +102,17 @@ class ProfileLoadingSkeleton extends StatelessWidget {
 class _HeaderSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
     return Container(
       padding: const EdgeInsets.all(StarKidsSpacing.xl),
       decoration: BoxDecoration(
-        color: StarKidsColors.surfacePrimary,
-        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
-        border: Border.all(color: StarKidsColors.borderDefault),
+        color: c.elevated,
+        borderRadius: BorderRadius.circular(SKRadius.lg),
+        border: Border.all(color: c.hairline, width: 0.5),
       ),
       child: const Row(
         children: [
-          ProfileShimmerBlock(
-            height: 80,
-            width: 80,
-            borderRadius: 40,
-          ),
+          ProfileShimmerBlock(height: 80, width: 80, borderRadius: 40),
           SizedBox(width: StarKidsSpacing.xl),
           Expanded(
             child: Column(
@@ -140,12 +137,13 @@ class _CardSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
     return Container(
       padding: const EdgeInsets.all(StarKidsSpacing.xl),
       decoration: BoxDecoration(
-        color: StarKidsColors.surfacePrimary,
-        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
-        border: Border.all(color: StarKidsColors.borderDefault),
+        color: c.elevated,
+        borderRadius: BorderRadius.circular(SKRadius.lg),
+        border: Border.all(color: c.hairline, width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

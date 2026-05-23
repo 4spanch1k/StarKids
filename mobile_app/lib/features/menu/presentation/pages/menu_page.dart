@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_colors.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/foundations/sk_tokens.dart';
-import '../../../../core/design_system/widgets/star_kids_button.dart';
+import '../../../../core/design_system/sk_theme.dart';
+import '../../../../core/design_system/widgets/glass_app_bar.dart';
+import '../../../../core/design_system/widgets/primary_button.dart';
 import '../../../../core/design_system/widgets/star_kids_media_image.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../branches/domain/branch_option.dart';
@@ -34,16 +35,17 @@ class _MenuPageState extends State<MenuPage> {
         final branch = ServiceRegistry.selectedBranchController.selectedBranch;
 
         return Scaffold(
-          appBar: AppBar(
-            title: const Text('Меню'),
-            actions: [
-              IconButton(
-                tooltip: 'Сменить филиал',
-                onPressed: () =>
-                    Navigator.of(context).pushNamed(AppRoutes.branchSelection),
-                icon: const Icon(Icons.swap_horiz_rounded),
-              ),
-            ],
+          appBar: GlassAppBar(
+            title: Text(
+              'Меню',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            trailing: GlassIconButton(
+              icon: Icons.swap_horiz_rounded,
+              tooltip: 'Сменить филиал',
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(AppRoutes.branchSelection),
+            ),
           ),
           body: FutureBuilder<_MenuScreenData>(
             future: _loadScreenData(branch.id),
@@ -174,9 +176,8 @@ class _MenuPageState extends State<MenuPage> {
                       ),
                       sliver: SliverList.separated(
                         itemCount: categories.length,
-                        separatorBuilder: (_, __) => const SizedBox(
-                          height: SK.s7,
-                        ),
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(height: SK.s7),
                         itemBuilder: (context, index) {
                           final category = categories[index];
                           return KeyedSubtree(
@@ -207,10 +208,7 @@ class _MenuPageState extends State<MenuPage> {
     ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
     final menu = await ServiceRegistry.menuRepository.getForBranch(branchId);
 
-    return _MenuScreenData(
-      branch: branch,
-      menu: menu,
-    );
+    return _MenuScreenData(branch: branch, menu: menu);
   }
 }
 
@@ -357,17 +355,16 @@ class _MenuCategorySection extends StatelessWidget {
 }
 
 class _MenuItemCard extends StatelessWidget {
-  const _MenuItemCard({
-    required this.item,
-  });
+  const _MenuItemCard({required this.item});
 
   final MenuItem item;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
+
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -407,20 +404,20 @@ class _MenuItemCard extends StatelessWidget {
                         children: [
                           TextSpan(
                             text: _formatPriceNumber(item.priceTenge),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontFamily: 'Fraunces',
                               fontSize: 16,
                               fontWeight: FontWeight.w400,
                               letterSpacing: -0.32,
-                              color: StarKidsColors.textPrimary,
+                              color: c.textPrimary,
                             ),
                           ),
-                          const TextSpan(
+                          TextSpan(
                             text: ' ₸',
                             style: TextStyle(
                               fontFamily: 'Geist',
                               fontSize: 12,
-                              color: StarKidsColors.textSecondary,
+                              color: c.textSecondary,
                             ),
                           ),
                         ],
@@ -546,7 +543,7 @@ class _MenuStateView extends StatelessWidget {
               style: Theme.of(context).textTheme.bodyLarge,
             ),
             const SizedBox(height: StarKidsSpacing.lg),
-            StarKidsButton.secondary(
+            SecondaryButton(
               label: actionLabel,
               icon: Icons.swap_horiz_rounded,
               onPressed: onActionTap,
