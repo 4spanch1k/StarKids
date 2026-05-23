@@ -12,6 +12,11 @@ import '../../../../core/design_system/foundations/star_kids_radii.dart';
 import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/foundations/sk_tokens.dart';
+import '../../../../core/design_system/sk_design_tokens.dart';
+import '../../../../core/design_system/sk_theme.dart';
+import '../../../../core/design_system/widgets/glass_app_bar.dart';
+import '../../../../core/design_system/widgets/glass_card.dart';
+import '../../../../core/design_system/widgets/primary_button.dart';
 import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_input_field.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
@@ -179,19 +184,18 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark
-        ? StarKidsDarkColors.surfaceCanvas
-        : StarKidsColors.surfaceCanvas;
 
     return Scaffold(
-      backgroundColor: bgColor,
-      appBar: AppBar(
-        title: Text(l.profileTitle),
-        centerTitle: true,
-        backgroundColor: bgColor,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
+      appBar: GlassAppBar(
+        leading: GlassIconButton(
+          icon: Icons.arrow_back_ios_new_rounded,
+          tooltip: 'Назад',
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          l.profileTitle,
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
       ),
       body: AnimatedBuilder(
         animation: Listenable.merge([
@@ -216,15 +220,16 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildErrorState(BuildContext context) {
     final l = AppL10n.of(context);
     final textTheme = Theme.of(context).textTheme;
+    final c = SKTheme.of(context).colors;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(StarKidsSpacing.x2l),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.error_outline_rounded,
-              color: StarKidsColors.statusError,
+              color: c.danger,
               size: 48,
             ),
             const SizedBox(height: StarKidsSpacing.lg),
@@ -240,7 +245,7 @@ class _ProfilePageState extends State<ProfilePage> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: StarKidsSpacing.xl),
-            StarKidsButton.primary(
+            PrimaryButton(
               label: l.retry,
               onPressed: _controller.retry,
             ),
@@ -340,10 +345,11 @@ class _ProfilePageState extends State<ProfilePage> {
             textInputAction: TextInputAction.done,
           ),
           const SizedBox(height: StarKidsSpacing.xl),
-          StarKidsButton.primary(
+          PrimaryButton(
             label: l.save,
-            isLoading: _controller.isSaving,
-            onPressed: _controller.canSave ? _handleSave : null,
+            onPressed: (_controller.isSaving || !_controller.canSave)
+                ? null
+                : _handleSave,
           ),
         ],
       ),
@@ -377,7 +383,7 @@ class _ProfilePageState extends State<ProfilePage> {
             Text(branch.workingHours, style: textTheme.bodySmall),
           ],
           const SizedBox(height: StarKidsSpacing.xl),
-          StarKidsButton.secondary(
+          SecondaryButton(
             label: l.changeBranch,
             onPressed: _handleOpenBranchSelection,
           ),
@@ -400,21 +406,24 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         );
       case ProfileRequestsStatus.error:
-        content = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _controller.requestsErrorMessage ?? l.requestsLoadError,
-              style: textTheme.bodyMedium?.copyWith(
-                color: StarKidsColors.statusError,
-              ),
-            ),
-            const SizedBox(height: StarKidsSpacing.md),
-            StarKidsButton.secondary(
-              label: l.retry,
-              onPressed: _controller.loadRequestPreview,
-            ),
-          ],
+        content = Builder(
+          builder: (context) {
+            final c = SKTheme.of(context).colors;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _controller.requestsErrorMessage ?? l.requestsLoadError,
+                  style: textTheme.bodyMedium?.copyWith(color: c.danger),
+                ),
+                const SizedBox(height: StarKidsSpacing.md),
+                SecondaryButton(
+                  label: l.retry,
+                  onPressed: _controller.loadRequestPreview,
+                ),
+              ],
+            );
+          },
         );
       case ProfileRequestsStatus.empty:
         content = Text(l.noRequests, style: textTheme.bodyMedium);
@@ -445,7 +454,7 @@ class _ProfilePageState extends State<ProfilePage> {
         children: [
           content,
           const SizedBox(height: StarKidsSpacing.xl),
-          StarKidsButton.secondary(
+          SecondaryButton(
             label: l.allRequests,
             onPressed: _handleOpenAllRequests,
           ),
@@ -2262,6 +2271,7 @@ class _ProfileHeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = profile;
+    final c = SKTheme.of(context).colors;
     final name =
         p?.fullName.trim().isNotEmpty == true ? p!.fullName : 'Айгерим А.';
     final emailOrPhone = p?.email?.isNotEmpty == true
@@ -2282,23 +2292,19 @@ class _ProfileHeaderCard extends StatelessWidget {
           Text(
             name,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontFamily: 'Fraunces',
+            style: TextStyle(
+              fontFamily: SKTypography.display,
               fontSize: 26,
               height: 1.1,
               letterSpacing: -0.52,
-              color: SK.ink,
+              color: c.textPrimary,
             ),
           ),
           const SizedBox(height: SK.s1),
           Text(
             emailOrPhone,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontFamily: 'Geist',
-              fontSize: 13,
-              color: SK.ink3,
-            ),
+            style: SKTextStyles.small.copyWith(fontSize: 13, color: c.textTertiary),
           ),
         ],
       ),
@@ -2321,6 +2327,7 @@ class _AvatarSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
     return GestureDetector(
       onTap: isUploading ? null : onPickAvatar,
       child: Stack(
@@ -2333,13 +2340,13 @@ class _AvatarSection extends StatelessWidget {
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: SK.bgElev,
+                color: c.elevated,
                 shape: BoxShape.circle,
-                border: Border.all(color: SK.line),
+                border: Border.all(color: c.hairline),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.camera_alt_rounded,
-                color: SK.ink,
+                color: c.textPrimary,
                 size: 15,
               ),
             ),
@@ -2359,7 +2366,7 @@ class _AvatarCircle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const size = 84.0;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
     final avatarUrl = profile?.avatarUrl;
 
     Widget inner;
@@ -2368,9 +2375,7 @@ class _AvatarCircle extends StatelessWidget {
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: isDark
-              ? StarKidsDarkColors.glassSurface
-              : StarKidsColors.surfaceTertiary,
+          color: c.elevated,
           shape: BoxShape.circle,
         ),
         child: const Center(
@@ -2428,7 +2433,7 @@ class _AvatarFallback extends StatelessWidget {
         child: Text(
           initials,
           style: const TextStyle(
-            fontFamily: 'Fraunces',
+            fontFamily: SKTypography.display,
             fontSize: 32,
             color: Colors.white,
             fontWeight: FontWeight.w400,
@@ -2449,32 +2454,20 @@ class _InlineErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: StarKidsSpacing.lg,
         vertical: StarKidsSpacing.md,
       ),
       decoration: BoxDecoration(
-        color: isDark
-            ? StarKidsDarkColors.statusErrorSurface
-            : StarKidsColors.statusErrorSurface,
-        borderRadius: BorderRadius.circular(StarKidsRadii.md),
-        border: Border.all(
-          color: isDark
-              ? StarKidsDarkColors.statusError.withValues(alpha: 0.3)
-              : StarKidsColors.statusError.withValues(alpha: 0.3),
-        ),
+        color: c.dangerSoft,
+        borderRadius: BorderRadius.circular(SKRadius.md),
+        border: Border.all(color: c.danger.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.error_outline_rounded,
-            color: isDark
-                ? StarKidsDarkColors.statusError
-                : StarKidsColors.statusError,
-            size: 20,
-          ),
+          Icon(Icons.error_outline_rounded, color: c.danger, size: 20),
           const SizedBox(width: StarKidsSpacing.sm),
           Expanded(
             child: Text(
@@ -2485,13 +2478,7 @@ class _InlineErrorBanner extends StatelessWidget {
           const SizedBox(width: StarKidsSpacing.xs),
           GestureDetector(
             onTap: onDismiss,
-            child: Icon(
-              Icons.close_rounded,
-              color: isDark
-                  ? StarKidsDarkColors.textSecondary
-                  : StarKidsColors.textSecondary,
-              size: 18,
-            ),
+            child: Icon(Icons.close_rounded, color: c.textSecondary, size: 18),
           ),
         ],
       ),
@@ -2509,23 +2496,14 @@ class _RequestPreviewItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark
-        ? StarKidsDarkColors.surfaceCanvas
-        : StarKidsColors.surfaceCanvas;
-    final border = isDark
-        ? StarKidsDarkColors.borderDefault
-        : StarKidsColors.borderDefault;
-    final chipBg = isDark
-        ? StarKidsDarkColors.glassSurface
-        : StarKidsColors.surfaceTertiary;
+    final c = SKTheme.of(context).colors;
 
     return Container(
       padding: const EdgeInsets.all(StarKidsSpacing.md),
       decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(StarKidsRadii.sm),
-        border: Border.all(color: border),
+        color: c.bg,
+        borderRadius: BorderRadius.circular(SKRadius.sm),
+        border: Border.all(color: c.hairline),
       ),
       child: Row(
         children: [
@@ -2547,16 +2525,12 @@ class _RequestPreviewItem extends StatelessWidget {
               vertical: 4,
             ),
             decoration: BoxDecoration(
-              color: chipBg,
-              borderRadius: BorderRadius.circular(StarKidsRadii.full),
+              color: c.elevated,
+              borderRadius: BorderRadius.circular(SKRadius.pill),
             ),
             child: Text(
               item.status.label,
-              style: textTheme.labelSmall?.copyWith(
-                color: isDark
-                    ? StarKidsDarkColors.accentPink
-                    : StarKidsColors.brandPrimary,
-              ),
+              style: textTheme.labelSmall?.copyWith(color: c.cta),
             ),
           ),
         ],
@@ -2592,7 +2566,7 @@ class _NotificationToggleRow extends StatelessWidget {
         ),
         Switch(
           value: isGranted,
-          activeThumbColor: StarKidsColors.brandPrimary,
+          activeThumbColor: SKTheme.of(context).colors.cta,
           onChanged: notificationsController.isBusy
               ? null
               : (value) {
@@ -2686,21 +2660,9 @@ class _StatRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
+    return SolidCard(
       padding: const EdgeInsets.all(StarKidsSpacing.lg),
-      decoration: BoxDecoration(
-        color: isDark
-            ? StarKidsDarkColors.glassSurface
-            : StarKidsColors.surfacePrimary,
-        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-        border: Border.all(
-          color: isDark
-              ? StarKidsDarkColors.borderDefault
-              : StarKidsColors.borderDefault,
-        ),
-      ),
+      radius: SKRadius.xl,
       child: Row(
         children: [
           _StatCell(
@@ -2708,21 +2670,18 @@ class _StatRow extends StatelessWidget {
                 ? '3'
                 : controller.previewRequests.length.toString(),
             label: 'праздника',
-            isDark: isDark,
           ),
-          _StatDivider(isDark: isDark),
+          const _StatDivider(),
           _StatCell(
             value: childrenController.children.isEmpty
                 ? '2'
                 : childrenController.children.length.toString(),
             label: 'детей',
-            isDark: isDark,
           ),
-          _StatDivider(isDark: isDark),
-          _StatCell(
+          const _StatDivider(),
+          const _StatCell(
             value: '8 200',
             label: 'бонусов',
-            isDark: isDark,
           ),
         ],
       ),
@@ -2734,28 +2693,25 @@ class _StatCell extends StatelessWidget {
   const _StatCell({
     required this.value,
     required this.label,
-    required this.isDark,
   });
 
   final String value;
   final String label;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
     return Expanded(
       child: Column(
         children: [
           Text(
             value,
             style: TextStyle(
-              fontFamily: 'Fraunces',
+              fontFamily: SKTypography.display,
               fontSize: 22,
               fontWeight: FontWeight.w400,
               letterSpacing: -0.44,
-              color: isDark
-                  ? StarKidsDarkColors.textPrimary
-                  : StarKidsColors.textPrimary,
+              color: c.textPrimary,
             ),
           ),
           const SizedBox(height: 2),
@@ -2771,17 +2727,14 @@ class _StatCell extends StatelessWidget {
 }
 
 class _StatDivider extends StatelessWidget {
-  const _StatDivider({required this.isDark});
-  final bool isDark;
+  const _StatDivider();
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: 1,
       height: 32,
-      color: isDark
-          ? StarKidsDarkColors.borderDefault
-          : StarKidsColors.borderDefault,
+      color: SKTheme.of(context).colors.hairline,
     );
   }
 }
@@ -2801,25 +2754,14 @@ class _SegmentedChoice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
     final textTheme = Theme.of(context).textTheme;
-    final activeBg =
-        isDark ? StarKidsDarkColors.accentPink : StarKidsColors.brandPrimary;
-    final idleBg =
-        isDark ? StarKidsDarkColors.glassSurface : StarKidsColors.glassSurface;
-    final border = isDark
-        ? StarKidsDarkColors.borderDefault
-        : StarKidsColors.borderDefault;
-    const activeText = Colors.white;
-    final idleText = isDark
-        ? StarKidsDarkColors.textSecondary
-        : StarKidsColors.textSecondary;
 
     return Container(
       decoration: BoxDecoration(
-        color: idleBg,
-        borderRadius: BorderRadius.circular(StarKidsRadii.full),
-        border: Border.all(color: border),
+        color: c.elevated,
+        borderRadius: BorderRadius.circular(SKRadius.pill),
+        border: Border.all(color: c.hairline),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -2834,13 +2776,15 @@ class _SegmentedChoice extends StatelessWidget {
                   vertical: StarKidsSpacing.xs,
                 ),
                 decoration: BoxDecoration(
-                  color: selected == options[i] ? activeBg : Colors.transparent,
-                  borderRadius: BorderRadius.circular(StarKidsRadii.full),
+                  color: selected == options[i] ? c.cta : Colors.transparent,
+                  borderRadius: BorderRadius.circular(SKRadius.pill),
                 ),
                 child: Text(
                   labels[i],
                   style: textTheme.labelMedium?.copyWith(
-                    color: selected == options[i] ? activeText : idleText,
+                    color: selected == options[i]
+                        ? Colors.white
+                        : c.textSecondary,
                     fontWeight: selected == options[i]
                         ? FontWeight.w700
                         : FontWeight.w500,
