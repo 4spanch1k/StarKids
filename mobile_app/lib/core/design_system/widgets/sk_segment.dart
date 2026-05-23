@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../foundations/star_kids_colors.dart';
-import '../foundations/star_kids_radii.dart';
 import '../foundations/star_kids_spacing.dart';
+import '../sk_design_tokens.dart';
+import '../sk_theme.dart';
 
 class SkSegment<T> extends StatelessWidget {
   const SkSegment({
@@ -23,7 +23,7 @@ class SkSegment<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
     final textTheme = Theme.of(context).textTheme;
     final selectedIndex = items.indexOf(selected);
 
@@ -34,15 +34,9 @@ class SkSegment<T> extends StatelessWidget {
         height: 52,
         padding: const EdgeInsets.all(StarKidsSpacing.xs),
         decoration: BoxDecoration(
-          color: isDark
-              ? StarKidsDarkColors.glassSurface
-              : StarKidsColors.warmCoral,
-          borderRadius: BorderRadius.circular(StarKidsRadii.full),
-          border: Border.all(
-            color: isDark
-                ? StarKidsDarkColors.borderDefault
-                : StarKidsColors.borderDefault,
-          ),
+          color: c.elevated,
+          borderRadius: BorderRadius.circular(SKRadius.pill),
+          border: Border.all(color: c.hairline, width: 0.5),
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -59,14 +53,11 @@ class SkSegment<T> extends StatelessWidget {
                   width: pillWidth,
                   child: Container(
                     decoration: BoxDecoration(
-                      color: isDark
-                          ? StarKidsDarkColors.glassSurface
-                          : StarKidsColors.surfacePrimary,
-                      borderRadius: BorderRadius.circular(StarKidsRadii.full),
+                      color: c.bg,
+                      borderRadius: BorderRadius.circular(SKRadius.pill),
                       boxShadow: [
                         BoxShadow(
-                          color: StarKidsColors.brandPrimary
-                              .withValues(alpha: 0.08),
+                          color: c.cta.withValues(alpha: 0.08),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -92,12 +83,8 @@ class SkSegment<T> extends StatelessWidget {
                             style: (textTheme.labelLarge ?? const TextStyle())
                                 .copyWith(
                               color: isSelected
-                                  ? (isDark
-                                      ? StarKidsDarkColors.textPrimary
-                                      : StarKidsColors.textPrimary)
-                                  : (isDark
-                                      ? StarKidsDarkColors.textSecondary
-                                      : StarKidsColors.textSecondary),
+                                  ? c.textPrimary
+                                  : c.textSecondary,
                               fontWeight: isSelected
                                   ? FontWeight.w800
                                   : FontWeight.w600,

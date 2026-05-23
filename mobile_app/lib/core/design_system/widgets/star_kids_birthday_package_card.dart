@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../foundations/star_kids_colors.dart';
 import '../foundations/star_kids_icon_sizes.dart';
-import '../foundations/star_kids_radii.dart';
 import '../foundations/star_kids_spacing.dart';
+import '../sk_design_tokens.dart';
+import '../sk_theme.dart';
+import 'primary_button.dart';
 import 'star_kids_media_image.dart';
-import 'star_kids_button.dart';
 import 'star_kids_motion.dart';
 
 class StarKidsBirthdayPackageCard extends StatelessWidget {
@@ -37,7 +37,7 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
     final normalizedDescription = description.trim();
     final normalizedHighlights = highlights
         .map((item) => item.trim())
@@ -49,13 +49,9 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
       child: Card(
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+          borderRadius: BorderRadius.circular(SKRadius.xl),
           side: BorderSide(
-            color: isFeatured
-                ? StarKidsColors.brandPrimary
-                : (isDark
-                    ? StarKidsDarkColors.borderDefault
-                    : StarKidsColors.borderDefault),
+            color: isFeatured ? c.cta : c.hairline,
           ),
         ),
         child: InkWell(
@@ -82,17 +78,13 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
                           vertical: StarKidsSpacing.sm,
                         ),
                         decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0x24FF5A5F)
-                              : StarKidsColors.surfaceTertiary,
-                          borderRadius: BorderRadius.circular(
-                            StarKidsRadii.full,
-                          ),
+                          color: c.accentSoft,
+                          borderRadius: BorderRadius.circular(SKRadius.pill),
                         ),
                         child: Text(
                           'Хит продаж',
                           style: textTheme.labelMedium?.copyWith(
-                            color: StarKidsColors.brandPrimary,
+                            color: c.cta,
                           ),
                         ),
                       ),
@@ -109,15 +101,13 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
                             vertical: StarKidsSpacing.sm,
                           ),
                           decoration: BoxDecoration(
-                            color: StarKidsColors.brandHighlight,
-                            borderRadius: BorderRadius.circular(
-                              StarKidsRadii.full,
-                            ),
+                            color: c.accentSoft,
+                            borderRadius: BorderRadius.circular(SKRadius.pill),
                           ),
                           child: Text(
                             priceLabel,
                             style: textTheme.labelMedium?.copyWith(
-                              color: StarKidsColors.textPrimary,
+                              color: c.textPrimary,
                             ),
                           ),
                         ),
@@ -139,12 +129,12 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Padding(
-                                padding: EdgeInsets.only(top: 2),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
                                 child: Icon(
                                   Icons.star_rounded,
                                   size: StarKidsIconSizes.xs,
-                                  color: StarKidsColors.brandPrimary,
+                                  color: c.cta,
                                 ),
                               ),
                               const SizedBox(width: StarKidsSpacing.sm),
@@ -160,7 +150,7 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
                       ),
                     ],
                     const SizedBox(height: StarKidsSpacing.lg),
-                    StarKidsButton.primary(
+                    PrimaryButton(
                       label: 'Оставить заявку',
                       onPressed: onActionTap,
                     ),

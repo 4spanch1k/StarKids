@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../foundations/star_kids_colors.dart';
-import '../foundations/star_kids_radii.dart';
 import '../foundations/star_kids_spacing.dart';
+import '../sk_design_tokens.dart';
+import '../sk_theme.dart';
 
 class SkGuestStepper extends StatelessWidget {
   const SkGuestStepper({
@@ -23,7 +23,7 @@ class SkGuestStepper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
     final textTheme = Theme.of(context).textTheme;
 
     return Container(
@@ -32,15 +32,10 @@ class SkGuestStepper extends StatelessWidget {
         vertical: StarKidsSpacing.md,
       ),
       decoration: BoxDecoration(
-        color: isDark
-            ? StarKidsDarkColors.surfaceElevated
-            : StarKidsColors.surfacePrimary,
-        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
-        border: Border.all(
-          color: isDark
-              ? StarKidsDarkColors.borderDefault
-              : StarKidsColors.borderDefault,
-        ),
+        color: c.elevated,
+        borderRadius: BorderRadius.circular(SKRadius.lg),
+        border: Border.all(color: c.hairline, width: 0.5),
+        boxShadow: SKShadows.sm,
       ),
       child: Row(
         children: [
@@ -48,15 +43,9 @@ class SkGuestStepper extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: textTheme.labelMedium,
-                ),
+                Text(label, style: textTheme.labelMedium),
                 const SizedBox(height: 2),
-                Text(
-                  '$value гостей',
-                  style: textTheme.titleMedium,
-                ),
+                Text('$value гостей', style: textTheme.titleMedium),
               ],
             ),
           ),
@@ -115,7 +104,7 @@ class _StepButtonState extends State<_StepButton> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
 
     return GestureDetector(
       onTap: widget.enabled ? widget.onTap : null,
@@ -132,23 +121,11 @@ class _StepButtonState extends State<_StepButton> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: isDark
-                  ? StarKidsDarkColors.glassSurface
-                  : StarKidsColors.surfaceSecondary,
-              borderRadius: BorderRadius.circular(StarKidsRadii.full),
-              border: Border.all(
-                color: isDark
-                    ? StarKidsDarkColors.borderDefault
-                    : StarKidsColors.borderDefault,
-              ),
+              color: c.elevated,
+              borderRadius: BorderRadius.circular(SKRadius.pill),
+              border: Border.all(color: c.hairline),
             ),
-            child: Icon(
-              widget.icon,
-              size: 18,
-              color: isDark
-                  ? StarKidsDarkColors.textPrimary
-                  : StarKidsColors.textPrimary,
-            ),
+            child: Icon(widget.icon, size: 18, color: c.textPrimary),
           ),
         ),
       ),

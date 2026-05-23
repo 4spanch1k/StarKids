@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../foundations/star_kids_colors.dart';
 import '../foundations/star_kids_icon_sizes.dart';
-import '../foundations/star_kids_radii.dart';
 import '../foundations/star_kids_spacing.dart';
+import '../sk_design_tokens.dart';
+import '../sk_theme.dart';
 import 'star_kids_media_image.dart';
 import 'star_kids_motion.dart';
 
@@ -30,10 +30,7 @@ class StarKidsBranchCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final secondaryIconColor = isDark
-        ? StarKidsDarkColors.textSecondary
-        : StarKidsColors.textSecondary;
+    final c = SKTheme.of(context).colors;
 
     return StarKidsReveal(
       delay: revealDelay,
@@ -56,8 +53,8 @@ class StarKidsBranchCard extends StatelessWidget {
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            StarKidsColors.overlayImageTop,
-                            StarKidsColors.overlayImageBottom,
+                            Color(0x00000000),
+                            Color(0x6B000000),
                           ],
                         ),
                       ),
@@ -72,17 +69,13 @@ class StarKidsBranchCard extends StatelessWidget {
                             vertical: StarKidsSpacing.sm,
                           ),
                           decoration: BoxDecoration(
-                            color: isDark
-                                ? StarKidsDarkColors.glassSurface
-                                : StarKidsColors.surfacePrimary,
-                            borderRadius: BorderRadius.circular(
-                              StarKidsRadii.full,
-                            ),
+                            color: c.elevated,
+                            borderRadius: BorderRadius.circular(SKRadius.pill),
                           ),
                           child: Text(
                             tagLabel!,
                             style: textTheme.labelMedium?.copyWith(
-                              color: StarKidsColors.brandPrimary,
+                              color: c.cta,
                             ),
                           ),
                         ),
@@ -104,7 +97,7 @@ class StarKidsBranchCard extends StatelessWidget {
                         Icon(
                           Icons.schedule_rounded,
                           size: StarKidsIconSizes.sm,
-                          color: secondaryIconColor,
+                          color: c.textSecondary,
                         ),
                         const SizedBox(width: StarKidsSpacing.sm),
                         Expanded(
@@ -116,7 +109,7 @@ class StarKidsBranchCard extends StatelessWidget {
                         Icon(
                           Icons.arrow_forward_ios_rounded,
                           size: StarKidsIconSizes.xs,
-                          color: secondaryIconColor,
+                          color: c.textSecondary,
                         ),
                       ],
                     ),

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../foundations/star_kids_colors.dart';
 import '../foundations/star_kids_icon_sizes.dart';
-import '../foundations/star_kids_radii.dart';
 import '../foundations/star_kids_spacing.dart';
+import '../sk_design_tokens.dart';
+import '../sk_theme.dart';
 
 class StarKidsSelectField extends StatelessWidget {
   const StarKidsSelectField({
@@ -31,22 +31,9 @@ class StarKidsSelectField extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasError = errorText != null;
     final textTheme = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final borderColor = hasError
-        ? (isDark ? StarKidsDarkColors.borderError : StarKidsColors.borderError)
-        : (isDark
-            ? StarKidsDarkColors.borderDefault
-            : StarKidsColors.borderDefault);
-    final fillColor = enabled
-        ? (isDark
-            ? StarKidsDarkColors.glassSurface
-            : StarKidsColors.surfacePrimary)
-        : (isDark
-            ? StarKidsDarkColors.actionDisabledBg
-            : StarKidsColors.surfaceSecondary);
-    final iconColor = isDark
-        ? StarKidsDarkColors.textSecondary
-        : StarKidsColors.textSecondary;
+    final c = SKTheme.of(context).colors;
+    final borderColor = hasError ? c.danger : c.hairline;
+    final iconColor = c.textSecondary;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -59,21 +46,21 @@ class StarKidsSelectField extends StatelessWidget {
           child: Text(label, style: textTheme.labelMedium),
         ),
         Material(
-          color: fillColor,
-          borderRadius: BorderRadius.circular(StarKidsRadii.md),
+          color: c.elevated,
+          borderRadius: BorderRadius.circular(SKRadius.md),
           child: InkWell(
             onTap: enabled ? onTap : null,
-            borderRadius: BorderRadius.circular(StarKidsRadii.md),
+            borderRadius: BorderRadius.circular(SKRadius.md),
             child: Container(
               padding: const EdgeInsets.symmetric(
                 horizontal: StarKidsSpacing.lg,
                 vertical: StarKidsSpacing.md,
               ),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(StarKidsRadii.md),
+                borderRadius: BorderRadius.circular(SKRadius.md),
                 border: Border.all(
                   color: borderColor,
-                  width: hasError ? 2 : 1,
+                  width: hasError ? 2 : 0.5,
                 ),
               ),
               child: Row(
@@ -90,11 +77,7 @@ class StarKidsSelectField extends StatelessWidget {
                     child: Text(
                       value ?? placeholderText,
                       style: textTheme.bodyLarge?.copyWith(
-                        color: value == null
-                            ? iconColor
-                            : (isDark
-                                ? StarKidsDarkColors.textPrimary
-                                : StarKidsColors.textPrimary),
+                        color: value == null ? iconColor : c.textPrimary,
                       ),
                     ),
                   ),
@@ -115,11 +98,7 @@ class StarKidsSelectField extends StatelessWidget {
             child: Text(
               errorText ?? helperText!,
               style: textTheme.labelMedium?.copyWith(
-                color: hasError
-                    ? (isDark
-                        ? StarKidsDarkColors.statusError
-                        : StarKidsColors.statusError)
-                    : iconColor,
+                color: hasError ? c.danger : iconColor,
               ),
             ),
           ),

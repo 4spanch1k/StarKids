@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../foundations/star_kids_spacing.dart';
-import 'star_kids_button.dart';
+import '../sk_theme.dart';
 
 class StarKidsSectionHeader extends StatelessWidget {
   const StarKidsSectionHeader({
@@ -20,6 +20,7 @@ class StarKidsSectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final c = SKTheme.of(context).colors;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -31,18 +32,16 @@ class StarKidsSectionHeader extends StatelessWidget {
               Text(title, style: textTheme.headlineSmall),
               if (description != null) ...[
                 const SizedBox(height: StarKidsSpacing.xs),
-                Text(
-                  description!,
-                  style: textTheme.bodyMedium,
-                ),
+                Text(description!, style: textTheme.bodyMedium),
               ],
             ],
           ),
         ),
         if (actionLabel != null && onActionTap != null)
-          StarKidsButton.ghost(
-            label: actionLabel!,
+          TextButton(
             onPressed: onActionTap,
+            style: TextButton.styleFrom(foregroundColor: c.cta),
+            child: Text(actionLabel!),
           ),
       ],
     );

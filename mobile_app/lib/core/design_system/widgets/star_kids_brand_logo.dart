@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../foundations/star_kids_colors.dart';
 
 const starKidsLogoAssetPath =
     'assets/images/645959303_17890733316429584_1469844678684572952_n.jpg';
@@ -31,7 +30,7 @@ class StarKidsBrandLogo extends StatelessWidget {
         return DecoratedBox(
           decoration: const BoxDecoration(
             shape: BoxShape.circle,
-            color: StarKidsColors.surfacePrimary,
+            color: Colors.white,
             boxShadow: [
               BoxShadow(
                 color: Color(0x14000000),

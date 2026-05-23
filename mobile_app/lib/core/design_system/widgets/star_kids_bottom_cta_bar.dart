@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../foundations/star_kids_colors.dart';
-import '../foundations/star_kids_radii.dart';
-import '../foundations/star_kids_shadows.dart';
 import '../foundations/star_kids_spacing.dart';
+import '../sk_design_tokens.dart';
+import '../sk_theme.dart';
 
 class StarKidsBottomCtaBar extends StatelessWidget {
   const StarKidsBottomCtaBar({
@@ -16,21 +15,14 @@ class StarKidsBottomCtaBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark
-            ? StarKidsDarkColors.surfaceElevated
-            : StarKidsColors.surfacePrimary,
+        color: c.elevated,
         border: Border(
-          top: BorderSide(
-            color: isDark
-                ? StarKidsDarkColors.borderDefault
-                : StarKidsColors.borderDefault,
-          ),
+          top: BorderSide(color: c.hairline, width: 0.5),
         ),
-        boxShadow: isDark ? StarKidsShadows.depth1Dark : StarKidsShadows.depth2,
       ),
       padding: EdgeInsets.fromLTRB(
         StarKidsSpacing.xl,
@@ -39,7 +31,7 @@ class StarKidsBottomCtaBar extends StatelessWidget {
         bottomInset + StarKidsSpacing.sm,
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+        borderRadius: BorderRadius.circular(SKRadius.xl),
         child: child,
       ),
     );

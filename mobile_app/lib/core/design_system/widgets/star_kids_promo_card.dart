@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../foundations/star_kids_colors.dart';
-import '../foundations/star_kids_radii.dart';
 import '../foundations/star_kids_spacing.dart';
+import '../sk_design_tokens.dart';
+import '../sk_theme.dart';
+import 'primary_button.dart';
 import 'star_kids_media_image.dart';
-import 'star_kids_button.dart';
 import 'star_kids_motion.dart';
 
 class StarKidsPromoCard extends StatelessWidget {
@@ -30,6 +30,7 @@ class StarKidsPromoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final c = SKTheme.of(context).colors;
 
     return StarKidsReveal(
       delay: revealDelay,
@@ -53,13 +54,13 @@ class StarKidsPromoCard extends StatelessWidget {
                       vertical: StarKidsSpacing.sm,
                     ),
                     decoration: BoxDecoration(
-                      color: StarKidsColors.brandHighlight,
-                      borderRadius: BorderRadius.circular(StarKidsRadii.full),
+                      color: c.accentSoft,
+                      borderRadius: BorderRadius.circular(SKRadius.pill),
                     ),
                     child: Text(
                       badgeLabel,
                       style: textTheme.labelMedium?.copyWith(
-                        color: StarKidsColors.textPrimary,
+                        color: c.textPrimary,
                       ),
                     ),
                   ),
@@ -68,7 +69,7 @@ class StarKidsPromoCard extends StatelessWidget {
                   const SizedBox(height: StarKidsSpacing.sm),
                   Text(description, style: textTheme.bodyMedium),
                   const SizedBox(height: StarKidsSpacing.lg),
-                  StarKidsButton.primary(label: actionLabel, onPressed: onTap),
+                  PrimaryButton(label: actionLabel, onPressed: onTap),
                 ],
               ),
             ),
