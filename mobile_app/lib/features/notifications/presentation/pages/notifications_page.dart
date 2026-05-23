@@ -5,11 +5,11 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_colors.dart';
-import '../../../../core/design_system/foundations/star_kids_radii.dart';
-import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
-import '../../../../core/design_system/widgets/star_kids_button.dart';
+import '../../../../core/design_system/sk_design_tokens.dart';
+import '../../../../core/design_system/sk_theme.dart';
+import '../../../../core/design_system/widgets/glass_app_bar.dart';
+import '../../../../core/design_system/widgets/primary_button.dart';
 import '../../../news/domain/news_item.dart';
 import '../../../news/domain/news_repository.dart';
 import '../../../news/presentation/models/news_details_page_args.dart';
@@ -61,7 +61,17 @@ class _NotificationsPageState extends State<NotificationsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Уведомления')),
+      appBar: GlassAppBar(
+        leading: GlassIconButton(
+          icon: Icons.arrow_back_ios_new_rounded,
+          tooltip: 'Назад',
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          'Уведомления',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+      ),
       body: SafeArea(
         child: AnimatedBuilder(
           animation: _controller,
@@ -75,7 +85,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
             if (_controller.errorMessage != null &&
                 items.isEmpty &&
                 !_controller.isOffline) {
-              return _NewsPageStateView(
+              return _NotificationsStateView(
                 title: 'Не удалось загрузить уведомления',
                 description: _controller.errorMessage!,
                 actionLabel: 'Повторить',
@@ -84,7 +94,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
             }
 
             if (_controller.isOffline && items.isEmpty) {
-              return _NewsPageStateView(
+              return _NotificationsStateView(
                 title: 'Нет соединения',
                 description:
                     'Показаны последние данные после первой успешной загрузки.',
@@ -94,7 +104,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
             }
 
             if (items.isEmpty) {
-              return const _NewsPageStateView(
+              return const _NotificationsStateView(
                 title: 'Пока нет уведомлений',
                 description:
                     'История появится здесь, как только в приложении будут опубликованы новости.',
@@ -112,13 +122,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 itemBuilder: (context, index) {
                   if (_showBanner && index == 0) {
                     if (_controller.isOffline) {
-                      return const _NewsInlineInfoCard(
+                      return const _NotificationsInlineInfoCard(
                         title: 'Нет соединения',
                         description: 'Показаны последние данные',
                       );
                     }
 
-                    return _NewsInlineErrorCard(
+                    return _NotificationsInlineErrorCard(
                       message: _controller.errorMessage!,
                       onRetry: _controller.forceRefresh,
                     );
@@ -198,8 +208,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 }
 
-class _NewsPageStateView extends StatelessWidget {
-  const _NewsPageStateView({
+class _NotificationsStateView extends StatelessWidget {
+  const _NotificationsStateView({
     required this.title,
     required this.description,
     this.actionLabel,
@@ -213,6 +223,8 @@ class _NewsPageStateView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(StarKidsSpacing.xl),
@@ -220,10 +232,10 @@ class _NewsPageStateView extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(StarKidsSpacing.xl),
           decoration: BoxDecoration(
-            color: StarKidsColors.surfacePrimary,
-            borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-            border: Border.all(color: StarKidsColors.borderDefault),
-            boxShadow: StarKidsShadows.depth1,
+            color: c.elevated,
+            borderRadius: BorderRadius.circular(SKRadius.xl),
+            border: Border.all(color: c.hairline, width: 0.5),
+            boxShadow: SKShadows.sm,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -234,7 +246,7 @@ class _NewsPageStateView extends StatelessWidget {
               Text(description, style: Theme.of(context).textTheme.bodyLarge),
               if (actionLabel != null && onActionTap != null) ...[
                 const SizedBox(height: StarKidsSpacing.xl),
-                StarKidsButton.primary(
+                PrimaryButton(
                   label: actionLabel!,
                   onPressed: () => onActionTap!(),
                 ),
@@ -247,8 +259,8 @@ class _NewsPageStateView extends StatelessWidget {
   }
 }
 
-class _NewsInlineErrorCard extends StatelessWidget {
-  const _NewsInlineErrorCard({
+class _NotificationsInlineErrorCard extends StatelessWidget {
+  const _NotificationsInlineErrorCard({
     required this.message,
     required this.onRetry,
   });
@@ -258,12 +270,14 @@ class _NewsInlineErrorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+
     return Container(
       padding: const EdgeInsets.all(StarKidsSpacing.lg),
       decoration: BoxDecoration(
-        color: const Color(0xFFFDECEC),
-        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
-        border: Border.all(color: const Color(0xFFF6B9B9)),
+        color: c.dangerSoft,
+        borderRadius: BorderRadius.circular(SKRadius.lg),
+        border: Border.all(color: c.danger.withValues(alpha: 0.3), width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -275,7 +289,7 @@ class _NewsInlineErrorCard extends StatelessWidget {
           const SizedBox(height: StarKidsSpacing.xs),
           Text(message, style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: StarKidsSpacing.md),
-          StarKidsButton.secondary(
+          SecondaryButton(
             label: 'Повторить',
             onPressed: () => onRetry(),
           ),
@@ -285,8 +299,8 @@ class _NewsInlineErrorCard extends StatelessWidget {
   }
 }
 
-class _NewsInlineInfoCard extends StatelessWidget {
-  const _NewsInlineInfoCard({
+class _NotificationsInlineInfoCard extends StatelessWidget {
+  const _NotificationsInlineInfoCard({
     required this.title,
     required this.description,
   });
@@ -296,12 +310,14 @@ class _NewsInlineInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+
     return Container(
       padding: const EdgeInsets.all(StarKidsSpacing.lg),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF7E8),
-        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
-        border: Border.all(color: const Color(0xFFF2D49B)),
+        color: c.warningSoft,
+        borderRadius: BorderRadius.circular(SKRadius.lg),
+        border: Border.all(color: c.warning.withValues(alpha: 0.3), width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -327,22 +343,23 @@ class _NewsListCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final c = SKTheme.of(context).colors;
     final imageUrl = resolveNewsImageUrl(item.imageUrl ?? '');
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(SKRadius.lg),
         onTap: onTap,
         child: Container(
           decoration: BoxDecoration(
-            color: StarKidsColors.surfacePrimary,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: StarKidsColors.borderDefault),
-            boxShadow: StarKidsShadows.depth1,
+            color: c.elevated,
+            borderRadius: BorderRadius.circular(SKRadius.lg),
+            border: Border.all(color: c.hairline, width: 0.5),
+            boxShadow: SKShadows.sm,
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(SKRadius.lg),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -366,14 +383,14 @@ class _NewsListCard extends StatelessWidget {
                       Text(
                         _formatDate(item.createdAt),
                         style: textTheme.labelMedium?.copyWith(
-                          color: StarKidsColors.textSecondary,
+                          color: c.textSecondary,
                         ),
                       ),
                       const SizedBox(height: StarKidsSpacing.xs),
                       Text(
                         _typeLabel(item.type),
                         style: textTheme.labelSmall?.copyWith(
-                          color: StarKidsColors.textSecondary,
+                          color: c.textSecondary,
                         ),
                       ),
                       const SizedBox(height: StarKidsSpacing.sm),
@@ -428,21 +445,16 @@ class _NewsImagePlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DecoratedBox(
+    final c = SKTheme.of(context).colors;
+
+    return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFCE1EC),
-            Color(0xFFE1EDFF),
-          ],
-        ),
+        color: c.elevated,
       ),
       child: Center(
         child: Icon(
           Icons.photo_library_rounded,
-          color: StarKidsColors.textSecondary,
+          color: c.textSecondary,
           size: 40,
         ),
       ),

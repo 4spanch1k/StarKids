@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_colors.dart';
 import '../../../../core/design_system/foundations/star_kids_icon_sizes.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
+import '../../../../core/design_system/sk_design_tokens.dart';
+import '../../../../core/design_system/sk_theme.dart';
+import '../../../../core/design_system/widgets/glass_app_bar.dart';
+import '../../../../core/design_system/widgets/primary_button.dart';
 import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
-import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_media_image.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
@@ -25,19 +27,25 @@ class BranchDetailsPage extends StatelessWidget {
         final branch = ServiceRegistry.selectedBranchController.selectedBranch;
 
         return Scaffold(
-          appBar: AppBar(
-            title: Text(branch.shortLabel),
-            actions: [
-              IconButton(
-                tooltip: 'Сменить филиал',
-                onPressed: () =>
-                    Navigator.of(context).pushNamed(AppRoutes.branchSelection),
-                icon: const Icon(Icons.swap_horiz_rounded),
-              ),
-            ],
+          appBar: GlassAppBar(
+            leading: GlassIconButton(
+              icon: Icons.arrow_back_ios_new_rounded,
+              tooltip: 'Назад',
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            title: Text(
+              branch.shortLabel,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            trailing: GlassIconButton(
+              icon: Icons.swap_horiz_rounded,
+              tooltip: 'Сменить филиал',
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(AppRoutes.branchSelection),
+            ),
           ),
           bottomNavigationBar: StarKidsBottomCtaBar(
-            child: StarKidsButton.primary(
+            child: PrimaryButton(
               label: 'Написать в WhatsApp',
               icon: Icons.chat_bubble_rounded,
               onPressed: _hasValue(branch.whatsAppPhone)
@@ -130,9 +138,10 @@ class BranchDetailsPage extends StatelessWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: StarKidsButton.secondary(
+                          child: SecondaryButton(
                             label: 'Маршрут',
                             icon: Icons.map_rounded,
+                            fullWidth: true,
                             onPressed: !canOpenMap
                                 ? null
                                 : () => _handleAction(
@@ -145,9 +154,10 @@ class BranchDetailsPage extends StatelessWidget {
                         ),
                         const SizedBox(width: StarKidsSpacing.md),
                         Expanded(
-                          child: StarKidsButton.secondary(
+                          child: SecondaryButton(
                             label: 'Позвонить',
                             icon: Icons.call_rounded,
+                            fullWidth: true,
                             onPressed: !canCall
                                 ? null
                                 : () => _handleAction(
@@ -170,9 +180,10 @@ class BranchDetailsPage extends StatelessWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: StarKidsButton.secondary(
+                          child: SecondaryButton(
                             label: 'Меню',
                             icon: Icons.restaurant_menu_rounded,
+                            fullWidth: true,
                             onPressed: () => Navigator.of(
                               context,
                             ).pushNamed(AppRoutes.menu),
@@ -180,9 +191,10 @@ class BranchDetailsPage extends StatelessWidget {
                         ),
                         const SizedBox(width: StarKidsSpacing.md),
                         Expanded(
-                          child: StarKidsButton.secondary(
+                          child: SecondaryButton(
                             label: 'Контакты и маршрут',
                             icon: Icons.pin_drop_rounded,
+                            fullWidth: true,
                             onPressed: () => Navigator.of(
                               context,
                             ).pushNamed(AppRoutes.contacts),
@@ -191,9 +203,10 @@ class BranchDetailsPage extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: StarKidsSpacing.md),
-                    StarKidsButton.secondary(
+                    SecondaryButton(
                       label: 'Посмотреть пакеты праздника',
                       icon: Icons.cake_rounded,
+                      fullWidth: true,
                       onPressed: () =>
                           Navigator.of(context).pushNamed(AppRoutes.birthdays),
                     ),
@@ -205,30 +218,7 @@ class BranchDetailsPage extends StatelessWidget {
                     ),
                     const SizedBox(height: StarKidsSpacing.md),
                     if (branchDetail.facilities.isNotEmpty)
-                      Wrap(
-                        spacing: StarKidsSpacing.sm,
-                        runSpacing: StarKidsSpacing.sm,
-                        children: branchDetail.facilities
-                            .map(
-                              (facility) => Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: StarKidsSpacing.md,
-                                  vertical: StarKidsSpacing.xs,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: StarKidsColors.surfaceSecondary,
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: Text(
-                                  facility,
-                                  style: textTheme.labelMedium?.copyWith(
-                                    color: StarKidsColors.textPrimary,
-                                  ),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                      )
+                      _FacilityChips(facilities: branchDetail.facilities)
                     else
                       const _BranchInlineStateCard(
                         title: 'Подробности филиала скоро появятся',
@@ -331,6 +321,44 @@ class BranchDetailsPage extends StatelessWidget {
   }
 }
 
+class _FacilityChips extends StatelessWidget {
+  const _FacilityChips({required this.facilities});
+
+  final List<String> facilities;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final c = SKTheme.of(context).colors;
+
+    return Wrap(
+      spacing: StarKidsSpacing.sm,
+      runSpacing: StarKidsSpacing.sm,
+      children: facilities
+          .map(
+            (facility) => Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: StarKidsSpacing.md,
+                vertical: StarKidsSpacing.xs,
+              ),
+              decoration: BoxDecoration(
+                color: c.elevated,
+                borderRadius: BorderRadius.circular(SKRadius.pill),
+                border: Border.all(color: c.hairline, width: 0.5),
+              ),
+              child: Text(
+                facility,
+                style: textTheme.labelMedium?.copyWith(
+                  color: c.textPrimary,
+                ),
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
 class _InfoRow extends StatelessWidget {
   const _InfoRow({
     required this.icon,
@@ -345,6 +373,7 @@ class _InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final c = SKTheme.of(context).colors;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: StarKidsSpacing.md),
@@ -354,7 +383,7 @@ class _InfoRow extends StatelessWidget {
           Icon(
             icon,
             size: StarKidsIconSizes.md,
-            color: StarKidsColors.brandPrimary,
+            color: c.cta,
           ),
           const SizedBox(width: StarKidsSpacing.sm),
           Expanded(
@@ -395,6 +424,8 @@ class _BranchDetailsStateView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(StarKidsSpacing.xl),
@@ -402,9 +433,9 @@ class _BranchDetailsStateView extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(StarKidsSpacing.xl),
             decoration: BoxDecoration(
-              color: StarKidsColors.surfacePrimary,
-              borderRadius: BorderRadius.circular(32),
-              border: Border.all(color: StarKidsColors.borderDefault),
+              color: c.elevated,
+              borderRadius: BorderRadius.circular(SKRadius.xl),
+              border: Border.all(color: c.hairline, width: 0.5),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -433,12 +464,14 @@ class _BranchInlineStateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+
     return Container(
       padding: const EdgeInsets.all(StarKidsSpacing.lg),
       decoration: BoxDecoration(
-        color: StarKidsColors.surfacePrimary,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: StarKidsColors.borderDefault),
+        color: c.elevated,
+        borderRadius: BorderRadius.circular(SKRadius.lg),
+        border: Border.all(color: c.hairline, width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

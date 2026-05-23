@@ -4,11 +4,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
-import '../../../../core/design_system/foundations/star_kids_colors.dart';
-import '../../../../core/design_system/foundations/star_kids_radii.dart';
-import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
-import '../../../../core/design_system/widgets/star_kids_button.dart';
+import '../../../../core/design_system/sk_design_tokens.dart';
+import '../../../../core/design_system/sk_theme.dart';
+import '../../../../core/design_system/widgets/primary_button.dart';
 import '../../data/api_news_repository.dart';
 import '../../domain/news_item.dart';
 import '../../domain/news_repository.dart';
@@ -75,6 +74,7 @@ class _NewsDetailsPageState extends State<NewsDetailsPage> {
 
     final imageUrl = resolveNewsImageUrl(item.imageUrl);
     final textTheme = Theme.of(context).textTheme;
+    final c = SKTheme.of(context).colors;
 
     return Scaffold(
       body: CustomScrollView(
@@ -118,7 +118,7 @@ class _NewsDetailsPageState extends State<NewsDetailsPage> {
                   Text(
                     _formatDate(item.createdAt),
                     style: textTheme.labelLarge?.copyWith(
-                      color: StarKidsColors.textSecondary,
+                      color: c.textSecondary,
                     ),
                   ),
                   const SizedBox(height: StarKidsSpacing.md),
@@ -229,6 +229,8 @@ class _NewsDetailsStateScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+
     return Scaffold(
       appBar: AppBar(),
       body: Center(
@@ -238,10 +240,10 @@ class _NewsDetailsStateScaffold extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(StarKidsSpacing.xl),
             decoration: BoxDecoration(
-              color: StarKidsColors.surfacePrimary,
-              borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-              border: Border.all(color: StarKidsColors.borderDefault),
-              boxShadow: StarKidsShadows.depth1,
+              color: c.elevated,
+              borderRadius: BorderRadius.circular(SKRadius.xl),
+              border: Border.all(color: c.hairline, width: 0.5),
+              boxShadow: SKShadows.sm,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -258,7 +260,7 @@ class _NewsDetailsStateScaffold extends StatelessWidget {
                   const LinearProgressIndicator(),
                 ] else if (actionLabel != null && onPressed != null) ...[
                   const SizedBox(height: StarKidsSpacing.xl),
-                  StarKidsButton.primary(
+                  PrimaryButton(
                     onPressed: () => onPressed!(),
                     label: actionLabel!,
                   ),
@@ -283,13 +285,15 @@ class _NewsDetailsInfoBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(StarKidsSpacing.lg),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF7E8),
-        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
-        border: Border.all(color: const Color(0xFFF2D49B)),
+        color: c.warningSoft,
+        borderRadius: BorderRadius.circular(SKRadius.lg),
+        border: Border.all(color: c.warning.withValues(alpha: 0.3), width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -308,21 +312,14 @@ class _NewsDetailsImagePlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFCE1EC),
-            Color(0xFFE1EDFF),
-          ],
-        ),
-      ),
+    final c = SKTheme.of(context).colors;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(color: c.elevated),
       child: Center(
         child: Icon(
           Icons.photo_library_rounded,
-          color: StarKidsColors.textSecondary,
+          color: c.textSecondary,
           size: 56,
         ),
       ),

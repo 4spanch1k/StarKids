@@ -5,10 +5,10 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_colors.dart';
-import '../../../../core/design_system/foundations/star_kids_shadows.dart';
 import '../../../../core/design_system/foundations/star_kids_spacing.dart';
-import '../../../../core/design_system/widgets/star_kids_button.dart';
+import '../../../../core/design_system/sk_design_tokens.dart';
+import '../../../../core/design_system/sk_theme.dart';
+import '../../../../core/design_system/widgets/primary_button.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../domain/news_item.dart';
 import '../controllers/news_feed_controller.dart';
@@ -204,13 +204,15 @@ class _NewsInlineInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(StarKidsSpacing.lg),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF7E8),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFF2D49B)),
+        color: c.warningSoft,
+        borderRadius: BorderRadius.circular(SKRadius.lg),
+        border: Border.all(color: c.warning.withValues(alpha: 0.3), width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -241,15 +243,15 @@ class _HomeNewsCard extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(SKRadius.xl),
         onTap: onTap,
         child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: StarKidsShadows.cosmicCard,
+            borderRadius: BorderRadius.circular(SKRadius.xl),
+            boxShadow: SKShadows.sm,
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(SKRadius.xl),
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -317,14 +319,16 @@ class _NewsStateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+
     return Container(
       height: 224,
       padding: const EdgeInsets.all(StarKidsSpacing.xl),
       decoration: BoxDecoration(
-        color: StarKidsColors.glassSurface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: StarKidsColors.glassStroke),
-        boxShadow: StarKidsShadows.cosmicCard,
+        color: c.elevated,
+        borderRadius: BorderRadius.circular(SKRadius.xl),
+        border: Border.all(color: c.hairline, width: 0.5),
+        boxShadow: SKShadows.sm,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -337,7 +341,7 @@ class _NewsStateCard extends StatelessWidget {
             const LinearProgressIndicator(),
           ] else if (actionLabel != null && onActionTap != null) ...[
             const Spacer(),
-            StarKidsButton.secondary(
+            SecondaryButton(
               label: actionLabel!,
               onPressed: () => onActionTap!(),
             ),
@@ -353,21 +357,14 @@ class _NewsImagePlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFCE1EC),
-            Color(0xFFE1EDFF),
-          ],
-        ),
-      ),
+    final c = SKTheme.of(context).colors;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(color: c.elevated),
       child: Center(
         child: Icon(
           Icons.photo_library_rounded,
-          color: StarKidsColors.textSecondary,
+          color: c.textSecondary,
           size: 40,
         ),
       ),
