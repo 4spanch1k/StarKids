@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_colors.dart';
-import '../../../../core/design_system/foundations/star_kids_radii.dart';
-import '../../../../core/design_system/foundations/star_kids_shadows.dart';
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
-import '../../../../core/design_system/widgets/star_kids_button.dart';
+import '../../../../core/design_system/sk_design_tokens.dart';
+import '../../../../core/design_system/sk_theme.dart';
+import '../../../../core/design_system/widgets/glass_app_bar.dart';
+import '../../../../core/design_system/widgets/glass_card.dart';
+import '../../../../core/design_system/widgets/primary_button.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
+import '../../../requests/domain/request_type.dart';
 import '../../domain/request_history_item.dart';
 import '../controllers/request_history_controller.dart';
 
@@ -24,6 +25,7 @@ class RequestHistoryPage extends StatefulWidget {
 class _RequestHistoryPageState extends State<RequestHistoryPage> {
   late final RequestHistoryController _controller;
   late final bool _ownsController;
+  RequestType? _activeFilter;
 
   @override
   void initState() {
@@ -71,21 +73,28 @@ class _RequestHistoryPageState extends State<RequestHistoryPage> {
       animation: _controller,
       builder: (context, _) {
         return Scaffold(
-          appBar: AppBar(
-            title: const Text('Мои заявки'),
-            actions: [
-              if (_controller.status !=
-                  RequestHistoryViewStatus.unauthenticated)
-                IconButton(
-                  icon: const Icon(Icons.refresh_rounded),
-                  tooltip: 'Обновить',
-                  onPressed: _controller.isLoading ? null : _reload,
-                ),
-            ],
+          appBar: GlassAppBar(
+            leading: GlassIconButton(
+              icon: Icons.arrow_back_ios_new_rounded,
+              tooltip: 'Назад',
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            title: Text(
+              'Мои заявки',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            trailing: _controller.status !=
+                    RequestHistoryViewStatus.unauthenticated
+                ? GlassIconButton(
+                    icon: Icons.refresh_rounded,
+                    tooltip: 'Обновить',
+                    onPressed: _controller.isLoading ? null : _reload,
+                  )
+                : null,
           ),
           body: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(StarKidsSpacing.xl),
+              padding: const EdgeInsets.all(SKSpacing.x5),
               child: StarKidsContentSwitcher(child: _buildBody(context)),
             ),
           ),
@@ -136,22 +145,40 @@ class _RequestHistoryPageState extends State<RequestHistoryPage> {
           onPressed: _reload,
         );
       case RequestHistoryViewStatus.loaded:
-        return ListView.separated(
-          key: ValueKey('request-history-loaded-${_controller.items.length}'),
-          itemCount: _controller.items.length + 1,
-          separatorBuilder: (_, __) =>
-              const SizedBox(height: StarKidsSpacing.md),
-          itemBuilder: (context, index) {
-            if (index == 0) {
-              return _HistoryHeader(total: _controller.total);
-            }
-
-            final item = _controller.items[index - 1];
-            return StarKidsReveal(
-              delay: starKidsStaggerDelay(index - 1),
-              child: _RequestHistoryCard(item: item),
-            );
-          },
+        final filtered = _activeFilter == null
+            ? _controller.items
+            : _controller.items
+                .where((i) => i.type == _activeFilter)
+                .toList();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _FilterRail(
+              active: _activeFilter,
+              onSelected: (t) => setState(() => _activeFilter = t),
+            ),
+            const SizedBox(height: SKSpacing.x3),
+            Expanded(
+              child: ListView.separated(
+                key: ValueKey(
+                  'request-history-${_activeFilter?.apiValue ?? 'all'}-${filtered.length}',
+                ),
+                itemCount: filtered.length + 1,
+                separatorBuilder: (_, __) =>
+                    const SizedBox(height: SKSpacing.x3),
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    return _HistoryHeader(total: filtered.length);
+                  }
+                  final item = filtered[index - 1];
+                  return StarKidsReveal(
+                    delay: starKidsStaggerDelay(index - 1),
+                    child: _RequestHistoryCard(item: item),
+                  );
+                },
+              ),
+            ),
+          ],
         );
     }
   }
@@ -164,21 +191,9 @@ class _HistoryHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
-      decoration: BoxDecoration(
-        color: isDark
-            ? StarKidsDarkColors.glassSurface
-            : StarKidsColors.surfaceSecondary,
-        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
-        border: Border.all(
-          color: isDark
-              ? StarKidsDarkColors.borderDefault
-              : StarKidsColors.borderDefault,
-        ),
-      ),
+    return SolidCard(
+      padding: const EdgeInsets.all(SKSpacing.x4),
+      radius: SKRadius.lg,
       child: Text(
         total == 1 ? 'Найдена 1 заявка.' : 'Найдено $total заявок.',
         style: Theme.of(context).textTheme.bodyLarge,
@@ -195,24 +210,13 @@ class _RequestHistoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
     final createdAtLabel = _formatCreatedAt(context, item.createdAt);
     final details = _buildDetails(context, item);
 
-    return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
-      decoration: BoxDecoration(
-        color: isDark
-            ? StarKidsDarkColors.surfaceElevated
-            : StarKidsColors.surfacePrimary,
-        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-        border: Border.all(
-          color: isDark
-              ? StarKidsDarkColors.borderDefault
-              : StarKidsColors.borderDefault,
-        ),
-        boxShadow: isDark ? null : StarKidsShadows.depth1,
-      ),
+    return SolidCard(
+      padding: const EdgeInsets.all(SKSpacing.x4),
+      radius: SKRadius.xl,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -224,13 +228,11 @@ class _RequestHistoryCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(item.type.label, style: textTheme.titleMedium),
-                    const SizedBox(height: StarKidsSpacing.xs),
+                    const SizedBox(height: SKSpacing.x1),
                     Text(
                       'Создана $createdAtLabel',
                       style: textTheme.bodySmall?.copyWith(
-                        color: isDark
-                            ? StarKidsDarkColors.textSecondary
-                            : StarKidsColors.textSecondary,
+                        color: c.textSecondary,
                       ),
                     ),
                   ],
@@ -240,10 +242,10 @@ class _RequestHistoryCard extends StatelessWidget {
             ],
           ),
           if (details.isNotEmpty) ...[
-            const SizedBox(height: StarKidsSpacing.lg),
+            const SizedBox(height: SKSpacing.x4),
             ...details,
           ],
-          const SizedBox(height: StarKidsSpacing.lg),
+          const SizedBox(height: SKSpacing.x4),
           Text(
             item.hasNotes ? item.notes!.trim() : item.type.fallbackHistoryNotes,
             style: textTheme.bodyMedium,
@@ -287,7 +289,7 @@ class _RequestHistoryCard extends StatelessWidget {
     for (var index = 0; index < rows.length; index += 1) {
       widgets.add(rows[index]);
       if (index < rows.length - 1) {
-        widgets.add(const SizedBox(height: StarKidsSpacing.sm));
+        widgets.add(const SizedBox(height: SKSpacing.x2));
       }
     }
 
@@ -310,21 +312,17 @@ class _HistoryFactRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
 
     return Row(
       children: [
         Expanded(
           child: Text(
             label,
-            style: textTheme.labelMedium?.copyWith(
-              color: isDark
-                  ? StarKidsDarkColors.textSecondary
-                  : StarKidsColors.textSecondary,
-            ),
+            style: textTheme.labelMedium?.copyWith(color: c.textSecondary),
           ),
         ),
-        const SizedBox(width: StarKidsSpacing.md),
+        const SizedBox(width: SKSpacing.x3),
         Expanded(
           child: Text(
             value,
@@ -344,25 +342,22 @@ class _HistoryStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
 
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: StarKidsSpacing.md,
-        vertical: StarKidsSpacing.xs,
+        horizontal: SKSpacing.x3,
+        vertical: SKSpacing.x1,
       ),
       decoration: BoxDecoration(
-        color: isDark
-            ? StarKidsDarkColors.glassSurface
-            : StarKidsColors.brandHighlight,
-        borderRadius: BorderRadius.circular(StarKidsRadii.full),
+        color: c.accentSoft,
+        borderRadius: BorderRadius.circular(SKRadius.pill),
       ),
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: isDark
-                  ? StarKidsDarkColors.textPrimary
-                  : StarKidsColors.textPrimary,
+              color: c.accent,
+              fontWeight: FontWeight.w600,
             ),
       ),
     );
@@ -390,59 +385,101 @@ class _HistoryStateView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final accentColor =
-        isDark ? StarKidsDarkColors.accentPink : StarKidsColors.brandPrimary;
+    final c = SKTheme.of(context).colors;
 
     return Center(
-      child: Container(
+      child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520),
-        padding: const EdgeInsets.all(StarKidsSpacing.xl),
-        decoration: BoxDecoration(
-          color: isDark
-              ? StarKidsDarkColors.surfaceElevated
-              : StarKidsColors.surfacePrimary,
-          borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-          border: Border.all(
-            color: isDark
-                ? StarKidsDarkColors.borderDefault
-                : StarKidsColors.borderDefault,
-          ),
-          boxShadow: isDark ? null : StarKidsShadows.depth1,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (isLoading)
-              const SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            else
-              Icon(icon, size: 36, color: accentColor),
-            const SizedBox(height: StarKidsSpacing.lg),
-            Text(
-              title,
-              style: textTheme.titleLarge,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: StarKidsSpacing.sm),
-            Text(
-              description,
-              style: textTheme.bodyMedium,
-              textAlign: TextAlign.center,
-            ),
-            if (buttonLabel != null && onPressed != null) ...[
-              const SizedBox(height: StarKidsSpacing.lg),
-              StarKidsButton.primary(
-                label: buttonLabel!,
-                onPressed: isLoading ? null : onPressed,
+        child: SolidCard(
+          padding: const EdgeInsets.all(SKSpacing.x5),
+          radius: SKRadius.xl,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isLoading)
+                const SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Icon(icon, size: 36, color: c.accent),
+              const SizedBox(height: SKSpacing.x4),
+              Text(
+                title,
+                style: textTheme.titleLarge,
+                textAlign: TextAlign.center,
               ),
+              const SizedBox(height: SKSpacing.x2),
+              Text(
+                description,
+                style: textTheme.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
+              if (buttonLabel != null && onPressed != null) ...[
+                const SizedBox(height: SKSpacing.x4),
+                PrimaryButton(
+                  label: buttonLabel!,
+                  onPressed: isLoading ? null : onPressed,
+                ),
+              ],
             ],
-          ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+// ─── Filter chip rail ─────────────────────────────────────────────────────────
+
+class _FilterRail extends StatelessWidget {
+  const _FilterRail({required this.active, required this.onSelected});
+
+  final RequestType? active;
+  final ValueChanged<RequestType?> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+    final textTheme = Theme.of(context).textTheme;
+
+    Widget chip(String label, RequestType? type) {
+      final isActive = active == type;
+      return GestureDetector(
+        onTap: () => onSelected(isActive ? null : type),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(
+            horizontal: SKSpacing.x3,
+            vertical: SKSpacing.x1,
+          ),
+          decoration: BoxDecoration(
+            color: isActive ? c.cta : c.elevated,
+            borderRadius: BorderRadius.circular(SKRadius.pill),
+            border: Border.all(color: isActive ? c.cta : c.hairline),
+          ),
+          child: Text(
+            label,
+            style: textTheme.labelMedium?.copyWith(
+              color: isActive ? Colors.white : c.textSecondary,
+              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          chip('Все', null),
+          const SizedBox(width: SKSpacing.x2),
+          chip(RequestType.birthdayRequest.label, RequestType.birthdayRequest),
+          const SizedBox(width: SKSpacing.x2),
+          chip(RequestType.contact.label, RequestType.contact),
+        ],
       ),
     );
   }

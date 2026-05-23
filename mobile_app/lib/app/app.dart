@@ -5,6 +5,8 @@ import 'di/service_registry.dart';
 import 'router/app_router.dart';
 import 'router/app_routes.dart';
 import 'theme/app_theme.dart';
+import '../core/design_system/sk_color_scheme.dart';
+import '../core/design_system/sk_theme.dart';
 import '../features/auth/presentation/controllers/mobile_auth_controller.dart';
 import '../features/auth/presentation/pages/email_auth_gate_page.dart';
 
@@ -33,6 +35,14 @@ class StarKidsApp extends StatelessWidget {
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),
           themeMode: settings.themeMode,
+          builder: (ctx, child) {
+            final isDark = Theme.of(ctx).brightness == Brightness.dark;
+            return SKTheme(
+              dark: isDark,
+              colors: isDark ? SKColorScheme.dark() : SKColorScheme.light(),
+              child: child!,
+            );
+          },
           locale: Locale(settings.locale),
           supportedLocales: const [
             Locale('ru'),

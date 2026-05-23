@@ -3,12 +3,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
-import '../../../../core/design_system/foundations/star_kids_colors.dart';
-import '../../../../core/design_system/foundations/star_kids_icon_sizes.dart';
-import '../../../../core/design_system/foundations/star_kids_radii.dart';
-import '../../../../core/design_system/foundations/star_kids_shadows.dart';
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
-import '../../../../core/design_system/widgets/star_kids_button.dart';
+import '../../../../core/design_system/sk_design_tokens.dart';
+import '../../../../core/design_system/sk_theme.dart';
+import '../../../../core/design_system/widgets/glass_bottom_sheet.dart';
+import '../../../../core/design_system/widgets/glass_card.dart';
+import '../../../../core/design_system/widgets/primary_button.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_select_field.dart';
 import '../../../../core/design_system/widgets/sk_stepper.dart';
@@ -26,17 +25,11 @@ Future<void> showTicketPurchaseFlowSheet(BuildContext context) {
   );
 }
 
-Future<void> showMyTicketsSheet(BuildContext context) {
-  final isDark = Theme.of(context).brightness == Brightness.dark;
-  return showStarKidsModalBottomSheet<void>(
+Future<void> showMyTicketsSheet(BuildContext context) async {
+  await showGlassBottomSheet<void>(
     context: context,
-    backgroundColor: isDark
-        ? StarKidsDarkColors.surfaceElevated
-        : StarKidsColors.surfacePrimary,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-    ),
-    builder: (context) => const _MyTicketsSheet(),
+    title: 'Мои билеты',
+    builder: (ctx, _) => const _MyTicketsBody(),
   );
 }
 
@@ -119,16 +112,10 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
       return;
     }
 
-    final selectedBranch = await showStarKidsModalBottomSheet<BranchOption>(
+    final selectedBranch = await showGlassBottomSheet<BranchOption>(
       context: context,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? StarKidsDarkColors.surfaceElevated
-          : StarKidsColors.surfacePrimary,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) => _SelectionSheet<BranchOption>(
-        title: 'Выберите филиал',
+      title: 'Выберите филиал',
+      builder: (context, _) => _SelectionSheet<BranchOption>(
         items: _deduplicateBranches(branches),
         currentId: _selectedBranch.id,
         itemIdBuilder: (branch) => branch.id,
@@ -156,16 +143,10 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
       (index) => firstDay.add(Duration(days: index)),
     );
 
-    final selectedDate = await showStarKidsModalBottomSheet<DateTime>(
+    final selectedDate = await showGlassBottomSheet<DateTime>(
       context: context,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? StarKidsDarkColors.surfaceElevated
-          : StarKidsColors.surfacePrimary,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) => _SelectionSheet<DateTime>(
-        title: 'Выберите день',
+      title: 'Выберите день',
+      builder: (context, _) => _SelectionSheet<DateTime>(
         items: availableDays,
         currentId: _selectedDate == null ? null : _dateKey(_selectedDate!),
         itemIdBuilder: _dateKey,
@@ -377,86 +358,78 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
 
     return FractionallySizedBox(
       heightFactor: 0.98,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: isDark
-              ? StarKidsDarkColors.surfaceCanvas
-              : StarKidsColors.surfaceCanvas,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-        ),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            children: [
-              const SizedBox(height: StarKidsSpacing.md),
-              Container(
-                width: 44,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? StarKidsDarkColors.borderDefault
-                      : StarKidsColors.borderDefault,
-                  borderRadius: BorderRadius.circular(StarKidsRadii.full),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        child: DecoratedBox(
+          decoration: BoxDecoration(color: c.elevated),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              children: [
+                const SizedBox(height: SKSpacing.x3),
+                Container(
+                  width: 36,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: c.textTertiary,
+                    borderRadius: BorderRadius.circular(SKRadius.pill),
+                  ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  StarKidsSpacing.md,
-                  StarKidsSpacing.md,
-                  StarKidsSpacing.md,
-                  StarKidsSpacing.sm,
-                ),
-                child: Row(
-                  children: [
-                    if (_currentStep == _TicketPurchaseStep.chooseTickets)
-                      IconButton(
-                        onPressed: _isPaymentBusy ? null : _goBackToSelection,
-                        icon: const Icon(Icons.arrow_back_rounded),
-                        tooltip: 'Назад',
-                      )
-                    else
-                      const SizedBox(width: 48),
-                    Expanded(
-                      child: Column(
-                        children: [
-                          Text(
-                            _currentStep == _TicketPurchaseStep.selectEntry
-                                ? 'Купить билет'
-                                : 'Купить билет',
-                            style: const TextStyle(
-                              fontFamily: 'Fraunces',
-                              fontSize: 22,
-                              height: 1.1,
-                              letterSpacing: -0.44,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    SKSpacing.x3,
+                    SKSpacing.x3,
+                    SKSpacing.x3,
+                    SKSpacing.x2,
+                  ),
+                  child: Row(
+                    children: [
+                      if (_currentStep == _TicketPurchaseStep.chooseTickets)
+                        IconButton(
+                          onPressed: _isPaymentBusy ? null : _goBackToSelection,
+                          icon: const Icon(Icons.arrow_back_rounded),
+                          tooltip: 'Назад',
+                        )
+                      else
+                        const SizedBox(width: 48),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            Text(
+                              'Купить билет',
+                              style: TextStyle(
+                                fontFamily: SKTypography.display,
+                                fontSize: 22,
+                                height: 1.1,
+                                letterSpacing: -0.44,
+                                color: c.textPrimary,
+                              ),
+                              textAlign: TextAlign.center,
                             ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: StarKidsSpacing.xs),
-                          Text(
-                            _currentStep == _TicketPurchaseStep.selectEntry
-                                ? 'Шаг 1 из 2'
-                                : 'Шаг 2 из 2',
-                            style: textTheme.bodySmall?.copyWith(
-                              color: isDark
-                                  ? StarKidsDarkColors.textSecondary
-                                  : StarKidsColors.textSecondary,
+                            const SizedBox(height: SKSpacing.x1),
+                            Text(
+                              _currentStep == _TicketPurchaseStep.selectEntry
+                                  ? 'Шаг 1 из 2'
+                                  : 'Шаг 2 из 2',
+                              style: textTheme.bodySmall?.copyWith(
+                                color: c.textSecondary,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close_rounded),
-                      tooltip: 'Закрыть',
-                    ),
-                  ],
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close_rounded),
+                        tooltip: 'Закрыть',
+                      ),
+                    ],
+                  ),
                 ),
-              ),
               Expanded(
                 child: StarKidsContentSwitcher(
                   child: _currentStep == _TicketPurchaseStep.selectEntry
@@ -488,21 +461,15 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.fromLTRB(
-                  StarKidsSpacing.xl,
-                  StarKidsSpacing.md,
-                  StarKidsSpacing.xl,
-                  StarKidsSpacing.xl + bottomInset,
+                  SKSpacing.x5,
+                  SKSpacing.x3,
+                  SKSpacing.x5,
+                  SKSpacing.x5 + bottomInset,
                 ),
                 decoration: BoxDecoration(
-                  color: isDark
-                      ? StarKidsDarkColors.surfacePrimary
-                      : StarKidsColors.surfacePrimary,
+                  color: c.elevated,
                   border: Border(
-                    top: BorderSide(
-                      color: isDark
-                          ? StarKidsDarkColors.borderDefault
-                          : StarKidsColors.borderDefault,
-                    ),
+                    top: BorderSide(color: c.hairline, width: 0.5),
                   ),
                 ),
                 child: Column(
@@ -517,31 +484,27 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                           Text(
                             _formatTenge(_totalAmount),
                             style: TextStyle(
-                              fontFamily: 'Fraunces',
+                              fontFamily: SKTypography.display,
                               fontSize: 24,
                               fontWeight: FontWeight.w400,
                               letterSpacing: -0.48,
-                              color: isDark
-                                  ? StarKidsDarkColors.textPrimary
-                                  : StarKidsColors.textPrimary,
+                              color: c.textPrimary,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: StarKidsSpacing.xs),
+                      const SizedBox(height: SKSpacing.x1),
                       Text(
                         _totalTickets == 0
                             ? 'Выберите хотя бы один платный билет.'
                             : 'Выбрано билетов: $_totalTickets',
                         style: textTheme.bodySmall?.copyWith(
-                          color: isDark
-                              ? StarKidsDarkColors.textSecondary
-                              : StarKidsColors.textSecondary,
+                          color: c.textSecondary,
                         ),
                       ),
-                      const SizedBox(height: StarKidsSpacing.md),
+                      const SizedBox(height: SKSpacing.x3),
                     ],
-                    StarKidsButton.primary(
+                    PrimaryButton(
                       label: _primaryActionLabel,
                       onPressed: _currentStep == _TicketPurchaseStep.selectEntry
                           ? (_selectedDate == null ||
@@ -555,34 +518,27 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                                   _paymentPhase == _TicketPaymentPhase.paid
                               ? null
                               : _startPayment),
-                      isLoading: _paymentPhase == _TicketPaymentPhase.starting,
                     ),
                     if (_currentStep == _TicketPurchaseStep.chooseTickets &&
                         _activePayment != null &&
                         _paymentPhase != _TicketPaymentPhase.paid) ...[
-                      const SizedBox(height: StarKidsSpacing.sm),
-                      StarKidsButton.secondary(
+                      const SizedBox(height: SKSpacing.x2),
+                      SecondaryButton(
                         label: _paymentPhase == _TicketPaymentPhase.checking
                             ? 'Проверяем статус'
                             : 'Проверить оплату',
                         onPressed: _isPaymentBusy ? null : _checkPaymentStatus,
-                        isLoading:
-                            _paymentPhase == _TicketPaymentPhase.checking,
                       ),
                     ],
                     if (_currentStep == _TicketPurchaseStep.chooseTickets &&
                         _paymentMessage != null) ...[
-                      const SizedBox(height: StarKidsSpacing.md),
+                      const SizedBox(height: SKSpacing.x3),
                       Text(
                         _paymentMessage!,
                         style: textTheme.bodyMedium?.copyWith(
                           color: _paymentPhase == _TicketPaymentPhase.failed
-                              ? (isDark
-                                  ? StarKidsDarkColors.statusError
-                                  : StarKidsColors.statusError)
-                              : (isDark
-                                  ? StarKidsDarkColors.textSecondary
-                                  : StarKidsColors.textSecondary),
+                              ? c.danger
+                              : c.textSecondary,
                         ),
                       ),
                     ],
@@ -593,7 +549,8 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   String get _primaryActionLabel {
@@ -643,10 +600,10 @@ class _StepSelectionView extends StatelessWidget {
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(
-        StarKidsSpacing.xl,
-        StarKidsSpacing.sm,
-        StarKidsSpacing.xl,
-        StarKidsSpacing.lg,
+        SKSpacing.x5,
+        SKSpacing.x2,
+        SKSpacing.x5,
+        SKSpacing.x4,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -659,7 +616,7 @@ class _StepSelectionView extends StatelessWidget {
             leadingIcon: Icons.location_on_rounded,
             onTap: onSelectBranch,
           ),
-          const SizedBox(height: StarKidsSpacing.lg),
+          const SizedBox(height: SKSpacing.x4),
           StarKidsSelectField(
             key: const ValueKey('ticket-day-select'),
             label: 'День',
@@ -670,12 +627,12 @@ class _StepSelectionView extends StatelessWidget {
             placeholderText: 'Выберите день посещения',
             onTap: onSelectDay,
           ),
-          const SizedBox(height: StarKidsSpacing.xl),
+          const SizedBox(height: SKSpacing.x5),
           Text(
             'ДОСТУПНЫЕ ТАРИФЫ',
             style: textTheme.labelMedium,
           ),
-          const SizedBox(height: StarKidsSpacing.sm),
+          const SizedBox(height: SKSpacing.x2),
           if (isConfigLoading)
             const _TicketConfigStateCard(
               title: 'Загружаем билеты',
@@ -726,55 +683,38 @@ class _StepTicketsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isDark
-        ? StarKidsDarkColors.surfacePrimary
-        : StarKidsColors.surfacePrimary;
-    final borderColor = isDark
-        ? StarKidsDarkColors.borderDefault
-        : StarKidsColors.borderDefault;
-    final secondaryText = isDark
-        ? StarKidsDarkColors.textSecondary
-        : StarKidsColors.textSecondary;
+    final c = SKTheme.of(context).colors;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(
-        StarKidsSpacing.xl,
-        StarKidsSpacing.sm,
-        StarKidsSpacing.xl,
-        StarKidsSpacing.lg,
+        SKSpacing.x5,
+        SKSpacing.x2,
+        SKSpacing.x5,
+        SKSpacing.x4,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(StarKidsSpacing.lg),
-            decoration: BoxDecoration(
-              color: cardBg,
-              borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-              border: Border.all(color: borderColor),
-              boxShadow: isDark ? null : StarKidsShadows.depth1,
-            ),
+          SolidCard(
+            radius: SKRadius.xl,
+            padding: const EdgeInsets.all(SKSpacing.x4),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Выбранный филиал', style: textTheme.labelMedium),
-                const SizedBox(height: StarKidsSpacing.xs),
+                const SizedBox(height: SKSpacing.x1),
                 Text(selectedBranch.name, style: textTheme.titleMedium),
-                const SizedBox(height: StarKidsSpacing.sm),
+                const SizedBox(height: SKSpacing.x2),
                 Text(
                   _formatTicketDate(selectedDate),
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: secondaryText,
-                  ),
+                  style: textTheme.bodyMedium?.copyWith(color: c.textSecondary),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: StarKidsSpacing.xl),
+          const SizedBox(height: SKSpacing.x5),
           Text('ДОСТУПНЫЕ ТАРИФЫ', style: textTheme.labelMedium),
-          const SizedBox(height: StarKidsSpacing.lg),
+          const SizedBox(height: SKSpacing.x4),
           if (isConfigLoading)
             const _TicketConfigStateCard(
               title: 'Загружаем билеты',
@@ -794,7 +734,7 @@ class _StepTicketsView extends StatelessWidget {
           else
             ...ticketConfig!.items.map(
               (ticketType) => Padding(
-                padding: const EdgeInsets.only(bottom: StarKidsSpacing.md),
+                padding: const EdgeInsets.only(bottom: SKSpacing.x3),
                 child: _TicketCounterCard(
                   config: ticketType,
                   count: ticketCounts[ticketType.id] ?? 0,
@@ -803,27 +743,22 @@ class _StepTicketsView extends StatelessWidget {
                 ),
               ),
             ),
-          const SizedBox(height: StarKidsSpacing.lg),
+          const SizedBox(height: SKSpacing.x4),
           if ((ticketConfig?.notes ?? const <String>[]).isNotEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(StarKidsSpacing.lg),
-              decoration: BoxDecoration(
-                color: cardBg,
-                borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-                border: Border.all(color: borderColor),
-              ),
+            SolidCard(
+              radius: SKRadius.xl,
+              padding: const EdgeInsets.all(SKSpacing.x4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Важно знать', style: textTheme.titleMedium),
-                  const SizedBox(height: StarKidsSpacing.md),
+                  const SizedBox(height: SKSpacing.x3),
                   for (var index = 0;
                       index < ticketConfig!.notes.length;
                       index++) ...[
                     _BenefitLine(label: ticketConfig!.notes[index]),
                     if (index < ticketConfig!.notes.length - 1)
-                      const SizedBox(height: StarKidsSpacing.sm),
+                      const SizedBox(height: SKSpacing.x2),
                   ],
                 ],
               ),
@@ -850,22 +785,11 @@ class _TicketCounterCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
 
-    return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
-      decoration: BoxDecoration(
-        color: isDark
-            ? StarKidsDarkColors.surfacePrimary
-            : StarKidsColors.surfacePrimary,
-        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-        border: Border.all(
-          color: isDark
-              ? StarKidsDarkColors.borderDefault
-              : StarKidsColors.borderDefault,
-        ),
-        boxShadow: isDark ? null : StarKidsShadows.depth1,
-      ),
+    return SolidCard(
+      radius: SKRadius.xl,
+      padding: const EdgeInsets.all(SKSpacing.x4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -874,31 +798,25 @@ class _TicketCounterCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(config.title, style: textTheme.titleMedium),
-                const SizedBox(height: StarKidsSpacing.xs),
+                const SizedBox(height: SKSpacing.x1),
                 Text(
                   _formatTenge(config.priceTenge),
-                  style: textTheme.bodyLarge?.copyWith(
-                    color: isDark
-                        ? StarKidsDarkColors.accentPink
-                        : StarKidsColors.textPrimary,
-                  ),
+                  style: textTheme.bodyLarge?.copyWith(color: c.textPrimary),
                 ),
                 if (config.description.isNotEmpty) ...[
-                  const SizedBox(height: StarKidsSpacing.sm),
+                  const SizedBox(height: SKSpacing.x2),
                   Text(
                     config.description,
                     style: textTheme.bodySmall?.copyWith(
-                      color: isDark
-                          ? StarKidsDarkColors.textSecondary
-                          : StarKidsColors.textSecondary,
+                      color: c.textSecondary,
                     ),
                   ),
                 ],
                 if (config.badgeLabels.isNotEmpty) ...[
-                  const SizedBox(height: StarKidsSpacing.sm),
+                  const SizedBox(height: SKSpacing.x2),
                   Wrap(
-                    spacing: StarKidsSpacing.xs,
-                    runSpacing: StarKidsSpacing.xs,
+                    spacing: SKSpacing.x1,
+                    runSpacing: SKSpacing.x1,
                     children: config.badgeLabels
                         .map((label) => _TicketBadgeChip(label: label))
                         .toList(),
@@ -907,7 +825,7 @@ class _TicketCounterCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: StarKidsSpacing.md),
+          const SizedBox(width: SKSpacing.x3),
           SkStepper(
             value: count,
             keyPrefix: config.id,
@@ -945,18 +863,12 @@ class _TicketCounterControl extends StatelessWidget {
     final canDecrease = count > 0;
     final textTheme = Theme.of(context).textTheme;
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
     return Container(
       decoration: BoxDecoration(
-        color: isDark
-            ? StarKidsDarkColors.glassSurface
-            : StarKidsColors.surfaceSecondary,
-        borderRadius: BorderRadius.circular(StarKidsRadii.full),
-        border: Border.all(
-          color: isDark
-              ? StarKidsDarkColors.borderDefault
-              : StarKidsColors.borderDefault,
-        ),
+        color: c.elevated,
+        borderRadius: BorderRadius.circular(SKRadius.pill),
+        border: Border.all(color: c.hairline),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1002,20 +914,12 @@ class _CounterButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
     return IconButton(
       onPressed: enabled ? onTap : null,
-      icon: Icon(icon, size: StarKidsIconSizes.sm),
-      color: enabled
-          ? (isDark
-              ? StarKidsDarkColors.textPrimary
-              : StarKidsColors.textPrimary)
-          : (isDark
-              ? StarKidsDarkColors.actionDisabledFg
-              : StarKidsColors.actionDisabledFg),
-      disabledColor: isDark
-          ? StarKidsDarkColors.actionDisabledFg
-          : StarKidsColors.actionDisabledFg,
+      icon: Icon(icon, size: 20),
+      color: enabled ? c.textPrimary : c.textDisabled,
+      disabledColor: c.textDisabled,
       splashRadius: 20,
       tooltip: null,
     );
@@ -1034,15 +938,15 @@ class _BenefitLine extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(top: 2),
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
           child: Icon(
             Icons.check_circle_rounded,
-            size: StarKidsIconSizes.sm,
-            color: StarKidsColors.brandPrimary,
+            size: 20,
+            color: SKTheme.of(context).colors.cta,
           ),
         ),
-        const SizedBox(width: StarKidsSpacing.sm),
+        const SizedBox(width: SKSpacing.x2),
         Expanded(child: Text(label, style: textTheme.bodyMedium)),
       ],
     );
@@ -1057,31 +961,21 @@ class _TicketBadgeChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final c = SKTheme.of(context).colors;
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: StarKidsSpacing.sm,
-        vertical: StarKidsSpacing.xs,
+        horizontal: SKSpacing.x2,
+        vertical: SKSpacing.x1,
       ),
       decoration: BoxDecoration(
-        color: isDark
-            ? StarKidsDarkColors.glassSurface
-            : StarKidsColors.surfaceSecondary,
-        borderRadius: BorderRadius.circular(StarKidsRadii.full),
-        border: Border.all(
-          color: isDark
-              ? StarKidsDarkColors.borderDefault
-              : StarKidsColors.borderDefault,
-        ),
+        color: c.elevated,
+        borderRadius: BorderRadius.circular(SKRadius.pill),
+        border: Border.all(color: c.hairline),
       ),
       child: Text(
         label,
-        style: textTheme.labelSmall?.copyWith(
-          color: isDark
-              ? StarKidsDarkColors.textPrimary
-              : StarKidsColors.textPrimary,
-        ),
+        style: textTheme.labelSmall?.copyWith(color: c.textPrimary),
       ),
     );
   }
@@ -1095,23 +989,11 @@ class _TicketConfigPreviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final c = SKTheme.of(context).colors;
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
-      decoration: BoxDecoration(
-        color: isDark
-            ? StarKidsDarkColors.surfacePrimary
-            : StarKidsColors.surfacePrimary,
-        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-        border: Border.all(
-          color: isDark
-              ? StarKidsDarkColors.borderDefault
-              : StarKidsColors.borderDefault,
-        ),
-        boxShadow: isDark ? null : StarKidsShadows.depth1,
-      ),
+    return SolidCard(
+      radius: SKRadius.xl,
+      padding: const EdgeInsets.all(SKSpacing.x4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1128,49 +1010,38 @@ class _TicketConfigPreviewCard extends StatelessWidget {
                         style: textTheme.titleMedium,
                       ),
                       if (config.items[index].description.isNotEmpty) ...[
-                        const SizedBox(height: StarKidsSpacing.xs),
+                        const SizedBox(height: SKSpacing.x1),
                         Text(
                           config.items[index].description,
                           style: textTheme.bodySmall?.copyWith(
-                            color: isDark
-                                ? StarKidsDarkColors.textSecondary
-                                : StarKidsColors.textSecondary,
+                            color: c.textSecondary,
                           ),
                         ),
                       ],
                     ],
                   ),
                 ),
-                const SizedBox(width: StarKidsSpacing.md),
+                const SizedBox(width: SKSpacing.x3),
                 Text(
                   _formatTenge(config.items[index].priceTenge),
-                  style: textTheme.titleMedium?.copyWith(
-                    color: isDark
-                        ? StarKidsDarkColors.accentPink
-                        : StarKidsColors.textPrimary,
-                  ),
+                  style: textTheme.titleMedium?.copyWith(color: c.textPrimary),
                 ),
               ],
             ),
             if (config.items[index].badgeLabels.isNotEmpty) ...[
-              const SizedBox(height: StarKidsSpacing.xs),
+              const SizedBox(height: SKSpacing.x1),
               Wrap(
-                spacing: StarKidsSpacing.xs,
-                runSpacing: StarKidsSpacing.xs,
+                spacing: SKSpacing.x1,
+                runSpacing: SKSpacing.x1,
                 children: config.items[index].badgeLabels
                     .map((label) => _TicketBadgeChip(label: label))
                     .toList(),
               ),
             ],
             if (index < config.items.length - 1) ...[
-              const SizedBox(height: StarKidsSpacing.md),
-              Divider(
-                height: 1,
-                color: isDark
-                    ? StarKidsDarkColors.borderDefault
-                    : StarKidsColors.borderDefault,
-              ),
-              const SizedBox(height: StarKidsSpacing.md),
+              const SizedBox(height: SKSpacing.x3),
+              Divider(height: 1, color: c.hairline),
+              const SizedBox(height: SKSpacing.x3),
             ],
           ],
         ],
@@ -1191,34 +1062,19 @@ class _TicketConfigStateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final c = SKTheme.of(context).colors;
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
-      decoration: BoxDecoration(
-        color: isDark
-            ? StarKidsDarkColors.surfacePrimary
-            : StarKidsColors.surfacePrimary,
-        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-        border: Border.all(
-          color: isDark
-              ? StarKidsDarkColors.borderDefault
-              : StarKidsColors.borderDefault,
-        ),
-      ),
+    return SolidCard(
+      radius: SKRadius.xl,
+      padding: const EdgeInsets.all(SKSpacing.x4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: textTheme.titleMedium),
-          const SizedBox(height: StarKidsSpacing.xs),
+          const SizedBox(height: SKSpacing.x1),
           Text(
             description,
-            style: textTheme.bodyMedium?.copyWith(
-              color: isDark
-                  ? StarKidsDarkColors.textSecondary
-                  : StarKidsColors.textSecondary,
-            ),
+            style: textTheme.bodyMedium?.copyWith(color: c.textSecondary),
           ),
         ],
       ),
@@ -1226,14 +1082,14 @@ class _TicketConfigStateCard extends StatelessWidget {
   }
 }
 
-class _MyTicketsSheet extends StatefulWidget {
-  const _MyTicketsSheet();
+class _MyTicketsBody extends StatefulWidget {
+  const _MyTicketsBody();
 
   @override
-  State<_MyTicketsSheet> createState() => _MyTicketsSheetState();
+  State<_MyTicketsBody> createState() => _MyTicketsBodyState();
 }
 
-class _MyTicketsSheetState extends State<_MyTicketsSheet> {
+class _MyTicketsBodyState extends State<_MyTicketsBody> {
   var _isLoading = true;
   String? _errorMessage;
   List<PurchasedTicket> _tickets = const [];
@@ -1275,90 +1131,58 @@ class _MyTicketsSheetState extends State<_MyTicketsSheet> {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final c = SKTheme.of(context).colors;
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          StarKidsSpacing.xl,
-          StarKidsSpacing.md,
-          StarKidsSpacing.xl,
-          StarKidsSpacing.xl,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 44,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? StarKidsDarkColors.borderDefault
-                      : StarKidsColors.borderDefault,
-                  borderRadius: BorderRadius.circular(StarKidsRadii.full),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        SKSpacing.x5,
+        SKSpacing.x4,
+        SKSpacing.x5,
+        SKSpacing.x5,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Все подтверждённые билеты в одном месте.',
+            style: textTheme.bodyMedium?.copyWith(color: c.textSecondary),
+          ),
+          const SizedBox(height: SKSpacing.x5),
+          if (_isLoading)
+            const _TicketConfigStateCard(
+              title: 'Загружаем билеты',
+              description: 'Проверяем подтвержденные покупки.',
+            )
+          else if (_errorMessage != null)
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _TicketConfigStateCard(
+                  title: 'Не удалось загрузить билеты',
+                  description: _errorMessage!,
                 ),
-              ),
+                const SizedBox(height: SKSpacing.x3),
+                SecondaryButton(label: 'Повторить', onPressed: _loadTickets),
+              ],
+            )
+          else if (_tickets.isEmpty)
+            const _TicketConfigStateCard(
+              title: 'Пока нет купленных билетов',
+              description:
+                  'После подтвержденной оплаты билет появится здесь автоматически.',
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _tickets.length,
+              separatorBuilder: (_, __) =>
+                  const SizedBox(height: SKSpacing.x3),
+              itemBuilder: (context, index) =>
+                  _PurchasedTicketCard(ticket: _tickets[index]),
             ),
-            const SizedBox(height: StarKidsSpacing.xl),
-            Text('Мои билеты', style: textTheme.headlineSmall),
-            const SizedBox(height: StarKidsSpacing.sm),
-            Text(
-              'Все подтверждённые билеты в одном месте.',
-              style: textTheme.bodyMedium?.copyWith(
-                color: isDark
-                    ? StarKidsDarkColors.textSecondary
-                    : StarKidsColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: StarKidsSpacing.xl),
-            if (_isLoading)
-              const _TicketConfigStateCard(
-                title: 'Загружаем билеты',
-                description: 'Проверяем подтвержденные покупки.',
-              )
-            else if (_errorMessage != null)
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _TicketConfigStateCard(
-                    title: 'Не удалось загрузить билеты',
-                    description: _errorMessage!,
-                  ),
-                  const SizedBox(height: StarKidsSpacing.md),
-                  StarKidsButton.secondary(
-                    label: 'Повторить',
-                    onPressed: _loadTickets,
-                  ),
-                ],
-              )
-            else if (_tickets.isEmpty)
-              const _TicketConfigStateCard(
-                title: 'Пока нет купленных билетов',
-                description:
-                    'После подтвержденной оплаты билет появится здесь автоматически.',
-              )
-            else
-              Flexible(
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: _tickets.length,
-                  separatorBuilder: (_, __) =>
-                      const SizedBox(height: StarKidsSpacing.md),
-                  itemBuilder: (context, index) {
-                    return _PurchasedTicketCard(ticket: _tickets[index]);
-                  },
-                ),
-              ),
-            const SizedBox(height: StarKidsSpacing.lg),
-            StarKidsButton.secondary(
-              label: 'Закрыть',
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -1372,23 +1196,11 @@ class _PurchasedTicketCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final c = SKTheme.of(context).colors;
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
-      decoration: BoxDecoration(
-        color: isDark
-            ? StarKidsDarkColors.surfacePrimary
-            : StarKidsColors.surfacePrimary,
-        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-        border: Border.all(
-          color: isDark
-              ? StarKidsDarkColors.borderDefault
-              : StarKidsColors.borderDefault,
-        ),
-        boxShadow: isDark ? null : StarKidsShadows.depth1,
-      ),
+    return SolidCard(
+      radius: SKRadius.xl,
+      padding: const EdgeInsets.all(SKSpacing.x4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1399,64 +1211,50 @@ class _PurchasedTicketCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: isDark
-                      ? StarKidsDarkColors.statusSuccessSurface
-                      : StarKidsColors.statusSuccessSurface,
-                  borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+                  color: c.accentSoft,
+                  borderRadius: BorderRadius.circular(SKRadius.lg),
                 ),
                 child: Icon(
                   Icons.confirmation_num_rounded,
-                  color: isDark
-                      ? StarKidsDarkColors.statusSuccess
-                      : StarKidsColors.statusSuccess,
+                  color: c.accent,
                 ),
               ),
-              const SizedBox(width: StarKidsSpacing.md),
+              const SizedBox(width: SKSpacing.x3),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(ticket.branchName, style: textTheme.titleMedium),
-                    const SizedBox(height: StarKidsSpacing.xs),
+                    const SizedBox(height: SKSpacing.x1),
                     Text(
                       ticket.visitDate == null
                           ? 'Дата посещения не указана'
                           : _formatTicketDate(ticket.visitDate!),
                       style: textTheme.bodySmall?.copyWith(
-                        color: isDark
-                            ? StarKidsDarkColors.textSecondary
-                            : StarKidsColors.textSecondary,
+                        color: c.textSecondary,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: StarKidsSpacing.sm),
+              const SizedBox(width: SKSpacing.x2),
               Text(
                 _formatTenge(ticket.amountTenge),
-                style: textTheme.titleSmall?.copyWith(
-                  color: isDark
-                      ? StarKidsDarkColors.accentPink
-                      : StarKidsColors.brandPrimary,
-                ),
+                style: textTheme.titleSmall?.copyWith(color: c.cta),
               ),
             ],
           ),
-          const SizedBox(height: StarKidsSpacing.md),
+          const SizedBox(height: SKSpacing.x3),
           for (final item in ticket.items) ...[
             Text(
               '${item.title} x ${item.quantity}',
               style: textTheme.bodyMedium,
             ),
-            const SizedBox(height: StarKidsSpacing.xs),
+            const SizedBox(height: SKSpacing.x1),
           ],
           Text(
             'Заказ ${ticket.localOrderId}',
-            style: textTheme.bodySmall?.copyWith(
-              color: isDark
-                  ? StarKidsDarkColors.textSecondary
-                  : StarKidsColors.textSecondary,
-            ),
+            style: textTheme.bodySmall?.copyWith(color: c.textSecondary),
           ),
         ],
       ),
@@ -1466,7 +1264,6 @@ class _PurchasedTicketCard extends StatelessWidget {
 
 class _SelectionSheet<T> extends StatelessWidget {
   const _SelectionSheet({
-    required this.title,
     required this.items,
     required this.currentId,
     required this.itemIdBuilder,
@@ -1474,7 +1271,6 @@ class _SelectionSheet<T> extends StatelessWidget {
     required this.subtitleBuilder,
   });
 
-  final String title;
   final List<T> items;
   final String? currentId;
   final String Function(T item) itemIdBuilder;
@@ -1485,114 +1281,59 @@ class _SelectionSheet<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          StarKidsSpacing.xl,
-          StarKidsSpacing.md,
-          StarKidsSpacing.xl,
-          StarKidsSpacing.xl,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 44,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? StarKidsDarkColors.borderDefault
-                      : StarKidsColors.borderDefault,
-                  borderRadius: BorderRadius.circular(StarKidsRadii.full),
-                ),
-              ),
-            ),
-            const SizedBox(height: StarKidsSpacing.lg),
-            Text(title, style: textTheme.headlineSmall),
-            const SizedBox(height: StarKidsSpacing.lg),
-            Flexible(
-              child: ListView.separated(
-                shrinkWrap: true,
-                itemCount: items.length,
-                separatorBuilder: (_, __) =>
-                    const SizedBox(height: StarKidsSpacing.sm),
-                itemBuilder: (context, index) {
-                  final item = items[index];
-                  final itemId = itemIdBuilder(item);
-                  final isSelected = itemId == currentId;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        SKSpacing.x5,
+        SKSpacing.x4,
+        SKSpacing.x5,
+        SKSpacing.x5,
+      ),
+      child: ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: items.length,
+        separatorBuilder: (_, __) =>
+            const SizedBox(height: SKSpacing.x2),
+        itemBuilder: (context, index) {
+          final item = items[index];
+          final itemId = itemIdBuilder(item);
+          final isSelected = itemId == currentId;
+          final c = SKTheme.of(context).colors;
 
-                  final isDark =
-                      Theme.of(context).brightness == Brightness.dark;
-                  final accentColor = isDark
-                      ? StarKidsDarkColors.accentPink
-                      : StarKidsColors.brandPrimary;
-                  final secondaryText = isDark
-                      ? StarKidsDarkColors.textSecondary
-                      : StarKidsColors.textSecondary;
-                  return Material(
-                    color: isDark
-                        ? StarKidsDarkColors.surfacePrimary
-                        : StarKidsColors.surfacePrimary,
-                    borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-                    child: InkWell(
-                      key: ValueKey('selection-item-$index'),
-                      onTap: () => Navigator.of(context).pop(item),
-                      borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-                      child: Container(
-                        padding: const EdgeInsets.all(StarKidsSpacing.lg),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-                          border: Border.all(
-                            color: isSelected
-                                ? accentColor
-                                : (isDark
-                                    ? StarKidsDarkColors.borderDefault
-                                    : StarKidsColors.borderDefault),
-                            width: isSelected ? 2 : 1,
-                          ),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    titleBuilder(item),
-                                    style: textTheme.titleMedium,
-                                  ),
-                                  const SizedBox(height: StarKidsSpacing.xs),
-                                  Text(
-                                    subtitleBuilder(item),
-                                    style: textTheme.bodySmall?.copyWith(
-                                      color: secondaryText,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: StarKidsSpacing.sm),
-                            Icon(
-                              isSelected
-                                  ? Icons.check_circle_rounded
-                                  : Icons.chevron_right_rounded,
-                              color: isSelected ? accentColor : secondaryText,
-                            ),
-                          ],
+          return SolidCard(
+            key: ValueKey('selection-item-$index'),
+            radius: SKRadius.xl,
+            padding: const EdgeInsets.all(SKSpacing.x4),
+            onTap: () => Navigator.of(context).pop(item),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(titleBuilder(item), style: textTheme.titleMedium),
+                      const SizedBox(height: SKSpacing.x1),
+                      Text(
+                        subtitleBuilder(item),
+                        style: textTheme.bodySmall?.copyWith(
+                          color: c.textSecondary,
                         ),
                       ),
-                    ),
-                  );
-                },
-              ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: SKSpacing.x2),
+                Icon(
+                  isSelected
+                      ? Icons.check_circle_rounded
+                      : Icons.chevron_right_rounded,
+                  color: isSelected ? c.cta : c.textSecondary,
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

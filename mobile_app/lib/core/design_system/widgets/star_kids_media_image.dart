@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../foundations/star_kids_colors.dart';
+import '../sk_theme.dart';
 
 class StarKidsMediaImage extends StatelessWidget {
   const StarKidsMediaImage({
@@ -86,15 +86,11 @@ class _MediaPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DecoratedBox(
-      decoration: BoxDecoration(
-        color: StarKidsColors.surfaceSecondary,
-      ),
+    final c = SKTheme.of(context).colors;
+    return DecoratedBox(
+      decoration: BoxDecoration(color: c.elevated),
       child: Center(
-        child: Icon(
-          Icons.image_rounded,
-          color: StarKidsColors.textSecondary,
-        ),
+        child: Icon(Icons.image_rounded, color: c.textSecondary),
       ),
     );
   }

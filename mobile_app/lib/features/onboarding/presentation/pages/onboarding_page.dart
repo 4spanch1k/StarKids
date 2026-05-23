@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/design_system/sk_design_tokens.dart';
+
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_brand_logo.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
 
@@ -26,7 +27,7 @@ class OnboardingPage extends StatelessWidget {
                     child: StarKidsBrandLogo(logoSize: 92),
                   ),
                 ),
-                const SizedBox(height: StarKidsSpacing.xl),
+                const SizedBox(height: SKSpacing.x5),
                 Text(
                   'Star Kids Shymkent',
                   style: Theme.of(context).textTheme.headlineMedium,

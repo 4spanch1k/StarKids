@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../foundations/star_kids_colors.dart';
-import '../foundations/star_kids_radii.dart';
-import '../foundations/star_kids_spacing.dart';
+import '../sk_design_tokens.dart';
+import '../sk_theme.dart';
 
 class SkDatePillRow extends StatelessWidget {
   const SkDatePillRow({
@@ -30,14 +29,14 @@ class SkDatePillRow extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.zero,
         itemCount: dates.length,
-        separatorBuilder: (_, __) => const SizedBox(width: StarKidsSpacing.sm),
+        separatorBuilder: (_, __) => const SizedBox(width: SKSpacing.x2),
         itemBuilder: (context, i) {
           final date = dates[i];
           final isSelected = selectedDate != null &&
               date.year == selectedDate!.year &&
               date.month == selectedDate!.month &&
               date.day == selectedDate!.day;
-          final isDark = Theme.of(context).brightness == Brightness.dark;
+          final c = SKTheme.of(context).colors;
 
           return GestureDetector(
             onTap: () => onDateSelected(date),
@@ -46,18 +45,10 @@ class SkDatePillRow extends StatelessWidget {
               curve: Curves.easeOutCubic,
               width: 52,
               decoration: BoxDecoration(
-                color: isSelected
-                    ? StarKidsColors.brandPrimary
-                    : (isDark
-                        ? StarKidsDarkColors.surfaceElevated
-                        : StarKidsColors.surfacePrimary),
-                borderRadius: BorderRadius.circular(StarKidsRadii.md),
+                color: isSelected ? c.cta : c.elevated,
+                borderRadius: BorderRadius.circular(SKRadius.md),
                 border: Border.all(
-                  color: isSelected
-                      ? StarKidsColors.brandPrimary
-                      : (isDark
-                          ? StarKidsDarkColors.borderDefault
-                          : StarKidsColors.borderDefault),
+                  color: isSelected ? c.cta : c.hairline,
                 ),
               ),
               child: Column(
@@ -68,11 +59,7 @@ class SkDatePillRow extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
-                      color: isSelected
-                          ? Colors.white
-                          : (isDark
-                              ? StarKidsDarkColors.textSecondary
-                              : StarKidsColors.textSecondary),
+                      color: isSelected ? Colors.white : c.textSecondary,
                       letterSpacing: 0.8,
                     ),
                   ),
@@ -82,11 +69,7 @@ class SkDatePillRow extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
-                      color: isSelected
-                          ? Colors.white
-                          : (isDark
-                              ? StarKidsDarkColors.textPrimary
-                              : StarKidsColors.textPrimary),
+                      color: isSelected ? Colors.white : c.textPrimary,
                     ),
                   ),
                 ],

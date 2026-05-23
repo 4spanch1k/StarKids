@@ -3,14 +3,14 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_colors.dart';
-import '../../../../core/design_system/foundations/star_kids_icon_sizes.dart';
-import '../../../../core/design_system/foundations/star_kids_radii.dart';
-import '../../../../core/design_system/foundations/star_kids_shadows.dart';
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
+import '../../../../core/design_system/sk_design_tokens.dart';
+import '../../../../core/design_system/sk_theme.dart';
+import '../../../../core/design_system/widgets/glass_app_bar.dart';
+import '../../../../core/design_system/widgets/glass_bottom_nav.dart';
+import '../../../../core/design_system/widgets/glass_container.dart';
+import '../../../../core/design_system/widgets/glass_drawer.dart';
 import '../../../../core/design_system/widgets/sk_button.dart';
 import '../../../../core/design_system/widgets/sk_hero.dart';
-import '../../../../core/design_system/widgets/sk_tab_bar.dart';
 import '../../../../core/design_system/widgets/star_kids_birthday_package_card.dart';
 import '../../../../core/design_system/widgets/star_kids_content_block_card.dart';
 import '../../../../core/design_system/widgets/star_kids_cosmic_canvas.dart';
@@ -44,6 +44,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   late final NewsFeedController _newsController;
   late final bool _ownsNewsController;
 
@@ -73,17 +74,25 @@ class _HomePageState extends State<HomePage> {
       animation: ServiceRegistry.selectedBranchController,
       builder: (context, _) {
         final branch = ServiceRegistry.selectedBranchController.selectedBranch;
-        final textTheme = Theme.of(context).textTheme;
-
-        final isDark = Theme.of(context).brightness == Brightness.dark;
 
         return Scaffold(
-          // Glass floating nav bar
-          bottomNavigationBar: _FloatingNavBar(
-            selectedIndex: 0,
-            onDestinationSelected: (index) {
-              unawaited(_handleNavigationSelection(context, index));
-            },
+          key: _scaffoldKey,
+          extendBody: true,
+          appBar: GlassAppBar(
+            leading: GlassIconButton(
+              icon: Icons.menu_rounded,
+              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            ),
+            title: _BranchPill(branch: branch),
+            trailing: GlassIconButton(
+              icon: Icons.notifications_none_rounded,
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(AppRoutes.notifications),
+            ),
+          ),
+          drawer: const GlassDrawer(child: _AppDrawer()),
+          bottomNavigationBar: _GlassNav(
+            onChanged: (id) => unawaited(_handleNavChange(context, id)),
           ),
           body: StarKidsCosmicCanvas(
             child: SafeArea(
@@ -97,93 +106,13 @@ class _HomePageState extends State<HomePage> {
                   slivers: [
                     SliverPadding(
                       padding: const EdgeInsets.fromLTRB(
-                        StarKidsSpacing.xl,
-                        StarKidsSpacing.lg,
-                        StarKidsSpacing.xl,
-                        StarKidsSpacing.x2l,
+                        SKSpacing.x5,
+                        SKSpacing.x4,
+                        SKSpacing.x5,
+                        120.0, // floating nav: 80h + 12 bottom + 28 buffer
                       ),
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
-                          StarKidsReveal(
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(
-                                      StarKidsRadii.full,
-                                    ),
-                                    onTap: () => Navigator.of(
-                                      context,
-                                    ).pushNamed(AppRoutes.branchSelection),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: StarKidsSpacing.lg,
-                                        vertical: StarKidsSpacing.md,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: isDark
-                                            ? StarKidsDarkColors.glassSurface
-                                            : StarKidsColors.glassSurface,
-                                        borderRadius: BorderRadius.circular(
-                                          StarKidsRadii.full,
-                                        ),
-                                        border: Border.all(
-                                          color: isDark
-                                              ? StarKidsDarkColors.glassStroke
-                                              : StarKidsColors.glassStroke,
-                                        ),
-                                        boxShadow: isDark
-                                            ? StarKidsShadows.depth1Dark
-                                            : StarKidsShadows.depth1,
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          ShaderMask(
-                                            shaderCallback: (bounds) =>
-                                                const LinearGradient(
-                                              colors: [
-                                                StarKidsColors.brandPrimary,
-                                                StarKidsColors.brandAccent,
-                                              ],
-                                            ).createShader(bounds),
-                                            child: const Icon(
-                                              Icons.location_on_rounded,
-                                              size: StarKidsIconSizes.sm,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                          const SizedBox(
-                                            width: StarKidsSpacing.sm,
-                                          ),
-                                          Expanded(
-                                            child: Text(
-                                              branch.name,
-                                              style: textTheme.labelLarge,
-                                            ),
-                                          ),
-                                          Icon(
-                                            Icons.expand_more_rounded,
-                                            color: isDark
-                                                ? StarKidsDarkColors
-                                                    .textSecondary
-                                                : StarKidsColors.textSecondary,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: StarKidsSpacing.md),
-                                _HomeActionButton(
-                                  icon: Icons.notifications_none_rounded,
-                                  onTap: () => Navigator.of(context).pushNamed(
-                                    AppRoutes.notifications,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: StarKidsSpacing.lg),
                           StarKidsReveal(
                             delay: starKidsStaggerDelay(1),
                             child: SkHero(
@@ -205,23 +134,22 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: StarKidsSpacing.x2l),
+                          const SizedBox(height: SKSpacing.x6),
                           HomeNewsSection(newsController: _newsController),
-                          const SizedBox(height: StarKidsSpacing.x2l),
+                          const SizedBox(height: SKSpacing.x6),
                           const StarKidsReveal(
                             delay: Duration(milliseconds: 80),
                             child: StarKidsSectionHeader(
                               title: 'Быстрые действия',
                             ),
                           ),
-                          const SizedBox(height: StarKidsSpacing.lg),
-                          // Overflow fix: mainAxisExtent replaces childAspectRatio
+                          const SizedBox(height: SKSpacing.x4),
                           GridView.builder(
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 2,
-                              mainAxisSpacing: StarKidsSpacing.md,
-                              crossAxisSpacing: StarKidsSpacing.md,
+                              mainAxisSpacing: SKSpacing.x3,
+                              crossAxisSpacing: SKSpacing.x3,
                               mainAxisExtent: 164,
                             ),
                             shrinkWrap: true,
@@ -231,7 +159,7 @@ class _HomePageState extends State<HomePage> {
                               return _quickActionTiles(context)[index];
                             },
                           ),
-                          const SizedBox(height: StarKidsSpacing.x2l),
+                          const SizedBox(height: SKSpacing.x6),
                           FutureBuilder<_HomeContentData>(
                             future: _loadHomeContent(branch.id),
                             builder: (context, snapshot) {
@@ -242,7 +170,7 @@ class _HomePageState extends State<HomePage> {
                                   child: Padding(
                                     key: ValueKey('home-content-loading'),
                                     padding: EdgeInsets.symmetric(
-                                      vertical: StarKidsSpacing.x2l,
+                                      vertical: SKSpacing.x6,
                                     ),
                                     child: Center(
                                       child: CircularProgressIndicator(),
@@ -274,7 +202,7 @@ class _HomePageState extends State<HomePage> {
                                         context,
                                       ).pushNamed(AppRoutes.birthdays),
                                     ),
-                                    const SizedBox(height: StarKidsSpacing.lg),
+                                    const SizedBox(height: SKSpacing.x4),
                                     if (content.featuredPackage != null)
                                       StarKidsBirthdayPackageCard(
                                         revealDelay: starKidsStaggerDelay(0),
@@ -310,11 +238,11 @@ class _HomePageState extends State<HomePage> {
                                         description:
                                             'Для выбранного филиала пока нет опубликованных пакетов. Можно оставить общую заявку, и менеджер поможет подобрать формат.',
                                       ),
-                                    const SizedBox(height: StarKidsSpacing.x2l),
+                                    const SizedBox(height: SKSpacing.x6),
                                     const StarKidsSectionHeader(
                                       title: 'Актуальные акции',
                                     ),
-                                    const SizedBox(height: StarKidsSpacing.lg),
+                                    const SizedBox(height: SKSpacing.x4),
                                     if (content.promotions.isNotEmpty)
                                       ...content.promotions
                                           .take(2)
@@ -324,7 +252,7 @@ class _HomePageState extends State<HomePage> {
                                           .map(
                                             (entry) => Padding(
                                               padding: const EdgeInsets.only(
-                                                bottom: StarKidsSpacing.md,
+                                                bottom: SKSpacing.x3,
                                               ),
                                               child: StarKidsPromoCard(
                                                 revealDelay:
@@ -351,20 +279,20 @@ class _HomePageState extends State<HomePage> {
                                         description:
                                             'По выбранному филиалу пока нет активных предложений. Остальные экраны приложения продолжают работать в обычном режиме.',
                                       ),
-                                    const SizedBox(height: StarKidsSpacing.x2l),
+                                    const SizedBox(height: SKSpacing.x6),
                                     if (content.contentBlocks.isNotEmpty) ...[
                                       const StarKidsSectionHeader(
                                         title: 'Что важно перед визитом',
                                       ),
                                       const SizedBox(
-                                          height: StarKidsSpacing.lg),
+                                          height: SKSpacing.x4),
                                       ...content.contentBlocks
                                           .asMap()
                                           .entries
                                           .map(
                                             (entry) => Padding(
                                               padding: const EdgeInsets.only(
-                                                bottom: StarKidsSpacing.md,
+                                                bottom: SKSpacing.x3,
                                               ),
                                               child: StarKidsContentBlockCard(
                                                 revealDelay:
@@ -384,17 +312,17 @@ class _HomePageState extends State<HomePage> {
                                             'Пространство, которое дети любят, а родители ценят за удобство.',
                                       ),
                                       const SizedBox(
-                                          height: StarKidsSpacing.lg),
+                                          height: SKSpacing.x4),
                                       _TrustBlock(branch: homeBranch),
                                     ],
                                     if (content.faqs.isNotEmpty) ...[
                                       const SizedBox(
-                                          height: StarKidsSpacing.x2l),
+                                          height: SKSpacing.x6),
                                       const StarKidsSectionHeader(
                                         title: 'Частые вопросы',
                                       ),
                                       const SizedBox(
-                                          height: StarKidsSpacing.lg),
+                                          height: SKSpacing.x4),
                                       ...content.faqs
                                           .take(3)
                                           .toList()
@@ -403,7 +331,7 @@ class _HomePageState extends State<HomePage> {
                                           .map(
                                             (entry) => Padding(
                                               padding: const EdgeInsets.only(
-                                                bottom: StarKidsSpacing.md,
+                                                bottom: SKSpacing.x3,
                                               ),
                                               child: StarKidsFaqCard(
                                                 revealDelay:
@@ -421,7 +349,6 @@ class _HomePageState extends State<HomePage> {
                               );
                             },
                           ),
-                          // Bottom padding for floating nav bar clearance
                           const SizedBox(height: 96),
                         ]),
                       ),
@@ -439,7 +366,7 @@ class _HomePageState extends State<HomePage> {
   List<Widget> _quickActionTiles(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Dark mode uses nebula accent colors; light mode uses light pastels.
+    // Dark mode: semi-transparent tints. Light mode: warm pastel pairs.
     final tileColors = isDark
         ? const [
             [Color(0x2A3B82F6), Color(0x1A10B981)],
@@ -450,12 +377,12 @@ class _HomePageState extends State<HomePage> {
             [Color(0x24FF5A5F), Color(0x18E5D4F2)],
           ]
         : const [
-            [StarKidsColors.warmSky, StarKidsColors.warmMint],
-            [StarKidsColors.warmCoral, StarKidsColors.warmPlum],
-            [StarKidsColors.warmMint, StarKidsColors.warmSky],
-            [StarKidsColors.warmPlum, StarKidsColors.warmSky],
-            [Color(0xFFFFF0CC), StarKidsColors.warmMint],
-            [StarKidsColors.warmCoral, StarKidsColors.warmMint],
+            [Color(0xFFC7DDEF), Color(0xFFB6E3C8)],
+            [Color(0xFFFFE7E5), Color(0xFFE5D4F2)],
+            [Color(0xFFB6E3C8), Color(0xFFC7DDEF)],
+            [Color(0xFFE5D4F2), Color(0xFFC7DDEF)],
+            [Color(0xFFFFF0CC), Color(0xFFB6E3C8)],
+            [Color(0xFFFFE7E5), Color(0xFFB6E3C8)],
           ];
 
     return [
@@ -553,147 +480,156 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-Future<void> _handleNavigationSelection(BuildContext context, int index) async {
-  switch (index) {
-    case 1:
+Future<void> _handleNavChange(BuildContext context, String id) async {
+  switch (id) {
+    case 'birthdays':
       Navigator.of(context).pushNamed(AppRoutes.birthdays);
-      return;
-    case 2:
+    case 'promotions':
       Navigator.of(context).pushNamed(AppRoutes.promotions);
-      return;
-    case 3:
+    case 'tickets':
       final action = await showTicketsEntrySheet(context);
-      if (!context.mounted || action == null) {
-        return;
-      }
-
+      if (!context.mounted || action == null) return;
       switch (action) {
         case TicketsEntryAction.myTickets:
           await showMyTicketsSheet(context);
-          return;
         case TicketsEntryAction.buyTicket:
           await showTicketPurchaseFlowSheet(context);
-          return;
       }
-    case 4:
+    case 'profile':
       Navigator.of(context).pushNamed(AppRoutes.profile);
-      return;
-    case 0:
-    default:
-      return;
   }
 }
 
-/// Floating glass navigation bar that appears to float above the content.
-class _FloatingNavBar extends StatelessWidget {
-  const _FloatingNavBar({
-    required this.selectedIndex,
-    required this.onDestinationSelected,
-  });
-
-  final int selectedIndex;
-  final ValueChanged<int> onDestinationSelected;
+class _GlassNav extends StatelessWidget {
+  final ValueChanged<String> onChanged;
+  const _GlassNav({required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
-    return Builder(
-      builder: (ctx) {
-        final l = AppL10n.of(ctx);
-        return SkTabBar(
-          selectedIndex: selectedIndex,
-          onSelected: onDestinationSelected,
-          items: [
-            SkTabItem(icon: Icons.home_outlined, label: l.navHome),
-            SkTabItem(icon: Icons.cake_outlined, label: l.navBirthdays),
-            SkTabItem(icon: Icons.local_offer_outlined, label: l.navPromotions),
-            const SkTabItem(
-              icon: Icons.confirmation_num_outlined,
-              label: 'Билеты',
-            ),
-            SkTabItem(icon: Icons.person_outline, label: l.navProfile),
-          ],
-        );
-      },
+    final l = AppL10n.of(context);
+    return GlassBottomNav(
+      value: 'home',
+      onChanged: onChanged,
+      items: [
+        GlassNavItem(id: 'home',       icon: Icons.home_outlined,             label: l.navHome),
+        GlassNavItem(id: 'birthdays',  icon: Icons.cake_outlined,             label: l.navBirthdays),
+        GlassNavItem(id: 'promotions', icon: Icons.local_offer_outlined,      label: l.navPromotions),
+        const GlassNavItem(id: 'tickets', icon: Icons.confirmation_num_outlined, label: 'Билеты'),
+        GlassNavItem(id: 'profile',    icon: Icons.person_outline,            label: l.navProfile),
+      ],
     );
   }
 }
 
-class _FloatingNavItem extends StatefulWidget {
-  const _FloatingNavItem({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  State<_FloatingNavItem> createState() => _FloatingNavItemState();
-}
-
-class _FloatingNavItemState extends State<_FloatingNavItem> {
-  bool _pressed = false;
+class _BranchPill extends StatelessWidget {
+  final BranchOption branch;
+  const _BranchPill({required this.branch});
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final fg = widget.selected
-        ? (isDark ? StarKidsDarkColors.textPrimary : StarKidsColors.textPrimary)
-        : (isDark
-            ? StarKidsDarkColors.textSecondary
-            : StarKidsColors.textSecondary);
+    return GlassPill(
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: SKSpacing.x4),
+      onTap: () => Navigator.of(context).pushNamed(AppRoutes.branchSelection),
+      child: _BranchPillContent(branch: branch),
+    );
+  }
+}
 
-    return AnimatedScale(
-      scale: _pressed ? 0.96 : 1,
-      duration: const Duration(milliseconds: 160),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(StarKidsRadii.full),
-        onTap: widget.onTap,
-        onTapDown: (_) => setState(() => _pressed = true),
-        onTapUp: (_) => setState(() => _pressed = false),
-        onTapCancel: () => setState(() => _pressed = false),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          curve: const Cubic(0.2, 0.8, 0.2, 1),
-          height: double.infinity,
-          decoration: BoxDecoration(
-            color: widget.selected
-                ? (isDark
-                    ? StarKidsDarkColors.navIndicator
-                    : StarKidsColors.surfaceTertiary)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(StarKidsRadii.full),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(widget.icon, size: 20, color: fg),
-              const SizedBox(height: 2),
-              Text(
-                widget.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: 'Geist',
-                  fontSize: 11,
-                  fontWeight:
-                      widget.selected ? FontWeight.w600 : FontWeight.w500,
-                  color: fg,
-                ),
-              ),
-            ],
+class _BranchPillContent extends StatelessWidget {
+  final BranchOption branch;
+  const _BranchPillContent({required this.branch});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.location_on_rounded, size: 14, color: c.cta),
+        const SizedBox(width: SKSpacing.x2),
+        Flexible(
+          child: Text(
+            branch.name,
+            overflow: TextOverflow.ellipsis,
+            style: SKTextStyles.small.copyWith(
+              color: c.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
-      ),
+        const SizedBox(width: SKSpacing.x1),
+        Icon(Icons.expand_more_rounded, size: 14, color: c.textTertiary),
+      ],
     );
   }
 }
 
-/// Glass matte quick-action tile with gradient icon and elastic press.
+class _AppDrawer extends StatelessWidget {
+  const _AppDrawer();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            SKSpacing.x6, SKSpacing.x6, SKSpacing.x6, SKSpacing.x4,
+          ),
+          child: Text(
+            'Star Kids',
+            style: SKTextStyles.h1.copyWith(color: c.textPrimary),
+          ),
+        ),
+        Divider(color: c.hairline, height: 1, thickness: 0.5),
+        const SizedBox(height: SKSpacing.x2),
+        GlassDrawerRow(
+          icon: Icons.person_outline_rounded,
+          label: 'Профиль',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.of(context).pushNamed(AppRoutes.profile);
+          },
+        ),
+        GlassDrawerRow(
+          icon: Icons.history_rounded,
+          label: 'История заявок',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.of(context).pushNamed(AppRoutes.myRequests);
+          },
+        ),
+        GlassDrawerRow(
+          icon: Icons.local_offer_outlined,
+          label: 'Акции',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.of(context).pushNamed(AppRoutes.promotions);
+          },
+        ),
+        GlassDrawerRow(
+          icon: Icons.call_outlined,
+          label: 'Контакты',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.of(context).pushNamed(AppRoutes.contacts);
+          },
+        ),
+        GlassDrawerRow(
+          icon: Icons.notifications_none_rounded,
+          label: 'Уведомления',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.of(context).pushNamed(AppRoutes.notifications);
+          },
+        ),
+      ],
+    );
+  }
+}
+
 class _QuickActionTile extends StatelessWidget {
   const _QuickActionTile({
     required this.icon,
@@ -714,6 +650,7 @@ class _QuickActionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final c = SKTheme.of(context).colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return StarKidsReveal(
@@ -734,17 +671,12 @@ class _QuickActionTile extends StatelessWidget {
                       Colors.white.withValues(alpha: 0.68),
                     ],
             ),
-            borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-            border: Border.all(
-              color: isDark
-                  ? StarKidsDarkColors.glassStroke
-                  : StarKidsColors.glassStroke,
-              width: 1.0,
-            ),
-            boxShadow: isDark ? const [] : StarKidsShadows.cosmicCard,
+            borderRadius: BorderRadius.circular(SKRadius.xl),
+            border: Border.all(color: c.glassBorder, width: 1.0),
+            boxShadow: isDark ? const [] : SKShadows.sm,
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+            borderRadius: BorderRadius.circular(SKRadius.xl),
             child: Material(
               color: Colors.transparent,
               child: InkWell(
@@ -752,11 +684,10 @@ class _QuickActionTile extends StatelessWidget {
                 splashColor: gradientColors.first.withValues(alpha: 0.4),
                 highlightColor: Colors.transparent,
                 child: Padding(
-                  padding: const EdgeInsets.all(StarKidsSpacing.md),
+                  padding: const EdgeInsets.all(SKSpacing.x3),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Icon container with gradient background
                       Container(
                         width: 42,
                         height: 42,
@@ -766,26 +697,22 @@ class _QuickActionTile extends StatelessWidget {
                             end: Alignment.bottomRight,
                             colors: gradientColors,
                           ),
-                          borderRadius: BorderRadius.circular(StarKidsRadii.md),
-                          boxShadow:
-                              isDark ? const [] : StarKidsShadows.iconGlow,
+                          borderRadius: BorderRadius.circular(SKRadius.md),
                         ),
                         child: Icon(
                           icon,
-                          color: isDark
-                              ? StarKidsDarkColors.accentPink
-                              : StarKidsColors.brandPrimary,
-                          size: StarKidsIconSizes.md,
+                          color: c.accent,
+                          size: 24,
                         ),
                       ),
-                      const SizedBox(height: StarKidsSpacing.md),
+                      const SizedBox(height: SKSpacing.x3),
                       Text(
                         title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: textTheme.titleMedium,
                       ),
-                      const SizedBox(height: StarKidsSpacing.xs),
+                      const SizedBox(height: SKSpacing.x1),
                       Text(
                         subtitle,
                         maxLines: 2,
@@ -804,52 +731,6 @@ class _QuickActionTile extends StatelessWidget {
   }
 }
 
-class _HomeActionButton extends StatelessWidget {
-  const _HomeActionButton({
-    required this.icon,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(StarKidsRadii.full),
-        onTap: onTap,
-        child: Ink(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            color: isDark
-                ? StarKidsDarkColors.glassSurface
-                : StarKidsColors.glassSurface,
-            borderRadius: BorderRadius.circular(StarKidsRadii.full),
-            border: Border.all(
-              color: isDark
-                  ? StarKidsDarkColors.glassStroke
-                  : StarKidsColors.glassStroke,
-            ),
-            boxShadow:
-                isDark ? StarKidsShadows.depth1Dark : StarKidsShadows.depth1,
-          ),
-          child: Icon(
-            icon,
-            color: isDark
-                ? StarKidsDarkColors.textPrimary
-                : StarKidsColors.textPrimary,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _TrustBlock extends StatelessWidget {
   const _TrustBlock({required this.branch});
 
@@ -858,21 +739,15 @@ class _TrustBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
 
     return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      padding: const EdgeInsets.all(SKSpacing.x4),
       decoration: BoxDecoration(
-        color: isDark
-            ? StarKidsDarkColors.glassSurface
-            : StarKidsColors.glassSurface,
-        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-        border: Border.all(
-          color: isDark
-              ? StarKidsDarkColors.glassStroke
-              : StarKidsColors.glassStroke,
-        ),
-        boxShadow: isDark ? const [] : StarKidsShadows.cosmicCard,
+        color: c.elevated,
+        borderRadius: BorderRadius.circular(SKRadius.xl),
+        border: Border.all(color: c.hairline, width: 0.5),
+        boxShadow: SKShadows.sm,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -881,36 +756,25 @@ class _TrustBlock extends StatelessWidget {
             'Семейный центр для детского досуга, дней рождений и незабываемых праздников в Шымкенте.',
             style: textTheme.bodyLarge,
           ),
-          const SizedBox(height: StarKidsSpacing.lg),
+          const SizedBox(height: SKSpacing.x4),
           Wrap(
-            spacing: StarKidsSpacing.sm,
-            runSpacing: StarKidsSpacing.sm,
+            spacing: SKSpacing.x2,
+            runSpacing: SKSpacing.x2,
             children: branch.facilities
                 .take(4)
                 .map(
                   (facility) => Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: StarKidsSpacing.md,
-                      vertical: StarKidsSpacing.xs,
+                      horizontal: SKSpacing.x3,
+                      vertical: SKSpacing.x1,
                     ),
                     decoration: BoxDecoration(
-                      gradient: isDark
-                          ? const LinearGradient(
-                              colors: [
-                                Color(0x24E5D4F2),
-                                Color(0x1A3B82F6),
-                              ],
-                            )
-                          : const LinearGradient(
-                              colors: [
-                                StarKidsColors.cosmicBlush,
-                                StarKidsColors.cosmicLavender,
-                              ],
-                            ),
-                      borderRadius: BorderRadius.circular(StarKidsRadii.full),
-                      border: isDark
-                          ? Border.all(color: StarKidsDarkColors.borderDefault)
-                          : null,
+                      color: c.accentSoft,
+                      borderRadius: BorderRadius.circular(SKRadius.pill),
+                      border: Border.all(
+                        color: c.hairline,
+                        width: 0.5,
+                      ),
                     ),
                     child: Text(
                       facility,
@@ -920,7 +784,7 @@ class _TrustBlock extends StatelessWidget {
                 )
                 .toList(),
           ),
-          const SizedBox(height: StarKidsSpacing.lg),
+          const SizedBox(height: SKSpacing.x4),
           const Row(
             children: [
               Expanded(
@@ -929,14 +793,14 @@ class _TrustBlock extends StatelessWidget {
                   subtitle: 'м² пространства',
                 ),
               ),
-              SizedBox(width: StarKidsSpacing.sm),
+              SizedBox(width: SKSpacing.x2),
               Expanded(
                 child: _TrustStat(
                   title: '12+',
                   subtitle: 'лет работы',
                 ),
               ),
-              SizedBox(width: StarKidsSpacing.sm),
+              SizedBox(width: SKSpacing.x2),
               Expanded(
                 child: _TrustStat(
                   title: '4.9',
@@ -960,31 +824,14 @@ class _TrustStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
 
     return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.md),
+      padding: const EdgeInsets.all(SKSpacing.x3),
       decoration: BoxDecoration(
-        gradient: isDark
-            ? const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0x18C7DDEF), Color(0x18B6E3C8)],
-              )
-            : const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  StarKidsColors.cosmicLavender,
-                  StarKidsColors.cosmicSky
-                ],
-              ),
-        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
-        border: Border.all(
-          color: isDark
-              ? StarKidsDarkColors.borderDefault
-              : StarKidsColors.glassStroke,
-        ),
+        color: c.elevated,
+        borderRadius: BorderRadius.circular(SKRadius.lg),
+        border: Border.all(color: c.hairline, width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -996,12 +843,10 @@ class _TrustStat extends StatelessWidget {
               fontSize: 24,
               fontWeight: FontWeight.w400,
               letterSpacing: -0.48,
-              color: isDark
-                  ? StarKidsDarkColors.textPrimary
-                  : StarKidsColors.textPrimary,
+              color: c.textPrimary,
             ),
           ),
-          const SizedBox(height: StarKidsSpacing.xs),
+          const SizedBox(height: SKSpacing.x1),
           Text(subtitle, style: textTheme.bodyMedium),
         ],
       ),
@@ -1017,27 +862,21 @@ class _HomeStateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
 
     return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      padding: const EdgeInsets.all(SKSpacing.x4),
       decoration: BoxDecoration(
-        color: isDark
-            ? StarKidsDarkColors.glassSurface
-            : StarKidsColors.glassSurface,
-        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-        border: Border.all(
-          color: isDark
-              ? StarKidsDarkColors.glassStroke
-              : StarKidsColors.glassStroke,
-        ),
-        boxShadow: isDark ? const [] : StarKidsShadows.cosmicCard,
+        color: c.elevated,
+        borderRadius: BorderRadius.circular(SKRadius.xl),
+        border: Border.all(color: c.hairline, width: 0.5),
+        boxShadow: SKShadows.sm,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: StarKidsSpacing.sm),
+          const SizedBox(height: SKSpacing.x2),
           Text(description, style: Theme.of(context).textTheme.bodyLarge),
         ],
       ),

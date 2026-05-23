@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../foundations/star_kids_colors.dart';
-import '../foundations/star_kids_radii.dart';
-import '../foundations/star_kids_spacing.dart';
+import '../sk_design_tokens.dart';
+import '../sk_theme.dart';
 import 'star_kids_motion.dart';
 
 class StarKidsFaqCard extends StatelessWidget {
@@ -20,46 +19,42 @@ class StarKidsFaqCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
 
     return StarKidsReveal(
       delay: revealDelay,
-      child: Container(
+      child: DecoratedBox(
         decoration: BoxDecoration(
-          color: isDark
-              ? StarKidsDarkColors.glassSurface
-              : StarKidsColors.surfacePrimary,
-          borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-          border: Border.all(
-            color: isDark
-                ? StarKidsDarkColors.borderDefault
-                : StarKidsColors.borderDefault,
-          ),
+          color: c.elevated,
+          borderRadius: BorderRadius.circular(SKRadius.xl),
+          border: Border.all(color: c.hairline, width: 0.5),
+          boxShadow: SKShadows.sm,
         ),
-        child: Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            tilePadding: const EdgeInsets.symmetric(
-              horizontal: StarKidsSpacing.lg,
-              vertical: StarKidsSpacing.sm,
-            ),
-            childrenPadding: const EdgeInsets.fromLTRB(
-              StarKidsSpacing.lg,
-              0,
-              StarKidsSpacing.lg,
-              StarKidsSpacing.lg,
-            ),
-            iconColor: StarKidsColors.brandPrimary,
-            collapsedIconColor: isDark
-                ? StarKidsDarkColors.textSecondary
-                : StarKidsColors.textSecondary,
-            title: Text(question, style: textTheme.titleMedium),
-            children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(answer, style: textTheme.bodyLarge),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(SKRadius.xl),
+          child: Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: const EdgeInsets.symmetric(
+                horizontal: SKSpacing.x4,
+                vertical: SKSpacing.x2,
               ),
-            ],
+              childrenPadding: const EdgeInsets.fromLTRB(
+                SKSpacing.x4,
+                0,
+                SKSpacing.x4,
+                SKSpacing.x4,
+              ),
+              iconColor: c.cta,
+              collapsedIconColor: c.textSecondary,
+              title: Text(question, style: textTheme.titleMedium),
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(answer, style: textTheme.bodyLarge),
+                ),
+              ],
+            ),
           ),
         ),
       ),

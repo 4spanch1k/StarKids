@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../foundations/star_kids_colors.dart';
-import '../foundations/star_kids_radii.dart';
-import '../foundations/star_kids_spacing.dart';
+import '../sk_design_tokens.dart';
+import '../sk_theme.dart';
 
 class SkBadge extends StatelessWidget {
   const SkBadge({
@@ -18,26 +17,20 @@ class SkBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: StarKidsSpacing.md,
-        vertical: StarKidsSpacing.xs,
+        horizontal: SKSpacing.x3,
+        vertical: SKSpacing.x1,
       ),
       decoration: BoxDecoration(
-        color: bgColor ??
-            (isDark
-                ? StarKidsDarkColors.glassSurface
-                : StarKidsColors.warmCoral),
-        borderRadius: BorderRadius.circular(StarKidsRadii.full),
+        color: bgColor ?? c.accentSoft,
+        borderRadius: BorderRadius.circular(SKRadius.pill),
       ),
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: color ??
-                  (isDark
-                      ? StarKidsDarkColors.textPrimary
-                      : StarKidsColors.textPrimary),
+              color: color ?? c.textPrimary,
             ),
       ),
     );

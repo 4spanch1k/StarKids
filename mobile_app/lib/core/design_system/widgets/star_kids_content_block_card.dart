@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../foundations/star_kids_colors.dart';
-import '../foundations/star_kids_radii.dart';
-import '../foundations/star_kids_spacing.dart';
+import '../sk_design_tokens.dart';
+import '../sk_theme.dart';
+import 'glass_card.dart';
 import 'star_kids_motion.dart';
 
 class StarKidsContentBlockCard extends StatelessWidget {
@@ -22,49 +22,35 @@ class StarKidsContentBlockCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = SKTheme.of(context).colors;
 
     return StarKidsReveal(
       delay: revealDelay,
-      child: Container(
-        padding: const EdgeInsets.all(StarKidsSpacing.lg),
-        decoration: BoxDecoration(
-          color: isDark
-              ? StarKidsDarkColors.glassSurface
-              : StarKidsColors.surfacePrimary,
-          borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-          border: Border.all(
-            color: isDark
-                ? StarKidsDarkColors.borderDefault
-                : StarKidsColors.borderDefault,
-          ),
-        ),
+      child: SolidCard(
+        radius: SKRadius.xl,
+        padding: const EdgeInsets.all(SKSpacing.x4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (label != null) ...[
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: StarKidsSpacing.md,
-                  vertical: StarKidsSpacing.sm,
+                  horizontal: SKSpacing.x3,
+                  vertical: SKSpacing.x2,
                 ),
                 decoration: BoxDecoration(
-                  color: isDark
-                      ? const Color(0x24FF5A5F)
-                      : StarKidsColors.surfaceTertiary,
-                  borderRadius: BorderRadius.circular(StarKidsRadii.full),
+                  color: c.accentSoft,
+                  borderRadius: BorderRadius.circular(SKRadius.pill),
                 ),
                 child: Text(
                   label!,
-                  style: textTheme.labelMedium?.copyWith(
-                    color: StarKidsColors.brandPrimary,
-                  ),
+                  style: textTheme.labelMedium?.copyWith(color: c.cta),
                 ),
               ),
-              const SizedBox(height: StarKidsSpacing.md),
+              const SizedBox(height: SKSpacing.x3),
             ],
             Text(title, style: textTheme.titleLarge),
-            const SizedBox(height: StarKidsSpacing.sm),
+            const SizedBox(height: SKSpacing.x2),
             Text(body, style: textTheme.bodyLarge),
           ],
         ),

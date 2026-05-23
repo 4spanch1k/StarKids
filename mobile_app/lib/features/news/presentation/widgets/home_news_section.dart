@@ -5,10 +5,9 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_colors.dart';
-import '../../../../core/design_system/foundations/star_kids_shadows.dart';
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
-import '../../../../core/design_system/widgets/star_kids_button.dart';
+import '../../../../core/design_system/sk_design_tokens.dart';
+import '../../../../core/design_system/sk_theme.dart';
+import '../../../../core/design_system/widgets/primary_button.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../domain/news_item.dart';
 import '../controllers/news_feed_controller.dart';
@@ -75,7 +74,7 @@ class _HomeNewsSectionState extends State<HomeNewsSection> {
                         AppRoutes.notifications,
                       ),
             ),
-            const SizedBox(height: StarKidsSpacing.lg),
+            const SizedBox(height: SKSpacing.x4),
             if (_controller.isLoading && items.isEmpty)
               const _NewsStateCard(
                 title: 'Загружаем новости',
@@ -112,13 +111,13 @@ class _HomeNewsSectionState extends State<HomeNewsSection> {
                       title: 'Нет соединения',
                       description: 'Показаны последние данные',
                     ),
-                    const SizedBox(height: StarKidsSpacing.md),
+                    const SizedBox(height: SKSpacing.x3),
                   ] else if (_controller.errorMessage != null) ...[
                     _NewsInlineInfoCard(
                       title: 'Не удалось обновить новости',
                       description: _controller.errorMessage!,
                     ),
-                    const SizedBox(height: StarKidsSpacing.md),
+                    const SizedBox(height: SKSpacing.x3),
                   ],
                   SizedBox(
                     height: 224,
@@ -132,7 +131,7 @@ class _HomeNewsSectionState extends State<HomeNewsSection> {
                           padding: EdgeInsets.only(
                             right: index == items.length - 1
                                 ? 0
-                                : StarKidsSpacing.md,
+                                : SKSpacing.x3,
                           ),
                           child: _HomeNewsCard(
                             item: item,
@@ -204,19 +203,21 @@ class _NewsInlineInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      padding: const EdgeInsets.all(SKSpacing.x4),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF7E8),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFF2D49B)),
+        color: c.warningSoft,
+        borderRadius: BorderRadius.circular(SKRadius.lg),
+        border: Border.all(color: c.warning.withValues(alpha: 0.3), width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: StarKidsSpacing.xs),
+          const SizedBox(height: SKSpacing.x1),
           Text(description, style: Theme.of(context).textTheme.bodyMedium),
         ],
       ),
@@ -241,15 +242,15 @@ class _HomeNewsCard extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(SKRadius.xl),
         onTap: onTap,
         child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: StarKidsShadows.cosmicCard,
+            borderRadius: BorderRadius.circular(SKRadius.xl),
+            boxShadow: SKShadows.sm,
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(SKRadius.xl),
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -279,9 +280,9 @@ class _HomeNewsCard extends StatelessWidget {
                   ),
                 ),
                 Positioned(
-                  left: StarKidsSpacing.lg,
-                  right: StarKidsSpacing.lg,
-                  bottom: StarKidsSpacing.lg,
+                  left: SKSpacing.x4,
+                  right: SKSpacing.x4,
+                  bottom: SKSpacing.x4,
                   child: Text(
                     item.title,
                     maxLines: 2,
@@ -317,27 +318,29 @@ class _NewsStateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+
     return Container(
       height: 224,
-      padding: const EdgeInsets.all(StarKidsSpacing.xl),
+      padding: const EdgeInsets.all(SKSpacing.x5),
       decoration: BoxDecoration(
-        color: StarKidsColors.glassSurface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: StarKidsColors.glassStroke),
-        boxShadow: StarKidsShadows.cosmicCard,
+        color: c.elevated,
+        borderRadius: BorderRadius.circular(SKRadius.xl),
+        border: Border.all(color: c.hairline, width: 0.5),
+        boxShadow: SKShadows.sm,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: StarKidsSpacing.sm),
+          const SizedBox(height: SKSpacing.x2),
           Text(description, style: Theme.of(context).textTheme.bodyLarge),
           if (showProgress) ...[
             const Spacer(),
             const LinearProgressIndicator(),
           ] else if (actionLabel != null && onActionTap != null) ...[
             const Spacer(),
-            StarKidsButton.secondary(
+            SecondaryButton(
               label: actionLabel!,
               onPressed: () => onActionTap!(),
             ),
@@ -353,21 +356,14 @@ class _NewsImagePlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFCE1EC),
-            Color(0xFFE1EDFF),
-          ],
-        ),
-      ),
+    final c = SKTheme.of(context).colors;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(color: c.elevated),
       child: Center(
         child: Icon(
           Icons.photo_library_rounded,
-          color: StarKidsColors.textSecondary,
+          color: c.textSecondary,
           size: 40,
         ),
       ),
