@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../foundations/star_kids_spacing.dart';
 import '../sk_design_tokens.dart';
 import '../sk_theme.dart';
 import 'star_kids_motion.dart';
@@ -37,14 +36,14 @@ class StarKidsFaqCard extends StatelessWidget {
             data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
             child: ExpansionTile(
               tilePadding: const EdgeInsets.symmetric(
-                horizontal: StarKidsSpacing.lg,
-                vertical: StarKidsSpacing.sm,
+                horizontal: SKSpacing.x4,
+                vertical: SKSpacing.x2,
               ),
               childrenPadding: const EdgeInsets.fromLTRB(
-                StarKidsSpacing.lg,
+                SKSpacing.x4,
                 0,
-                StarKidsSpacing.lg,
-                StarKidsSpacing.lg,
+                SKSpacing.x4,
+                SKSpacing.x4,
               ),
               iconColor: c.cta,
               collapsedIconColor: c.textSecondary,

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../foundations/star_kids_spacing.dart';
 import '../sk_design_tokens.dart';
 import '../sk_theme.dart';
 
@@ -30,7 +29,7 @@ class SkDatePillRow extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.zero,
         itemCount: dates.length,
-        separatorBuilder: (_, __) => const SizedBox(width: StarKidsSpacing.sm),
+        separatorBuilder: (_, __) => const SizedBox(width: SKSpacing.x2),
         itemBuilder: (context, i) {
           final date = dates[i];
           final isSelected = selectedDate != null &&

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../foundations/star_kids_icon_sizes.dart';
-import '../foundations/star_kids_spacing.dart';
 import '../sk_design_tokens.dart';
 import '../sk_theme.dart';
 import 'primary_button.dart';
@@ -64,18 +62,18 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
                 child: StarKidsMediaImage(source: imagePath),
               ),
               Padding(
-                padding: const EdgeInsets.all(StarKidsSpacing.lg),
+                padding: const EdgeInsets.all(SKSpacing.x4),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (isFeatured)
                       Container(
                         margin: const EdgeInsets.only(
-                          bottom: StarKidsSpacing.md,
+                          bottom: SKSpacing.x3,
                         ),
                         padding: const EdgeInsets.symmetric(
-                          horizontal: StarKidsSpacing.md,
-                          vertical: StarKidsSpacing.sm,
+                          horizontal: SKSpacing.x3,
+                          vertical: SKSpacing.x2,
                         ),
                         decoration: BoxDecoration(
                           color: c.accentSoft,
@@ -94,11 +92,11 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
                         Expanded(
                           child: Text(title, style: textTheme.titleLarge),
                         ),
-                        const SizedBox(width: StarKidsSpacing.md),
+                        const SizedBox(width: SKSpacing.x3),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: StarKidsSpacing.md,
-                            vertical: StarKidsSpacing.sm,
+                            horizontal: SKSpacing.x3,
+                            vertical: SKSpacing.x2,
                           ),
                           decoration: BoxDecoration(
                             color: c.accentSoft,
@@ -113,18 +111,18 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: StarKidsSpacing.xs),
+                    const SizedBox(height: SKSpacing.x1),
                     Text(guestLabel, style: textTheme.labelMedium),
                     if (normalizedDescription.isNotEmpty) ...[
-                      const SizedBox(height: StarKidsSpacing.sm),
+                      const SizedBox(height: SKSpacing.x2),
                       Text(normalizedDescription, style: textTheme.bodyMedium),
                     ],
                     if (normalizedHighlights.isNotEmpty) ...[
-                      const SizedBox(height: StarKidsSpacing.md),
+                      const SizedBox(height: SKSpacing.x3),
                       ...normalizedHighlights.map(
                         (highlight) => Padding(
                           padding: const EdgeInsets.only(
-                            bottom: StarKidsSpacing.xs,
+                            bottom: SKSpacing.x1,
                           ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -133,11 +131,11 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
                                 padding: const EdgeInsets.only(top: 2),
                                 child: Icon(
                                   Icons.star_rounded,
-                                  size: StarKidsIconSizes.xs,
+                                  size: 16,
                                   color: c.cta,
                                 ),
                               ),
-                              const SizedBox(width: StarKidsSpacing.sm),
+                              const SizedBox(width: SKSpacing.x2),
                               Expanded(
                                 child: Text(
                                   highlight,
@@ -149,7 +147,7 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
                         ),
                       ),
                     ],
-                    const SizedBox(height: StarKidsSpacing.lg),
+                    const SizedBox(height: SKSpacing.x4),
                     PrimaryButton(
                       label: 'Оставить заявку',
                       onPressed: onActionTap,

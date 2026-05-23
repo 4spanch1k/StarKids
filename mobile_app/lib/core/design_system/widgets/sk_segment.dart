@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../foundations/star_kids_spacing.dart';
 import '../sk_design_tokens.dart';
 import '../sk_theme.dart';
 
@@ -32,7 +31,7 @@ class SkSegment<T> extends StatelessWidget {
       opacity: enabled ? 1.0 : 0.62,
       child: Container(
         height: 52,
-        padding: const EdgeInsets.all(StarKidsSpacing.xs),
+        padding: const EdgeInsets.all(SKSpacing.x1),
         decoration: BoxDecoration(
           color: c.elevated,
           borderRadius: BorderRadius.circular(SKRadius.pill),

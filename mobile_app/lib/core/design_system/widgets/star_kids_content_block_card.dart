@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../foundations/star_kids_spacing.dart';
 import '../sk_design_tokens.dart';
 import '../sk_theme.dart';
 import 'glass_card.dart';
@@ -29,15 +28,15 @@ class StarKidsContentBlockCard extends StatelessWidget {
       delay: revealDelay,
       child: SolidCard(
         radius: SKRadius.xl,
-        padding: const EdgeInsets.all(StarKidsSpacing.lg),
+        padding: const EdgeInsets.all(SKSpacing.x4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (label != null) ...[
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: StarKidsSpacing.md,
-                  vertical: StarKidsSpacing.sm,
+                  horizontal: SKSpacing.x3,
+                  vertical: SKSpacing.x2,
                 ),
                 decoration: BoxDecoration(
                   color: c.accentSoft,
@@ -48,10 +47,10 @@ class StarKidsContentBlockCard extends StatelessWidget {
                   style: textTheme.labelMedium?.copyWith(color: c.cta),
                 ),
               ),
-              const SizedBox(height: StarKidsSpacing.md),
+              const SizedBox(height: SKSpacing.x3),
             ],
             Text(title, style: textTheme.titleLarge),
-            const SizedBox(height: StarKidsSpacing.sm),
+            const SizedBox(height: SKSpacing.x2),
             Text(body, style: textTheme.bodyLarge),
           ],
         ),

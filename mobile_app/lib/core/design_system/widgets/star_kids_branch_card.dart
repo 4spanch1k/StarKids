@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../foundations/star_kids_icon_sizes.dart';
-import '../foundations/star_kids_spacing.dart';
 import '../sk_design_tokens.dart';
 import '../sk_theme.dart';
 import 'star_kids_media_image.dart';
@@ -61,12 +59,12 @@ class StarKidsBranchCard extends StatelessWidget {
                     ),
                     if (tagLabel != null)
                       Positioned(
-                        top: StarKidsSpacing.lg,
-                        left: StarKidsSpacing.lg,
+                        top: SKSpacing.x4,
+                        left: SKSpacing.x4,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: StarKidsSpacing.md,
-                            vertical: StarKidsSpacing.sm,
+                            horizontal: SKSpacing.x3,
+                            vertical: SKSpacing.x2,
                           ),
                           decoration: BoxDecoration(
                             color: c.elevated,
@@ -84,22 +82,22 @@ class StarKidsBranchCard extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(StarKidsSpacing.lg),
+                padding: const EdgeInsets.all(SKSpacing.x4),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title, style: textTheme.titleLarge),
-                    const SizedBox(height: StarKidsSpacing.sm),
+                    const SizedBox(height: SKSpacing.x2),
                     Text(address, style: textTheme.bodyMedium),
-                    const SizedBox(height: StarKidsSpacing.sm),
+                    const SizedBox(height: SKSpacing.x2),
                     Row(
                       children: [
                         Icon(
                           Icons.schedule_rounded,
-                          size: StarKidsIconSizes.sm,
+                          size: 20,
                           color: c.textSecondary,
                         ),
-                        const SizedBox(width: StarKidsSpacing.sm),
+                        const SizedBox(width: SKSpacing.x2),
                         Expanded(
                           child: Text(
                             workingHours,
@@ -108,7 +106,7 @@ class StarKidsBranchCard extends StatelessWidget {
                         ),
                         Icon(
                           Icons.arrow_forward_ios_rounded,
-                          size: StarKidsIconSizes.xs,
+                          size: 16,
                           color: c.textSecondary,
                         ),
                       ],

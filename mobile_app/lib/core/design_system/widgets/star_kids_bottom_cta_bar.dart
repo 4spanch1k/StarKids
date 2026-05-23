@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../foundations/star_kids_spacing.dart';
 import '../sk_design_tokens.dart';
 import '../sk_theme.dart';
 
@@ -25,10 +24,10 @@ class StarKidsBottomCtaBar extends StatelessWidget {
         ),
       ),
       padding: EdgeInsets.fromLTRB(
-        StarKidsSpacing.xl,
-        StarKidsSpacing.sm,
-        StarKidsSpacing.xl,
-        bottomInset + StarKidsSpacing.sm,
+        SKSpacing.x5,
+        SKSpacing.x2,
+        SKSpacing.x5,
+        bottomInset + SKSpacing.x2,
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(SKRadius.xl),

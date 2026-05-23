@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../foundations/star_kids_icon_sizes.dart';
-import '../foundations/star_kids_spacing.dart';
 import '../sk_design_tokens.dart';
 import '../sk_theme.dart';
 
@@ -40,8 +38,8 @@ class StarKidsSelectField extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(
-            left: StarKidsSpacing.sm,
-            bottom: StarKidsSpacing.sm,
+            left: SKSpacing.x2,
+            bottom: SKSpacing.x2,
           ),
           child: Text(label, style: textTheme.labelMedium),
         ),
@@ -53,8 +51,8 @@ class StarKidsSelectField extends StatelessWidget {
             borderRadius: BorderRadius.circular(SKRadius.md),
             child: Container(
               padding: const EdgeInsets.symmetric(
-                horizontal: StarKidsSpacing.lg,
-                vertical: StarKidsSpacing.md,
+                horizontal: SKSpacing.x4,
+                vertical: SKSpacing.x3,
               ),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(SKRadius.md),
@@ -68,10 +66,10 @@ class StarKidsSelectField extends StatelessWidget {
                   if (leadingIcon != null) ...[
                     Icon(
                       leadingIcon,
-                      size: StarKidsIconSizes.sm,
+                      size: 20,
                       color: iconColor,
                     ),
-                    const SizedBox(width: StarKidsSpacing.md),
+                    const SizedBox(width: SKSpacing.x3),
                   ],
                   Expanded(
                     child: Text(
@@ -83,7 +81,7 @@ class StarKidsSelectField extends StatelessWidget {
                   ),
                   Icon(
                     Icons.expand_more_rounded,
-                    size: StarKidsIconSizes.md,
+                    size: 24,
                     color: iconColor,
                   ),
                 ],
@@ -92,9 +90,9 @@ class StarKidsSelectField extends StatelessWidget {
           ),
         ),
         if (helperText != null || errorText != null) ...[
-          const SizedBox(height: StarKidsSpacing.sm),
+          const SizedBox(height: SKSpacing.x2),
           Padding(
-            padding: const EdgeInsets.only(left: StarKidsSpacing.sm),
+            padding: const EdgeInsets.only(left: SKSpacing.x2),
             child: Text(
               errorText ?? helperText!,
               style: textTheme.labelMedium?.copyWith(

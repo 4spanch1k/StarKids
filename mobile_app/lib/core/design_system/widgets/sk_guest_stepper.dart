@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../foundations/star_kids_spacing.dart';
 import '../sk_design_tokens.dart';
 import '../sk_theme.dart';
 
@@ -28,8 +27,8 @@ class SkGuestStepper extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: StarKidsSpacing.lg,
-        vertical: StarKidsSpacing.md,
+        horizontal: SKSpacing.x4,
+        vertical: SKSpacing.x3,
       ),
       decoration: BoxDecoration(
         color: c.elevated,
@@ -60,7 +59,7 @@ class SkGuestStepper extends StatelessWidget {
             },
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: StarKidsSpacing.md),
+            padding: const EdgeInsets.symmetric(horizontal: SKSpacing.x3),
             child: Text(
               value.toString(),
               style: textTheme.titleLarge?.copyWith(

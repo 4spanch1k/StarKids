@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../foundations/star_kids_spacing.dart';
+import '../sk_design_tokens.dart';
 import '../sk_theme.dart';
 
 class StarKidsSectionHeader extends StatelessWidget {
@@ -31,7 +31,7 @@ class StarKidsSectionHeader extends StatelessWidget {
             children: [
               Text(title, style: textTheme.headlineSmall),
               if (description != null) ...[
-                const SizedBox(height: StarKidsSpacing.xs),
+                const SizedBox(height: SKSpacing.x1),
                 Text(description!, style: textTheme.bodyMedium),
               ],
             ],
