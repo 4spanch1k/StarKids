@@ -7,7 +7,6 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/foundations/sk_tokens.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
@@ -220,24 +219,24 @@ class _ProfilePageState extends State<ProfilePage> {
     final c = SKTheme.of(context).colors;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(StarKidsSpacing.x2l),
+        padding: const EdgeInsets.all(SKSpacing.x6),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.error_outline_rounded, color: c.danger, size: 48),
-            const SizedBox(height: StarKidsSpacing.lg),
+            const SizedBox(height: SKSpacing.x4),
             Text(
               l.profileLoadError,
               style: textTheme.titleLarge,
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: StarKidsSpacing.sm),
+            const SizedBox(height: SKSpacing.x2),
             Text(
               _controller.errorMessage ?? l.profileLoadErrorHint,
               style: textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: StarKidsSpacing.xl),
+            const SizedBox(height: SKSpacing.x5),
             PrimaryButton(label: l.retry, onPressed: _controller.retry),
           ],
         ),
@@ -250,7 +249,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final l = AppL10n.of(context);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(StarKidsSpacing.xl),
+      padding: const EdgeInsets.all(SKSpacing.x5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -263,36 +262,36 @@ class _ProfilePageState extends State<ProfilePage> {
                   (profile?.hasAvatar ?? false) ? _handleDeleteAvatar : null,
             ),
           ),
-          const SizedBox(height: StarKidsSpacing.xl),
+          const SizedBox(height: SKSpacing.x5),
           _StatRow(
             controller: _controller,
             childrenController: _childrenController,
           ),
           if (_controller.errorMessage != null) ...[
-            const SizedBox(height: StarKidsSpacing.lg),
+            const SizedBox(height: SKSpacing.x4),
             _InlineErrorBanner(
               message: _controller.errorMessage!,
               onDismiss: _controller.clearError,
             ),
           ],
           if (_childrenController.todaysBirthdays.isNotEmpty) ...[
-            const SizedBox(height: StarKidsSpacing.xl),
+            const SizedBox(height: SKSpacing.x5),
             for (final child in _childrenController.todaysBirthdays)
               _BirthdayReminderBanner(child: child),
           ],
-          const SizedBox(height: StarKidsSpacing.xl),
+          const SizedBox(height: SKSpacing.x5),
           StarKidsContentSwitcher(child: _buildPersonalDataSection(context)),
-          const SizedBox(height: StarKidsSpacing.xl),
+          const SizedBox(height: SKSpacing.x5),
           _buildChildrenSection(context),
-          const SizedBox(height: StarKidsSpacing.xl),
+          const SizedBox(height: SKSpacing.x5),
           _buildBranchSection(context),
-          const SizedBox(height: StarKidsSpacing.xl),
+          const SizedBox(height: SKSpacing.x5),
           _buildRequestsSection(context),
-          const SizedBox(height: StarKidsSpacing.xl),
+          const SizedBox(height: SKSpacing.x5),
           _buildSettingsSection(context),
-          const SizedBox(height: StarKidsSpacing.x2l),
+          const SizedBox(height: SKSpacing.x6),
           _buildFooter(context, l),
-          const SizedBox(height: StarKidsSpacing.xl),
+          const SizedBox(height: SKSpacing.x5),
         ],
       ),
     );
@@ -313,7 +312,7 @@ class _ProfilePageState extends State<ProfilePage> {
             textCapitalization: TextCapitalization.words,
             textInputAction: TextInputAction.next,
           ),
-          const SizedBox(height: StarKidsSpacing.md),
+          const SizedBox(height: SKSpacing.x3),
           StarKidsInputField(
             controller: _lastNameTextController,
             label: l.lastName,
@@ -322,7 +321,7 @@ class _ProfilePageState extends State<ProfilePage> {
             textCapitalization: TextCapitalization.words,
             textInputAction: TextInputAction.next,
           ),
-          const SizedBox(height: StarKidsSpacing.md),
+          const SizedBox(height: SKSpacing.x3),
           StarKidsInputField(
             controller: _emailTextController,
             label: l.email,
@@ -331,7 +330,7 @@ class _ProfilePageState extends State<ProfilePage> {
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.done,
           ),
-          const SizedBox(height: StarKidsSpacing.xl),
+          const SizedBox(height: SKSpacing.x5),
           PrimaryButton(
             label: l.save,
             onPressed: (_controller.isSaving || !_controller.canSave)
@@ -362,14 +361,14 @@ class _ProfilePageState extends State<ProfilePage> {
             style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
           ),
           if (branch.address.isNotEmpty) ...[
-            const SizedBox(height: StarKidsSpacing.xs),
+            const SizedBox(height: SKSpacing.x1),
             Text(branch.address, style: textTheme.bodyMedium),
           ],
           if (branch.workingHours.isNotEmpty) ...[
-            const SizedBox(height: StarKidsSpacing.xs),
+            const SizedBox(height: SKSpacing.x1),
             Text(branch.workingHours, style: textTheme.bodySmall),
           ],
-          const SizedBox(height: StarKidsSpacing.xl),
+          const SizedBox(height: SKSpacing.x5),
           SecondaryButton(
             label: l.changeBranch,
             onPressed: _handleOpenBranchSelection,
@@ -388,7 +387,7 @@ class _ProfilePageState extends State<ProfilePage> {
       case ProfileRequestsStatus.loading:
         content = const Center(
           child: Padding(
-            padding: EdgeInsets.all(StarKidsSpacing.lg),
+            padding: EdgeInsets.all(SKSpacing.x4),
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
         );
@@ -403,7 +402,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   _controller.requestsErrorMessage ?? l.requestsLoadError,
                   style: textTheme.bodyMedium?.copyWith(color: c.danger),
                 ),
-                const SizedBox(height: StarKidsSpacing.md),
+                const SizedBox(height: SKSpacing.x3),
                 SecondaryButton(
                   label: l.retry,
                   onPressed: _controller.loadRequestPreview,
@@ -420,11 +419,11 @@ class _ProfilePageState extends State<ProfilePage> {
           children: [
             for (final item in _controller.previewRequests) ...[
               _RequestPreviewItem(item: item),
-              const SizedBox(height: StarKidsSpacing.sm),
+              const SizedBox(height: SKSpacing.x2),
             ],
             if (_controller.totalRequests > 3)
               Padding(
-                padding: const EdgeInsets.only(top: StarKidsSpacing.xs),
+                padding: const EdgeInsets.only(top: SKSpacing.x1),
                 child: Text(
                   l.moreRequests(_controller.totalRequests - 3),
                   style: textTheme.bodySmall,
@@ -440,7 +439,7 @@ class _ProfilePageState extends State<ProfilePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           content,
-          const SizedBox(height: StarKidsSpacing.xl),
+          const SizedBox(height: SKSpacing.x5),
           SecondaryButton(
             label: l.allRequests,
             onPressed: _handleOpenAllRequests,
@@ -460,9 +459,9 @@ class _ProfilePageState extends State<ProfilePage> {
           _NotificationToggleRow(
             notificationsController: _notificationsController,
           ),
-          const SizedBox(height: StarKidsSpacing.lg),
+          const SizedBox(height: SKSpacing.x4),
           _LanguageSwitchRow(settingsController: _settingsController),
-          const SizedBox(height: StarKidsSpacing.lg),
+          const SizedBox(height: SKSpacing.x4),
           _ThemeSwitchRow(settingsController: _settingsController),
         ],
       ),
@@ -483,7 +482,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ),
         if (version.isNotEmpty) ...[
-          const SizedBox(height: StarKidsSpacing.sm),
+          const SizedBox(height: SKSpacing.x2),
           Text(
             '${l.version} $version',
             style: textTheme.bodySmall,
@@ -509,9 +508,9 @@ class _BirthdayReminderBanner extends StatelessWidget {
     final c = SKTheme.of(context).colors;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: StarKidsSpacing.md),
+      padding: const EdgeInsets.only(bottom: SKSpacing.x3),
       child: Container(
-        padding: const EdgeInsets.all(StarKidsSpacing.lg),
+        padding: const EdgeInsets.all(SKSpacing.x4),
         decoration: BoxDecoration(
           color: c.accentSoft,
           borderRadius: BorderRadius.circular(SKRadius.lg),
@@ -521,7 +520,7 @@ class _BirthdayReminderBanner extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('🎂', style: TextStyle(fontSize: 28)),
-            const SizedBox(width: StarKidsSpacing.md),
+            const SizedBox(width: SKSpacing.x3),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -533,7 +532,7 @@ class _BirthdayReminderBanner extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: StarKidsSpacing.xs),
+                  const SizedBox(height: SKSpacing.x1),
                   Text(
                     l.birthdayFreeEntry,
                     style: textTheme.bodyMedium?.copyWith(
@@ -576,7 +575,7 @@ class _ChildrenSection extends StatelessWidget {
       case ChildrenStatus.loading:
         content = const Center(
           child: Padding(
-            padding: EdgeInsets.all(StarKidsSpacing.lg),
+            padding: EdgeInsets.all(SKSpacing.x4),
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
         );
@@ -588,7 +587,7 @@ class _ChildrenSection extends StatelessWidget {
               controller.errorMessage ?? l.childrenLoadError,
               style: textTheme.bodyMedium?.copyWith(color: c.danger),
             ),
-            const SizedBox(height: StarKidsSpacing.md),
+            const SizedBox(height: SKSpacing.x3),
             SecondaryButton(
               label: l.retry,
               onPressed: controller.retry,
@@ -609,7 +608,7 @@ class _ChildrenSection extends StatelessWidget {
                 onEdit: () => _showEditChildSheet(context, child),
                 onDelete: () => _confirmDelete(context, child),
               ),
-              const SizedBox(height: StarKidsSpacing.lg),
+              const SizedBox(height: SKSpacing.x4),
             ],
           ],
         );
@@ -734,7 +733,7 @@ class _ChildrenSectionFrame extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(StarKidsSpacing.xl),
+            padding: const EdgeInsets.all(SKSpacing.x5),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final isCompact = constraints.maxWidth < 480;
@@ -750,7 +749,7 @@ class _ChildrenSectionFrame extends StatelessWidget {
                         ),
                       ),
                       if (subtitle != null) ...[
-                        const SizedBox(height: StarKidsSpacing.sm),
+                        const SizedBox(height: SKSpacing.x2),
                         Text(
                           subtitle!,
                           style: textTheme.bodyMedium?.copyWith(
@@ -760,7 +759,7 @@ class _ChildrenSectionFrame extends StatelessWidget {
                         ),
                       ],
                       if (trailing != null) ...[
-                        const SizedBox(height: StarKidsSpacing.lg),
+                        const SizedBox(height: SKSpacing.x4),
                         Align(
                             alignment: Alignment.centerLeft, child: trailing!),
                       ],
@@ -779,7 +778,7 @@ class _ChildrenSectionFrame extends StatelessWidget {
                                   ),
                                 ),
                                 if (subtitle != null) ...[
-                                  const SizedBox(height: StarKidsSpacing.sm),
+                                  const SizedBox(height: SKSpacing.x2),
                                   ConstrainedBox(
                                     constraints:
                                         const BoxConstraints(maxWidth: 420),
@@ -796,13 +795,13 @@ class _ChildrenSectionFrame extends StatelessWidget {
                             ),
                           ),
                           if (trailing != null) ...[
-                            const SizedBox(width: StarKidsSpacing.lg),
+                            const SizedBox(width: SKSpacing.x4),
                             trailing!,
                           ],
                         ],
                       ),
                     ],
-                    const SizedBox(height: StarKidsSpacing.xl),
+                    const SizedBox(height: SKSpacing.x5),
                     child,
                   ],
                 );
@@ -858,7 +857,7 @@ class _ChildrenEmptyState extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(StarKidsSpacing.xl),
+                padding: const EdgeInsets.all(SKSpacing.x5),
                 child: Flex(
                   direction: isCompact ? Axis.vertical : Axis.horizontal,
                   crossAxisAlignment: isCompact
@@ -869,7 +868,7 @@ class _ChildrenEmptyState extends StatelessWidget {
                       Row(
                         children: [
                           const _ChildAvatarBadge.placeholder(size: 76),
-                          const SizedBox(width: StarKidsSpacing.lg),
+                          const SizedBox(width: SKSpacing.x4),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -881,7 +880,7 @@ class _ChildrenEmptyState extends StatelessWidget {
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                                const SizedBox(height: StarKidsSpacing.xs),
+                                const SizedBox(height: SKSpacing.x1),
                                 Text(
                                   l.childrenEmptyHint,
                                   style: textTheme.bodyMedium?.copyWith(
@@ -899,7 +898,7 @@ class _ChildrenEmptyState extends StatelessWidget {
                         child: Row(
                           children: [
                             const _ChildAvatarBadge.placeholder(size: 76),
-                            const SizedBox(width: StarKidsSpacing.lg),
+                            const SizedBox(width: SKSpacing.x4),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -911,7 +910,7 @@ class _ChildrenEmptyState extends StatelessWidget {
                                       fontWeight: FontWeight.w800,
                                     ),
                                   ),
-                                  const SizedBox(height: StarKidsSpacing.xs),
+                                  const SizedBox(height: SKSpacing.x1),
                                   Text(
                                     l.childrenEmptyHint,
                                     style: textTheme.bodyMedium?.copyWith(
@@ -926,8 +925,8 @@ class _ChildrenEmptyState extends StatelessWidget {
                         ),
                       ),
                     SizedBox(
-                      width: isCompact ? 0 : StarKidsSpacing.lg,
-                      height: isCompact ? StarKidsSpacing.lg : 0,
+                      width: isCompact ? 0 : SKSpacing.x4,
+                      height: isCompact ? SKSpacing.x4 : 0,
                     ),
                     _AddChildButton(onTap: onAdd, expand: isCompact),
                   ],
@@ -971,7 +970,7 @@ class _AddChildButton extends StatelessWidget {
             ),
           ),
           padding: const EdgeInsets.symmetric(
-            horizontal: StarKidsSpacing.lg,
+            horizontal: SKSpacing.x4,
             vertical: 14,
           ),
           child: Row(
@@ -979,7 +978,7 @@ class _AddChildButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.add_rounded, size: 20, color: c.cta),
-              const SizedBox(width: StarKidsSpacing.sm),
+              const SizedBox(width: SKSpacing.x2),
               Text(
                 l.add,
                 style: textTheme.labelLarge?.copyWith(
@@ -1074,7 +1073,7 @@ class _ChildCard extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(StarKidsSpacing.xl),
+            padding: const EdgeInsets.all(SKSpacing.x5),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final genderLabel = child.gender == ChildGender.female
@@ -1088,7 +1087,7 @@ class _ChildCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _ChildAvatarBadge(child: child, size: 76),
-                        const SizedBox(width: StarKidsSpacing.lg),
+                        const SizedBox(width: SKSpacing.x4),
                         Expanded(
                           child: Padding(
                             padding: const EdgeInsets.only(top: 4),
@@ -1104,7 +1103,7 @@ class _ChildCard extends StatelessWidget {
                                     fontSize: 24,
                                   ),
                                 ),
-                                const SizedBox(height: StarKidsSpacing.sm),
+                                const SizedBox(height: SKSpacing.x2),
                                 _HighlightedDateChip(
                                   label: l.childBirthDate,
                                   value: _formatDate(child.birthDate),
@@ -1113,17 +1112,17 @@ class _ChildCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(width: StarKidsSpacing.sm),
+                        const SizedBox(width: SKSpacing.x2),
                         _ChildActionMenu(
                           onEdit: onEdit,
                           onDelete: onDelete,
                         ),
                       ],
                     ),
-                    const SizedBox(height: StarKidsSpacing.md),
+                    const SizedBox(height: SKSpacing.x3),
                     Wrap(
-                      spacing: StarKidsSpacing.sm,
-                      runSpacing: StarKidsSpacing.sm,
+                      spacing: SKSpacing.x2,
+                      runSpacing: SKSpacing.x2,
                       children: [
                         _SoftMetaChip(
                           icon: child.gender == ChildGender.female
@@ -1223,8 +1222,8 @@ class _HighlightedDateChip extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: StarKidsSpacing.md,
-        vertical: StarKidsSpacing.sm,
+        horizontal: SKSpacing.x3,
+        vertical: SKSpacing.x2,
       ),
       decoration: BoxDecoration(
         color: c.cta.withValues(alpha: 0.10),
@@ -1235,7 +1234,7 @@ class _HighlightedDateChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.cake_rounded, size: 16, color: c.cta),
-          const SizedBox(width: StarKidsSpacing.sm),
+          const SizedBox(width: SKSpacing.x2),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -1278,7 +1277,7 @@ class _SoftMetaChip extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: StarKidsSpacing.md,
+        horizontal: SKSpacing.x3,
         vertical: 10,
       ),
       decoration: BoxDecoration(
@@ -1290,7 +1289,7 @@ class _SoftMetaChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 16, color: c.textSecondary),
-          const SizedBox(width: StarKidsSpacing.xs),
+          const SizedBox(width: SKSpacing.x1),
           Text(
             label,
             style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
@@ -1341,7 +1340,7 @@ class _ChildActionMenu extends StatelessWidget {
             child: Row(
               children: [
                 const Icon(Icons.edit_outlined, size: 18),
-                const SizedBox(width: StarKidsSpacing.sm),
+                const SizedBox(width: SKSpacing.x2),
                 Text(l.edit),
               ],
             ),
@@ -1354,7 +1353,7 @@ class _ChildActionMenu extends StatelessWidget {
                 return Row(
                   children: [
                     Icon(Icons.delete_outline_rounded, size: 18, color: c.danger),
-                    const SizedBox(width: StarKidsSpacing.sm),
+                    const SizedBox(width: SKSpacing.x2),
                     Text(
                       l.delete,
                       style: TextStyle(color: c.danger),
@@ -1509,7 +1508,7 @@ class _ChildFormSheetState extends State<_ChildFormSheet> {
           inputDecorationTheme: theme.inputDecorationTheme.copyWith(
             fillColor: c.elevated,
             contentPadding: const EdgeInsets.symmetric(
-              horizontal: StarKidsSpacing.lg,
+              horizontal: SKSpacing.x4,
               vertical: 18,
             ),
             border: OutlineInputBorder(
@@ -1539,10 +1538,10 @@ class _ChildFormSheetState extends State<_ChildFormSheet> {
           data: localTheme,
           child: Padding(
             padding: EdgeInsets.fromLTRB(
-              StarKidsSpacing.lg,
-              StarKidsSpacing.lg,
-              StarKidsSpacing.lg,
-              StarKidsSpacing.lg +
+              SKSpacing.x4,
+              SKSpacing.x4,
+              SKSpacing.x4,
+              SKSpacing.x4 +
                   MediaQuery.viewInsetsOf(context).bottom,
             ),
             child: Column(
@@ -1553,7 +1552,7 @@ class _ChildFormSheetState extends State<_ChildFormSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _ChildFormAvatar(gender: _gender),
-                    const SizedBox(width: StarKidsSpacing.lg),
+                    const SizedBox(width: SKSpacing.x4),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1565,7 +1564,7 @@ class _ChildFormSheetState extends State<_ChildFormSheet> {
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                          const SizedBox(height: StarKidsSpacing.xs),
+                          const SizedBox(height: SKSpacing.x1),
                           Text(
                             l.childFormHint,
                             style: textTheme.bodyMedium?.copyWith(
@@ -1578,7 +1577,7 @@ class _ChildFormSheetState extends State<_ChildFormSheet> {
                     ),
                   ],
                 ),
-                const SizedBox(height: StarKidsSpacing.xl),
+                const SizedBox(height: SKSpacing.x5),
                 StarKidsInputField(
                   controller: _nameController,
                   label: l.childName,
@@ -1592,7 +1591,7 @@ class _ChildFormSheetState extends State<_ChildFormSheet> {
                   textCapitalization: TextCapitalization.words,
                   textInputAction: TextInputAction.next,
                 ),
-                const SizedBox(height: StarKidsSpacing.md),
+                const SizedBox(height: SKSpacing.x3),
                 _DatePickerField(
                   label: l.childBirthDate,
                   selectedDate: _birthDate,
@@ -1601,7 +1600,7 @@ class _ChildFormSheetState extends State<_ChildFormSheet> {
                       _birthDate != null ? _formatDate(_birthDate!) : l.dateNotSet,
                   onTap: () => _pickDate(context, l),
                 ),
-                const SizedBox(height: StarKidsSpacing.md),
+                const SizedBox(height: SKSpacing.x3),
                 _GenderSelector(
                   selected: _gender,
                   errorText: _genderError,
@@ -1612,10 +1611,10 @@ class _ChildFormSheetState extends State<_ChildFormSheet> {
                   }),
                 ),
                 if (widget.controller.formError != null) ...[
-                  const SizedBox(height: StarKidsSpacing.md),
+                  const SizedBox(height: SKSpacing.x3),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(StarKidsSpacing.md),
+                    padding: const EdgeInsets.all(SKSpacing.x3),
                     decoration: BoxDecoration(
                       color: c.dangerSoft,
                       borderRadius: BorderRadius.circular(SKRadius.lg),
@@ -1632,14 +1631,14 @@ class _ChildFormSheetState extends State<_ChildFormSheet> {
                     ),
                   ),
                 ],
-                const SizedBox(height: StarKidsSpacing.xl),
+                const SizedBox(height: SKSpacing.x5),
                 PrimaryButton(
                   label: isEditing ? l.save : l.add,
                   onPressed: widget.controller.isSaving
                       ? null
                       : () => _submit(l),
                 ),
-                const SizedBox(height: StarKidsSpacing.sm),
+                const SizedBox(height: SKSpacing.x2),
                 SecondaryButton(
                   label: l.cancel,
                   fullWidth: true,
@@ -1735,8 +1734,8 @@ class _DatePickerField extends StatelessWidget {
                 borderRadius: BorderRadius.circular(SKRadius.lg),
               ),
               padding: const EdgeInsets.symmetric(
-                horizontal: StarKidsSpacing.lg,
-                vertical: StarKidsSpacing.md,
+                horizontal: SKSpacing.x4,
+                vertical: SKSpacing.x3,
               ),
               child: Row(
                 children: [
@@ -1763,7 +1762,7 @@ class _DatePickerField extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(width: StarKidsSpacing.md),
+                  const SizedBox(width: SKSpacing.x3),
                   Container(
                     width: 40,
                     height: 40,
@@ -1785,7 +1784,7 @@ class _DatePickerField extends StatelessWidget {
         if (errorText != null) ...[
           const SizedBox(height: 4),
           Padding(
-            padding: const EdgeInsets.only(left: StarKidsSpacing.sm),
+            padding: const EdgeInsets.only(left: SKSpacing.x2),
             child: Text(
               errorText!,
               style: textTheme.bodySmall?.copyWith(color: c.danger),
@@ -1821,7 +1820,7 @@ class _GenderSelector extends StatelessWidget {
           l.childGender,
           style: textTheme.bodySmall?.copyWith(color: c.textSecondary),
         ),
-        const SizedBox(height: StarKidsSpacing.sm),
+        const SizedBox(height: SKSpacing.x2),
         LayoutBuilder(
           builder: (context, constraints) {
             final isCompact = constraints.maxWidth < 360;
@@ -1835,7 +1834,7 @@ class _GenderSelector extends StatelessWidget {
                     isSelected: selected == ChildGender.male,
                     onTap: () => onSelected(ChildGender.male),
                   ),
-                  const SizedBox(height: StarKidsSpacing.sm),
+                  const SizedBox(height: SKSpacing.x2),
                   _GenderOption(
                     label: l.genderGirl,
                     emoji: '👧',
@@ -1856,7 +1855,7 @@ class _GenderSelector extends StatelessWidget {
                     onTap: () => onSelected(ChildGender.male),
                   ),
                 ),
-                const SizedBox(width: StarKidsSpacing.sm),
+                const SizedBox(width: SKSpacing.x2),
                 Expanded(
                   child: _GenderOption(
                     label: l.genderGirl,
@@ -1872,7 +1871,7 @@ class _GenderSelector extends StatelessWidget {
         if (errorText != null) ...[
           const SizedBox(height: 4),
           Padding(
-            padding: const EdgeInsets.only(left: StarKidsSpacing.sm),
+            padding: const EdgeInsets.only(left: SKSpacing.x2),
             child: Text(
               errorText!,
               style: textTheme.bodySmall?.copyWith(color: c.danger),
@@ -1909,7 +1908,7 @@ class _GenderOption extends StatelessWidget {
         borderRadius: BorderRadius.circular(SKRadius.lg),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.all(StarKidsSpacing.md),
+          padding: const EdgeInsets.all(SKSpacing.x3),
           decoration: BoxDecoration(
             color: isSelected ? c.cta.withValues(alpha: 0.08) : c.elevated,
             borderRadius: BorderRadius.circular(SKRadius.lg),
@@ -1933,7 +1932,7 @@ class _GenderOption extends StatelessWidget {
                   child: Text(emoji, style: const TextStyle(fontSize: 20)),
                 ),
               ),
-              const SizedBox(width: StarKidsSpacing.md),
+              const SizedBox(width: SKSpacing.x3),
               Expanded(
                 child: Text(
                   label,
@@ -2154,8 +2153,8 @@ class _InlineErrorBanner extends StatelessWidget {
     final c = SKTheme.of(context).colors;
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: StarKidsSpacing.lg,
-        vertical: StarKidsSpacing.md,
+        horizontal: SKSpacing.x4,
+        vertical: SKSpacing.x3,
       ),
       decoration: BoxDecoration(
         color: c.dangerSoft,
@@ -2165,14 +2164,14 @@ class _InlineErrorBanner extends StatelessWidget {
       child: Row(
         children: [
           Icon(Icons.error_outline_rounded, color: c.danger, size: 20),
-          const SizedBox(width: StarKidsSpacing.sm),
+          const SizedBox(width: SKSpacing.x2),
           Expanded(
             child: Text(
               message,
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
-          const SizedBox(width: StarKidsSpacing.xs),
+          const SizedBox(width: SKSpacing.x1),
           GestureDetector(
             onTap: onDismiss,
             child:
@@ -2197,7 +2196,7 @@ class _RequestPreviewItem extends StatelessWidget {
     final c = SKTheme.of(context).colors;
 
     return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.md),
+      padding: const EdgeInsets.all(SKSpacing.x3),
       decoration: BoxDecoration(
         color: c.bg,
         borderRadius: BorderRadius.circular(SKRadius.sm),
@@ -2219,7 +2218,7 @@ class _RequestPreviewItem extends StatelessWidget {
           ),
           Container(
             padding: const EdgeInsets.symmetric(
-              horizontal: StarKidsSpacing.sm,
+              horizontal: SKSpacing.x2,
               vertical: 4,
             ),
             decoration: BoxDecoration(
@@ -2355,7 +2354,7 @@ class _StatRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SolidCard(
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      padding: const EdgeInsets.all(SKSpacing.x4),
       radius: SKRadius.xl,
       child: Row(
         children: [
@@ -2460,8 +2459,8 @@ class _SegmentedChoice extends StatelessWidget {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: StarKidsSpacing.md,
-                  vertical: StarKidsSpacing.xs,
+                  horizontal: SKSpacing.x3,
+                  vertical: SKSpacing.x1,
                 ),
                 decoration: BoxDecoration(
                   color: selected == options[i] ? c.cta : Colors.transparent,

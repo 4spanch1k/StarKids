@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/primary_button.dart';
@@ -75,7 +74,7 @@ class _HomeNewsSectionState extends State<HomeNewsSection> {
                         AppRoutes.notifications,
                       ),
             ),
-            const SizedBox(height: StarKidsSpacing.lg),
+            const SizedBox(height: SKSpacing.x4),
             if (_controller.isLoading && items.isEmpty)
               const _NewsStateCard(
                 title: 'Загружаем новости',
@@ -112,13 +111,13 @@ class _HomeNewsSectionState extends State<HomeNewsSection> {
                       title: 'Нет соединения',
                       description: 'Показаны последние данные',
                     ),
-                    const SizedBox(height: StarKidsSpacing.md),
+                    const SizedBox(height: SKSpacing.x3),
                   ] else if (_controller.errorMessage != null) ...[
                     _NewsInlineInfoCard(
                       title: 'Не удалось обновить новости',
                       description: _controller.errorMessage!,
                     ),
-                    const SizedBox(height: StarKidsSpacing.md),
+                    const SizedBox(height: SKSpacing.x3),
                   ],
                   SizedBox(
                     height: 224,
@@ -132,7 +131,7 @@ class _HomeNewsSectionState extends State<HomeNewsSection> {
                           padding: EdgeInsets.only(
                             right: index == items.length - 1
                                 ? 0
-                                : StarKidsSpacing.md,
+                                : SKSpacing.x3,
                           ),
                           child: _HomeNewsCard(
                             item: item,
@@ -208,7 +207,7 @@ class _NewsInlineInfoCard extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      padding: const EdgeInsets.all(SKSpacing.x4),
       decoration: BoxDecoration(
         color: c.warningSoft,
         borderRadius: BorderRadius.circular(SKRadius.lg),
@@ -218,7 +217,7 @@ class _NewsInlineInfoCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: StarKidsSpacing.xs),
+          const SizedBox(height: SKSpacing.x1),
           Text(description, style: Theme.of(context).textTheme.bodyMedium),
         ],
       ),
@@ -281,9 +280,9 @@ class _HomeNewsCard extends StatelessWidget {
                   ),
                 ),
                 Positioned(
-                  left: StarKidsSpacing.lg,
-                  right: StarKidsSpacing.lg,
-                  bottom: StarKidsSpacing.lg,
+                  left: SKSpacing.x4,
+                  right: SKSpacing.x4,
+                  bottom: SKSpacing.x4,
                   child: Text(
                     item.title,
                     maxLines: 2,
@@ -323,7 +322,7 @@ class _NewsStateCard extends StatelessWidget {
 
     return Container(
       height: 224,
-      padding: const EdgeInsets.all(StarKidsSpacing.xl),
+      padding: const EdgeInsets.all(SKSpacing.x5),
       decoration: BoxDecoration(
         color: c.elevated,
         borderRadius: BorderRadius.circular(SKRadius.xl),
@@ -334,7 +333,7 @@ class _NewsStateCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: StarKidsSpacing.sm),
+          const SizedBox(height: SKSpacing.x2),
           Text(description, style: Theme.of(context).textTheme.bodyLarge),
           if (showProgress) ...[
             const Spacer(),

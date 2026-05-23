@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/glass_app_bar.dart';
@@ -115,10 +114,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
               onRefresh: _controller.forceRefresh,
               child: ListView.separated(
                 controller: _scrollController,
-                padding: const EdgeInsets.all(StarKidsSpacing.xl),
+                padding: const EdgeInsets.all(SKSpacing.x5),
                 itemCount: items.length + _extraItemCount,
                 separatorBuilder: (_, __) =>
-                    const SizedBox(height: StarKidsSpacing.lg),
+                    const SizedBox(height: SKSpacing.x4),
                 itemBuilder: (context, index) {
                   if (_showBanner && index == 0) {
                     if (_controller.isOffline) {
@@ -148,7 +147,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   }
 
                   return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: StarKidsSpacing.md),
+                    padding: EdgeInsets.symmetric(vertical: SKSpacing.x3),
                     child: Center(child: CircularProgressIndicator()),
                   );
                 },
@@ -227,10 +226,10 @@ class _NotificationsStateView extends StatelessWidget {
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(StarKidsSpacing.xl),
+        padding: const EdgeInsets.all(SKSpacing.x5),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(StarKidsSpacing.xl),
+          padding: const EdgeInsets.all(SKSpacing.x5),
           decoration: BoxDecoration(
             color: c.elevated,
             borderRadius: BorderRadius.circular(SKRadius.xl),
@@ -242,10 +241,10 @@ class _NotificationsStateView extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(title, style: Theme.of(context).textTheme.headlineMedium),
-              const SizedBox(height: StarKidsSpacing.sm),
+              const SizedBox(height: SKSpacing.x2),
               Text(description, style: Theme.of(context).textTheme.bodyLarge),
               if (actionLabel != null && onActionTap != null) ...[
-                const SizedBox(height: StarKidsSpacing.xl),
+                const SizedBox(height: SKSpacing.x5),
                 PrimaryButton(
                   label: actionLabel!,
                   onPressed: () => onActionTap!(),
@@ -273,7 +272,7 @@ class _NotificationsInlineErrorCard extends StatelessWidget {
     final c = SKTheme.of(context).colors;
 
     return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      padding: const EdgeInsets.all(SKSpacing.x4),
       decoration: BoxDecoration(
         color: c.dangerSoft,
         borderRadius: BorderRadius.circular(SKRadius.lg),
@@ -286,9 +285,9 @@ class _NotificationsInlineErrorCard extends StatelessWidget {
             'Не удалось обновить историю',
             style: Theme.of(context).textTheme.titleMedium,
           ),
-          const SizedBox(height: StarKidsSpacing.xs),
+          const SizedBox(height: SKSpacing.x1),
           Text(message, style: Theme.of(context).textTheme.bodyMedium),
-          const SizedBox(height: StarKidsSpacing.md),
+          const SizedBox(height: SKSpacing.x3),
           SecondaryButton(
             label: 'Повторить',
             onPressed: () => onRetry(),
@@ -313,7 +312,7 @@ class _NotificationsInlineInfoCard extends StatelessWidget {
     final c = SKTheme.of(context).colors;
 
     return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      padding: const EdgeInsets.all(SKSpacing.x4),
       decoration: BoxDecoration(
         color: c.warningSoft,
         borderRadius: BorderRadius.circular(SKRadius.lg),
@@ -323,7 +322,7 @@ class _NotificationsInlineInfoCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: StarKidsSpacing.xs),
+          const SizedBox(height: SKSpacing.x1),
           Text(description, style: Theme.of(context).textTheme.bodyMedium),
         ],
       ),
@@ -376,7 +375,7 @@ class _NewsListCard extends StatelessWidget {
                         ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.all(StarKidsSpacing.lg),
+                  padding: const EdgeInsets.all(SKSpacing.x4),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -386,14 +385,14 @@ class _NewsListCard extends StatelessWidget {
                           color: c.textSecondary,
                         ),
                       ),
-                      const SizedBox(height: StarKidsSpacing.xs),
+                      const SizedBox(height: SKSpacing.x1),
                       Text(
                         _typeLabel(item.type),
                         style: textTheme.labelSmall?.copyWith(
                           color: c.textSecondary,
                         ),
                       ),
-                      const SizedBox(height: StarKidsSpacing.sm),
+                      const SizedBox(height: SKSpacing.x2),
                       Text(
                         item.title,
                         maxLines: 2,
@@ -401,7 +400,7 @@ class _NewsListCard extends StatelessWidget {
                         style: textTheme.titleLarge,
                       ),
                       if ((item.description ?? '').trim().isNotEmpty) ...[
-                        const SizedBox(height: StarKidsSpacing.sm),
+                        const SizedBox(height: SKSpacing.x2),
                         Text(
                           item.description!.trim(),
                           maxLines: 3,

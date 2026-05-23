@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/design_system/sk_design_tokens.dart';
+
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/foundations/sk_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/glass_app_bar.dart';
@@ -387,7 +388,7 @@ class _MenuItemCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: StarKidsSpacing.md),
+          const SizedBox(width: SKSpacing.x3),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -396,7 +397,7 @@ class _MenuItemCard extends StatelessWidget {
                   item.title,
                   style: textTheme.titleMedium,
                 ),
-                const SizedBox(height: StarKidsSpacing.sm),
+                const SizedBox(height: SKSpacing.x2),
                 Row(
                   children: [
                     RichText(
@@ -531,18 +532,18 @@ class _MenuStateView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(StarKidsSpacing.xl),
+        padding: const EdgeInsets.all(SKSpacing.x5),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(title, style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: StarKidsSpacing.md),
+            const SizedBox(height: SKSpacing.x3),
             Text(
               description,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyLarge,
             ),
-            const SizedBox(height: StarKidsSpacing.lg),
+            const SizedBox(height: SKSpacing.x4),
             SecondaryButton(
               label: actionLabel,
               icon: Icons.swap_horiz_rounded,

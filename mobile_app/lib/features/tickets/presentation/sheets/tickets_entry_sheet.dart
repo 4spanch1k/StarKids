@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/design_system/foundations/star_kids_icon_sizes.dart';
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/glass_bottom_sheet.dart';
@@ -27,10 +25,10 @@ class _TicketsEntryBody extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        StarKidsSpacing.xl,
-        StarKidsSpacing.lg,
-        StarKidsSpacing.xl,
-        StarKidsSpacing.xl,
+        SKSpacing.x5,
+        SKSpacing.x4,
+        SKSpacing.x5,
+        SKSpacing.x5,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -42,7 +40,7 @@ class _TicketsEntryBody extends StatelessWidget {
                   color: c.textSecondary,
                 ),
           ),
-          const SizedBox(height: StarKidsSpacing.lg),
+          const SizedBox(height: SKSpacing.x4),
           _TicketsEntryActionCard(
             key: const ValueKey('my-tickets-action'),
             icon: Icons.confirmation_num_rounded,
@@ -51,7 +49,7 @@ class _TicketsEntryBody extends StatelessWidget {
             onTap: () =>
                 Navigator.of(context).pop(TicketsEntryAction.myTickets),
           ),
-          const SizedBox(height: StarKidsSpacing.md),
+          const SizedBox(height: SKSpacing.x3),
           _TicketsEntryActionCard(
             key: const ValueKey('buy-ticket-action'),
             icon: Icons.shopping_bag_rounded,
@@ -87,7 +85,7 @@ class _TicketsEntryActionCard extends StatelessWidget {
 
     return SolidCard(
       radius: SKRadius.xl,
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      padding: const EdgeInsets.all(SKSpacing.x4),
       onTap: onTap,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,15 +97,15 @@ class _TicketsEntryActionCard extends StatelessWidget {
               color: c.elevated,
               borderRadius: BorderRadius.circular(SKRadius.lg),
             ),
-            child: Icon(icon, size: StarKidsIconSizes.md, color: c.accent),
+            child: Icon(icon, size: 24, color: c.accent),
           ),
-          const SizedBox(width: StarKidsSpacing.md),
+          const SizedBox(width: SKSpacing.x3),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: textTheme.titleMedium),
-                const SizedBox(height: StarKidsSpacing.xs),
+                const SizedBox(height: SKSpacing.x1),
                 Text(
                   subtitle,
                   style: textTheme.bodyMedium?.copyWith(
@@ -117,7 +115,7 @@ class _TicketsEntryActionCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: StarKidsSpacing.sm),
+          const SizedBox(width: SKSpacing.x2),
           Icon(Icons.chevron_right_rounded, color: c.textSecondary),
         ],
       ),

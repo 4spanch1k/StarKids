@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/glass_app_bar.dart';
@@ -95,7 +94,7 @@ class _RequestHistoryPageState extends State<RequestHistoryPage> {
           ),
           body: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(StarKidsSpacing.xl),
+              padding: const EdgeInsets.all(SKSpacing.x5),
               child: StarKidsContentSwitcher(child: _buildBody(context)),
             ),
           ),
@@ -158,7 +157,7 @@ class _RequestHistoryPageState extends State<RequestHistoryPage> {
               active: _activeFilter,
               onSelected: (t) => setState(() => _activeFilter = t),
             ),
-            const SizedBox(height: StarKidsSpacing.md),
+            const SizedBox(height: SKSpacing.x3),
             Expanded(
               child: ListView.separated(
                 key: ValueKey(
@@ -166,7 +165,7 @@ class _RequestHistoryPageState extends State<RequestHistoryPage> {
                 ),
                 itemCount: filtered.length + 1,
                 separatorBuilder: (_, __) =>
-                    const SizedBox(height: StarKidsSpacing.md),
+                    const SizedBox(height: SKSpacing.x3),
                 itemBuilder: (context, index) {
                   if (index == 0) {
                     return _HistoryHeader(total: filtered.length);
@@ -193,7 +192,7 @@ class _HistoryHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SolidCard(
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      padding: const EdgeInsets.all(SKSpacing.x4),
       radius: SKRadius.lg,
       child: Text(
         total == 1 ? 'Найдена 1 заявка.' : 'Найдено $total заявок.',
@@ -216,7 +215,7 @@ class _RequestHistoryCard extends StatelessWidget {
     final details = _buildDetails(context, item);
 
     return SolidCard(
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      padding: const EdgeInsets.all(SKSpacing.x4),
       radius: SKRadius.xl,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -229,7 +228,7 @@ class _RequestHistoryCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(item.type.label, style: textTheme.titleMedium),
-                    const SizedBox(height: StarKidsSpacing.xs),
+                    const SizedBox(height: SKSpacing.x1),
                     Text(
                       'Создана $createdAtLabel',
                       style: textTheme.bodySmall?.copyWith(
@@ -243,10 +242,10 @@ class _RequestHistoryCard extends StatelessWidget {
             ],
           ),
           if (details.isNotEmpty) ...[
-            const SizedBox(height: StarKidsSpacing.lg),
+            const SizedBox(height: SKSpacing.x4),
             ...details,
           ],
-          const SizedBox(height: StarKidsSpacing.lg),
+          const SizedBox(height: SKSpacing.x4),
           Text(
             item.hasNotes ? item.notes!.trim() : item.type.fallbackHistoryNotes,
             style: textTheme.bodyMedium,
@@ -290,7 +289,7 @@ class _RequestHistoryCard extends StatelessWidget {
     for (var index = 0; index < rows.length; index += 1) {
       widgets.add(rows[index]);
       if (index < rows.length - 1) {
-        widgets.add(const SizedBox(height: StarKidsSpacing.sm));
+        widgets.add(const SizedBox(height: SKSpacing.x2));
       }
     }
 
@@ -323,7 +322,7 @@ class _HistoryFactRow extends StatelessWidget {
             style: textTheme.labelMedium?.copyWith(color: c.textSecondary),
           ),
         ),
-        const SizedBox(width: StarKidsSpacing.md),
+        const SizedBox(width: SKSpacing.x3),
         Expanded(
           child: Text(
             value,
@@ -347,8 +346,8 @@ class _HistoryStatusChip extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: StarKidsSpacing.md,
-        vertical: StarKidsSpacing.xs,
+        horizontal: SKSpacing.x3,
+        vertical: SKSpacing.x1,
       ),
       decoration: BoxDecoration(
         color: c.accentSoft,
@@ -392,7 +391,7 @@ class _HistoryStateView extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520),
         child: SolidCard(
-          padding: const EdgeInsets.all(StarKidsSpacing.xl),
+          padding: const EdgeInsets.all(SKSpacing.x5),
           radius: SKRadius.xl,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -405,20 +404,20 @@ class _HistoryStateView extends StatelessWidget {
                 )
               else
                 Icon(icon, size: 36, color: c.accent),
-              const SizedBox(height: StarKidsSpacing.lg),
+              const SizedBox(height: SKSpacing.x4),
               Text(
                 title,
                 style: textTheme.titleLarge,
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: StarKidsSpacing.sm),
+              const SizedBox(height: SKSpacing.x2),
               Text(
                 description,
                 style: textTheme.bodyMedium,
                 textAlign: TextAlign.center,
               ),
               if (buttonLabel != null && onPressed != null) ...[
-                const SizedBox(height: StarKidsSpacing.lg),
+                const SizedBox(height: SKSpacing.x4),
                 PrimaryButton(
                   label: buttonLabel!,
                   onPressed: isLoading ? null : onPressed,
@@ -452,8 +451,8 @@ class _FilterRail extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(
-            horizontal: StarKidsSpacing.md,
-            vertical: StarKidsSpacing.xs,
+            horizontal: SKSpacing.x3,
+            vertical: SKSpacing.x1,
           ),
           decoration: BoxDecoration(
             color: isActive ? c.cta : c.elevated,
@@ -476,9 +475,9 @@ class _FilterRail extends StatelessWidget {
       child: Row(
         children: [
           chip('Все', null),
-          const SizedBox(width: StarKidsSpacing.sm),
+          const SizedBox(width: SKSpacing.x2),
           chip(RequestType.birthdayRequest.label, RequestType.birthdayRequest),
-          const SizedBox(width: StarKidsSpacing.sm),
+          const SizedBox(width: SKSpacing.x2),
           chip(RequestType.contact.label, RequestType.contact),
         ],
       ),

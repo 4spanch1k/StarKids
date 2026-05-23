@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/foundations/sk_tokens.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
@@ -337,10 +336,10 @@ class _RequestTypeSelector extends StatelessWidget {
           description:
               'Можно оставить заявку на праздник или короткий запрос на обратную связь.',
         ),
-        const SizedBox(height: StarKidsSpacing.lg),
+        const SizedBox(height: SKSpacing.x4),
         ...RequestType.values.map(
           (type) => Padding(
-            padding: const EdgeInsets.only(bottom: StarKidsSpacing.md),
+            padding: const EdgeInsets.only(bottom: SKSpacing.x3),
             child: _RequestTypeOptionCard(
               type: type,
               isSelected: type == selectedType,
@@ -376,7 +375,7 @@ class _RequestTypeOptionCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(SKRadius.xl),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.all(StarKidsSpacing.lg),
+          padding: const EdgeInsets.all(SKSpacing.x4),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(SKRadius.xl),
             border: Border.all(
@@ -402,13 +401,13 @@ class _RequestTypeOptionCard extends StatelessWidget {
                   color: c.cta,
                 ),
               ),
-              const SizedBox(width: StarKidsSpacing.md),
+              const SizedBox(width: SKSpacing.x3),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(type.label, style: textTheme.titleMedium),
-                    const SizedBox(height: StarKidsSpacing.xs),
+                    const SizedBox(height: SKSpacing.x1),
                     Text(type.selectorDescription, style: textTheme.bodyMedium),
                   ],
                 ),
@@ -453,14 +452,14 @@ class _BirthdayRequestFormView extends StatelessWidget {
         key: formKey,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(
-            StarKidsSpacing.xl,
-            StarKidsSpacing.lg,
-            StarKidsSpacing.xl,
-            StarKidsSpacing.x5l,
+            SKSpacing.x5,
+            SKSpacing.x4,
+            SKSpacing.x5,
+            SKSpacing.x12,
           ),
           children: [
             const Padding(
-              padding: EdgeInsets.only(bottom: StarKidsSpacing.xl),
+              padding: EdgeInsets.only(bottom: SKSpacing.x5),
               child: Text.rich(
                 TextSpan(
                   children: [
@@ -481,7 +480,7 @@ class _BirthdayRequestFormView extends StatelessWidget {
               ),
             ),
             Container(
-              padding: const EdgeInsets.all(StarKidsSpacing.lg),
+              padding: const EdgeInsets.all(SKSpacing.x4),
               decoration: BoxDecoration(
                 color: c.elevated,
                 borderRadius: BorderRadius.circular(SKRadius.xl),
@@ -496,7 +495,7 @@ class _BirthdayRequestFormView extends StatelessWidget {
                     leadingIcon: Icons.location_on_rounded,
                     onTap: onPickBranch,
                   ),
-                  const SizedBox(height: StarKidsSpacing.lg),
+                  const SizedBox(height: SKSpacing.x4),
                   StarKidsSelectField(
                     label: 'Пакет праздника',
                     value: selectedPackage?.name,
@@ -511,7 +510,7 @@ class _BirthdayRequestFormView extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: StarKidsSpacing.x2l),
+            const SizedBox(height: SKSpacing.x6),
             if (controller.submissionErrorText != null) ...[
               _RequestStatusBanner(
                 title: 'Заявка пока не отправлена',
@@ -520,7 +519,7 @@ class _BirthdayRequestFormView extends StatelessWidget {
                 foregroundColor: c.danger,
                 icon: Icons.error_rounded,
               ),
-              const SizedBox(height: StarKidsSpacing.lg),
+              const SizedBox(height: SKSpacing.x4),
             ],
             StarKidsInputField(
               controller: controller.nameController,
@@ -532,7 +531,7 @@ class _BirthdayRequestFormView extends StatelessWidget {
               validator: controller.validateName,
               onChanged: (_) => controller.clearTransientFeedback(),
             ),
-            const SizedBox(height: StarKidsSpacing.lg),
+            const SizedBox(height: SKSpacing.x4),
             StarKidsInputField(
               controller: controller.phoneController,
               label: 'Телефон',
@@ -544,12 +543,12 @@ class _BirthdayRequestFormView extends StatelessWidget {
               inputFormatters: [KzPhoneInputFormatter()],
               onChanged: (_) => controller.clearTransientFeedback(),
             ),
-            const SizedBox(height: StarKidsSpacing.lg),
+            const SizedBox(height: SKSpacing.x4),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Ближайшие даты', style: textTheme.labelMedium),
-                const SizedBox(height: StarKidsSpacing.sm),
+                const SizedBox(height: SKSpacing.x2),
                 SkDatePillRow(
                   selectedDate: controller.desiredDate,
                   onDateSelected: (date) {
@@ -559,7 +558,7 @@ class _BirthdayRequestFormView extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: StarKidsSpacing.md),
+            const SizedBox(height: SKSpacing.x3),
             StarKidsSelectField(
               label: 'Или выберите другую дату',
               value: controller.desiredDate == null
@@ -571,7 +570,7 @@ class _BirthdayRequestFormView extends StatelessWidget {
               onTap: () => controller.pickDesiredDate(context),
               errorText: controller.dateErrorText,
             ),
-            const SizedBox(height: StarKidsSpacing.lg),
+            const SizedBox(height: SKSpacing.x4),
             AnimatedBuilder(
               animation: controller,
               builder: (context, _) {
@@ -586,7 +585,7 @@ class _BirthdayRequestFormView extends StatelessWidget {
                 );
               },
             ),
-            const SizedBox(height: StarKidsSpacing.lg),
+            const SizedBox(height: SKSpacing.x4),
             StarKidsInputField(
               controller: controller.commentController,
               label: 'Комментарий',
@@ -599,7 +598,7 @@ class _BirthdayRequestFormView extends StatelessWidget {
               textCapitalization: TextCapitalization.sentences,
               onChanged: (_) => controller.clearTransientFeedback(),
             ),
-            const SizedBox(height: StarKidsSpacing.xl),
+            const SizedBox(height: SKSpacing.x5),
             Text(
               'Запрос уйдёт менеджеру по филиалу Al-Farabi.',
               style: textTheme.bodyMedium,
@@ -637,10 +636,10 @@ class _ContactRequestFormView extends StatelessWidget {
         key: formKey,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(
-            StarKidsSpacing.xl,
-            StarKidsSpacing.lg,
-            StarKidsSpacing.xl,
-            StarKidsSpacing.x5l,
+            SKSpacing.x5,
+            SKSpacing.x4,
+            SKSpacing.x5,
+            SKSpacing.x12,
           ),
           children: [
             const Text.rich(
@@ -661,7 +660,7 @@ class _ContactRequestFormView extends StatelessWidget {
                 color: SK.ink,
               ),
             ),
-            const SizedBox(height: StarKidsSpacing.sm),
+            const SizedBox(height: SKSpacing.x2),
             const Text(
               'Опишите вопрос — перезвоним и поможем без лишних уточнений.',
               style: TextStyle(
@@ -671,13 +670,13 @@ class _ContactRequestFormView extends StatelessWidget {
                 color: SK.ink3,
               ),
             ),
-            const SizedBox(height: StarKidsSpacing.lg),
+            const SizedBox(height: SKSpacing.x4),
             if (contextLabel != null) ...[
               _RequestContextCard(
                 label: contextLabel!,
                 description: 'Запрос уйдёт менеджеру по выбранному филиалу.',
               ),
-              const SizedBox(height: StarKidsSpacing.lg),
+              const SizedBox(height: SKSpacing.x4),
             ],
             if (controller.submissionErrorText != null) ...[
               _RequestStatusBanner(
@@ -687,7 +686,7 @@ class _ContactRequestFormView extends StatelessWidget {
                 foregroundColor: c.danger,
                 icon: Icons.error_rounded,
               ),
-              const SizedBox(height: StarKidsSpacing.lg),
+              const SizedBox(height: SKSpacing.x4),
             ],
             StarKidsInputField(
               controller: controller.nameController,
@@ -699,7 +698,7 @@ class _ContactRequestFormView extends StatelessWidget {
               validator: controller.validateName,
               onChanged: (_) => controller.clearTransientFeedback(),
             ),
-            const SizedBox(height: StarKidsSpacing.lg),
+            const SizedBox(height: SKSpacing.x4),
             StarKidsInputField(
               controller: controller.phoneController,
               label: 'Телефон',
@@ -711,7 +710,7 @@ class _ContactRequestFormView extends StatelessWidget {
               inputFormatters: [KzPhoneInputFormatter()],
               onChanged: (_) => controller.clearTransientFeedback(),
             ),
-            const SizedBox(height: StarKidsSpacing.lg),
+            const SizedBox(height: SKSpacing.x4),
             StarKidsInputField(
               controller: controller.emailController,
               label: 'Email',
@@ -724,7 +723,7 @@ class _ContactRequestFormView extends StatelessWidget {
               validator: controller.validateEmail,
               onChanged: (_) => controller.clearTransientFeedback(),
             ),
-            const SizedBox(height: StarKidsSpacing.lg),
+            const SizedBox(height: SKSpacing.x4),
             StarKidsInputField(
               controller: controller.messageController,
               label: 'Что нужно уточнить',
@@ -736,7 +735,7 @@ class _ContactRequestFormView extends StatelessWidget {
               textCapitalization: TextCapitalization.sentences,
               onChanged: (_) => controller.clearTransientFeedback(),
             ),
-            const SizedBox(height: StarKidsSpacing.xl),
+            const SizedBox(height: SKSpacing.x5),
             Text(
               'Запрос уйдёт менеджеру по филиалу Al-Farabi.',
               style: textTheme.bodyMedium,
@@ -803,7 +802,7 @@ class _RequestSuccessViewState extends State<_RequestSuccessView> {
       children: [
         SafeArea(
           child: ListView(
-            padding: const EdgeInsets.all(StarKidsSpacing.xl),
+            padding: const EdgeInsets.all(SKSpacing.x5),
             children: [
               _RequestStatusBanner(
                 title: widget.type.successTitle,
@@ -812,9 +811,9 @@ class _RequestSuccessViewState extends State<_RequestSuccessView> {
                 foregroundColor: c.success,
                 icon: Icons.check_circle_rounded,
               ),
-              const SizedBox(height: StarKidsSpacing.x2l),
+              const SizedBox(height: SKSpacing.x6),
               Container(
-                padding: const EdgeInsets.all(StarKidsSpacing.lg),
+                padding: const EdgeInsets.all(SKSpacing.x4),
                 decoration: BoxDecoration(
                   color: c.elevated,
                   borderRadius: BorderRadius.circular(SKRadius.xl),
@@ -824,30 +823,30 @@ class _RequestSuccessViewState extends State<_RequestSuccessView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _SuccessRow(label: 'Филиал', value: widget.branch.name),
-                    const SizedBox(height: StarKidsSpacing.md),
+                    const SizedBox(height: SKSpacing.x3),
                     _SuccessRow(
                       label: 'Пакет',
                       value: widget.selectedPackage?.name ??
                           'Менеджер поможет подобрать',
                     ),
-                    const SizedBox(height: StarKidsSpacing.md),
+                    const SizedBox(height: SKSpacing.x3),
                     _SuccessRow(
                         label: 'Номер заявки',
                         value: widget.submission.requestId),
-                    const SizedBox(height: StarKidsSpacing.md),
+                    const SizedBox(height: SKSpacing.x3),
                     _SuccessRow(
                         label: 'Следующий шаг',
                         value: widget.submission.nextStep),
                   ],
                 ),
               ),
-              const SizedBox(height: StarKidsSpacing.x2l),
+              const SizedBox(height: SKSpacing.x6),
               PrimaryButton(
                 label: 'На главную',
                 icon: Icons.home_rounded,
                 onPressed: widget.onBackHome,
               ),
-              const SizedBox(height: StarKidsSpacing.sm),
+              const SizedBox(height: SKSpacing.x2),
               Center(
                 child: TextButton(
                   onPressed: widget.onCreateAnother,
@@ -934,7 +933,7 @@ class _ContactRequestSuccessViewState
       children: [
         SafeArea(
           child: ListView(
-            padding: const EdgeInsets.all(StarKidsSpacing.xl),
+            padding: const EdgeInsets.all(SKSpacing.x5),
             children: [
               _RequestStatusBanner(
                 title: widget.submission.type.successTitle,
@@ -943,9 +942,9 @@ class _ContactRequestSuccessViewState
                 foregroundColor: c.success,
                 icon: Icons.check_circle_rounded,
               ),
-              const SizedBox(height: StarKidsSpacing.x2l),
+              const SizedBox(height: SKSpacing.x6),
               Container(
-                padding: const EdgeInsets.all(StarKidsSpacing.lg),
+                padding: const EdgeInsets.all(SKSpacing.x4),
                 decoration: BoxDecoration(
                   color: c.elevated,
                   borderRadius: BorderRadius.circular(SKRadius.xl),
@@ -959,18 +958,18 @@ class _ContactRequestSuccessViewState
                       value: widget.submission.type.label,
                     ),
                     if (widget.contextLabel != null) ...[
-                      const SizedBox(height: StarKidsSpacing.md),
+                      const SizedBox(height: SKSpacing.x3),
                       _SuccessRow(
                           label: 'Контекст', value: widget.contextLabel!),
                     ],
-                    const SizedBox(height: StarKidsSpacing.md),
+                    const SizedBox(height: SKSpacing.x3),
                     _SuccessRow(
                         label: 'Номер заявки',
                         value: widget.submission.requestId),
-                    const SizedBox(height: StarKidsSpacing.md),
+                    const SizedBox(height: SKSpacing.x3),
                     _SuccessRow(
                         label: 'Статус', value: widget.submission.status.label),
-                    const SizedBox(height: StarKidsSpacing.md),
+                    const SizedBox(height: SKSpacing.x3),
                     const _SuccessRow(
                       label: 'Следующий шаг',
                       value:
@@ -979,13 +978,13 @@ class _ContactRequestSuccessViewState
                   ],
                 ),
               ),
-              const SizedBox(height: StarKidsSpacing.x2l),
+              const SizedBox(height: SKSpacing.x6),
               PrimaryButton(
                 label: 'На главную',
                 icon: Icons.home_rounded,
                 onPressed: widget.onBackHome,
               ),
-              const SizedBox(height: StarKidsSpacing.sm),
+              const SizedBox(height: SKSpacing.x2),
               Center(
                 child: TextButton(
                   onPressed: widget.onCreateAnother,
@@ -1027,7 +1026,7 @@ class _RequestContextCard extends StatelessWidget {
     final c = SKTheme.of(context).colors;
 
     return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      padding: const EdgeInsets.all(SKSpacing.x4),
       decoration: BoxDecoration(
         color: c.elevated,
         borderRadius: BorderRadius.circular(SKRadius.xl),
@@ -1040,7 +1039,7 @@ class _RequestContextCard extends StatelessWidget {
             label,
             style: textTheme.titleMedium?.copyWith(color: c.cta),
           ),
-          const SizedBox(height: StarKidsSpacing.xs),
+          const SizedBox(height: SKSpacing.x1),
           Text(description, style: textTheme.bodyMedium),
         ],
       ),
@@ -1070,10 +1069,10 @@ class _SelectionSheet<T> extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        StarKidsSpacing.xl,
+        SKSpacing.x5,
         0,
-        StarKidsSpacing.xl,
-        StarKidsSpacing.xl,
+        SKSpacing.x5,
+        SKSpacing.x5,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1083,7 +1082,7 @@ class _SelectionSheet<T> extends StatelessWidget {
           final isCurrent = itemId == currentId;
 
           return Padding(
-            padding: const EdgeInsets.only(bottom: StarKidsSpacing.sm),
+            padding: const EdgeInsets.only(bottom: SKSpacing.x2),
             child: Material(
               color: c.elevated,
               borderRadius: BorderRadius.circular(SKRadius.lg),
@@ -1091,7 +1090,7 @@ class _SelectionSheet<T> extends StatelessWidget {
                 borderRadius: BorderRadius.circular(SKRadius.lg),
                 onTap: () => Navigator.of(context).pop(itemId),
                 child: Container(
-                  padding: const EdgeInsets.all(StarKidsSpacing.lg),
+                  padding: const EdgeInsets.all(SKSpacing.x4),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(SKRadius.lg),
                     border: Border.all(
@@ -1110,7 +1109,7 @@ class _SelectionSheet<T> extends StatelessWidget {
                               titleBuilder(item),
                               style: textTheme.titleLarge,
                             ),
-                            const SizedBox(height: StarKidsSpacing.xs),
+                            const SizedBox(height: SKSpacing.x1),
                             Text(
                               subtitleBuilder(item),
                               style: textTheme.bodyMedium?.copyWith(
@@ -1120,7 +1119,7 @@ class _SelectionSheet<T> extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(width: StarKidsSpacing.md),
+                      const SizedBox(width: SKSpacing.x3),
                       Icon(
                         isCurrent
                             ? Icons.check_circle_rounded
@@ -1159,7 +1158,7 @@ class _RequestStatusBanner extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      padding: const EdgeInsets.all(SKSpacing.x4),
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(SKRadius.xl),
@@ -1168,7 +1167,7 @@ class _RequestStatusBanner extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: foregroundColor),
-          const SizedBox(width: StarKidsSpacing.md),
+          const SizedBox(width: SKSpacing.x3),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1177,7 +1176,7 @@ class _RequestStatusBanner extends StatelessWidget {
                   title,
                   style: textTheme.titleLarge?.copyWith(color: foregroundColor),
                 ),
-                const SizedBox(height: StarKidsSpacing.xs),
+                const SizedBox(height: SKSpacing.x1),
                 Text(
                   description,
                   style: textTheme.bodyMedium,
@@ -1205,7 +1204,7 @@ class _SuccessRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: textTheme.labelMedium),
-        const SizedBox(height: StarKidsSpacing.xs),
+        const SizedBox(height: SKSpacing.x1),
         Text(value, style: textTheme.bodyLarge),
       ],
     );

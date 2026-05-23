@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/glass_app_bar.dart';
@@ -106,10 +105,10 @@ class _HomePageState extends State<HomePage> {
                   slivers: [
                     SliverPadding(
                       padding: const EdgeInsets.fromLTRB(
-                        StarKidsSpacing.xl,
-                        StarKidsSpacing.lg,
-                        StarKidsSpacing.xl,
-                        StarKidsSpacing.x2l,
+                        SKSpacing.x5,
+                        SKSpacing.x4,
+                        SKSpacing.x5,
+                        SKSpacing.x6,
                       ),
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
@@ -134,22 +133,22 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: StarKidsSpacing.x2l),
+                          const SizedBox(height: SKSpacing.x6),
                           HomeNewsSection(newsController: _newsController),
-                          const SizedBox(height: StarKidsSpacing.x2l),
+                          const SizedBox(height: SKSpacing.x6),
                           const StarKidsReveal(
                             delay: Duration(milliseconds: 80),
                             child: StarKidsSectionHeader(
                               title: 'Быстрые действия',
                             ),
                           ),
-                          const SizedBox(height: StarKidsSpacing.lg),
+                          const SizedBox(height: SKSpacing.x4),
                           GridView.builder(
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 2,
-                              mainAxisSpacing: StarKidsSpacing.md,
-                              crossAxisSpacing: StarKidsSpacing.md,
+                              mainAxisSpacing: SKSpacing.x3,
+                              crossAxisSpacing: SKSpacing.x3,
                               mainAxisExtent: 164,
                             ),
                             shrinkWrap: true,
@@ -159,7 +158,7 @@ class _HomePageState extends State<HomePage> {
                               return _quickActionTiles(context)[index];
                             },
                           ),
-                          const SizedBox(height: StarKidsSpacing.x2l),
+                          const SizedBox(height: SKSpacing.x6),
                           FutureBuilder<_HomeContentData>(
                             future: _loadHomeContent(branch.id),
                             builder: (context, snapshot) {
@@ -170,7 +169,7 @@ class _HomePageState extends State<HomePage> {
                                   child: Padding(
                                     key: ValueKey('home-content-loading'),
                                     padding: EdgeInsets.symmetric(
-                                      vertical: StarKidsSpacing.x2l,
+                                      vertical: SKSpacing.x6,
                                     ),
                                     child: Center(
                                       child: CircularProgressIndicator(),
@@ -202,7 +201,7 @@ class _HomePageState extends State<HomePage> {
                                         context,
                                       ).pushNamed(AppRoutes.birthdays),
                                     ),
-                                    const SizedBox(height: StarKidsSpacing.lg),
+                                    const SizedBox(height: SKSpacing.x4),
                                     if (content.featuredPackage != null)
                                       StarKidsBirthdayPackageCard(
                                         revealDelay: starKidsStaggerDelay(0),
@@ -238,11 +237,11 @@ class _HomePageState extends State<HomePage> {
                                         description:
                                             'Для выбранного филиала пока нет опубликованных пакетов. Можно оставить общую заявку, и менеджер поможет подобрать формат.',
                                       ),
-                                    const SizedBox(height: StarKidsSpacing.x2l),
+                                    const SizedBox(height: SKSpacing.x6),
                                     const StarKidsSectionHeader(
                                       title: 'Актуальные акции',
                                     ),
-                                    const SizedBox(height: StarKidsSpacing.lg),
+                                    const SizedBox(height: SKSpacing.x4),
                                     if (content.promotions.isNotEmpty)
                                       ...content.promotions
                                           .take(2)
@@ -252,7 +251,7 @@ class _HomePageState extends State<HomePage> {
                                           .map(
                                             (entry) => Padding(
                                               padding: const EdgeInsets.only(
-                                                bottom: StarKidsSpacing.md,
+                                                bottom: SKSpacing.x3,
                                               ),
                                               child: StarKidsPromoCard(
                                                 revealDelay:
@@ -279,20 +278,20 @@ class _HomePageState extends State<HomePage> {
                                         description:
                                             'По выбранному филиалу пока нет активных предложений. Остальные экраны приложения продолжают работать в обычном режиме.',
                                       ),
-                                    const SizedBox(height: StarKidsSpacing.x2l),
+                                    const SizedBox(height: SKSpacing.x6),
                                     if (content.contentBlocks.isNotEmpty) ...[
                                       const StarKidsSectionHeader(
                                         title: 'Что важно перед визитом',
                                       ),
                                       const SizedBox(
-                                          height: StarKidsSpacing.lg),
+                                          height: SKSpacing.x4),
                                       ...content.contentBlocks
                                           .asMap()
                                           .entries
                                           .map(
                                             (entry) => Padding(
                                               padding: const EdgeInsets.only(
-                                                bottom: StarKidsSpacing.md,
+                                                bottom: SKSpacing.x3,
                                               ),
                                               child: StarKidsContentBlockCard(
                                                 revealDelay:
@@ -312,17 +311,17 @@ class _HomePageState extends State<HomePage> {
                                             'Пространство, которое дети любят, а родители ценят за удобство.',
                                       ),
                                       const SizedBox(
-                                          height: StarKidsSpacing.lg),
+                                          height: SKSpacing.x4),
                                       _TrustBlock(branch: homeBranch),
                                     ],
                                     if (content.faqs.isNotEmpty) ...[
                                       const SizedBox(
-                                          height: StarKidsSpacing.x2l),
+                                          height: SKSpacing.x6),
                                       const StarKidsSectionHeader(
                                         title: 'Частые вопросы',
                                       ),
                                       const SizedBox(
-                                          height: StarKidsSpacing.lg),
+                                          height: SKSpacing.x4),
                                       ...content.faqs
                                           .take(3)
                                           .toList()
@@ -331,7 +330,7 @@ class _HomePageState extends State<HomePage> {
                                           .map(
                                             (entry) => Padding(
                                               padding: const EdgeInsets.only(
-                                                bottom: StarKidsSpacing.md,
+                                                bottom: SKSpacing.x3,
                                               ),
                                               child: StarKidsFaqCard(
                                                 revealDelay:
@@ -684,7 +683,7 @@ class _QuickActionTile extends StatelessWidget {
                 splashColor: gradientColors.first.withValues(alpha: 0.4),
                 highlightColor: Colors.transparent,
                 child: Padding(
-                  padding: const EdgeInsets.all(StarKidsSpacing.md),
+                  padding: const EdgeInsets.all(SKSpacing.x3),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -705,14 +704,14 @@ class _QuickActionTile extends StatelessWidget {
                           size: 24,
                         ),
                       ),
-                      const SizedBox(height: StarKidsSpacing.md),
+                      const SizedBox(height: SKSpacing.x3),
                       Text(
                         title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: textTheme.titleMedium,
                       ),
-                      const SizedBox(height: StarKidsSpacing.xs),
+                      const SizedBox(height: SKSpacing.x1),
                       Text(
                         subtitle,
                         maxLines: 2,
@@ -742,7 +741,7 @@ class _TrustBlock extends StatelessWidget {
     final c = SKTheme.of(context).colors;
 
     return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      padding: const EdgeInsets.all(SKSpacing.x4),
       decoration: BoxDecoration(
         color: c.elevated,
         borderRadius: BorderRadius.circular(SKRadius.xl),
@@ -756,17 +755,17 @@ class _TrustBlock extends StatelessWidget {
             'Семейный центр для детского досуга, дней рождений и незабываемых праздников в Шымкенте.',
             style: textTheme.bodyLarge,
           ),
-          const SizedBox(height: StarKidsSpacing.lg),
+          const SizedBox(height: SKSpacing.x4),
           Wrap(
-            spacing: StarKidsSpacing.sm,
-            runSpacing: StarKidsSpacing.sm,
+            spacing: SKSpacing.x2,
+            runSpacing: SKSpacing.x2,
             children: branch.facilities
                 .take(4)
                 .map(
                   (facility) => Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: StarKidsSpacing.md,
-                      vertical: StarKidsSpacing.xs,
+                      horizontal: SKSpacing.x3,
+                      vertical: SKSpacing.x1,
                     ),
                     decoration: BoxDecoration(
                       color: c.accentSoft,
@@ -784,7 +783,7 @@ class _TrustBlock extends StatelessWidget {
                 )
                 .toList(),
           ),
-          const SizedBox(height: StarKidsSpacing.lg),
+          const SizedBox(height: SKSpacing.x4),
           const Row(
             children: [
               Expanded(
@@ -793,14 +792,14 @@ class _TrustBlock extends StatelessWidget {
                   subtitle: 'м² пространства',
                 ),
               ),
-              SizedBox(width: StarKidsSpacing.sm),
+              SizedBox(width: SKSpacing.x2),
               Expanded(
                 child: _TrustStat(
                   title: '12+',
                   subtitle: 'лет работы',
                 ),
               ),
-              SizedBox(width: StarKidsSpacing.sm),
+              SizedBox(width: SKSpacing.x2),
               Expanded(
                 child: _TrustStat(
                   title: '4.9',
@@ -827,7 +826,7 @@ class _TrustStat extends StatelessWidget {
     final c = SKTheme.of(context).colors;
 
     return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.md),
+      padding: const EdgeInsets.all(SKSpacing.x3),
       decoration: BoxDecoration(
         color: c.elevated,
         borderRadius: BorderRadius.circular(SKRadius.lg),
@@ -846,7 +845,7 @@ class _TrustStat extends StatelessWidget {
               color: c.textPrimary,
             ),
           ),
-          const SizedBox(height: StarKidsSpacing.xs),
+          const SizedBox(height: SKSpacing.x1),
           Text(subtitle, style: textTheme.bodyMedium),
         ],
       ),
@@ -865,7 +864,7 @@ class _HomeStateCard extends StatelessWidget {
     final c = SKTheme.of(context).colors;
 
     return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      padding: const EdgeInsets.all(SKSpacing.x4),
       decoration: BoxDecoration(
         color: c.elevated,
         borderRadius: BorderRadius.circular(SKRadius.xl),
@@ -876,7 +875,7 @@ class _HomeStateCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: StarKidsSpacing.sm),
+          const SizedBox(height: SKSpacing.x2),
           Text(description, style: Theme.of(context).textTheme.bodyLarge),
         ],
       ),

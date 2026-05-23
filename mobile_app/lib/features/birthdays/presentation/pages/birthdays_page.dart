@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/glass_app_bar.dart';
@@ -92,9 +91,9 @@ class BirthdaysPage extends StatelessWidget {
                 child: ListView(
                   key: ValueKey('birthdays-loaded-${resolvedBranch.id}'),
                   padding: EdgeInsets.fromLTRB(
-                    StarKidsSpacing.xl,
-                    StarKidsSpacing.lg,
-                    StarKidsSpacing.xl,
+                    SKSpacing.x5,
+                    SKSpacing.x4,
+                    SKSpacing.x5,
                     MediaQuery.viewPaddingOf(context).bottom + 88,
                   ),
                   children: [
@@ -108,11 +107,11 @@ class BirthdaysPage extends StatelessWidget {
                       meta:
                           'Игровая зона, аниматор, кафе и торт в одном сценарии.',
                     ),
-                    const SizedBox(height: StarKidsSpacing.x2l),
+                    const SizedBox(height: SKSpacing.x6),
                     const StarKidsSectionHeader(
                       title: 'Что входит',
                     ),
-                    const SizedBox(height: StarKidsSpacing.lg),
+                    const SizedBox(height: SKSpacing.x4),
                     const Column(
                       children: [
                         _IncludedRow(
@@ -137,11 +136,11 @@ class BirthdaysPage extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: StarKidsSpacing.x2l),
+                    const SizedBox(height: SKSpacing.x6),
                     const StarKidsSectionHeader(
                       title: 'Пакеты',
                     ),
-                    const SizedBox(height: StarKidsSpacing.md),
+                    const SizedBox(height: SKSpacing.x3),
                     SizedBox(
                       height: 318,
                       child: ListView.separated(
@@ -149,7 +148,7 @@ class BirthdaysPage extends StatelessWidget {
                         physics: const BouncingScrollPhysics(),
                         itemCount: packages.length,
                         separatorBuilder: (_, __) => const SizedBox(
-                          width: StarKidsSpacing.md,
+                          width: SKSpacing.x3,
                         ),
                         itemBuilder: (context, index) {
                           final package = packages[index];
@@ -178,16 +177,16 @@ class BirthdaysPage extends StatelessWidget {
                         },
                       ),
                     ),
-                    const SizedBox(height: StarKidsSpacing.xl),
+                    const SizedBox(height: SKSpacing.x5),
                     if (data?.contentBlocks.isNotEmpty == true) ...[
                       const StarKidsSectionHeader(
                         title: 'Полезно знать',
                       ),
-                      const SizedBox(height: StarKidsSpacing.md),
+                      const SizedBox(height: SKSpacing.x3),
                       ...data!.contentBlocks.asMap().entries.map(
                             (entry) => Padding(
                               padding: const EdgeInsets.only(
-                                bottom: StarKidsSpacing.md,
+                                bottom: SKSpacing.x3,
                               ),
                               child: StarKidsContentBlockCard(
                                 revealDelay: starKidsStaggerDelay(entry.key),
@@ -201,9 +200,9 @@ class BirthdaysPage extends StatelessWidget {
                       const StarKidsSectionHeader(
                         title: 'Какой пакет подойдет',
                       ),
-                      const SizedBox(height: StarKidsSpacing.md),
+                      const SizedBox(height: SKSpacing.x3),
                       const SolidCard(
-                        padding: EdgeInsets.all(StarKidsSpacing.lg),
+                        padding: EdgeInsets.all(SKSpacing.x4),
                         radius: SKRadius.xl,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -212,12 +211,12 @@ class BirthdaysPage extends StatelessWidget {
                               title: 'Нужен быстрый семейный праздник',
                               value: 'Выбирайте WOW PARTY',
                             ),
-                            SizedBox(height: StarKidsSpacing.md),
+                            SizedBox(height: SKSpacing.x3),
                             _ComparisonRow(
                               title: 'Нужен wow-эффект и шоу',
                               value: 'Лучше всего подойдет STAR PARTY',
                             ),
-                            SizedBox(height: StarKidsSpacing.md),
+                            SizedBox(height: SKSpacing.x3),
                             _ComparisonRow(
                               title: 'Большая компания и семейный формат',
                               value: 'Берите MAGIC PARTY',
@@ -294,7 +293,7 @@ class _IncludedRow extends StatelessWidget {
     final c = SKTheme.of(context).colors;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: StarKidsSpacing.md),
+      padding: const EdgeInsets.only(bottom: SKSpacing.x3),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -307,7 +306,7 @@ class _IncludedRow extends StatelessWidget {
             ),
             child: Icon(icon, size: 20, color: c.textPrimary),
           ),
-          const SizedBox(width: StarKidsSpacing.md),
+          const SizedBox(width: SKSpacing.x3),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -349,17 +348,17 @@ class _BirthdaysStateView extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(StarKidsSpacing.xl),
+        padding: const EdgeInsets.all(SKSpacing.x5),
         child: Center(
           child: SolidCard(
-            padding: const EdgeInsets.all(StarKidsSpacing.xl),
+            padding: const EdgeInsets.all(SKSpacing.x5),
             radius: SKRadius.xl,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: Theme.of(context).textTheme.headlineSmall),
-                const SizedBox(height: StarKidsSpacing.sm),
+                const SizedBox(height: SKSpacing.x2),
                 Text(description, style: Theme.of(context).textTheme.bodyLarge),
               ],
             ),
@@ -384,7 +383,7 @@ class _ComparisonRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title, style: textTheme.labelMedium),
-        const SizedBox(height: StarKidsSpacing.xs),
+        const SizedBox(height: SKSpacing.x1),
         Text(value, style: textTheme.bodyLarge),
       ],
     );

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
 
@@ -80,18 +79,18 @@ class ProfileLoadingSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(StarKidsSpacing.xl),
+      padding: const EdgeInsets.all(SKSpacing.x5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _HeaderSkeleton(),
-          const SizedBox(height: StarKidsSpacing.xl),
+          const SizedBox(height: SKSpacing.x5),
           const _CardSkeleton(lineCount: 4),
-          const SizedBox(height: StarKidsSpacing.xl),
+          const SizedBox(height: SKSpacing.x5),
           const _CardSkeleton(lineCount: 3),
-          const SizedBox(height: StarKidsSpacing.xl),
+          const SizedBox(height: SKSpacing.x5),
           const _CardSkeleton(lineCount: 3),
-          const SizedBox(height: StarKidsSpacing.xl),
+          const SizedBox(height: SKSpacing.x5),
           const _CardSkeleton(lineCount: 2),
         ],
       ),
@@ -104,7 +103,7 @@ class _HeaderSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = SKTheme.of(context).colors;
     return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.xl),
+      padding: const EdgeInsets.all(SKSpacing.x5),
       decoration: BoxDecoration(
         color: c.elevated,
         borderRadius: BorderRadius.circular(SKRadius.lg),
@@ -113,13 +112,13 @@ class _HeaderSkeleton extends StatelessWidget {
       child: const Row(
         children: [
           ProfileShimmerBlock(height: 80, width: 80, borderRadius: 40),
-          SizedBox(width: StarKidsSpacing.xl),
+          SizedBox(width: SKSpacing.x5),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 ProfileShimmerBlock(height: 20, width: 160),
-                SizedBox(height: StarKidsSpacing.sm),
+                SizedBox(height: SKSpacing.x2),
                 ProfileShimmerBlock(height: 16, width: 120),
               ],
             ),
@@ -139,7 +138,7 @@ class _CardSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = SKTheme.of(context).colors;
     return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.xl),
+      padding: const EdgeInsets.all(SKSpacing.x5),
       decoration: BoxDecoration(
         color: c.elevated,
         borderRadius: BorderRadius.circular(SKRadius.lg),
@@ -149,9 +148,9 @@ class _CardSkeleton extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const ProfileShimmerBlock(height: 20, width: 140),
-          const SizedBox(height: StarKidsSpacing.lg),
+          const SizedBox(height: SKSpacing.x4),
           for (var i = 0; i < lineCount; i++) ...[
-            if (i > 0) const SizedBox(height: StarKidsSpacing.md),
+            if (i > 0) const SizedBox(height: SKSpacing.x3),
             const ProfileShimmerBlock(height: 16),
           ],
         ],

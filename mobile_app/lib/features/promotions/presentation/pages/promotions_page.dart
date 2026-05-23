@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/glass_app_bar.dart';
@@ -107,22 +106,22 @@ class PromotionsPage extends StatelessWidget {
                 child: ListView(
                   key: ValueKey('promotions-loaded-${data.branch.id}'),
                   padding: EdgeInsets.fromLTRB(
-                    StarKidsSpacing.xl,
-                    StarKidsSpacing.lg,
-                    StarKidsSpacing.xl,
+                    SKSpacing.x5,
+                    SKSpacing.x4,
+                    SKSpacing.x5,
                     MediaQuery.viewPaddingOf(context).bottom + 88,
                   ),
                   children: [
                     SolidCard(
-                      padding: const EdgeInsets.all(StarKidsSpacing.xl),
+                      padding: const EdgeInsets.all(SKSpacing.x5),
                       radius: SKRadius.xl,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: StarKidsSpacing.md,
-                              vertical: StarKidsSpacing.sm,
+                              horizontal: SKSpacing.x3,
+                              vertical: SKSpacing.x2,
                             ),
                             decoration: BoxDecoration(
                               color: c.accentSoft,
@@ -136,12 +135,12 @@ class PromotionsPage extends StatelessWidget {
                               ),
                             ),
                           ),
-                          const SizedBox(height: StarKidsSpacing.md),
+                          const SizedBox(height: SKSpacing.x3),
                           Text(
                             'Акции должны возвращать родителя в приложение, а не просто висеть как баннер.',
                             style: textTheme.headlineMedium,
                           ),
-                          const SizedBox(height: StarKidsSpacing.md),
+                          const SizedBox(height: SKSpacing.x3),
                           Text(
                             'Здесь собраны branch-aware офферы и удобный вход в request flow без нового визуального шума.',
                             style: textTheme.bodyLarge,
@@ -149,17 +148,17 @@ class PromotionsPage extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(height: StarKidsSpacing.x2l),
+                    const SizedBox(height: SKSpacing.x6),
                     StarKidsSectionHeader(
                       title: 'Предложения для ${data.branch.shortLabel}',
                       description:
                           'Коммерческий экран должен быстро показать, почему сюда стоит вернуться именно сейчас.',
                     ),
-                    const SizedBox(height: StarKidsSpacing.lg),
+                    const SizedBox(height: SKSpacing.x4),
                     ...promotions.asMap().entries.map(
                           (entry) => Padding(
                             padding: const EdgeInsets.only(
-                              bottom: StarKidsSpacing.lg,
+                              bottom: SKSpacing.x4,
                             ),
                             child: StarKidsPromoCard(
                               revealDelay: starKidsStaggerDelay(entry.key),
@@ -177,12 +176,12 @@ class PromotionsPage extends StatelessWidget {
                             ),
                           ),
                         ),
-                    const SizedBox(height: StarKidsSpacing.lg),
+                    const SizedBox(height: SKSpacing.x4),
                     if (data.contentBlocks.isNotEmpty)
                       ...data.contentBlocks.asMap().entries.map(
                             (entry) => Padding(
                               padding: const EdgeInsets.only(
-                                bottom: StarKidsSpacing.md,
+                                bottom: SKSpacing.x3,
                               ),
                               child: StarKidsContentBlockCard(
                                 revealDelay: starKidsStaggerDelay(entry.key),
@@ -194,7 +193,7 @@ class PromotionsPage extends StatelessWidget {
                           )
                     else
                       SolidCard(
-                        padding: const EdgeInsets.all(StarKidsSpacing.lg),
+                        padding: const EdgeInsets.all(SKSpacing.x4),
                         radius: SKRadius.xl,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -203,7 +202,7 @@ class PromotionsPage extends StatelessWidget {
                               'Зачем открывать приложение снова',
                               style: textTheme.titleLarge,
                             ),
-                            const SizedBox(height: StarKidsSpacing.sm),
+                            const SizedBox(height: SKSpacing.x2),
                             Text(
                               'Филиалы, акции и birthday flow уже собраны в один сценарий: посмотреть, выбрать и оставить заявку за пару минут.',
                               style: textTheme.bodyLarge,
@@ -281,19 +280,19 @@ class _PromotionsStateView extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(StarKidsSpacing.xl),
+        padding: const EdgeInsets.all(SKSpacing.x5),
         child: Center(
           child: SolidCard(
-            padding: const EdgeInsets.all(StarKidsSpacing.xl),
+            padding: const EdgeInsets.all(SKSpacing.x5),
             radius: SKRadius.xl,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: Theme.of(context).textTheme.headlineSmall),
-                const SizedBox(height: StarKidsSpacing.sm),
+                const SizedBox(height: SKSpacing.x2),
                 Text(description, style: Theme.of(context).textTheme.bodyLarge),
-                const SizedBox(height: StarKidsSpacing.lg),
+                const SizedBox(height: SKSpacing.x4),
                 SecondaryButton(
                   label: actionLabel,
                   icon: Icons.swap_horiz_rounded,

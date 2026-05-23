@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_icon_sizes.dart';
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/glass_app_bar.dart';
@@ -91,10 +89,10 @@ class BranchDetailsPage extends StatelessWidget {
                 child: ListView(
                   key: ValueKey('branch-details-${branchDetail.id}'),
                   padding: const EdgeInsets.fromLTRB(
-                    StarKidsSpacing.xl,
-                    StarKidsSpacing.lg,
-                    StarKidsSpacing.xl,
-                    StarKidsSpacing.x5l,
+                    SKSpacing.x5,
+                    SKSpacing.x4,
+                    SKSpacing.x5,
+                    SKSpacing.x12,
                   ),
                   children: [
                     ClipRRect(
@@ -106,9 +104,9 @@ class BranchDetailsPage extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(height: StarKidsSpacing.lg),
+                    const SizedBox(height: SKSpacing.x4),
                     Text(branchDetail.name, style: textTheme.headlineMedium),
-                    const SizedBox(height: StarKidsSpacing.sm),
+                    const SizedBox(height: SKSpacing.x2),
                     Text(
                       _displayValue(
                         branchDetail.description,
@@ -117,7 +115,7 @@ class BranchDetailsPage extends StatelessWidget {
                       ),
                       style: textTheme.bodyLarge,
                     ),
-                    const SizedBox(height: StarKidsSpacing.lg),
+                    const SizedBox(height: SKSpacing.x4),
                     _InfoRow(
                       icon: Icons.location_on_rounded,
                       title: 'Адрес',
@@ -134,7 +132,7 @@ class BranchDetailsPage extends StatelessWidget {
                         fallback: 'Уточняйте у менеджера',
                       ),
                     ),
-                    const SizedBox(height: StarKidsSpacing.lg),
+                    const SizedBox(height: SKSpacing.x4),
                     Row(
                       children: [
                         Expanded(
@@ -152,7 +150,7 @@ class BranchDetailsPage extends StatelessWidget {
                                     ),
                           ),
                         ),
-                        const SizedBox(width: StarKidsSpacing.md),
+                        const SizedBox(width: SKSpacing.x3),
                         Expanded(
                           child: SecondaryButton(
                             label: 'Позвонить',
@@ -170,13 +168,13 @@ class BranchDetailsPage extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: StarKidsSpacing.x2l),
+                    const SizedBox(height: SKSpacing.x6),
                     const StarKidsSectionHeader(
                       title: 'Еще полезно перед визитом',
                       description:
                           'Короткие переходы к важным коммерческим экранам без перегруза текущего филиала.',
                     ),
-                    const SizedBox(height: StarKidsSpacing.md),
+                    const SizedBox(height: SKSpacing.x3),
                     Row(
                       children: [
                         Expanded(
@@ -189,7 +187,7 @@ class BranchDetailsPage extends StatelessWidget {
                             ).pushNamed(AppRoutes.menu),
                           ),
                         ),
-                        const SizedBox(width: StarKidsSpacing.md),
+                        const SizedBox(width: SKSpacing.x3),
                         Expanded(
                           child: SecondaryButton(
                             label: 'Контакты и маршрут',
@@ -202,7 +200,7 @@ class BranchDetailsPage extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: StarKidsSpacing.md),
+                    const SizedBox(height: SKSpacing.x3),
                     SecondaryButton(
                       label: 'Посмотреть пакеты праздника',
                       icon: Icons.cake_rounded,
@@ -210,13 +208,13 @@ class BranchDetailsPage extends StatelessWidget {
                       onPressed: () =>
                           Navigator.of(context).pushNamed(AppRoutes.birthdays),
                     ),
-                    const SizedBox(height: StarKidsSpacing.x2l),
+                    const SizedBox(height: SKSpacing.x6),
                     const StarKidsSectionHeader(
                       title: 'Почему родители выбирают этот филиал',
                       description:
                           'Короткая, понятная информация без перегруза перед заявкой или повторным визитом.',
                     ),
-                    const SizedBox(height: StarKidsSpacing.md),
+                    const SizedBox(height: SKSpacing.x3),
                     if (branchDetail.facilities.isNotEmpty)
                       _FacilityChips(facilities: branchDetail.facilities)
                     else
@@ -225,12 +223,12 @@ class BranchDetailsPage extends StatelessWidget {
                         description:
                             'Сейчас здесь пока нет отдельного списка удобств, но остальные данные филиала уже доступны.',
                       ),
-                    const SizedBox(height: StarKidsSpacing.x2l),
+                    const SizedBox(height: SKSpacing.x6),
                     const StarKidsSectionHeader(
                       title: 'Галерея филиала',
                       description: 'Реальные зоны, сцены и атмосфера площадки.',
                     ),
-                    const SizedBox(height: StarKidsSpacing.md),
+                    const SizedBox(height: SKSpacing.x3),
                     if (branchDetail.galleryImagePaths.isNotEmpty)
                       SizedBox(
                         height: 156,
@@ -332,14 +330,14 @@ class _FacilityChips extends StatelessWidget {
     final c = SKTheme.of(context).colors;
 
     return Wrap(
-      spacing: StarKidsSpacing.sm,
-      runSpacing: StarKidsSpacing.sm,
+      spacing: SKSpacing.x2,
+      runSpacing: SKSpacing.x2,
       children: facilities
           .map(
             (facility) => Container(
               padding: const EdgeInsets.symmetric(
-                horizontal: StarKidsSpacing.md,
-                vertical: StarKidsSpacing.xs,
+                horizontal: SKSpacing.x3,
+                vertical: SKSpacing.x1,
               ),
               decoration: BoxDecoration(
                 color: c.elevated,
@@ -376,22 +374,22 @@ class _InfoRow extends StatelessWidget {
     final c = SKTheme.of(context).colors;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: StarKidsSpacing.md),
+      padding: const EdgeInsets.only(bottom: SKSpacing.x3),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
             icon,
-            size: StarKidsIconSizes.md,
+            size: 24,
             color: c.cta,
           ),
-          const SizedBox(width: StarKidsSpacing.sm),
+          const SizedBox(width: SKSpacing.x2),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: textTheme.labelMedium),
-                const SizedBox(height: StarKidsSpacing.xs),
+                const SizedBox(height: SKSpacing.x1),
                 Text(value, style: textTheme.bodyLarge),
               ],
             ),
@@ -428,10 +426,10 @@ class _BranchDetailsStateView extends StatelessWidget {
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(StarKidsSpacing.xl),
+        padding: const EdgeInsets.all(SKSpacing.x5),
         child: Center(
           child: Container(
-            padding: const EdgeInsets.all(StarKidsSpacing.xl),
+            padding: const EdgeInsets.all(SKSpacing.x5),
             decoration: BoxDecoration(
               color: c.elevated,
               borderRadius: BorderRadius.circular(SKRadius.xl),
@@ -442,7 +440,7 @@ class _BranchDetailsStateView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: Theme.of(context).textTheme.headlineSmall),
-                const SizedBox(height: StarKidsSpacing.sm),
+                const SizedBox(height: SKSpacing.x2),
                 Text(description, style: Theme.of(context).textTheme.bodyLarge),
               ],
             ),
@@ -467,7 +465,7 @@ class _BranchInlineStateCard extends StatelessWidget {
     final c = SKTheme.of(context).colors;
 
     return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      padding: const EdgeInsets.all(SKSpacing.x4),
       decoration: BoxDecoration(
         color: c.elevated,
         borderRadius: BorderRadius.circular(SKRadius.lg),
@@ -477,7 +475,7 @@ class _BranchInlineStateCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: StarKidsSpacing.sm),
+          const SizedBox(height: SKSpacing.x2),
           Text(description, style: Theme.of(context).textTheme.bodyLarge),
         ],
       ),

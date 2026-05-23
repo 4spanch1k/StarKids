@@ -4,7 +4,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/primary_button.dart';
@@ -100,10 +99,10 @@ class _NewsDetailsPageState extends State<NewsDetailsPage> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(
-                StarKidsSpacing.xl,
-                StarKidsSpacing.xl,
-                StarKidsSpacing.xl,
-                StarKidsSpacing.x2l,
+                SKSpacing.x5,
+                SKSpacing.x5,
+                SKSpacing.x5,
+                SKSpacing.x6,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -113,7 +112,7 @@ class _NewsDetailsPageState extends State<NewsDetailsPage> {
                       title: 'Нет соединения',
                       description: 'Показаны последние данные',
                     ),
-                    const SizedBox(height: StarKidsSpacing.lg),
+                    const SizedBox(height: SKSpacing.x4),
                   ],
                   Text(
                     _formatDate(item.createdAt),
@@ -121,12 +120,12 @@ class _NewsDetailsPageState extends State<NewsDetailsPage> {
                       color: c.textSecondary,
                     ),
                   ),
-                  const SizedBox(height: StarKidsSpacing.md),
+                  const SizedBox(height: SKSpacing.x3),
                   Text(
                     item.title,
                     style: textTheme.displaySmall,
                   ),
-                  const SizedBox(height: StarKidsSpacing.lg),
+                  const SizedBox(height: SKSpacing.x4),
                   Text(
                     (item.description ?? '').trim().isEmpty
                         ? 'Описание скоро появится.'
@@ -235,10 +234,10 @@ class _NewsDetailsStateScaffold extends StatelessWidget {
       appBar: AppBar(),
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(StarKidsSpacing.xl),
+          padding: const EdgeInsets.all(SKSpacing.x5),
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(StarKidsSpacing.xl),
+            padding: const EdgeInsets.all(SKSpacing.x5),
             decoration: BoxDecoration(
               color: c.elevated,
               borderRadius: BorderRadius.circular(SKRadius.xl),
@@ -250,16 +249,16 @@ class _NewsDetailsStateScaffold extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: Theme.of(context).textTheme.headlineMedium),
-                const SizedBox(height: StarKidsSpacing.sm),
+                const SizedBox(height: SKSpacing.x2),
                 Text(
                   description,
                   style: Theme.of(context).textTheme.bodyLarge,
                 ),
                 if (showProgress) ...[
-                  const SizedBox(height: StarKidsSpacing.xl),
+                  const SizedBox(height: SKSpacing.x5),
                   const LinearProgressIndicator(),
                 ] else if (actionLabel != null && onPressed != null) ...[
-                  const SizedBox(height: StarKidsSpacing.xl),
+                  const SizedBox(height: SKSpacing.x5),
                   PrimaryButton(
                     onPressed: () => onPressed!(),
                     label: actionLabel!,
@@ -289,7 +288,7 @@ class _NewsDetailsInfoBanner extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      padding: const EdgeInsets.all(SKSpacing.x4),
       decoration: BoxDecoration(
         color: c.warningSoft,
         borderRadius: BorderRadius.circular(SKRadius.lg),
@@ -299,7 +298,7 @@ class _NewsDetailsInfoBanner extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: StarKidsSpacing.xs),
+          const SizedBox(height: SKSpacing.x1),
           Text(description, style: Theme.of(context).textTheme.bodyMedium),
         ],
       ),

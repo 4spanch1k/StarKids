@@ -3,8 +3,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
-import '../../../../core/design_system/foundations/star_kids_icon_sizes.dart';
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/glass_bottom_sheet.dart';
@@ -372,7 +370,7 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
             top: false,
             child: Column(
               children: [
-                const SizedBox(height: StarKidsSpacing.md),
+                const SizedBox(height: SKSpacing.x3),
                 Container(
                   width: 36,
                   height: 5,
@@ -383,10 +381,10 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(
-                    StarKidsSpacing.md,
-                    StarKidsSpacing.md,
-                    StarKidsSpacing.md,
-                    StarKidsSpacing.sm,
+                    SKSpacing.x3,
+                    SKSpacing.x3,
+                    SKSpacing.x3,
+                    SKSpacing.x2,
                   ),
                   child: Row(
                     children: [
@@ -412,7 +410,7 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                               ),
                               textAlign: TextAlign.center,
                             ),
-                            const SizedBox(height: StarKidsSpacing.xs),
+                            const SizedBox(height: SKSpacing.x1),
                             Text(
                               _currentStep == _TicketPurchaseStep.selectEntry
                                   ? 'Шаг 1 из 2'
@@ -463,10 +461,10 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.fromLTRB(
-                  StarKidsSpacing.xl,
-                  StarKidsSpacing.md,
-                  StarKidsSpacing.xl,
-                  StarKidsSpacing.xl + bottomInset,
+                  SKSpacing.x5,
+                  SKSpacing.x3,
+                  SKSpacing.x5,
+                  SKSpacing.x5 + bottomInset,
                 ),
                 decoration: BoxDecoration(
                   color: c.elevated,
@@ -495,7 +493,7 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: StarKidsSpacing.xs),
+                      const SizedBox(height: SKSpacing.x1),
                       Text(
                         _totalTickets == 0
                             ? 'Выберите хотя бы один платный билет.'
@@ -504,7 +502,7 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                           color: c.textSecondary,
                         ),
                       ),
-                      const SizedBox(height: StarKidsSpacing.md),
+                      const SizedBox(height: SKSpacing.x3),
                     ],
                     PrimaryButton(
                       label: _primaryActionLabel,
@@ -524,7 +522,7 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                     if (_currentStep == _TicketPurchaseStep.chooseTickets &&
                         _activePayment != null &&
                         _paymentPhase != _TicketPaymentPhase.paid) ...[
-                      const SizedBox(height: StarKidsSpacing.sm),
+                      const SizedBox(height: SKSpacing.x2),
                       SecondaryButton(
                         label: _paymentPhase == _TicketPaymentPhase.checking
                             ? 'Проверяем статус'
@@ -534,7 +532,7 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                     ],
                     if (_currentStep == _TicketPurchaseStep.chooseTickets &&
                         _paymentMessage != null) ...[
-                      const SizedBox(height: StarKidsSpacing.md),
+                      const SizedBox(height: SKSpacing.x3),
                       Text(
                         _paymentMessage!,
                         style: textTheme.bodyMedium?.copyWith(
@@ -602,10 +600,10 @@ class _StepSelectionView extends StatelessWidget {
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(
-        StarKidsSpacing.xl,
-        StarKidsSpacing.sm,
-        StarKidsSpacing.xl,
-        StarKidsSpacing.lg,
+        SKSpacing.x5,
+        SKSpacing.x2,
+        SKSpacing.x5,
+        SKSpacing.x4,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -618,7 +616,7 @@ class _StepSelectionView extends StatelessWidget {
             leadingIcon: Icons.location_on_rounded,
             onTap: onSelectBranch,
           ),
-          const SizedBox(height: StarKidsSpacing.lg),
+          const SizedBox(height: SKSpacing.x4),
           StarKidsSelectField(
             key: const ValueKey('ticket-day-select'),
             label: 'День',
@@ -629,12 +627,12 @@ class _StepSelectionView extends StatelessWidget {
             placeholderText: 'Выберите день посещения',
             onTap: onSelectDay,
           ),
-          const SizedBox(height: StarKidsSpacing.xl),
+          const SizedBox(height: SKSpacing.x5),
           Text(
             'ДОСТУПНЫЕ ТАРИФЫ',
             style: textTheme.labelMedium,
           ),
-          const SizedBox(height: StarKidsSpacing.sm),
+          const SizedBox(height: SKSpacing.x2),
           if (isConfigLoading)
             const _TicketConfigStateCard(
               title: 'Загружаем билеты',
@@ -689,24 +687,24 @@ class _StepTicketsView extends StatelessWidget {
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(
-        StarKidsSpacing.xl,
-        StarKidsSpacing.sm,
-        StarKidsSpacing.xl,
-        StarKidsSpacing.lg,
+        SKSpacing.x5,
+        SKSpacing.x2,
+        SKSpacing.x5,
+        SKSpacing.x4,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SolidCard(
             radius: SKRadius.xl,
-            padding: const EdgeInsets.all(StarKidsSpacing.lg),
+            padding: const EdgeInsets.all(SKSpacing.x4),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Выбранный филиал', style: textTheme.labelMedium),
-                const SizedBox(height: StarKidsSpacing.xs),
+                const SizedBox(height: SKSpacing.x1),
                 Text(selectedBranch.name, style: textTheme.titleMedium),
-                const SizedBox(height: StarKidsSpacing.sm),
+                const SizedBox(height: SKSpacing.x2),
                 Text(
                   _formatTicketDate(selectedDate),
                   style: textTheme.bodyMedium?.copyWith(color: c.textSecondary),
@@ -714,9 +712,9 @@ class _StepTicketsView extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: StarKidsSpacing.xl),
+          const SizedBox(height: SKSpacing.x5),
           Text('ДОСТУПНЫЕ ТАРИФЫ', style: textTheme.labelMedium),
-          const SizedBox(height: StarKidsSpacing.lg),
+          const SizedBox(height: SKSpacing.x4),
           if (isConfigLoading)
             const _TicketConfigStateCard(
               title: 'Загружаем билеты',
@@ -736,7 +734,7 @@ class _StepTicketsView extends StatelessWidget {
           else
             ...ticketConfig!.items.map(
               (ticketType) => Padding(
-                padding: const EdgeInsets.only(bottom: StarKidsSpacing.md),
+                padding: const EdgeInsets.only(bottom: SKSpacing.x3),
                 child: _TicketCounterCard(
                   config: ticketType,
                   count: ticketCounts[ticketType.id] ?? 0,
@@ -745,22 +743,22 @@ class _StepTicketsView extends StatelessWidget {
                 ),
               ),
             ),
-          const SizedBox(height: StarKidsSpacing.lg),
+          const SizedBox(height: SKSpacing.x4),
           if ((ticketConfig?.notes ?? const <String>[]).isNotEmpty)
             SolidCard(
               radius: SKRadius.xl,
-              padding: const EdgeInsets.all(StarKidsSpacing.lg),
+              padding: const EdgeInsets.all(SKSpacing.x4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Важно знать', style: textTheme.titleMedium),
-                  const SizedBox(height: StarKidsSpacing.md),
+                  const SizedBox(height: SKSpacing.x3),
                   for (var index = 0;
                       index < ticketConfig!.notes.length;
                       index++) ...[
                     _BenefitLine(label: ticketConfig!.notes[index]),
                     if (index < ticketConfig!.notes.length - 1)
-                      const SizedBox(height: StarKidsSpacing.sm),
+                      const SizedBox(height: SKSpacing.x2),
                   ],
                 ],
               ),
@@ -791,7 +789,7 @@ class _TicketCounterCard extends StatelessWidget {
 
     return SolidCard(
       radius: SKRadius.xl,
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      padding: const EdgeInsets.all(SKSpacing.x4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -800,13 +798,13 @@ class _TicketCounterCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(config.title, style: textTheme.titleMedium),
-                const SizedBox(height: StarKidsSpacing.xs),
+                const SizedBox(height: SKSpacing.x1),
                 Text(
                   _formatTenge(config.priceTenge),
                   style: textTheme.bodyLarge?.copyWith(color: c.textPrimary),
                 ),
                 if (config.description.isNotEmpty) ...[
-                  const SizedBox(height: StarKidsSpacing.sm),
+                  const SizedBox(height: SKSpacing.x2),
                   Text(
                     config.description,
                     style: textTheme.bodySmall?.copyWith(
@@ -815,10 +813,10 @@ class _TicketCounterCard extends StatelessWidget {
                   ),
                 ],
                 if (config.badgeLabels.isNotEmpty) ...[
-                  const SizedBox(height: StarKidsSpacing.sm),
+                  const SizedBox(height: SKSpacing.x2),
                   Wrap(
-                    spacing: StarKidsSpacing.xs,
-                    runSpacing: StarKidsSpacing.xs,
+                    spacing: SKSpacing.x1,
+                    runSpacing: SKSpacing.x1,
                     children: config.badgeLabels
                         .map((label) => _TicketBadgeChip(label: label))
                         .toList(),
@@ -827,7 +825,7 @@ class _TicketCounterCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: StarKidsSpacing.md),
+          const SizedBox(width: SKSpacing.x3),
           SkStepper(
             value: count,
             keyPrefix: config.id,
@@ -919,7 +917,7 @@ class _CounterButton extends StatelessWidget {
     final c = SKTheme.of(context).colors;
     return IconButton(
       onPressed: enabled ? onTap : null,
-      icon: Icon(icon, size: StarKidsIconSizes.sm),
+      icon: Icon(icon, size: 20),
       color: enabled ? c.textPrimary : c.textDisabled,
       disabledColor: c.textDisabled,
       splashRadius: 20,
@@ -944,11 +942,11 @@ class _BenefitLine extends StatelessWidget {
           padding: const EdgeInsets.only(top: 2),
           child: Icon(
             Icons.check_circle_rounded,
-            size: StarKidsIconSizes.sm,
+            size: 20,
             color: SKTheme.of(context).colors.cta,
           ),
         ),
-        const SizedBox(width: StarKidsSpacing.sm),
+        const SizedBox(width: SKSpacing.x2),
         Expanded(child: Text(label, style: textTheme.bodyMedium)),
       ],
     );
@@ -967,8 +965,8 @@ class _TicketBadgeChip extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: StarKidsSpacing.sm,
-        vertical: StarKidsSpacing.xs,
+        horizontal: SKSpacing.x2,
+        vertical: SKSpacing.x1,
       ),
       decoration: BoxDecoration(
         color: c.elevated,
@@ -995,7 +993,7 @@ class _TicketConfigPreviewCard extends StatelessWidget {
 
     return SolidCard(
       radius: SKRadius.xl,
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      padding: const EdgeInsets.all(SKSpacing.x4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1012,7 +1010,7 @@ class _TicketConfigPreviewCard extends StatelessWidget {
                         style: textTheme.titleMedium,
                       ),
                       if (config.items[index].description.isNotEmpty) ...[
-                        const SizedBox(height: StarKidsSpacing.xs),
+                        const SizedBox(height: SKSpacing.x1),
                         Text(
                           config.items[index].description,
                           style: textTheme.bodySmall?.copyWith(
@@ -1023,7 +1021,7 @@ class _TicketConfigPreviewCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: StarKidsSpacing.md),
+                const SizedBox(width: SKSpacing.x3),
                 Text(
                   _formatTenge(config.items[index].priceTenge),
                   style: textTheme.titleMedium?.copyWith(color: c.textPrimary),
@@ -1031,19 +1029,19 @@ class _TicketConfigPreviewCard extends StatelessWidget {
               ],
             ),
             if (config.items[index].badgeLabels.isNotEmpty) ...[
-              const SizedBox(height: StarKidsSpacing.xs),
+              const SizedBox(height: SKSpacing.x1),
               Wrap(
-                spacing: StarKidsSpacing.xs,
-                runSpacing: StarKidsSpacing.xs,
+                spacing: SKSpacing.x1,
+                runSpacing: SKSpacing.x1,
                 children: config.items[index].badgeLabels
                     .map((label) => _TicketBadgeChip(label: label))
                     .toList(),
               ),
             ],
             if (index < config.items.length - 1) ...[
-              const SizedBox(height: StarKidsSpacing.md),
+              const SizedBox(height: SKSpacing.x3),
               Divider(height: 1, color: c.hairline),
-              const SizedBox(height: StarKidsSpacing.md),
+              const SizedBox(height: SKSpacing.x3),
             ],
           ],
         ],
@@ -1068,12 +1066,12 @@ class _TicketConfigStateCard extends StatelessWidget {
 
     return SolidCard(
       radius: SKRadius.xl,
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      padding: const EdgeInsets.all(SKSpacing.x4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: textTheme.titleMedium),
-          const SizedBox(height: StarKidsSpacing.xs),
+          const SizedBox(height: SKSpacing.x1),
           Text(
             description,
             style: textTheme.bodyMedium?.copyWith(color: c.textSecondary),
@@ -1137,10 +1135,10 @@ class _MyTicketsBodyState extends State<_MyTicketsBody> {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        StarKidsSpacing.xl,
-        StarKidsSpacing.lg,
-        StarKidsSpacing.xl,
-        StarKidsSpacing.xl,
+        SKSpacing.x5,
+        SKSpacing.x4,
+        SKSpacing.x5,
+        SKSpacing.x5,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1150,7 +1148,7 @@ class _MyTicketsBodyState extends State<_MyTicketsBody> {
             'Все подтверждённые билеты в одном месте.',
             style: textTheme.bodyMedium?.copyWith(color: c.textSecondary),
           ),
-          const SizedBox(height: StarKidsSpacing.xl),
+          const SizedBox(height: SKSpacing.x5),
           if (_isLoading)
             const _TicketConfigStateCard(
               title: 'Загружаем билеты',
@@ -1164,7 +1162,7 @@ class _MyTicketsBodyState extends State<_MyTicketsBody> {
                   title: 'Не удалось загрузить билеты',
                   description: _errorMessage!,
                 ),
-                const SizedBox(height: StarKidsSpacing.md),
+                const SizedBox(height: SKSpacing.x3),
                 SecondaryButton(label: 'Повторить', onPressed: _loadTickets),
               ],
             )
@@ -1180,7 +1178,7 @@ class _MyTicketsBodyState extends State<_MyTicketsBody> {
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _tickets.length,
               separatorBuilder: (_, __) =>
-                  const SizedBox(height: StarKidsSpacing.md),
+                  const SizedBox(height: SKSpacing.x3),
               itemBuilder: (context, index) =>
                   _PurchasedTicketCard(ticket: _tickets[index]),
             ),
@@ -1202,7 +1200,7 @@ class _PurchasedTicketCard extends StatelessWidget {
 
     return SolidCard(
       radius: SKRadius.xl,
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      padding: const EdgeInsets.all(SKSpacing.x4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1221,13 +1219,13 @@ class _PurchasedTicketCard extends StatelessWidget {
                   color: c.accent,
                 ),
               ),
-              const SizedBox(width: StarKidsSpacing.md),
+              const SizedBox(width: SKSpacing.x3),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(ticket.branchName, style: textTheme.titleMedium),
-                    const SizedBox(height: StarKidsSpacing.xs),
+                    const SizedBox(height: SKSpacing.x1),
                     Text(
                       ticket.visitDate == null
                           ? 'Дата посещения не указана'
@@ -1239,20 +1237,20 @@ class _PurchasedTicketCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: StarKidsSpacing.sm),
+              const SizedBox(width: SKSpacing.x2),
               Text(
                 _formatTenge(ticket.amountTenge),
                 style: textTheme.titleSmall?.copyWith(color: c.cta),
               ),
             ],
           ),
-          const SizedBox(height: StarKidsSpacing.md),
+          const SizedBox(height: SKSpacing.x3),
           for (final item in ticket.items) ...[
             Text(
               '${item.title} x ${item.quantity}',
               style: textTheme.bodyMedium,
             ),
-            const SizedBox(height: StarKidsSpacing.xs),
+            const SizedBox(height: SKSpacing.x1),
           ],
           Text(
             'Заказ ${ticket.localOrderId}',
@@ -1285,17 +1283,17 @@ class _SelectionSheet<T> extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        StarKidsSpacing.xl,
-        StarKidsSpacing.lg,
-        StarKidsSpacing.xl,
-        StarKidsSpacing.xl,
+        SKSpacing.x5,
+        SKSpacing.x4,
+        SKSpacing.x5,
+        SKSpacing.x5,
       ),
       child: ListView.separated(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: items.length,
         separatorBuilder: (_, __) =>
-            const SizedBox(height: StarKidsSpacing.sm),
+            const SizedBox(height: SKSpacing.x2),
         itemBuilder: (context, index) {
           final item = items[index];
           final itemId = itemIdBuilder(item);
@@ -1305,7 +1303,7 @@ class _SelectionSheet<T> extends StatelessWidget {
           return SolidCard(
             key: ValueKey('selection-item-$index'),
             radius: SKRadius.xl,
-            padding: const EdgeInsets.all(StarKidsSpacing.lg),
+            padding: const EdgeInsets.all(SKSpacing.x4),
             onTap: () => Navigator.of(context).pop(item),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1315,7 +1313,7 @@ class _SelectionSheet<T> extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(titleBuilder(item), style: textTheme.titleMedium),
-                      const SizedBox(height: StarKidsSpacing.xs),
+                      const SizedBox(height: SKSpacing.x1),
                       Text(
                         subtitleBuilder(item),
                         style: textTheme.bodySmall?.copyWith(
@@ -1325,7 +1323,7 @@ class _SelectionSheet<T> extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: StarKidsSpacing.sm),
+                const SizedBox(width: SKSpacing.x2),
                 Icon(
                   isSelected
                       ? Icons.check_circle_rounded

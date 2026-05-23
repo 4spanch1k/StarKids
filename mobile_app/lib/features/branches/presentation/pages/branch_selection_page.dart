@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/design_system/sk_design_tokens.dart';
+
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/widgets/star_kids_branch_card.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
@@ -43,18 +44,18 @@ class BranchSelectionPage extends StatelessWidget {
                             key: ValueKey(
                               'branch-selection-loaded-${branches.length}',
                             ),
-                            padding: const EdgeInsets.all(StarKidsSpacing.xl),
+                            padding: const EdgeInsets.all(SKSpacing.x5),
                             children: [
                               const StarKidsSectionHeader(
                                 title: 'Начните с филиала',
                                 description:
                                     'Филиал влияет на цены, акции, контакты и быстрые действия в приложении.',
                               ),
-                              const SizedBox(height: StarKidsSpacing.xl),
+                              const SizedBox(height: SKSpacing.x5),
                               ...branches.asMap().entries.map(
                                     (entry) => Padding(
                                       padding: const EdgeInsets.only(
-                                        bottom: StarKidsSpacing.lg,
+                                        bottom: SKSpacing.x4,
                                       ),
                                       child: StarKidsBranchCard(
                                         revealDelay:
@@ -117,11 +118,11 @@ class _BranchSelectionStateView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: StarKidsSpacing.x4l),
+      padding: const EdgeInsets.only(top: SKSpacing.x10),
       child: Column(
         children: [
           Text(title, style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: StarKidsSpacing.sm),
+          const SizedBox(height: SKSpacing.x2),
           Text(
             description,
             style: Theme.of(context).textTheme.bodyLarge,

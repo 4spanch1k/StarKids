@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
 
@@ -24,7 +23,7 @@ class ProfileSectionCard extends StatelessWidget {
     final c = SKTheme.of(context).colors;
 
     return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.xl),
+      padding: const EdgeInsets.all(SKSpacing.x5),
       decoration: BoxDecoration(
         color: c.elevated,
         borderRadius: BorderRadius.circular(SKRadius.lg),
@@ -46,13 +45,13 @@ class ProfileSectionCard extends StatelessWidget {
             ],
           ),
           if (subtitle != null) ...[
-            const SizedBox(height: StarKidsSpacing.xs),
+            const SizedBox(height: SKSpacing.x1),
             Text(
               subtitle!,
               style: textTheme.bodyMedium?.copyWith(color: c.textSecondary),
             ),
           ],
-          const SizedBox(height: StarKidsSpacing.lg),
+          const SizedBox(height: SKSpacing.x4),
           child,
         ],
       ),
