@@ -1,8 +1,6 @@
-import 'package:clerk_flutter/clerk_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-import 'config/app_environment.dart';
 import 'di/service_registry.dart';
 import 'router/app_router.dart';
 import 'router/app_routes.dart';
@@ -29,8 +27,12 @@ class StarKidsApp extends StatelessWidget {
             authController.status == MobileAuthStatus.loading &&
                 authController.session == null;
         final isAuthenticated = authController.isAuthenticated;
+        debugPrint(
+          '[APP] rendering '
+          '${isAuthenticated ? 'home' : isBootstrapping ? 'loading' : 'auth'}',
+        );
 
-        final app = MaterialApp(
+        return MaterialApp(
           key: ValueKey(isAuthenticated ? 'authenticated-app' : 'auth-gate'),
           title: 'Star Kids',
           debugShowCheckedModeBanner: false,
@@ -62,17 +64,6 @@ class StarKidsApp extends StatelessWidget {
               : null,
           initialRoute: isAuthenticated ? AppRoutes.home : null,
           onGenerateRoute: isAuthenticated ? AppRouter.onGenerateRoute : null,
-        );
-
-        if (!AppEnvironment.hasClerkPublishableKey) {
-          return app;
-        }
-
-        return ClerkAuth(
-          config: ClerkAuthConfig(
-            publishableKey: AppEnvironment.clerkPublishableKey,
-          ),
-          child: app,
         );
       },
     );

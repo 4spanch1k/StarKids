@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../core/design_system/foundations/sk_tokens.dart';
+import '../../core/design_system/sk_color_scheme.dart';
+import '../../core/design_system/sk_theme.dart';
 import '../../core/design_system/widgets/primary_button.dart';
 import '../../core/design_system/widgets/star_kids_logo_loader.dart';
 import '../app.dart';
@@ -24,6 +26,7 @@ class _StarKidsBootstrapAppState extends State<StarKidsBootstrapApp> {
   @override
   void initState() {
     super.initState();
+    debugPrint('[BOOT] Bootstrap app init started');
     _initialization = widget.initialize();
   }
 
@@ -34,13 +37,27 @@ class _StarKidsBootstrapAppState extends State<StarKidsBootstrapApp> {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.done &&
             !snapshot.hasError) {
+          debugPrint('[BOOT] Bootstrap app init completed');
           return const StarKidsApp();
         }
 
+        debugPrint(
+          snapshot.hasError
+              ? '[BOOT] Bootstrap app init failed: ${snapshot.error}'
+              : '[APP] rendering loading',
+        );
         return MaterialApp(
           title: 'Star Kids',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light(),
+          builder: (ctx, child) {
+            final isDark = Theme.of(ctx).brightness == Brightness.dark;
+            return SKTheme(
+              dark: isDark,
+              colors: isDark ? SKColorScheme.dark() : SKColorScheme.light(),
+              child: child!,
+            );
+          },
           home: snapshot.hasError
               ? _BootstrapErrorView(
                   onRetry: () {

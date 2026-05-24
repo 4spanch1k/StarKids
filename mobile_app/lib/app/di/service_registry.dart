@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+
 import '../../core/api/api_client.dart';
 import '../../core/services/external_link_service.dart';
 import '../../core/settings/app_settings_controller.dart';
@@ -156,11 +160,45 @@ abstract final class ServiceRegistry {
             );
 
   static Future<void> bootstrap() async {
-    await appSettingsController.load();
-    await mobileAuthController.bootstrap();
-    await mobileNotificationsController.bootstrap();
-    await selectedBranchController.load();
-    await pushTokenController.bootstrap();
+    debugPrint('[BOOT] ServiceRegistry init started');
+    await _runStartupStep(
+      '[BOOT] app settings load',
+      appSettingsController.load,
+    );
+    await _runStartupStep(
+      '[AUTH] bootstrap',
+      mobileAuthController.bootstrap,
+    );
+    debugPrint('[BOOT] ServiceRegistry init completed');
+    unawaited(_bootstrapNonCriticalServices());
+  }
+
+  static Future<void> _bootstrapNonCriticalServices() async {
+    await _runStartupStep(
+      '[BOOT] notifications bootstrap',
+      mobileNotificationsController.bootstrap,
+    );
+    await _runStartupStep(
+      '[BOOT] selected branch load',
+      selectedBranchController.load,
+    );
+    await _runStartupStep(
+      '[BOOT] push token bootstrap',
+      pushTokenController.bootstrap,
+    );
+  }
+
+  static Future<void> _runStartupStep(
+    String label,
+    Future<void> Function() step,
+  ) async {
+    debugPrint('$label started');
+    try {
+      await step().timeout(const Duration(seconds: 8));
+      debugPrint('$label completed');
+    } catch (error) {
+      debugPrint('$label failed: $error');
+    }
   }
 
   static void resetTicketConfigRepository() {
