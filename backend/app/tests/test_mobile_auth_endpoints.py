@@ -24,6 +24,11 @@ from app.db.models.auth_throttle_state import AuthThrottleState
 from app.db.models.mobile_session import MobileSession
 from app.db.models.mobile_user import MobileUser
 from app.main import app
+from app.modules.mobile_auth.clerk_verifier import (
+    ClerkTokenVerificationError,
+    VerifiedClerkIdentity,
+)
+from app.modules.mobile_auth.dependencies import get_clerk_session_verifier
 
 
 class MobileAuthEndpointTests(unittest.TestCase):
@@ -60,6 +65,7 @@ class MobileAuthEndpointTests(unittest.TestCase):
 
     def setUp(self) -> None:
         reset_rate_limit_state()
+        app.dependency_overrides.pop(get_clerk_session_verifier, None)
         with self.SessionLocal() as session:
             session.query(AuthThrottleState).delete()
             session.query(MobileSession).delete()
@@ -142,6 +148,156 @@ class MobileAuthEndpointTests(unittest.TestCase):
             self.assertEqual(session.query(MobileSession).count(), 1)
             self.assertNotEqual(saved_session.refresh_token_hash, body['refresh_token'])
             self.assertTrue(saved_session.refresh_token_hash.startswith('hmac-sha256$'))
+
+    def test_clerk_exchange_creates_user_and_returns_star_kids_tokens(self) -> None:
+        verifier = _FakeClerkSessionVerifier(
+            identity=VerifiedClerkIdentity(
+                clerk_user_id='user_clerk_123',
+                email='Parent@Example.com',
+                email_verified=True,
+                first_name='Dana',
+                last_name='Parent',
+                avatar_url='https://img.clerk.test/avatar.png',
+            )
+        )
+        app.dependency_overrides[get_clerk_session_verifier] = lambda: verifier
+
+        response = self.client.post(
+            '/api/v1/mobile/auth/clerk/exchange',
+            json={'session_token': 'clerk-session-token'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body['token_type'], 'bearer')
+        self.assertTrue(body['access_token'])
+        self.assertTrue(body['refresh_token'])
+        self.assertEqual(body['user']['email'], 'parent@example.com')
+        self.assertEqual(verifier.seen_token, 'clerk-session-token')
+
+        with self.SessionLocal() as session:
+            saved_user = session.query(MobileUser).one()
+            saved_session = session.query(MobileSession).one()
+            self.assertEqual(saved_user.email, 'parent@example.com')
+            self.assertEqual(saved_user.clerk_user_id, 'user_clerk_123')
+            self.assertIsNone(saved_user.password_hash)
+            self.assertEqual(saved_user.first_name, 'Dana')
+            self.assertEqual(saved_user.last_name, 'Parent')
+            self.assertEqual(
+                saved_user.avatar_url,
+                'https://img.clerk.test/avatar.png',
+            )
+            self.assertEqual(saved_session.mobile_user_id, saved_user.id)
+
+        current_user_response = self.client.get(
+            '/api/v1/mobile/auth/current-user',
+            headers={'Authorization': f"Bearer {body['access_token']}"},
+        )
+        self.assertEqual(current_user_response.status_code, 200)
+        self.assertEqual(current_user_response.json()['email'], 'parent@example.com')
+
+    def test_clerk_exchange_links_existing_verified_email_without_overwriting_profile(self) -> None:
+        with self.SessionLocal() as session:
+            session.add(
+                MobileUser(
+                    id='existing-user',
+                    email='parent@example.com',
+                    password_hash='hashed-password',
+                    first_name='Local',
+                    last_name='Profile',
+                    avatar_url='https://local.example/avatar.png',
+                    is_active=True,
+                )
+            )
+            session.commit()
+
+        verifier = _FakeClerkSessionVerifier(
+            identity=VerifiedClerkIdentity(
+                clerk_user_id='user_clerk_link',
+                email='parent@example.com',
+                email_verified=True,
+                first_name='Clerk',
+                last_name='Name',
+                avatar_url='https://img.clerk.test/new.png',
+            )
+        )
+        app.dependency_overrides[get_clerk_session_verifier] = lambda: verifier
+
+        response = self.client.post(
+            '/api/v1/mobile/auth/clerk/exchange',
+            json={'session_token': 'clerk-session-token'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body['user']['id'], 'existing-user')
+        with self.SessionLocal() as session:
+            saved_user = session.query(MobileUser).filter_by(id='existing-user').one()
+            self.assertEqual(saved_user.clerk_user_id, 'user_clerk_link')
+            self.assertEqual(saved_user.first_name, 'Local')
+            self.assertEqual(saved_user.last_name, 'Profile')
+            self.assertEqual(saved_user.avatar_url, 'https://local.example/avatar.png')
+
+    def test_clerk_exchange_rejects_email_already_linked_to_different_clerk_user(self) -> None:
+        with self.SessionLocal() as session:
+            session.add(
+                MobileUser(
+                    id='existing-user',
+                    email='parent@example.com',
+                    clerk_user_id='user_clerk_existing',
+                    is_active=True,
+                )
+            )
+            session.commit()
+
+        verifier = _FakeClerkSessionVerifier(
+            identity=VerifiedClerkIdentity(
+                clerk_user_id='user_clerk_new',
+                email='parent@example.com',
+                email_verified=True,
+            )
+        )
+        app.dependency_overrides[get_clerk_session_verifier] = lambda: verifier
+
+        response = self.client.post(
+            '/api/v1/mobile/auth/clerk/exchange',
+            json={'session_token': 'clerk-session-token'},
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()['error']['code'], 'account_already_linked')
+
+    def test_clerk_exchange_rejects_unverified_email(self) -> None:
+        verifier = _FakeClerkSessionVerifier(
+            identity=VerifiedClerkIdentity(
+                clerk_user_id='user_clerk_unverified',
+                email='parent@example.com',
+                email_verified=False,
+            )
+        )
+        app.dependency_overrides[get_clerk_session_verifier] = lambda: verifier
+
+        response = self.client.post(
+            '/api/v1/mobile/auth/clerk/exchange',
+            json={'session_token': 'clerk-session-token'},
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()['error']['code'], 'clerk_email_not_verified')
+
+    def test_clerk_exchange_rejects_invalid_clerk_session(self) -> None:
+        verifier = _FakeClerkSessionVerifier(
+            error=ClerkTokenVerificationError('invalid token')
+        )
+        app.dependency_overrides[get_clerk_session_verifier] = lambda: verifier
+
+        response = self.client.post(
+            '/api/v1/mobile/auth/clerk/exchange',
+            json={'session_token': 'bad-token'},
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()['error']['code'], 'invalid_clerk_session')
 
     def test_register_email_rejects_duplicate_email_with_controlled_error(self) -> None:
         first_response = self.client.post(
@@ -616,3 +772,23 @@ class MobileAuthEndpointTests(unittest.TestCase):
         salt_segment = base64.b64encode(salt).decode('ascii')
         hash_segment = base64.b64encode(derived_key).decode('ascii')
         return f'scrypt${SCRYPT_N}${SCRYPT_R}${SCRYPT_P}${salt_segment}${hash_segment}'
+
+
+class _FakeClerkSessionVerifier:
+    def __init__(
+        self,
+        *,
+        identity: VerifiedClerkIdentity | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self._identity = identity
+        self._error = error
+        self.seen_token: str | None = None
+
+    def verify(self, session_token: str) -> VerifiedClerkIdentity:
+        self.seen_token = session_token
+        if self._error is not None:
+            raise self._error
+        if self._identity is None:
+            raise AssertionError('Fake Clerk verifier requires identity or error.')
+        return self._identity

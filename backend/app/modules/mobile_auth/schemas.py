@@ -32,6 +32,10 @@ class MobileRefreshRequest(BaseModel):
     refresh_token: str = Field(min_length=1)
 
 
+class MobileClerkExchangeRequest(BaseModel):
+    session_token: str = Field(min_length=1)
+
+
 class MobileCurrentUserResponse(BaseModel):
     id: str
     phone: str | None = None

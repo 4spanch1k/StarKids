@@ -3,11 +3,14 @@ from fastapi import APIRouter, Depends, Response, status
 from ...core.exceptions.schemas import ErrorResponse
 from ..auth_security.dependencies import AuthRequestContext, get_auth_request_context
 from .dependencies import (
+    get_clerk_session_verifier,
     get_current_mobile_user,
     get_mobile_access_token,
     get_mobile_auth_service,
 )
+from .clerk_verifier import ClerkSessionVerifier
 from .schemas import (
+    MobileClerkExchangeRequest,
     MobileAuthResponse,
     MobileCurrentUserResponse,
     MobileEmailLoginRequest,
@@ -57,6 +60,25 @@ def login(
     service: MobileAuthService = Depends(get_mobile_auth_service),
 ) -> MobileAuthResponse:
     return service.login_with_email(payload, context=context)
+
+
+@router.post(
+    '/clerk/exchange',
+    response_model=MobileAuthResponse,
+    response_model_exclude_none=True,
+    responses={
+        401: {'model': ErrorResponse},
+        409: {'model': ErrorResponse},
+        422: {'model': ErrorResponse},
+        503: {'model': ErrorResponse},
+    },
+)
+def exchange_clerk_session(
+    payload: MobileClerkExchangeRequest,
+    service: MobileAuthService = Depends(get_mobile_auth_service),
+    verifier: ClerkSessionVerifier = Depends(get_clerk_session_verifier),
+) -> MobileAuthResponse:
+    return service.exchange_clerk_session(payload, verifier=verifier)
 
 
 @router.post(
