@@ -1,8 +1,11 @@
 import 'dart:async';
 
+import 'package:clerk_auth/clerk_auth.dart' as clerk;
+import 'package:clerk_flutter/clerk_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../app/config/app_environment.dart';
 import '../../../../app/di/service_registry.dart';
 import '../../../../core/design_system/foundations/sk_tokens.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
@@ -16,6 +19,15 @@ import '../controllers/mobile_auth_controller.dart';
 enum _EmailAuthMode {
   login,
   register,
+}
+
+class _GoogleClerkAuthException implements Exception {
+  const _GoogleClerkAuthException([this.message]);
+
+  final String? message;
+
+  @override
+  String toString() => message ?? 'Google auth failed.';
 }
 
 class EmailAuthGatePage extends StatefulWidget {
@@ -80,6 +92,36 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
       email: _emailController.text,
       password: _passwordController.text,
     );
+  }
+
+  Future<void> _loginWithGoogle() async {
+    await _authController.loginWithGoogleClerk(
+      requestSessionToken: _requestGoogleClerkSessionToken,
+    );
+  }
+
+  Future<String> _requestGoogleClerkSessionToken() async {
+    if (!AppEnvironment.hasClerkPublishableKey) {
+      throw const _GoogleClerkAuthException();
+    }
+
+    final authState = ClerkAuth.of(context, listen: false);
+    clerk.ClerkError? signInError;
+
+    await authState.ssoSignIn(
+      context,
+      clerk.Strategy.oauthGoogle,
+      onError: (error) {
+        signInError = error;
+      },
+    );
+
+    if (signInError != null || !mounted) {
+      throw _GoogleClerkAuthException(signInError?.message);
+    }
+
+    final sessionToken = await authState.sessionToken();
+    return sessionToken.jwt;
   }
 
   void _setMode(_EmailAuthMode mode) {
@@ -324,6 +366,18 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
                                             },
                                     ),
                                   ),
+                                  const SizedBox(height: SK.s4),
+                                  const _AuthDivider(),
+                                  const SizedBox(height: SK.s4),
+                                  SkFade(
+                                    delayMs: 500,
+                                    child: _GoogleAuthButton(
+                                      isConfigured:
+                                          AppEnvironment.hasClerkPublishableKey,
+                                      isLoading: isLoading,
+                                      onPressed: _loginWithGoogle,
+                                    ),
+                                  ),
                                   const SizedBox(height: SK.s5),
                                   const _RedesignSessionHint(),
                                   const SizedBox(height: SK.s8),
@@ -480,6 +534,73 @@ class _RedesignSessionHint extends StatelessWidget {
             ),
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _AuthDivider extends StatelessWidget {
+  const _AuthDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+    return Row(
+      children: [
+        Expanded(child: Divider(color: c.hairline, height: 1)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: SK.s3),
+          child: Text(
+            'или',
+            style: SKTextStyles.small.copyWith(
+              fontSize: 12,
+              color: c.textTertiary,
+            ),
+          ),
+        ),
+        Expanded(child: Divider(color: c.hairline, height: 1)),
+      ],
+    );
+  }
+}
+
+class _GoogleAuthButton extends StatelessWidget {
+  const _GoogleAuthButton({
+    required this.isConfigured,
+    required this.isLoading,
+    required this.onPressed,
+  });
+
+  final bool isConfigured;
+  final bool isLoading;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+    final isEnabled = isConfigured && !isLoading;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SecondaryButton(
+          label: 'Продолжить с Google',
+          icon: Icons.g_mobiledata_rounded,
+          fullWidth: true,
+          onPressed: isEnabled ? onPressed : null,
+        ),
+        if (!isConfigured) ...[
+          const SizedBox(height: SK.s2),
+          Text(
+            'Google вход недоступен: не задан Clerk publishable key.',
+            textAlign: TextAlign.center,
+            style: SKTextStyles.small.copyWith(
+              fontSize: 11,
+              height: 1.35,
+              color: c.textDisabled,
+            ),
+          ),
+        ],
       ],
     );
   }

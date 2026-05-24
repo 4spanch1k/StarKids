@@ -50,6 +50,55 @@ class ApiMobileAuthRepository implements MobileAuthRepository {
   }
 
   @override
+  Future<Result<MobileAuthSession>> exchangeClerkSession({
+    required String sessionToken,
+  }) async {
+    try {
+      final response = await _apiClient.postJson(
+        '/auth/clerk/exchange',
+        body: {'session_token': sessionToken.trim()},
+      );
+
+      if (response.isSuccess) {
+        final session = await _storeTokenResponse(response.jsonBody);
+        if (session != null) {
+          return Success<MobileAuthSession>(session);
+        }
+
+        return const Failure<MobileAuthSession>(
+          'Не удалось завершить вход через Google. Попробуйте снова.',
+        );
+      }
+
+      if (response.statusCode == 401) {
+        return const Failure<MobileAuthSession>(
+          'Не удалось подтвердить вход через Google. Попробуйте снова.',
+        );
+      }
+
+      if (response.statusCode == 409) {
+        return const Failure<MobileAuthSession>(
+          'Этот Google аккаунт уже связан с другим профилем Star Kids.',
+        );
+      }
+
+      if (response.statusCode == 422) {
+        return const Failure<MobileAuthSession>(
+          'Подтвердите email в Google и попробуйте снова.',
+        );
+      }
+
+      return const Failure<MobileAuthSession>(
+        'Не удалось войти через Google. Проверьте интернет и попробуйте снова.',
+      );
+    } catch (_) {
+      return const Failure<MobileAuthSession>(
+        'Не удалось войти через Google. Проверьте интернет и попробуйте снова.',
+      );
+    }
+  }
+
+  @override
   Future<Result<OtpChallenge>> requestOtp(String phone) async {
     try {
       final response = await _apiClient.postJson(

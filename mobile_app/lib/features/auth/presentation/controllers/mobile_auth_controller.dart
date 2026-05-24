@@ -73,6 +73,49 @@ class MobileAuthController extends ChangeNotifier {
     );
   }
 
+  Future<void> loginWithGoogleClerk({
+    required Future<String> Function() requestSessionToken,
+  }) async {
+    _errorMessage = null;
+    _pendingChallenge = null;
+    _status = MobileAuthStatus.loading;
+    _isRefreshingProfile = false;
+    _isLoggingOut = false;
+    notifyListeners();
+
+    try {
+      final sessionToken = (await requestSessionToken()).trim();
+      if (sessionToken.isEmpty) {
+        _session = null;
+        _errorMessage = 'Не удалось получить сессию Google. Попробуйте снова.';
+        _status = MobileAuthStatus.error;
+        notifyListeners();
+        return;
+      }
+
+      final result = await _repository.exchangeClerkSession(
+        sessionToken: sessionToken,
+      );
+
+      if (result is Success<MobileAuthSession>) {
+        _session = result.data;
+        _status = MobileAuthStatus.authenticated;
+        notifyListeners();
+        return;
+      }
+
+      _session = null;
+      _errorMessage = (result as Failure<MobileAuthSession>).message;
+      _status = MobileAuthStatus.error;
+      notifyListeners();
+    } catch (_) {
+      _session = null;
+      _errorMessage = 'Не удалось войти через Google. Попробуйте снова.';
+      _status = MobileAuthStatus.error;
+      notifyListeners();
+    }
+  }
+
   Future<void> bootstrap() async {
     _status = MobileAuthStatus.loading;
     _isRefreshingProfile = false;

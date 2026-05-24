@@ -146,6 +146,52 @@ void main() {
       expect(controller.session?.user?.email, 'parent@example.com');
     });
 
+    test('google clerk login exchanges token and authenticates', () async {
+      final googleSession = MobileAuthSession(
+        user: const MobileAuthUser(
+          id: 'user-google',
+          email: 'parent@example.com',
+        ),
+        email: 'parent@example.com',
+        accessToken: 'star-kids-access-token',
+        refreshToken: 'star-kids-refresh-token',
+        tokenType: 'bearer',
+        verifiedAt: DateTime(2026, 5, 24, 10),
+      );
+      final repository = _FakeMobileAuthRepository(
+        exchangeResult: Success<MobileAuthSession>(googleSession),
+      );
+      final controller = MobileAuthController(repository: repository);
+
+      await controller.bootstrap();
+      await controller.loginWithGoogleClerk(
+        requestSessionToken: () async => ' clerk-session-token ',
+      );
+
+      expect(repository.exchangeSessionToken, 'clerk-session-token');
+      expect(controller.status, MobileAuthStatus.authenticated);
+      expect(controller.session?.accessToken, 'star-kids-access-token');
+      expect(controller.session?.refreshToken, 'star-kids-refresh-token');
+    });
+
+    test('google clerk login sets error after exchange failure', () async {
+      final repository = _FakeMobileAuthRepository(
+        exchangeResult: const Failure<MobileAuthSession>(
+          'Не удалось войти через Google.',
+        ),
+      );
+      final controller = MobileAuthController(repository: repository);
+
+      await controller.bootstrap();
+      await controller.loginWithGoogleClerk(
+        requestSessionToken: () async => 'clerk-session-token',
+      );
+
+      expect(controller.status, MobileAuthStatus.error);
+      expect(controller.session, isNull);
+      expect(controller.errorMessage, 'Не удалось войти через Google.');
+    });
+
     test('validates email password and confirmation inputs', () {
       final controller = MobileAuthController(
         repository: _FakeMobileAuthRepository(),
@@ -184,6 +230,7 @@ class _FakeMobileAuthRepository implements MobileAuthRepository {
     Result<MobileAuthSession>? verifyResult,
     Result<MobileAuthSession>? registerResult,
     Result<MobileAuthSession>? loginResult,
+    Result<MobileAuthSession>? exchangeResult,
     Result<void>? logoutResult,
   })  : _syncSessionResult = syncSessionResult ??
             (restoredSession == null
@@ -192,6 +239,7 @@ class _FakeMobileAuthRepository implements MobileAuthRepository {
         _verifyResult = verifyResult,
         _registerResult = registerResult,
         _loginResult = loginResult,
+        _exchangeResult = exchangeResult,
         _logoutResult = logoutResult ?? const Success<void>(null);
 
   final MobileAuthSession? restoredSession;
@@ -199,12 +247,14 @@ class _FakeMobileAuthRepository implements MobileAuthRepository {
   final Result<MobileAuthSession>? _verifyResult;
   final Result<MobileAuthSession>? _registerResult;
   final Result<MobileAuthSession>? _loginResult;
+  final Result<MobileAuthSession>? _exchangeResult;
   final Result<void> _logoutResult;
 
   String? requestedPhone;
   String? verifiedCode;
   String? registerEmail;
   String? loginEmail;
+  String? exchangeSessionToken;
   String? syncedAccessToken;
   String? loggedOutAccessToken;
   bool wasCleared = false;
@@ -217,6 +267,27 @@ class _FakeMobileAuthRepository implements MobileAuthRepository {
   @override
   Future<Result<MobileAuthUser>> getCurrentUser(String accessToken) async {
     return const Failure<MobileAuthUser>('not used in controller test');
+  }
+
+  @override
+  Future<Result<MobileAuthSession>> exchangeClerkSession({
+    required String sessionToken,
+  }) async {
+    exchangeSessionToken = sessionToken;
+    return _exchangeResult ??
+        Success<MobileAuthSession>(
+          MobileAuthSession(
+            user: const MobileAuthUser(
+              id: 'user-google',
+              email: 'parent@example.com',
+            ),
+            email: 'parent@example.com',
+            accessToken: 'google-access-token',
+            refreshToken: 'google-refresh-token',
+            tokenType: 'bearer',
+            verifiedAt: DateTime(2026, 5, 24, 10),
+          ),
+        );
   }
 
   @override

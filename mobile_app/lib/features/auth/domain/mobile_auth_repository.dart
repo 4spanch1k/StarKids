@@ -14,6 +14,10 @@ abstract interface class MobileAuthRepository {
     required String password,
   });
 
+  Future<Result<MobileAuthSession>> exchangeClerkSession({
+    required String sessionToken,
+  });
+
   Future<Result<OtpChallenge>> requestOtp(String phone);
 
   Future<Result<MobileAuthSession>> verifyOtp({
