@@ -1,7 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:star_kids_mobile/core/settings/app_settings_controller.dart';
 import 'package:star_kids_mobile/core/storage/local_storage.dart';
@@ -22,18 +20,7 @@ import 'package:star_kids_mobile/features/request_history/domain/request_history
 import 'package:star_kids_mobile/features/requests/domain/request_status.dart';
 import 'package:star_kids_mobile/features/requests/domain/request_type.dart';
 
-MaterialApp _wrap(Widget child) {
-  return MaterialApp(
-    localizationsDelegates: const [
-      GlobalMaterialLocalizations.delegate,
-      GlobalWidgetsLocalizations.delegate,
-      GlobalCupertinoLocalizations.delegate,
-    ],
-    supportedLocales: const [Locale('ru'), Locale('kk')],
-    locale: const Locale('ru'),
-    home: child,
-  );
-}
+import '../../../../helpers/test_app_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -83,13 +70,15 @@ void main() {
       );
 
       await tester.pumpWidget(
-        _wrap(ProfilePage(
-          controller: controller,
-          notificationsController: notificationsController,
-          childrenControllerOverride: childrenController,
-          settingsControllerOverride: settingsController,
-          appVersionOverride: '1.0.0',
-        )),
+        buildTestApp(
+          child: ProfilePage(
+            controller: controller,
+            notificationsController: notificationsController,
+            childrenControllerOverride: childrenController,
+            settingsControllerOverride: settingsController,
+            appVersionOverride: '1.0.0',
+          ),
+        ),
       );
 
       await tester.pumpAndSettle();
@@ -125,12 +114,14 @@ void main() {
       );
 
       await tester.pumpWidget(
-        _wrap(ProfilePage(
-          controller: controller,
-          notificationsController: notificationsController,
-          childrenControllerOverride: childrenController,
-          settingsControllerOverride: settingsController,
-        )),
+        buildTestApp(
+          child: ProfilePage(
+            controller: controller,
+            notificationsController: notificationsController,
+            childrenControllerOverride: childrenController,
+            settingsControllerOverride: settingsController,
+          ),
+        ),
       );
 
       await tester.pumpAndSettle();

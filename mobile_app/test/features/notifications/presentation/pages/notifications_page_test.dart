@@ -3,11 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:star_kids_mobile/app/theme/app_theme.dart';
 import 'package:star_kids_mobile/features/notifications/domain/app_notification.dart';
 import 'package:star_kids_mobile/features/notifications/domain/notification_history_repository.dart';
 import 'package:star_kids_mobile/features/notifications/presentation/controllers/notification_history_controller.dart';
 import 'package:star_kids_mobile/features/notifications/presentation/pages/notifications_page.dart';
+
+import '../../../../helpers/test_app_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -111,10 +112,7 @@ class _TestApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      theme: AppTheme.light(),
-      home: child,
-    );
+    return buildTestApp(child: child);
   }
 }
 
