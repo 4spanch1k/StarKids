@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     fcm_client_email: str | None = None
     fcm_private_key: str | None = None
 
+    clerk_secret_key: str | None = None
+    clerk_issuer: str | None = None
+    clerk_jwks_url: str | None = None
+    clerk_authorized_parties: str | None = None
+
     storage_backend: str = 'local'
     media_root: str = './media'
     media_url_prefix: str = '/media'
@@ -63,6 +68,24 @@ class Settings(BaseSettings):
     @property
     def fcm_is_configured(self) -> bool:
         return bool(self.fcm_project_id and self.fcm_client_email and self.fcm_private_key)
+
+    @property
+    def clerk_authorized_parties_list(self) -> list[str]:
+        if not self.clerk_authorized_parties:
+            return []
+        return [
+            party.strip()
+            for party in self.clerk_authorized_parties.split(',')
+            if party.strip()
+        ]
+
+    @property
+    def resolved_clerk_jwks_url(self) -> str | None:
+        if self.clerk_jwks_url:
+            return self.clerk_jwks_url
+        if self.clerk_issuer:
+            return f'{self.clerk_issuer.rstrip("/")}/.well-known/jwks.json'
+        return None
 
     @property
     def normalized_media_url_prefix(self) -> str:

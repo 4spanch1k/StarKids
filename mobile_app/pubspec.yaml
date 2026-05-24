@@ -29,6 +29,12 @@ dependencies:
   flutter_svg: ^2.0.10+1
   shimmer: ^3.0.0
   flutter_animate: ^4.5.0
+  clerk_auth: ^0.0.15-beta
+  clerk_flutter:
+    git:
+      url: https://github.com/clerk/clerk-sdk-flutter.git
+      ref: 8191d1ec947d5aeea726653110671e13d7192a9e
+      path: packages/clerk_flutter
 
 dev_dependencies:
   flutter_test:
@@ -36,6 +42,7 @@ dev_dependencies:
   flutter_lints: ^3.0.0
 
 flutter:
+  generate: true
   uses-material-design: true
   assets:
     - assets/images/

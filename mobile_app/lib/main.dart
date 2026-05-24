@@ -17,12 +17,14 @@ Future<void> _onBackgroundMessage(RemoteMessage message) async {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  debugPrint('[BOOT] main started');
 
   // Attempt Firebase initialization.  This will fail until the project is
   // configured with real credentials (run: flutterfire configure).
   // The app starts normally even when Firebase is unavailable — push
   // notifications are silently disabled in that case.
   await _initFirebaseSafely();
+  debugPrint('[BOOT] Firebase init completed or skipped');
 
   runApp(
     const StarKidsBootstrapApp(
@@ -66,6 +68,7 @@ Future<void> _initFirebaseSafely() async {
       // TODO: Navigate to the relevant screen based on initialMessage.data['event'].
     }
   } catch (_) {
+    debugPrint('[BOOT] Firebase init skipped');
     // Firebase not configured — see lib/firebase_options.dart for instructions.
   }
 }

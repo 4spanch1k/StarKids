@@ -9,6 +9,14 @@ abstract final class AppEnvironment {
     defaultValue: 'http://localhost:8000/api/v1/mobile',
   );
 
+  static const clerkPublishableKey = String.fromEnvironment(
+    'MOBILE_CLERK_PUBLISHABLE_KEY',
+    defaultValue: '',
+  );
+
+  static bool get hasClerkPublishableKey =>
+      clerkPublishableKey.trim().isNotEmpty;
+
   static const useMockBirthdayRequests = bool.fromEnvironment(
     'MOBILE_USE_MOCK_BIRTHDAY_REQUESTS',
     defaultValue: false,

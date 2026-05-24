@@ -20,6 +20,11 @@ class MobileUserRepository(Repository):
             select(MobileUser).where(MobileUser.email == email.lower().strip())
         )
 
+    def find_by_clerk_user_id(self, clerk_user_id: str) -> MobileUser | None:
+        return self.db.scalar(
+            select(MobileUser).where(MobileUser.clerk_user_id == clerk_user_id.strip())
+        )
+
     def get_by_id(self, user_id: str) -> MobileUser | None:
         return self.db.scalar(select(MobileUser).where(MobileUser.id == user_id))
 
@@ -28,8 +33,12 @@ class MobileUserRepository(Repository):
         *,
         phone: str | None = None,
         email: str | None = None,
+        clerk_user_id: str | None = None,
         password_hash: str | None = None,
         is_active: bool = True,
+        first_name: str | None = None,
+        last_name: str | None = None,
+        avatar_url: str | None = None,
     ) -> MobileUser:
         normalized_phone = phone.strip() if phone is not None else None
         normalized_email = email.lower().strip() if email is not None else None
@@ -39,8 +48,12 @@ class MobileUserRepository(Repository):
         user = MobileUser(
             phone=normalized_phone,
             email=normalized_email,
+            clerk_user_id=clerk_user_id.strip() if clerk_user_id is not None else None,
             password_hash=password_hash,
             is_active=is_active,
+            first_name=first_name,
+            last_name=last_name,
+            avatar_url=avatar_url,
         )
         self.db.add(user)
         self.db.commit()
@@ -54,6 +67,7 @@ class MobileUserRepository(Repository):
         first_name: Any = _SENTINEL,
         last_name: Any = _SENTINEL,
         email: Any = _SENTINEL,
+        clerk_user_id: Any = _SENTINEL,
         avatar_url: Any = _SENTINEL,
         child_birth_date: Any = _SENTINEL,
     ) -> MobileUser:
@@ -63,6 +77,10 @@ class MobileUserRepository(Repository):
             user.last_name = last_name
         if email is not _SENTINEL:
             user.email = email.lower().strip() if email is not None else None
+        if clerk_user_id is not _SENTINEL:
+            user.clerk_user_id = (
+                clerk_user_id.strip() if clerk_user_id is not None else None
+            )
         if avatar_url is not _SENTINEL:
             user.avatar_url = avatar_url
         if child_birth_date is not _SENTINEL:

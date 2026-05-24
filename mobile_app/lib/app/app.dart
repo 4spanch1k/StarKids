@@ -7,6 +7,7 @@ import 'router/app_routes.dart';
 import 'theme/app_theme.dart';
 import '../core/design_system/sk_color_scheme.dart';
 import '../core/design_system/sk_theme.dart';
+import '../core/design_system/widgets/sk_splash_view.dart';
 import '../features/auth/presentation/controllers/mobile_auth_controller.dart';
 import '../features/auth/presentation/pages/email_auth_gate_page.dart';
 
@@ -27,6 +28,10 @@ class StarKidsApp extends StatelessWidget {
             authController.status == MobileAuthStatus.loading &&
                 authController.session == null;
         final isAuthenticated = authController.isAuthenticated;
+        debugPrint(
+          '[APP] rendering '
+          '${isAuthenticated ? 'home' : isBootstrapping ? 'loading' : 'auth'}',
+        );
 
         return MaterialApp(
           key: ValueKey(isAuthenticated ? 'authenticated-app' : 'auth-gate'),
@@ -71,10 +76,6 @@ class _AuthGateLoadingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
+    return const SkSplashView();
   }
 }

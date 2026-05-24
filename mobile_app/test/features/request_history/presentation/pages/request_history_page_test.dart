@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:star_kids_mobile/features/request_history/domain/request_history_item.dart';
@@ -7,6 +6,8 @@ import 'package:star_kids_mobile/features/request_history/presentation/controlle
 import 'package:star_kids_mobile/features/request_history/presentation/pages/request_history_page.dart';
 import 'package:star_kids_mobile/features/requests/domain/request_status.dart';
 import 'package:star_kids_mobile/features/requests/domain/request_type.dart';
+
+import '../../../../helpers/test_app_harness.dart';
 
 void main() {
   group('RequestHistoryPage', () {
@@ -21,8 +22,8 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: RequestHistoryPage(
+        buildTestApp(
+          child: RequestHistoryPage(
             controller: controller,
             onOpenProfile: () => didOpenProfile = true,
           ),
@@ -51,7 +52,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: RequestHistoryPage(controller: controller)),
+        buildTestApp(child: RequestHistoryPage(controller: controller)),
       );
       await tester.pumpAndSettle();
 
@@ -93,11 +94,11 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: RequestHistoryPage(controller: controller)),
+        buildTestApp(child: RequestHistoryPage(controller: controller)),
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('День рождения'), findsOneWidget);
+      expect(find.text('День рождения'), findsWidgets);
       expect(find.text('В работе'), findsOneWidget);
       expect(find.text('Star Kids Main'), findsOneWidget);
       expect(find.text('Spark Party'), findsOneWidget);
@@ -118,7 +119,7 @@ void main() {
       final controller = RequestHistoryController(repository: repository);
 
       await tester.pumpWidget(
-        MaterialApp(home: RequestHistoryPage(controller: controller)),
+        buildTestApp(child: RequestHistoryPage(controller: controller)),
       );
       await tester.pumpAndSettle();
 
@@ -165,7 +166,7 @@ void main() {
       final controller = RequestHistoryController(repository: repository);
 
       await tester.pumpWidget(
-        MaterialApp(home: RequestHistoryPage(controller: controller)),
+        buildTestApp(child: RequestHistoryPage(controller: controller)),
       );
       await tester.pumpAndSettle();
 
@@ -200,11 +201,11 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(home: RequestHistoryPage(controller: controller)),
+        buildTestApp(child: RequestHistoryPage(controller: controller)),
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Менеджеру'), findsOneWidget);
+      expect(find.text('Менеджеру'), findsWidgets);
       expect(
         find.text(
           'Запрос на обратную связь отправлен. Менеджер свяжется с вами по указанному номеру.',

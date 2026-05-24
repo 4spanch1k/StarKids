@@ -11,6 +11,8 @@ from ...db.repositories.auth_throttle_state_repository import AuthThrottleStateR
 from ...db.repositories.mobile_session_repository import MobileSessionRepository
 from ...db.repositories.mobile_user_repository import MobileUserRepository
 from ..auth_security.service import AuthProtectionService
+from ...core.config.settings import Settings, get_settings
+from .clerk_verifier import ClerkSessionVerifier
 from .schemas import MobileCurrentUserResponse
 from .service import MobileAuthService
 
@@ -33,6 +35,12 @@ def get_mobile_auth_service(
             throttle_repository=AuthThrottleStateRepository(session),
         ),
     )
+
+
+def get_clerk_session_verifier(
+    settings: Settings = Depends(get_settings),
+) -> ClerkSessionVerifier:
+    return ClerkSessionVerifier(settings=settings)
 
 
 def get_mobile_access_token(

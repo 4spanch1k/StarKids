@@ -31,7 +31,14 @@ from ...db.repositories.mobile_session_repository import MobileSessionRepository
 from ...db.repositories.mobile_user_repository import MobileUserRepository
 from ..auth_security.dependencies import AuthRequestContext
 from ..auth_security.service import AuthProtectionService
+from .clerk_verifier import (
+    ClerkConfigurationError,
+    ClerkSessionVerifier,
+    ClerkTokenVerificationError,
+    VerifiedClerkIdentity,
+)
 from .schemas import (
+    MobileClerkExchangeRequest,
     MobileAuthResponse,
     MobileCurrentUserResponse,
     MobileEmailLoginRequest,
@@ -177,6 +184,19 @@ class MobileAuthService:
         )
         return self._build_auth_response(user, token_pair)
 
+    def exchange_clerk_session(
+        self,
+        payload: MobileClerkExchangeRequest,
+        *,
+        verifier: ClerkSessionVerifier,
+    ) -> MobileAuthResponse:
+        self._ensure_runtime_configuration()
+        identity = self._verify_clerk_session(payload.session_token, verifier=verifier)
+        user = self._get_or_create_user_from_clerk_identity(identity)
+        self.user_repository.record_successful_login(user)
+        token_pair = self._create_session_for_user(user)
+        return self._build_auth_response(user, token_pair)
+
     def refresh(self, payload: MobileRefreshRequest) -> MobileAuthResponse:
         self._ensure_runtime_configuration()
         token_payload = self._decode_token(
@@ -256,6 +276,50 @@ class MobileAuthService:
             ],
         )
 
+    @staticmethod
+    def account_already_linked_exception() -> DomainHTTPException:
+        return DomainHTTPException(
+            code='account_already_linked',
+            message='Этот email уже связан с другим Google-аккаунтом.',
+            status_code=status.HTTP_409_CONFLICT,
+            details=[
+                {
+                    'field': 'email',
+                    'message': 'Войдите другим способом или обратитесь в Star Kids.',
+                }
+            ],
+        )
+
+    @staticmethod
+    def unverified_clerk_email_exception() -> DomainHTTPException:
+        return DomainHTTPException(
+            code='clerk_email_not_verified',
+            message='Email Google-аккаунта не подтвержден.',
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            details=[
+                {
+                    'field': 'email',
+                    'message': 'Подтвердите email в Google/Clerk и попробуйте снова.',
+                }
+            ],
+        )
+
+    @staticmethod
+    def invalid_clerk_session_exception() -> DomainHTTPException:
+        return DomainHTTPException(
+            code='invalid_clerk_session',
+            message='Clerk session token is invalid.',
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    @staticmethod
+    def clerk_configuration_exception(message: str) -> DomainHTTPException:
+        return DomainHTTPException(
+            code='clerk_configuration_error',
+            message=message,
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
     def _ensure_runtime_configuration(self) -> None:
         if (
             self.settings.requires_explicit_jwt_secret
@@ -290,6 +354,21 @@ class MobileAuthService:
             )
         return normalized
 
+    def _verify_clerk_session(
+        self,
+        session_token: str,
+        *,
+        verifier: ClerkSessionVerifier,
+    ) -> VerifiedClerkIdentity:
+        try:
+            return verifier.verify(session_token)
+        except ClerkConfigurationError as exc:
+            logger.error('Clerk mobile auth configuration error: %s', exc)
+            raise self.clerk_configuration_exception(str(exc)) from exc
+        except ClerkTokenVerificationError as exc:
+            logger.warning('Clerk mobile auth exchange failed: %s', exc)
+            raise self.invalid_clerk_session_exception() from exc
+
     def _normalize_email(self, email: str) -> str:
         return email.lower().strip()
 
@@ -318,6 +397,54 @@ class MobileAuthService:
         if not user.is_active:
             raise self.authentication_required_exception()
         return user
+
+    def _get_or_create_user_from_clerk_identity(
+        self,
+        identity: VerifiedClerkIdentity,
+    ) -> MobileUser:
+        if not identity.email or not identity.email_verified:
+            raise self.unverified_clerk_email_exception()
+
+        user = self.user_repository.find_by_clerk_user_id(identity.clerk_user_id)
+        if user is not None:
+            if not user.is_active:
+                raise self.authentication_required_exception()
+            return user
+
+        email = self._normalize_email(identity.email)
+        existing_user = self.user_repository.find_by_email(email)
+        if existing_user is not None:
+            if not existing_user.is_active:
+                raise self.authentication_required_exception()
+            if existing_user.clerk_user_id == identity.clerk_user_id:
+                return existing_user
+            if existing_user.clerk_user_id is not None:
+                raise self.account_already_linked_exception()
+            try:
+                return self.user_repository.update(
+                    existing_user,
+                    clerk_user_id=identity.clerk_user_id,
+                )
+            except IntegrityError as exc:
+                self.user_repository.db.rollback()
+                raise self.account_already_linked_exception() from exc
+
+        try:
+            return self.user_repository.create(
+                email=email,
+                clerk_user_id=identity.clerk_user_id,
+                first_name=identity.first_name,
+                last_name=identity.last_name,
+                avatar_url=identity.avatar_url,
+            )
+        except IntegrityError as exc:
+            self.user_repository.db.rollback()
+            logger.warning(
+                'Clerk mobile auth exchange hit uniqueness conflict: clerk_user_id=%s email=%s',
+                identity.clerk_user_id,
+                email,
+            )
+            raise self.account_already_linked_exception() from exc
 
     def _create_session_for_user(self, user: MobileUser) -> TokenPair:
         session_id = uuid4().hex

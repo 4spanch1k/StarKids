@@ -111,7 +111,8 @@ void main() {
       final pushRepo = _RecordingPushTokenRepository(success: true);
       final controller = PushTokenController(
         authController: authController,
-        notificationSettingsRepository: const _FakeNotificationSettingsRepository(
+        notificationSettingsRepository:
+            const _FakeNotificationSettingsRepository(
           loadStatus: NotificationPermissionStatus.granted,
         ),
         fcmTokenGateway: fcmGateway,
@@ -144,7 +145,8 @@ void main() {
 
       final controller = PushTokenController(
         authController: authController,
-        notificationSettingsRepository: const _FakeNotificationSettingsRepository(
+        notificationSettingsRepository:
+            const _FakeNotificationSettingsRepository(
           loadStatus: NotificationPermissionStatus.granted,
         ),
         fcmTokenGateway: _FakeFcmTokenGateway(token: 'my-token'),
@@ -177,7 +179,8 @@ void main() {
 
       final controller = PushTokenController(
         authController: authController,
-        notificationSettingsRepository: const _FakeNotificationSettingsRepository(
+        notificationSettingsRepository:
+            const _FakeNotificationSettingsRepository(
           loadStatus: NotificationPermissionStatus.granted,
         ),
         fcmTokenGateway: _FakeFcmTokenGateway(token: 'retry-token'),
@@ -202,7 +205,8 @@ void main() {
       );
       final controller = PushTokenController(
         authController: authController,
-        notificationSettingsRepository: const _FakeNotificationSettingsRepository(
+        notificationSettingsRepository:
+            const _FakeNotificationSettingsRepository(
           loadStatus: NotificationPermissionStatus.granted,
         ),
         fcmTokenGateway: gateway,
@@ -404,6 +408,12 @@ class _StubAuthRepository implements MobileAuthRepository {
 
   @override
   Future<Result<MobileAuthUser>> getCurrentUser(String accessToken) async =>
+      const Failure('stub');
+
+  @override
+  Future<Result<MobileAuthSession>> exchangeClerkSession({
+    required String sessionToken,
+  }) async =>
       const Failure('stub');
 
   @override

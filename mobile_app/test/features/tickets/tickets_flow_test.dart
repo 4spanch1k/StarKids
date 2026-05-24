@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:star_kids_mobile/app/di/service_registry.dart';
-import 'package:star_kids_mobile/app/theme/app_theme.dart';
 import 'package:star_kids_mobile/core/utils/result.dart';
 import 'package:star_kids_mobile/features/branches/data/branch_seed_data.dart';
 import 'package:star_kids_mobile/features/home/presentation/pages/home_page.dart';
@@ -14,6 +13,8 @@ import 'package:star_kids_mobile/features/tickets/data/seed_ticket_config_reposi
 import 'package:star_kids_mobile/features/tickets/domain/branch_ticket_config.dart';
 import 'package:star_kids_mobile/features/tickets/domain/ticket_purchase.dart';
 import 'package:star_kids_mobile/features/tickets/domain/ticket_purchase_repository.dart';
+
+import '../../helpers/test_app_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -164,10 +165,8 @@ Future<void> _pumpHomePage(WidgetTester tester) async {
   addTearDown(tester.view.reset);
 
   await tester.pumpWidget(
-    MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
-      home: HomePage(
+    buildTestApp(
+      child: HomePage(
         newsController: NewsFeedController(
           repository: const _StaticNewsRepository(),
         ),
