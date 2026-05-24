@@ -7,6 +7,7 @@ import 'router/app_routes.dart';
 import 'theme/app_theme.dart';
 import '../core/design_system/sk_color_scheme.dart';
 import '../core/design_system/sk_theme.dart';
+import '../core/design_system/widgets/sk_splash_view.dart';
 import '../features/auth/presentation/controllers/mobile_auth_controller.dart';
 import '../features/auth/presentation/pages/email_auth_gate_page.dart';
 
@@ -75,10 +76,6 @@ class _AuthGateLoadingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
+    return const SkSplashView();
   }
 }

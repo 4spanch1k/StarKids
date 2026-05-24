@@ -4,6 +4,7 @@ import '../../core/design_system/foundations/sk_tokens.dart';
 import '../../core/design_system/sk_color_scheme.dart';
 import '../../core/design_system/sk_theme.dart';
 import '../../core/design_system/widgets/primary_button.dart';
+import '../../core/design_system/widgets/sk_splash_view.dart';
 import '../../core/design_system/widgets/star_kids_logo_loader.dart';
 import '../app.dart';
 import '../theme/app_theme.dart';
@@ -78,17 +79,7 @@ class _BootstrapLoadingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: SK.bg,
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: EdgeInsets.all(SK.s5),
-            child: StarKidsLogoLoader(),
-          ),
-        ),
-      ),
-    );
+    return const SkSplashView();
   }
 }
 
