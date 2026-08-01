@@ -1,14 +1,15 @@
 import 'dart:ui';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../foundations/sk_tokens.dart';
+import 'star_kids_media_image.dart';
 
 class SkHero extends StatelessWidget {
   const SkHero({
     super.key,
     required this.imageUrl,
+    this.fallbackImagePath,
     required this.title,
     this.italicText,
     this.chip,
@@ -18,6 +19,7 @@ class SkHero extends StatelessWidget {
   });
 
   final String imageUrl;
+  final String? fallbackImagePath;
   final String title;
   final String? italicText;
   final String? chip;
@@ -34,11 +36,10 @@ class SkHero extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            CachedNetworkImage(
-              imageUrl: imageUrl,
+            StarKidsMediaImage(
+              source: imageUrl,
+              fallbackSource: fallbackImagePath,
               fit: BoxFit.cover,
-              placeholder: (_, __) => const ColoredBox(color: SK.bgSoft),
-              errorWidget: (_, __, ___) => const ColoredBox(color: SK.bgSoft),
             ),
             const DecoratedBox(
               decoration: BoxDecoration(

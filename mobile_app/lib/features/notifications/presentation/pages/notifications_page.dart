@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
@@ -9,6 +8,7 @@ import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/glass_app_bar.dart';
 import '../../../../core/design_system/widgets/primary_button.dart';
+import '../../../../core/design_system/widgets/star_kids_media_image.dart';
 import '../../../news/domain/news_item.dart';
 import '../../../news/domain/news_repository.dart';
 import '../../../news/presentation/models/news_details_page_args.dart';
@@ -364,15 +364,10 @@ class _NewsListCard extends StatelessWidget {
               children: [
                 AspectRatio(
                   aspectRatio: 16 / 9,
-                  child: imageUrl.isEmpty
-                      ? const _NewsImagePlaceholder()
-                      : CachedNetworkImage(
-                          imageUrl: imageUrl,
-                          fit: BoxFit.cover,
-                          placeholder: (_, __) => const _NewsImagePlaceholder(),
-                          errorWidget: (_, __, ___) =>
-                              const _NewsImagePlaceholder(),
-                        ),
+                  child: StarKidsMediaImage(
+                    source: imageUrl,
+                    fallbackSource: 'assets/images/home_hero.jpg',
+                  ),
                 ),
                 Padding(
                   padding: const EdgeInsets.all(SKSpacing.x4),
@@ -436,27 +431,5 @@ class _NewsListCard extends StatelessWidget {
       case NotificationType.news:
         return 'Новость';
     }
-  }
-}
-
-class _NewsImagePlaceholder extends StatelessWidget {
-  const _NewsImagePlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    final c = SKTheme.of(context).colors;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: c.elevated,
-      ),
-      child: Center(
-        child: Icon(
-          Icons.photo_library_rounded,
-          color: c.textSecondary,
-          size: 40,
-        ),
-      ),
-    );
   }
 }

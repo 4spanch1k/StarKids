@@ -59,7 +59,10 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
             children: [
               AspectRatio(
                 aspectRatio: 19 / 10,
-                child: StarKidsMediaImage(source: imagePath),
+                child: StarKidsMediaImage(
+                  source: imagePath,
+                  fallbackSource: 'assets/images/birthday_hero.jpg',
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.all(SKSpacing.x4),
@@ -94,6 +97,7 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
                         ),
                         const SizedBox(width: SKSpacing.x3),
                         Container(
+                          constraints: const BoxConstraints(maxWidth: 120),
                           padding: const EdgeInsets.symmetric(
                             horizontal: SKSpacing.x3,
                             vertical: SKSpacing.x2,
@@ -102,10 +106,15 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
                             color: c.accentSoft,
                             borderRadius: BorderRadius.circular(SKRadius.pill),
                           ),
-                          child: Text(
-                            priceLabel,
-                            style: textTheme.labelMedium?.copyWith(
-                              color: c.textPrimary,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              priceLabel,
+                              maxLines: 1,
+                              style: textTheme.labelMedium?.copyWith(
+                                color: c.textPrimary,
+                              ),
                             ),
                           ),
                         ),

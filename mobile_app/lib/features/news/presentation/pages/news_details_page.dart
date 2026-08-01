@@ -1,12 +1,12 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/primary_button.dart';
+import '../../../../core/design_system/widgets/star_kids_media_image.dart';
 import '../../data/api_news_repository.dart';
 import '../../domain/news_item.dart';
 import '../../domain/news_repository.dart';
@@ -61,8 +61,7 @@ class _NewsDetailsPageState extends State<NewsDetailsPage> {
     if (item == null) {
       return _NewsDetailsStateScaffold(
         title: _isOffline ? 'Нет соединения' : 'Не удалось открыть новость',
-        description:
-            _errorMessage ??
+        description: _errorMessage ??
             (_isOffline
                 ? 'Последние данные недоступны без сети.'
                 : 'Попробуйте открыть новость еще раз.'),
@@ -84,16 +83,10 @@ class _NewsDetailsPageState extends State<NewsDetailsPage> {
             backgroundColor: Colors.black,
             foregroundColor: Colors.white,
             flexibleSpace: FlexibleSpaceBar(
-              background: imageUrl.isEmpty
-                  ? const _NewsDetailsImagePlaceholder()
-                  : CachedNetworkImage(
-                      imageUrl: imageUrl,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) =>
-                          const _NewsDetailsImagePlaceholder(),
-                      errorWidget: (_, __, ___) =>
-                          const _NewsDetailsImagePlaceholder(),
-                    ),
+              background: StarKidsMediaImage(
+                source: imageUrl,
+                fallbackSource: 'assets/images/home_hero.jpg',
+              ),
             ),
           ),
           SliverToBoxAdapter(
@@ -301,26 +294,6 @@ class _NewsDetailsInfoBanner extends StatelessWidget {
           const SizedBox(height: SKSpacing.x1),
           Text(description, style: Theme.of(context).textTheme.bodyMedium),
         ],
-      ),
-    );
-  }
-}
-
-class _NewsDetailsImagePlaceholder extends StatelessWidget {
-  const _NewsDetailsImagePlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    final c = SKTheme.of(context).colors;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(color: c.elevated),
-      child: Center(
-        child: Icon(
-          Icons.photo_library_rounded,
-          color: c.textSecondary,
-          size: 56,
-        ),
       ),
     );
   }

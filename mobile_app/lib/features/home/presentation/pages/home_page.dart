@@ -118,6 +118,7 @@ class _HomePageState extends State<HomePage> {
                             child: SkHero(
                               imageUrl:
                                   'https://images.unsplash.com/photo-1576094848989-1ee5b58cdb86?auto=format&fit=crop&w=900&q=80',
+                              fallbackImagePath: 'assets/images/home_hero.jpg',
                               chip: '✦ Любят дети · доверяют родители',
                               title: 'Семейный отдых\nи яркие дни рождения.',
                               italicText: 'яркие',
@@ -150,7 +151,7 @@ class _HomePageState extends State<HomePage> {
                               crossAxisCount: 2,
                               mainAxisSpacing: SKSpacing.x3,
                               crossAxisSpacing: SKSpacing.x3,
-                              mainAxisExtent: 164,
+                              mainAxisExtent: 176,
                             ),
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
@@ -284,8 +285,7 @@ class _HomePageState extends State<HomePage> {
                                       const StarKidsSectionHeader(
                                         title: 'Что важно перед визитом',
                                       ),
-                                      const SizedBox(
-                                          height: SKSpacing.x4),
+                                      const SizedBox(height: SKSpacing.x4),
                                       ...content.contentBlocks
                                           .asMap()
                                           .entries
@@ -311,18 +311,15 @@ class _HomePageState extends State<HomePage> {
                                         description:
                                             'Пространство, которое дети любят, а родители ценят за удобство.',
                                       ),
-                                      const SizedBox(
-                                          height: SKSpacing.x4),
+                                      const SizedBox(height: SKSpacing.x4),
                                       _TrustBlock(branch: homeBranch),
                                     ],
                                     if (content.faqs.isNotEmpty) ...[
-                                      const SizedBox(
-                                          height: SKSpacing.x6),
+                                      const SizedBox(height: SKSpacing.x6),
                                       const StarKidsSectionHeader(
                                         title: 'Частые вопросы',
                                       ),
-                                      const SizedBox(
-                                          height: SKSpacing.x4),
+                                      const SizedBox(height: SKSpacing.x4),
                                       ...content.faqs
                                           .take(3)
                                           .toList()
@@ -511,11 +508,19 @@ class _GlassNav extends StatelessWidget {
       value: 'home',
       onChanged: onChanged,
       items: [
-        GlassNavItem(id: 'home',       icon: Icons.home_outlined,             label: l.navHome),
-        GlassNavItem(id: 'birthdays',  icon: Icons.cake_outlined,             label: l.navBirthdays),
-        GlassNavItem(id: 'promotions', icon: Icons.local_offer_outlined,      label: l.navPromotions),
-        const GlassNavItem(id: 'tickets', icon: Icons.confirmation_num_outlined, label: 'Билеты'),
-        GlassNavItem(id: 'profile',    icon: Icons.person_outline,            label: l.navProfile),
+        GlassNavItem(id: 'home', icon: Icons.home_outlined, label: l.navHome),
+        GlassNavItem(
+            id: 'birthdays', icon: Icons.cake_outlined, label: l.navBirthdays),
+        GlassNavItem(
+            id: 'promotions',
+            icon: Icons.local_offer_outlined,
+            label: l.navPromotions),
+        const GlassNavItem(
+            id: 'tickets',
+            icon: Icons.confirmation_num_outlined,
+            label: 'Билеты'),
+        GlassNavItem(
+            id: 'profile', icon: Icons.person_outline, label: l.navProfile),
       ],
     );
   }
@@ -576,7 +581,10 @@ class _AppDrawer extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(
-            SKSpacing.x6, SKSpacing.x6, SKSpacing.x6, SKSpacing.x4,
+            SKSpacing.x6,
+            SKSpacing.x6,
+            SKSpacing.x6,
+            SKSpacing.x4,
           ),
           child: Text(
             'Star Kids',

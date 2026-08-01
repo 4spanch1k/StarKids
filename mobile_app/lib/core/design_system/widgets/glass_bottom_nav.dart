@@ -35,15 +35,18 @@ class GlassBottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = SKTheme.of(context).colors;
     final bottomInset = MediaQuery.of(context).padding.bottom;
-    final idx = items.indexWhere((it) => it.id == value).clamp(0, items.length - 1);
+    final idx =
+        items.indexWhere((it) => it.id == value).clamp(0, items.length - 1);
 
     return Padding(
       padding: EdgeInsets.fromLTRB(14, 0, 14, 12 + bottomInset),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final navWidth = constraints.maxWidth;
+          final compact = navWidth < 380;
           final segW = navWidth / items.length;
-          final lensW = (segW * 0.88).clamp(88.0, 120.0);
+          final lensW =
+              compact ? segW * 0.96 : (segW * 0.88).clamp(88.0, 120.0);
           final lensX = idx * segW + (segW - lensW) / 2;
 
           return Container(
@@ -80,7 +83,9 @@ class GlassBottomNav extends StatelessWidget {
                     children: [
                       // Top shine line
                       Positioned(
-                        top: 0, left: 0, right: 0,
+                        top: 0,
+                        left: 0,
+                        right: 0,
                         child: Container(height: 1, color: c.glassShine),
                       ),
                       // Outer border
@@ -89,7 +94,8 @@ class GlassBottomNav extends StatelessWidget {
                           child: DecoratedBox(
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(42),
-                              border: Border.all(color: c.glassBorder, width: 1.0),
+                              border:
+                                  Border.all(color: c.glassBorder, width: 1.0),
                             ),
                           ),
                         ),
@@ -114,6 +120,7 @@ class GlassBottomNav extends StatelessWidget {
                                 active: it.id == value,
                                 onTap: () => onChanged(it.id),
                                 colors: c,
+                                compact: compact,
                               ),
                             );
                           }).toList(),
@@ -167,12 +174,14 @@ class _NavBtn extends StatefulWidget {
   final bool active;
   final VoidCallback onTap;
   final SKColorScheme colors;
+  final bool compact;
 
   const _NavBtn({
     required this.item,
     required this.active,
     required this.onTap,
     required this.colors,
+    required this.compact,
   });
 
   @override
@@ -208,15 +217,22 @@ class _NavBtnState extends State<_NavBtn> {
                   children: [
                     Icon(
                       widget.item.icon,
-                      size: 22,
+                      size: widget.compact ? 20 : 22,
                       color: widget.active ? c.textPrimary : c.textSecondary,
                     ),
                     const SizedBox(height: 3),
                     Text(
                       widget.item.label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
                       style: SKTextStyles.micro.copyWith(
                         color: widget.active ? c.textPrimary : c.textSecondary,
-                        fontWeight: widget.active ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight:
+                            widget.active ? FontWeight.w700 : FontWeight.w500,
+                        fontSize: widget.compact ? 9.5 : null,
+                        letterSpacing: widget.compact ? 0 : null,
+                        height: 1.05,
                       ),
                     ),
                   ],

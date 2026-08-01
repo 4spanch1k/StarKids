@@ -385,6 +385,7 @@ class _MenuItemCard extends StatelessWidget {
                 source: item.imageUrl.isEmpty
                     ? _redesignMenuImage(item.title)
                     : item.imageUrl,
+                fallbackSource: _redesignMenuImage(item.title),
               ),
             ),
           ),

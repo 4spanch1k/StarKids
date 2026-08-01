@@ -233,7 +233,11 @@ class BranchDetailsPage extends StatelessWidget {
                               borderRadius: BorderRadius.circular(20),
                               child: AspectRatio(
                                 aspectRatio: 4 / 5,
-                                child: StarKidsMediaImage(source: imagePath),
+                                child: StarKidsMediaImage(
+                                  source: imagePath,
+                                  fallbackSource:
+                                      'assets/images/branch_hero.jpg',
+                                ),
                               ),
                             );
                           },
