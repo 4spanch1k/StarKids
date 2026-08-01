@@ -1,8 +1,6 @@
-// showGlassBottomSheet — modal with solid body (readability) and glass chrome.
+// showGlassBottomSheet — draggable modal with one solid, readable surface.
 // Driven by DraggableScrollableSheet for drag + scroll.
-// Glass treatment: drag handle + title header only. Body stays solid.
 
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../sk_design_tokens.dart';
 import '../sk_theme.dart';
@@ -65,71 +63,68 @@ class _SheetShell extends StatelessWidget {
       borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Glass chrome header (drag handle + optional title)
-          ClipRect(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [c.glassTint, c.glassTint2],
-                  ),
-                  border: Border(
-                    bottom: BorderSide(color: c.glassBorder, width: 1.0),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    // Drag handle
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(0, 10, 0, hasHeader ? 6 : 10),
-                      child: Container(
-                        width: 36,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          color: c.textTertiary,
-                          borderRadius: BorderRadius.circular(SKRadius.pill),
-                        ),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: c.elevated,
+              border: Border(
+                bottom: BorderSide(color: c.hairline, width: 0.5),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: EdgeInsets.fromLTRB(0, 10, 0, hasHeader ? 6 : 10),
+                  child: Center(
+                    child: Container(
+                      width: 36,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: c.textTertiary,
+                        borderRadius: BorderRadius.circular(SKRadius.pill),
                       ),
                     ),
-                    // Title row (optional)
-                    if (hasHeader)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          SKSpacing.x5, SKSpacing.x2, SKSpacing.x5, SKSpacing.x4,
-                        ),
-                        child: Stack(
-                          alignment: Alignment.center,
+                  ),
+                ),
+                if (hasHeader)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      SKSpacing.x5,
+                      SKSpacing.x2,
+                      SKSpacing.x5,
+                      SKSpacing.x4,
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Column(
                           children: [
-                            Column(children: [
-                              Text(
-                                title!,
-                                style: SKTextStyles.h2.copyWith(
-                                  color: c.textPrimary,
-                                  fontFamily: SKTypography.display,
-                                ),
+                            Text(
+                              title!,
+                              style: SKTextStyles.h2.copyWith(
+                                color: c.textPrimary,
+                                fontFamily: SKTypography.display,
                               ),
-                              if (step != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: Text(
-                                    step!,
-                                    style: SKTextStyles.small.copyWith(
-                                      color: c.textTertiary,
-                                    ),
+                            ),
+                            if (step != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  step!,
+                                  style: SKTextStyles.small.copyWith(
+                                    color: c.textTertiary,
                                   ),
                                 ),
-                            ]),
-                            Positioned(right: 0, child: _CloseBtn()),
+                              ),
                           ],
                         ),
-                      ),
-                  ],
-                ),
-              ),
+                        Positioned(right: 0, child: _CloseBtn()),
+                      ],
+                    ),
+                  ),
+              ],
             ),
           ),
           // Solid body
@@ -152,7 +147,10 @@ class _SheetShell extends StatelessWidget {
                 ),
               ),
               padding: const EdgeInsets.fromLTRB(
-                SKSpacing.x4, SKSpacing.x3, SKSpacing.x4, SKSpacing.x4,
+                SKSpacing.x4,
+                SKSpacing.x3,
+                SKSpacing.x4,
+                SKSpacing.x4,
               ),
               child: SafeArea(top: false, child: action!),
             ),
