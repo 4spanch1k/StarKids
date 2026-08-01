@@ -12,6 +12,7 @@ import '../../../../core/design_system/widgets/star_kids_birthday_package_card.d
 import '../../../../core/design_system/widgets/star_kids_content_block_card.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
+import '../../../../core/design_system/widgets/stable_future_builder.dart';
 import '../../../branches/domain/branch_option.dart';
 import '../../../content/domain/public_content_block.dart';
 import '../../../requests/domain/request_type.dart';
@@ -48,8 +49,9 @@ class BirthdaysPage extends StatelessWidget {
           ),
           body: Stack(
             children: [
-              FutureBuilder<_BirthdaysScreenData>(
-                future: _loadScreenData(branch.id),
+              StableFutureBuilder<_BirthdaysScreenData>(
+                cacheKey: branch.id,
+                futureFactory: () => _loadScreenData(branch.id),
                 builder: (context, snapshot) {
                   final data = snapshot.data;
                   final resolvedBranch = data?.branch ?? branch;
@@ -262,17 +264,21 @@ class BirthdaysPage extends StatelessWidget {
   }
 
   Future<_BirthdaysScreenData> _loadScreenData(String branchId) async {
-    final branch =
-        await ServiceRegistry.branchRepository.getBranch(branchId).catchError(
+    final branchFuture =
+        ServiceRegistry.branchRepository.getBranch(branchId).catchError(
               (_) => ServiceRegistry.selectedBranchController.selectedBranch,
             );
-    ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
-    final packages = await ServiceRegistry.birthdayPackageRepository
+    final packagesFuture = ServiceRegistry.birthdayPackageRepository
         .listPackages(branchId: branchId)
         .catchError((_) => const <BirthdayPackage>[]);
-    final contentBlocks = await ServiceRegistry.publicContentRepository
+    final contentBlocksFuture = ServiceRegistry.publicContentRepository
         .listContentBlocks(surface: 'birthdays')
         .catchError((_) => const <PublicContentBlock>[]);
+
+    final branch = await branchFuture;
+    final packages = await packagesFuture;
+    final contentBlocks = await contentBlocksFuture;
+    ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
 
     return _BirthdaysScreenData(
       branch: branch,

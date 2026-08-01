@@ -10,6 +10,7 @@ import '../../../../core/design_system/widgets/glass_app_bar.dart';
 import '../../../../core/design_system/widgets/primary_button.dart';
 import '../../../../core/design_system/widgets/star_kids_media_image.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
+import '../../../../core/design_system/widgets/stable_future_builder.dart';
 import '../../../branches/domain/branch_option.dart';
 import '../../domain/branch_menu.dart';
 
@@ -48,8 +49,9 @@ class _MenuPageState extends State<MenuPage> {
                   Navigator.of(context).pushNamed(AppRoutes.branchSelection),
             ),
           ),
-          body: FutureBuilder<_MenuScreenData>(
-            future: _loadScreenData(branch.id),
+          body: StableFutureBuilder<_MenuScreenData>(
+            cacheKey: branch.id,
+            futureFactory: () => _loadScreenData(branch.id),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const StarKidsContentSwitcher(
@@ -202,12 +204,15 @@ class _MenuPageState extends State<MenuPage> {
   }
 
   Future<_MenuScreenData> _loadScreenData(String branchId) async {
-    final branch =
-        await ServiceRegistry.branchRepository.getBranch(branchId).catchError(
+    final branchFuture =
+        ServiceRegistry.branchRepository.getBranch(branchId).catchError(
               (_) => ServiceRegistry.selectedBranchController.selectedBranch,
             );
+    final menuFuture = ServiceRegistry.menuRepository.getForBranch(branchId);
+
+    final branch = await branchFuture;
+    final menu = await menuFuture;
     ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
-    final menu = await ServiceRegistry.menuRepository.getForBranch(branchId);
 
     return _MenuScreenData(branch: branch, menu: menu);
   }

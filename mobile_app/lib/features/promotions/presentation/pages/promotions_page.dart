@@ -12,6 +12,7 @@ import '../../../../core/design_system/widgets/star_kids_content_block_card.dart
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_promo_card.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
+import '../../../../core/design_system/widgets/stable_future_builder.dart';
 import '../../../../core/design_system/widgets/star_kids_media_image.dart';
 import '../../../branches/domain/branch_option.dart';
 import '../../../content/domain/public_content_block.dart';
@@ -50,8 +51,9 @@ class PromotionsPage extends StatelessWidget {
           ),
           body: Stack(
             children: [
-              FutureBuilder<_PromotionsScreenData>(
-                future: _loadScreenData(branch.id),
+              StableFutureBuilder<_PromotionsScreenData>(
+                cacheKey: branch.id,
+                futureFactory: () => _loadScreenData(branch.id),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting &&
                       !snapshot.hasData) {
@@ -248,17 +250,21 @@ class PromotionsPage extends StatelessWidget {
   }
 
   Future<_PromotionsScreenData> _loadScreenData(String branchId) async {
-    final branch =
-        await ServiceRegistry.branchRepository.getBranch(branchId).catchError(
+    final branchFuture =
+        ServiceRegistry.branchRepository.getBranch(branchId).catchError(
               (_) => ServiceRegistry.selectedBranchController.selectedBranch,
             );
-    ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
-    final promotions = await ServiceRegistry.promotionRepository
+    final promotionsFuture = ServiceRegistry.promotionRepository
         .listPromotions(branchId)
         .catchError((_) => const <PromotionOffer>[]);
-    final contentBlocks = await ServiceRegistry.publicContentRepository
+    final contentBlocksFuture = ServiceRegistry.publicContentRepository
         .listContentBlocks(surface: 'promotions')
         .catchError((_) => const <PublicContentBlock>[]);
+
+    final branch = await branchFuture;
+    final promotions = await promotionsFuture;
+    final contentBlocks = await contentBlocksFuture;
+    ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
 
     return _PromotionsScreenData(
       branch: branch,

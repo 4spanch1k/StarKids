@@ -10,6 +10,7 @@ import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
 import '../../../../core/design_system/widgets/star_kids_media_image.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
+import '../../../../core/design_system/widgets/stable_future_builder.dart';
 import '../../../../core/services/external_link_service.dart';
 import '../../../contacts/domain/branch_contact_links.dart';
 import '../../domain/branch_option.dart';
@@ -56,8 +57,9 @@ class BranchDetailsPage extends StatelessWidget {
                   : null,
             ),
           ),
-          body: FutureBuilder<_BranchDetailsScreenData>(
-            future: _loadScreenData(branch.id),
+          body: StableFutureBuilder<_BranchDetailsScreenData>(
+            cacheKey: branch.id,
+            futureFactory: () => _loadScreenData(branch.id),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const StarKidsContentSwitcher(
@@ -279,11 +281,15 @@ class BranchDetailsPage extends StatelessWidget {
   }
 
   Future<_BranchDetailsScreenData> _loadScreenData(String branchId) async {
-    final branch = await ServiceRegistry.branchRepository.getBranch(branchId);
+    final branchFuture = ServiceRegistry.branchRepository.getBranch(branchId);
+    final contactLinksFuture =
+        ServiceRegistry.contactLinksRepository.getForBranch(branchId);
+
+    final branch = await branchFuture;
+    final contactLinks = await contactLinksFuture.catchError(
+      (_) => _buildFallbackContactLinks(branch),
+    );
     ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
-    final contactLinks = await ServiceRegistry.contactLinksRepository
-        .getForBranch(branchId)
-        .catchError((_) => _buildFallbackContactLinks(branch));
 
     return _BranchDetailsScreenData(branch: branch, contactLinks: contactLinks);
   }

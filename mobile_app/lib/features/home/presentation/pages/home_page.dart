@@ -18,6 +18,7 @@ import '../../../../core/design_system/widgets/star_kids_faq_card.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_promo_card.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
+import '../../../../core/design_system/widgets/stable_future_builder.dart';
 import '../../../../core/l10n/app_l10n.dart';
 import '../../../birthdays/domain/birthday_package.dart';
 import '../../../branches/domain/branch_option.dart';
@@ -116,8 +117,7 @@ class _HomePageState extends State<HomePage> {
                           StarKidsReveal(
                             delay: starKidsStaggerDelay(1),
                             child: SkHero(
-                              imageUrl:
-                                  'https://images.unsplash.com/photo-1576094848989-1ee5b58cdb86?auto=format&fit=crop&w=900&q=80',
+                              imageUrl: 'assets/images/home_hero.jpg',
                               fallbackImagePath: 'assets/images/home_hero.jpg',
                               chip: '✦ Любят дети · доверяют родители',
                               title: 'Семейный отдых\nи яркие дни рождения.',
@@ -161,8 +161,9 @@ class _HomePageState extends State<HomePage> {
                             },
                           ),
                           const SizedBox(height: SKSpacing.x6),
-                          FutureBuilder<_HomeContentData>(
-                            future: _loadHomeContent(branch.id),
+                          StableFutureBuilder<_HomeContentData>(
+                            cacheKey: branch.id,
+                            futureFactory: () => _loadHomeContent(branch.id),
                             builder: (context, snapshot) {
                               if (snapshot.connectionState ==
                                       ConnectionState.waiting &&
@@ -440,23 +441,29 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<_HomeContentData> _loadHomeContent(String branchId) async {
-    final branch =
-        await ServiceRegistry.branchRepository.getBranch(branchId).catchError(
+    final branchFuture =
+        ServiceRegistry.branchRepository.getBranch(branchId).catchError(
               (_) => ServiceRegistry.selectedBranchController.selectedBranch,
             );
-    ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
-    final packages = await ServiceRegistry.birthdayPackageRepository
+    final packagesFuture = ServiceRegistry.birthdayPackageRepository
         .listPackages(branchId: branchId)
         .catchError((_) => const <BirthdayPackage>[]);
-    final promotions = await ServiceRegistry.promotionRepository
+    final promotionsFuture = ServiceRegistry.promotionRepository
         .listPromotions(branchId)
         .catchError((_) => const <PromotionOffer>[]);
-    final contentBlocks = await ServiceRegistry.publicContentRepository
+    final contentBlocksFuture = ServiceRegistry.publicContentRepository
         .listContentBlocks(surface: 'home')
         .catchError((_) => const <PublicContentBlock>[]);
-    final faqs = await ServiceRegistry.publicContentRepository
+    final faqsFuture = ServiceRegistry.publicContentRepository
         .listFaqs()
         .catchError((_) => const <PublicFaqItem>[]);
+
+    final branch = await branchFuture;
+    final packages = await packagesFuture;
+    final promotions = await promotionsFuture;
+    final contentBlocks = await contentBlocksFuture;
+    final faqs = await faqsFuture;
+    ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
 
     BirthdayPackage? featuredPackage;
     for (final item in packages) {
