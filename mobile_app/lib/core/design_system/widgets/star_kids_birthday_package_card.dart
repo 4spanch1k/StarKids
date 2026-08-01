@@ -19,6 +19,7 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
     this.onTap,
     this.onActionTap,
     this.revealDelay = Duration.zero,
+    this.compact = false,
   });
 
   final String title;
@@ -31,6 +32,7 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onActionTap;
   final Duration revealDelay;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +71,7 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (isFeatured)
+                    if (isFeatured && !compact)
                       Container(
                         margin: const EdgeInsets.only(
                           bottom: SKSpacing.x3,
@@ -93,7 +95,12 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: Text(title, style: textTheme.titleLarge),
+                          child: Text(
+                            title,
+                            maxLines: compact ? 1 : null,
+                            overflow: compact ? TextOverflow.ellipsis : null,
+                            style: textTheme.titleLarge,
+                          ),
                         ),
                         const SizedBox(width: SKSpacing.x3),
                         Container(
@@ -124,9 +131,14 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
                     Text(guestLabel, style: textTheme.labelMedium),
                     if (normalizedDescription.isNotEmpty) ...[
                       const SizedBox(height: SKSpacing.x2),
-                      Text(normalizedDescription, style: textTheme.bodyMedium),
+                      Text(
+                        normalizedDescription,
+                        maxLines: compact ? 2 : null,
+                        overflow: compact ? TextOverflow.ellipsis : null,
+                        style: textTheme.bodyMedium,
+                      ),
                     ],
-                    if (normalizedHighlights.isNotEmpty) ...[
+                    if (!compact && normalizedHighlights.isNotEmpty) ...[
                       const SizedBox(height: SKSpacing.x3),
                       ...normalizedHighlights.map(
                         (highlight) => Padding(

@@ -73,7 +73,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Мои билеты'), findsOneWidget);
-      expect(find.text('Купить входной билет'), findsOneWidget);
+      expect(find.text('Купить билет'), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey('buy-ticket-action')));
       await tester.pumpAndSettle();
