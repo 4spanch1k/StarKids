@@ -18,6 +18,7 @@ import '../../../branches/domain/branch_option.dart';
 import '../../../content/domain/public_content_block.dart';
 import '../../../requests/domain/request_type.dart';
 import '../../../requests/presentation/models/request_page_args.dart';
+import '../../../tickets/presentation/sheets/ticket_purchase_flow_sheet.dart';
 import '../../domain/promotion_offer.dart';
 
 class PromotionsPage extends StatelessWidget {
@@ -141,12 +142,12 @@ class PromotionsPage extends StatelessWidget {
                               ),
                               const SizedBox(height: SKSpacing.x3),
                               Text(
-                                'Акции должны возвращать родителя в приложение, а не просто висеть как баннер.',
+                                'Больше впечатлений за тот же семейный бюджет',
                                 style: textTheme.headlineMedium,
                               ),
                               const SizedBox(height: SKSpacing.x3),
                               Text(
-                                'Здесь собраны branch-aware офферы и удобный вход в request flow без нового визуального шума.',
+                                'Выберите подходящее предложение: билет можно купить сразу, а праздник — собрать вместе с менеджером.',
                                 style: textTheme.bodyLarge,
                               ),
                             ],
@@ -156,7 +157,7 @@ class PromotionsPage extends StatelessWidget {
                         StarKidsSectionHeader(
                           title: 'Предложения для ${data.branch.shortLabel}',
                           description:
-                              'Коммерческий экран должен быстро показать, почему сюда стоит вернуться именно сейчас.',
+                              'Актуальные идеи для будней, выходных и дня рождения.',
                         ),
                         const SizedBox(height: SKSpacing.x4),
                         ...promotions.asMap().entries.map(
@@ -171,11 +172,9 @@ class PromotionsPage extends StatelessWidget {
                                   imagePath: entry.value.imagePath,
                                   badgeLabel: entry.value.badgeLabel,
                                   actionLabel: entry.value.ctaLabel,
-                                  onTap: () => Navigator.of(context).pushNamed(
-                                    AppRoutes.requests,
-                                    arguments: const RequestPageArgs(
-                                      initialType: RequestType.birthdayRequest,
-                                    ),
+                                  onTap: () => _openPromotion(
+                                    context,
+                                    entry.value,
                                   ),
                                 ),
                               ),
@@ -204,12 +203,12 @@ class PromotionsPage extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Зачем открывать приложение снова',
+                                  'Всё нужное уже в приложении',
                                   style: textTheme.titleLarge,
                                 ),
                                 const SizedBox(height: SKSpacing.x2),
                                 Text(
-                                  'Филиалы, акции и birthday flow уже собраны в один сценарий: посмотреть, выбрать и оставить заявку за пару минут.',
+                                  'Проверяйте новые предложения, покупайте билеты и сохраняйте историю визитов в профиле.',
                                   style: textTheme.bodyLarge,
                                 ),
                               ],
@@ -271,6 +270,26 @@ class PromotionsPage extends StatelessWidget {
       promotions: promotions,
       contentBlocks: contentBlocks,
     );
+  }
+
+  void _openPromotion(BuildContext context, PromotionOffer promotion) {
+    switch (promotion.id) {
+      case 'weekday-ticket-bonus':
+      case 'family-weekend':
+        showTicketPurchaseFlowSheet(context);
+        return;
+      case 'birthday-upgrade':
+        Navigator.of(context).pushNamed(AppRoutes.birthdays);
+        return;
+      default:
+        Navigator.of(context).pushNamed(
+          AppRoutes.requests,
+          arguments: const RequestPageArgs(
+            initialType: RequestType.birthdayRequest,
+          ),
+        );
+        return;
+    }
   }
 }
 

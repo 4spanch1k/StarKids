@@ -135,6 +135,16 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ),
                           ),
+                          const SizedBox(height: SKSpacing.x3),
+                          _TodayAtStarKidsCard(
+                            branch: branch,
+                            onTicketsTap: () => unawaited(
+                              showTicketPurchaseFlowSheet(context),
+                            ),
+                            onPromotionsTap: () => Navigator.of(
+                              context,
+                            ).pushNamed(AppRoutes.promotions),
+                          ),
                           const SizedBox(height: SKSpacing.x6),
                           HomeNewsSection(newsController: _newsController),
                           const SizedBox(height: SKSpacing.x6),
@@ -751,6 +761,150 @@ class _QuickActionTile extends StatelessWidget {
                 ),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TodayAtStarKidsCard extends StatelessWidget {
+  const _TodayAtStarKidsCard({
+    required this.branch,
+    required this.onTicketsTap,
+    required this.onPromotionsTap,
+  });
+
+  final BranchOption branch;
+  final VoidCallback onTicketsTap;
+  final VoidCallback onPromotionsTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+    final textTheme = Theme.of(context).textTheme;
+
+    return StarKidsReveal(
+      delay: starKidsStaggerDelay(2),
+      child: Container(
+        padding: const EdgeInsets.all(SKSpacing.x3),
+        decoration: BoxDecoration(
+          color: c.elevated,
+          borderRadius: BorderRadius.circular(SKRadius.lg),
+          border: Border.all(color: c.hairline),
+          boxShadow: SKShadows.sm,
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: c.success,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: c.success.withValues(alpha: 0.28),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: SKSpacing.x2),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Сегодня в Star Kids',
+                        style: textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        '${branch.shortLabel} · ${branch.workingHours}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: c.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: SKSpacing.x3),
+            Row(
+              children: [
+                Expanded(
+                  child: _TodayAction(
+                    icon: Icons.confirmation_num_outlined,
+                    label: 'Купить',
+                    onTap: onTicketsTap,
+                  ),
+                ),
+                const SizedBox(width: SKSpacing.x2),
+                Expanded(
+                  child: _TodayAction(
+                    icon: Icons.local_offer_outlined,
+                    label: 'Акции',
+                    onTap: onPromotionsTap,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TodayAction extends StatelessWidget {
+  const _TodayAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+    return Material(
+      color: c.ctaSoft,
+      borderRadius: BorderRadius.circular(SKRadius.md),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(SKRadius.md),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: SKSpacing.x1,
+            vertical: SKSpacing.x2,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 16, color: c.cta),
+              const SizedBox(width: SKSpacing.x1),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: c.cta,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

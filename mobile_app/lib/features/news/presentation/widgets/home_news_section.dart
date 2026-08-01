@@ -179,12 +179,10 @@ class _HomeNewsSectionState extends State<HomeNewsSection> {
 
       for (final url in urls) {
         if (_preloadedUrls.add(url)) {
-          unawaited(
-            precacheImage(
-              CachedNetworkImageProvider(url),
-              context,
-            ),
-          );
+          final provider = url.startsWith('assets/')
+              ? AssetImage(url) as ImageProvider
+              : CachedNetworkImageProvider(url);
+          unawaited(precacheImage(provider, context));
         }
       }
     });

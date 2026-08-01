@@ -25,6 +25,8 @@ import '../../features/contacts/domain/contact_links_repository.dart';
 import '../../features/menu/data/api_menu_repository.dart';
 import '../../features/menu/domain/menu_repository.dart';
 import '../../features/news/data/api_news_repository.dart';
+import '../../features/news/data/fallback_news_repository.dart';
+import '../../features/news/data/news_seed_data.dart';
 import '../../features/news/domain/news_repository.dart';
 import '../../features/notifications/data/api_notification_history_repository.dart';
 import '../../features/notifications/data/api_push_token_repository.dart';
@@ -39,6 +41,8 @@ import '../../features/notifications/domain/push_token_repository.dart';
 import '../../features/notifications/presentation/controllers/mobile_notifications_controller.dart';
 import '../../features/notifications/presentation/controllers/push_token_controller.dart';
 import '../../features/promotions/data/api_promotion_repository.dart';
+import '../../features/promotions/data/fallback_promotion_repository.dart';
+import '../../features/promotions/data/seed_promotion_repository.dart';
 import '../../features/promotions/domain/promotion_repository.dart';
 import '../../features/profile/data/api_profile_repository.dart';
 import '../../features/profile/domain/profile_repository.dart';
@@ -80,14 +84,17 @@ abstract final class ServiceRegistry {
   );
   static final BirthdayPackageRepository birthdayPackageRepository =
       ApiBirthdayPackageRepository(apiClient: apiClient);
-  static final PromotionRepository promotionRepository = ApiPromotionRepository(
-    apiClient: apiClient,
+  static final PromotionRepository promotionRepository =
+      FallbackPromotionRepository(
+    primary: ApiPromotionRepository(apiClient: apiClient),
+    fallback: const SeedPromotionRepository(),
   );
   static final MenuRepository menuRepository = ApiMenuRepository(
     apiClient: apiClient,
   );
-  static final NewsRepository newsRepository = ApiNewsRepository(
-    apiClient: apiClient,
+  static final NewsRepository newsRepository = FallbackNewsRepository(
+    primary: ApiNewsRepository(apiClient: apiClient),
+    fallbackItems: newsSeedData,
   );
   static final NotificationHistoryRepository notificationHistoryRepository =
       ApiNotificationHistoryRepository(apiClient: apiClient);
