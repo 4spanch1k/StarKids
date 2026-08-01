@@ -281,12 +281,17 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
                                   SkFade(
                                     delayMs: 280,
                                     child: SkField(
+                                      key: const ValueKey('auth-email-field'),
                                       controller: _emailController,
                                       label: 'Email',
                                       hintText: 'name@example.com',
                                       icon: Icons.email_outlined,
                                       keyboardType: TextInputType.emailAddress,
                                       textInputAction: TextInputAction.next,
+                                      autofillHints: const [
+                                        AutofillHints.email,
+                                      ],
+                                      autocorrect: false,
                                       validator:
                                           _authController.validateEmailInput,
                                     ),
@@ -295,20 +300,35 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
                                   SkFade(
                                     delayMs: 360,
                                     child: SkField(
+                                      key:
+                                          const ValueKey('auth-password-field'),
                                       controller: _passwordController,
                                       label: 'Пароль',
                                       hintText: 'Минимум 8 символов',
                                       icon: Icons.lock_outline,
                                       obscureText: !_isPasswordVisible,
+                                      autofillHints: [
+                                        isRegister
+                                            ? AutofillHints.newPassword
+                                            : AutofillHints.password,
+                                      ],
+                                      autocorrect: false,
+                                      enableSuggestions: false,
                                       textInputAction: isRegister
                                           ? TextInputAction.next
                                           : TextInputAction.done,
                                       validator:
                                           _authController.validatePasswordInput,
                                       trailing: IconButton(
+                                        key: const ValueKey(
+                                          'auth-password-visibility-toggle',
+                                        ),
                                         onPressed: isLoading
                                             ? null
                                             : _togglePasswordVisibility,
+                                        tooltip: _isPasswordVisible
+                                            ? 'Скрыть пароль'
+                                            : 'Показать пароль',
                                         icon: Icon(
                                           _isPasswordVisible
                                               ? Icons.visibility_off_outlined
@@ -326,6 +346,9 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
                                               top: SK.s3,
                                             ),
                                             child: SkField(
+                                              key: const ValueKey(
+                                                'auth-confirm-password-field',
+                                              ),
                                               controller:
                                                   _confirmPasswordController,
                                               label: 'Повтор пароля',
@@ -333,6 +356,11 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
                                               icon: Icons.lock_outline,
                                               obscureText:
                                                   !_isConfirmPasswordVisible,
+                                              autofillHints: const [
+                                                AutofillHints.newPassword,
+                                              ],
+                                              autocorrect: false,
+                                              enableSuggestions: false,
                                               textInputAction:
                                                   TextInputAction.done,
                                               validator: (value) => _authController
@@ -342,9 +370,16 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
                                                 confirmation: value,
                                               ),
                                               trailing: IconButton(
+                                                key: const ValueKey(
+                                                  'auth-confirm-password-visibility-toggle',
+                                                ),
                                                 onPressed: isLoading
                                                     ? null
                                                     : _toggleConfirmPasswordVisibility,
+                                                tooltip:
+                                                    _isConfirmPasswordVisible
+                                                        ? 'Скрыть пароль'
+                                                        : 'Показать пароль',
                                                 icon: Icon(
                                                   _isConfirmPasswordVisible
                                                       ? Icons

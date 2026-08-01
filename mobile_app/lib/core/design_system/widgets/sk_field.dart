@@ -16,6 +16,9 @@ class SkField extends StatefulWidget {
     this.validator,
     this.onChanged,
     this.maxLines = 1,
+    this.autofillHints,
+    this.autocorrect = true,
+    this.enableSuggestions = true,
   });
 
   final TextEditingController controller;
@@ -29,6 +32,9 @@ class SkField extends StatefulWidget {
   final String? Function(String?)? validator;
   final ValueChanged<String>? onChanged;
   final int maxLines;
+  final Iterable<String>? autofillHints;
+  final bool autocorrect;
+  final bool enableSuggestions;
 
   @override
   State<SkField> createState() => _SkFieldState();
@@ -101,6 +107,20 @@ class _SkFieldState extends State<SkField> {
               validator: widget.validator,
               onChanged: widget.onChanged,
               maxLines: widget.obscureText ? 1 : widget.maxLines,
+              autofillHints: widget.autofillHints,
+              autocorrect: widget.autocorrect,
+              enableSuggestions: widget.enableSuggestions,
+              enableInteractiveSelection: true,
+              contextMenuBuilder: (context, editableTextState) {
+                if (SystemContextMenu.isSupportedByField(editableTextState)) {
+                  return SystemContextMenu.editableText(
+                    editableTextState: editableTextState,
+                  );
+                }
+                return AdaptiveTextSelectionToolbar.editableText(
+                  editableTextState: editableTextState,
+                );
+              },
               style: TextStyle(
                 fontFamily: 'Geist',
                 fontSize: 15,
