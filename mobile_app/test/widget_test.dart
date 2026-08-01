@@ -31,6 +31,26 @@ void main() {
     expect(find.text('Пароль'), findsOneWidget);
     expect(find.text('Продолжить с Google'), findsOneWidget);
 
+    final passwordField = find.descendant(
+      of: find.byKey(const ValueKey('auth-password-field')),
+      matching: find.byType(TextField),
+    );
+    expect(tester.widget<TextField>(passwordField).obscureText, isTrue);
+
+    await tester.enterText(passwordField, 'copied-password');
+    await tester.tap(
+      find.byKey(const ValueKey('auth-password-visibility-toggle')),
+    );
+    await tester.pump();
+
+    expect(tester.widget<TextField>(passwordField).obscureText, isFalse);
+    expect(
+      tester.widget<TextField>(passwordField).controller?.text,
+      'copied-password',
+    );
+    expect(find.byTooltip('Скрыть пароль'), findsOneWidget);
+    await tester.enterText(passwordField, '');
+
     const hasClerkPublishableKey = String.fromEnvironment(
           'MOBILE_CLERK_PUBLISHABLE_KEY',
           defaultValue: '',
