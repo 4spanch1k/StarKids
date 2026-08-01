@@ -10,6 +10,7 @@ import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
 import '../../../../core/design_system/widgets/star_kids_media_image.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
+import '../../../../core/design_system/widgets/stable_future_builder.dart';
 import '../../../../core/services/external_link_service.dart';
 import '../../../contacts/domain/branch_contact_links.dart';
 import '../../domain/branch_option.dart';
@@ -56,8 +57,9 @@ class BranchDetailsPage extends StatelessWidget {
                   : null,
             ),
           ),
-          body: FutureBuilder<_BranchDetailsScreenData>(
-            future: _loadScreenData(branch.id),
+          body: StableFutureBuilder<_BranchDetailsScreenData>(
+            cacheKey: branch.id,
+            futureFactory: () => _loadScreenData(branch.id),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const StarKidsContentSwitcher(
@@ -101,6 +103,7 @@ class BranchDetailsPage extends StatelessWidget {
                         aspectRatio: 2,
                         child: StarKidsMediaImage(
                           source: branchDetail.heroImagePath,
+                          fallbackSource: 'assets/images/branch_hero.jpg',
                         ),
                       ),
                     ),
@@ -175,30 +178,21 @@ class BranchDetailsPage extends StatelessWidget {
                           'Короткие переходы к важным коммерческим экранам без перегруза текущего филиала.',
                     ),
                     const SizedBox(height: SKSpacing.x3),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: SecondaryButton(
-                            label: 'Меню',
-                            icon: Icons.restaurant_menu_rounded,
-                            fullWidth: true,
-                            onPressed: () => Navigator.of(
-                              context,
-                            ).pushNamed(AppRoutes.menu),
-                          ),
-                        ),
-                        const SizedBox(width: SKSpacing.x3),
-                        Expanded(
-                          child: SecondaryButton(
-                            label: 'Контакты и маршрут',
-                            icon: Icons.pin_drop_rounded,
-                            fullWidth: true,
-                            onPressed: () => Navigator.of(
-                              context,
-                            ).pushNamed(AppRoutes.contacts),
-                          ),
-                        ),
-                      ],
+                    _ResponsiveDetailActions(
+                      first: SecondaryButton(
+                        label: 'Меню',
+                        icon: Icons.restaurant_menu_rounded,
+                        fullWidth: true,
+                        onPressed: () =>
+                            Navigator.of(context).pushNamed(AppRoutes.menu),
+                      ),
+                      second: SecondaryButton(
+                        label: 'Контакты и маршрут',
+                        icon: Icons.pin_drop_rounded,
+                        fullWidth: true,
+                        onPressed: () =>
+                            Navigator.of(context).pushNamed(AppRoutes.contacts),
+                      ),
                     ),
                     const SizedBox(height: SKSpacing.x3),
                     SecondaryButton(
@@ -241,7 +235,11 @@ class BranchDetailsPage extends StatelessWidget {
                               borderRadius: BorderRadius.circular(20),
                               child: AspectRatio(
                                 aspectRatio: 4 / 5,
-                                child: StarKidsMediaImage(source: imagePath),
+                                child: StarKidsMediaImage(
+                                  source: imagePath,
+                                  fallbackSource:
+                                      'assets/images/branch_hero.jpg',
+                                ),
                               ),
                             );
                           },
@@ -283,11 +281,15 @@ class BranchDetailsPage extends StatelessWidget {
   }
 
   Future<_BranchDetailsScreenData> _loadScreenData(String branchId) async {
-    final branch = await ServiceRegistry.branchRepository.getBranch(branchId);
+    final branchFuture = ServiceRegistry.branchRepository.getBranch(branchId);
+    final contactLinksFuture =
+        ServiceRegistry.contactLinksRepository.getForBranch(branchId);
+
+    final branch = await branchFuture;
+    final contactLinks = await contactLinksFuture.catchError(
+      (_) => _buildFallbackContactLinks(branch),
+    );
     ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
-    final contactLinks = await ServiceRegistry.contactLinksRepository
-        .getForBranch(branchId)
-        .catchError((_) => _buildFallbackContactLinks(branch));
 
     return _BranchDetailsScreenData(branch: branch, contactLinks: contactLinks);
   }
@@ -316,6 +318,41 @@ class BranchDetailsPage extends StatelessWidget {
     }
 
     return normalized;
+  }
+}
+
+class _ResponsiveDetailActions extends StatelessWidget {
+  const _ResponsiveDetailActions({
+    required this.first,
+    required this.second,
+  });
+
+  final Widget first;
+  final Widget second;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 360) {
+          return Column(
+            children: [
+              first,
+              const SizedBox(height: SKSpacing.x3),
+              second,
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: first),
+            const SizedBox(width: SKSpacing.x3),
+            Expanded(child: second),
+          ],
+        );
+      },
+    );
   }
 }
 

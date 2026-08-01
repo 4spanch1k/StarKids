@@ -8,6 +8,7 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/primary_button.dart';
+import '../../../../core/design_system/widgets/star_kids_media_image.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../domain/news_item.dart';
 import '../controllers/news_feed_controller.dart';
@@ -99,8 +100,8 @@ class _HomeNewsSectionState extends State<HomeNewsSection> {
             else if (items.isEmpty)
               const _NewsStateCard(
                 title: 'Пока нет новостей',
-                description:
-                    'Новые публикации появятся здесь немного позже.',
+                description: 'Новые публикации появятся здесь немного позже.',
+                imageSource: 'assets/images/home_hero.jpg',
               )
             else
               Column(
@@ -129,9 +130,7 @@ class _HomeNewsSectionState extends State<HomeNewsSection> {
                         final item = items[index];
                         return Padding(
                           padding: EdgeInsets.only(
-                            right: index == items.length - 1
-                                ? 0
-                                : SKSpacing.x3,
+                            right: index == items.length - 1 ? 0 : SKSpacing.x3,
                           ),
                           child: _HomeNewsCard(
                             item: item,
@@ -254,16 +253,10 @@ class _HomeNewsCard extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                if (imageUrl.isEmpty)
-                  const _NewsImagePlaceholder()
-                else
-                  CachedNetworkImage(
-                    imageUrl: imageUrl,
-                    fit: BoxFit.cover,
-                    fadeInDuration: const Duration(milliseconds: 180),
-                    placeholder: (_, __) => const _NewsImagePlaceholder(),
-                    errorWidget: (_, __, ___) => const _NewsImagePlaceholder(),
-                  ),
+                StarKidsMediaImage(
+                  source: imageUrl,
+                  fallbackSource: 'assets/images/home_hero.jpg',
+                ),
                 const Positioned.fill(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
@@ -308,6 +301,7 @@ class _NewsStateCard extends StatelessWidget {
     this.actionLabel,
     this.onActionTap,
     this.showProgress = false,
+    this.imageSource,
   });
 
   final String title;
@@ -315,6 +309,7 @@ class _NewsStateCard extends StatelessWidget {
   final String? actionLabel;
   final Future<void> Function()? onActionTap;
   final bool showProgress;
+  final String? imageSource;
 
   @override
   Widget build(BuildContext context) {
@@ -329,43 +324,54 @@ class _NewsStateCard extends StatelessWidget {
         border: Border.all(color: c.hairline, width: 0.5),
         boxShadow: SKShadows.sm,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(title, style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: SKSpacing.x2),
-          Text(description, style: Theme.of(context).textTheme.bodyLarge),
-          if (showProgress) ...[
-            const Spacer(),
-            const LinearProgressIndicator(),
-          ] else if (actionLabel != null && onActionTap != null) ...[
-            const Spacer(),
-            SecondaryButton(
-              label: actionLabel!,
-              onPressed: () => onActionTap!(),
+          if (imageSource != null) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(SKRadius.lg),
+              child: SizedBox(
+                width: 104,
+                child: StarKidsMediaImage(source: imageSource!),
+              ),
             ),
+            const SizedBox(width: SKSpacing.x4),
           ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: SKSpacing.x2),
+                Flexible(
+                  child: Text(
+                    description,
+                    maxLines: imageSource == null ? 4 : 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: imageSource == null
+                        ? Theme.of(context).textTheme.bodyLarge
+                        : Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+                if (showProgress) ...[
+                  const Spacer(),
+                  const LinearProgressIndicator(),
+                ] else if (actionLabel != null && onActionTap != null) ...[
+                  const Spacer(),
+                  SecondaryButton(
+                    label: actionLabel!,
+                    onPressed: () => onActionTap!(),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ],
-      ),
-    );
-  }
-}
-
-class _NewsImagePlaceholder extends StatelessWidget {
-  const _NewsImagePlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    final c = SKTheme.of(context).colors;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(color: c.elevated),
-      child: Center(
-        child: Icon(
-          Icons.photo_library_rounded,
-          color: c.textSecondary,
-          size: 40,
-        ),
       ),
     );
   }

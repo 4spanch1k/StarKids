@@ -1,10 +1,7 @@
-// GlassBottomNav — floating frosted-glass pill bottom navigation.
-// iOS 26 / WhatsApp-style: ClipRRect + BackdropFilter with inner active lens.
-// Use Scaffold(extendBody: true) so body content scrolls behind the pill.
+// Kept under the existing name to avoid breaking callers. The navigation is a
+// solid, cross-platform surface rather than a blurred iOS-style glass panel.
 
-import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../sk_color_scheme.dart';
 import '../sk_design_tokens.dart';
 import '../sk_theme.dart';
 
@@ -35,93 +32,35 @@ class GlassBottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = SKTheme.of(context).colors;
     final bottomInset = MediaQuery.of(context).padding.bottom;
-    final idx = items.indexWhere((it) => it.id == value).clamp(0, items.length - 1);
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(14, 0, 14, 12 + bottomInset),
+      padding: EdgeInsets.fromLTRB(12, 0, 12, 8 + bottomInset),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final navWidth = constraints.maxWidth;
-          final segW = navWidth / items.length;
-          final lensW = (segW * 0.88).clamp(88.0, 120.0);
-          final lensX = idx * segW + (segW - lensW) / 2;
+          final compact = navWidth < 380;
 
           return Container(
-            height: 80,
+            height: 68,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(42),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x28211E19),
-                  blurRadius: 32,
-                  offset: Offset(0, 12),
-                  spreadRadius: -4,
-                ),
-                BoxShadow(
-                  color: Color(0x0A211E19),
-                  blurRadius: 8,
-                  offset: Offset(0, 2),
-                ),
-              ],
+              color: c.elevated,
+              borderRadius: BorderRadius.circular(SKRadius.lg),
+              border: Border.all(color: c.hairline),
+              boxShadow: SKShadows.md,
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(42),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 13, sigmaY: 13),
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [c.glassTint, c.glassTint2],
+              borderRadius: BorderRadius.circular(SKRadius.lg),
+              child: Row(
+                children: items.map((it) {
+                  return Expanded(
+                    child: _NavBtn(
+                      item: it,
+                      active: it.id == value,
+                      onTap: () => onChanged(it.id),
+                      compact: compact,
                     ),
-                  ),
-                  child: Stack(
-                    children: [
-                      // Top shine line
-                      Positioned(
-                        top: 0, left: 0, right: 0,
-                        child: Container(height: 1, color: c.glassShine),
-                      ),
-                      // Outer border
-                      Positioned.fill(
-                        child: IgnorePointer(
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(42),
-                              border: Border.all(color: c.glassBorder, width: 1.0),
-                            ),
-                          ),
-                        ),
-                      ),
-                      // Sliding active glass lens
-                      AnimatedPositioned(
-                        duration: SKMotion.base,
-                        curve: SKMotion.curve,
-                        left: lensX,
-                        top: 10,
-                        width: lensW,
-                        height: 60,
-                        child: _ActiveLens(colors: c),
-                      ),
-                      // Nav item row (above lens)
-                      Positioned.fill(
-                        child: Row(
-                          children: items.map((it) {
-                            return Expanded(
-                              child: _NavBtn(
-                                item: it,
-                                active: it.id == value,
-                                onTap: () => onChanged(it.id),
-                                colors: c,
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                  );
+                }).toList(),
               ),
             ),
           );
@@ -131,48 +70,17 @@ class GlassBottomNav extends StatelessWidget {
   }
 }
 
-class _ActiveLens extends StatelessWidget {
-  final SKColorScheme colors;
-  const _ActiveLens({required this.colors});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = colors;
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            c.glassTint.withValues(alpha: 0.65),
-            c.glassTint2.withValues(alpha: 0.50),
-          ],
-        ),
-        border: Border.all(color: c.glassShine, width: 1.0),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x18211E19),
-            blurRadius: 10,
-            offset: Offset(0, 3),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _NavBtn extends StatefulWidget {
   final GlassNavItem item;
   final bool active;
   final VoidCallback onTap;
-  final SKColorScheme colors;
+  final bool compact;
 
   const _NavBtn({
     required this.item,
     required this.active,
     required this.onTap,
-    required this.colors,
+    required this.compact,
   });
 
   @override
@@ -184,7 +92,7 @@ class _NavBtnState extends State<_NavBtn> {
 
   @override
   Widget build(BuildContext context) {
-    final c = widget.colors;
+    final c = SKTheme.of(context).colors;
     return Semantics(
       button: true,
       selected: widget.active,
@@ -192,12 +100,19 @@ class _NavBtnState extends State<_NavBtn> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(30),
+          borderRadius: BorderRadius.circular(SKRadius.md),
           onTap: widget.onTap,
           onTapDown: (_) => setState(() => _pressed = true),
           onTapUp: (_) => setState(() => _pressed = false),
           onTapCancel: () => setState(() => _pressed = false),
-          child: SizedBox.expand(
+          child: AnimatedContainer(
+            duration: SKMotion.fast,
+            curve: SKMotion.curve,
+            margin: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: widget.active ? c.ctaSoft : Colors.transparent,
+              borderRadius: BorderRadius.circular(SKRadius.md),
+            ),
             child: Center(
               child: AnimatedScale(
                 scale: _pressed ? 0.86 : 1.0,
@@ -208,15 +123,22 @@ class _NavBtnState extends State<_NavBtn> {
                   children: [
                     Icon(
                       widget.item.icon,
-                      size: 22,
-                      color: widget.active ? c.textPrimary : c.textSecondary,
+                      size: widget.compact ? 20 : 22,
+                      color: widget.active ? c.cta : c.textSecondary,
                     ),
                     const SizedBox(height: 3),
                     Text(
                       widget.item.label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
                       style: SKTextStyles.micro.copyWith(
                         color: widget.active ? c.textPrimary : c.textSecondary,
-                        fontWeight: widget.active ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight:
+                            widget.active ? FontWeight.w700 : FontWeight.w500,
+                        fontSize: widget.compact ? 9.5 : null,
+                        letterSpacing: widget.compact ? 0 : null,
+                        height: 1.05,
                       ),
                     ),
                   ],

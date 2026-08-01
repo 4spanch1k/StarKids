@@ -40,7 +40,10 @@ class StarKidsPromoCard extends StatelessWidget {
           children: [
             AspectRatio(
               aspectRatio: 19 / 10,
-              child: StarKidsMediaImage(source: imagePath),
+              child: StarKidsMediaImage(
+                source: imagePath,
+                fallbackSource: 'assets/images/promo_hero.jpg',
+              ),
             ),
             Padding(
               padding: const EdgeInsets.all(SKSpacing.x4),

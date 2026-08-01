@@ -23,12 +23,13 @@ class StarKidsContentBlockCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final c = SKTheme.of(context).colors;
+    final compact = MediaQuery.sizeOf(context).width < 380;
 
     return StarKidsReveal(
       delay: revealDelay,
       child: SolidCard(
         radius: SKRadius.xl,
-        padding: const EdgeInsets.all(SKSpacing.x4),
+        padding: EdgeInsets.all(compact ? SKSpacing.x3 : SKSpacing.x4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -49,9 +50,15 @@ class StarKidsContentBlockCard extends StatelessWidget {
               ),
               const SizedBox(height: SKSpacing.x3),
             ],
-            Text(title, style: textTheme.titleLarge),
+            Text(
+              title,
+              style: compact ? textTheme.titleMedium : textTheme.titleLarge,
+            ),
             const SizedBox(height: SKSpacing.x2),
-            Text(body, style: textTheme.bodyLarge),
+            Text(
+              body,
+              style: compact ? textTheme.bodyMedium : textTheme.bodyLarge,
+            ),
           ],
         ),
       ),

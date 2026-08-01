@@ -7,6 +7,7 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../core/design_system/widgets/star_kids_branch_card.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
+import '../../../../core/design_system/widgets/stable_future_builder.dart';
 import '../../domain/branch_option.dart';
 
 class BranchSelectionPage extends StatelessWidget {
@@ -22,8 +23,9 @@ class BranchSelectionPage extends StatelessWidget {
         return Scaffold(
           appBar: AppBar(title: const Text('Выберите филиал')),
           body: SafeArea(
-            child: FutureBuilder<List<BranchOption>>(
-              future: ServiceRegistry.branchRepository.listBranches(),
+            child: StableFutureBuilder<List<BranchOption>>(
+              cacheKey: 'branch-list',
+              futureFactory: ServiceRegistry.branchRepository.listBranches,
               builder: (context, snapshot) {
                 final branches = snapshot.data ?? const <BranchOption>[];
                 final body = snapshot.connectionState ==

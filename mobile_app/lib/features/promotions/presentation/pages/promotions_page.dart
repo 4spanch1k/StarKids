@@ -12,6 +12,8 @@ import '../../../../core/design_system/widgets/star_kids_content_block_card.dart
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_promo_card.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
+import '../../../../core/design_system/widgets/stable_future_builder.dart';
+import '../../../../core/design_system/widgets/star_kids_media_image.dart';
 import '../../../branches/domain/branch_option.dart';
 import '../../../content/domain/public_content_block.dart';
 import '../../../requests/domain/request_type.dart';
@@ -49,172 +51,175 @@ class PromotionsPage extends StatelessWidget {
           ),
           body: Stack(
             children: [
-              FutureBuilder<_PromotionsScreenData>(
-            future: _loadScreenData(branch.id),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting &&
-                  !snapshot.hasData) {
-                return const StarKidsContentSwitcher(
-                  child: Center(
-                    key: ValueKey('promotions-loading'),
-                    child: CircularProgressIndicator(),
-                  ),
-                );
-              }
-
-              if (snapshot.hasError) {
-                return StarKidsContentSwitcher(
-                  child: _PromotionsStateView(
-                    key: const ValueKey('promotions-error'),
-                    title: 'Акции пока недоступны',
-                    description:
-                        'Не удалось загрузить коммерческие предложения. Попробуйте открыть экран позже.',
-                    actionLabel: 'Выбрать другой филиал',
-                    onActionTap: () => Navigator.of(
-                      context,
-                    ).pushNamed(AppRoutes.branchSelection),
-                  ),
-                );
-              }
-
-              final data = snapshot.data ??
-                  _PromotionsScreenData(
-                    branch: branch,
-                    promotions: <PromotionOffer>[],
-                    contentBlocks: <PublicContentBlock>[],
-                  );
-              final promotions = data.promotions;
-              if (promotions.isEmpty) {
-                return StarKidsContentSwitcher(
-                  child: _PromotionsStateView(
-                    key: const ValueKey('promotions-empty'),
-                    title: 'Скоро появятся новые предложения',
-                    description:
-                        'Экран уже готов для коммерческого контента, но по текущему филиалу пока нет активных офферов.',
-                    actionLabel: 'Сменить филиал',
-                    onActionTap: () => Navigator.of(
-                      context,
-                    ).pushNamed(AppRoutes.branchSelection),
-                  ),
-                );
-              }
-
-              final textTheme = Theme.of(context).textTheme;
-              final c = SKTheme.of(context).colors;
-
-              return StarKidsContentSwitcher(
-                child: ListView(
-                  key: ValueKey('promotions-loaded-${data.branch.id}'),
-                  padding: EdgeInsets.fromLTRB(
-                    SKSpacing.x5,
-                    SKSpacing.x4,
-                    SKSpacing.x5,
-                    MediaQuery.viewPaddingOf(context).bottom + 88,
-                  ),
-                  children: [
-                    SolidCard(
-                      padding: const EdgeInsets.all(SKSpacing.x5),
-                      radius: SKRadius.xl,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: SKSpacing.x3,
-                              vertical: SKSpacing.x2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: c.accentSoft,
-                              borderRadius: BorderRadius.circular(SKRadius.pill),
-                            ),
-                            child: Text(
-                              data.branch.shortLabel,
-                              style: SKTextStyles.micro.copyWith(
-                                color: c.accent,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: SKSpacing.x3),
-                          Text(
-                            'Акции должны возвращать родителя в приложение, а не просто висеть как баннер.',
-                            style: textTheme.headlineMedium,
-                          ),
-                          const SizedBox(height: SKSpacing.x3),
-                          Text(
-                            'Здесь собраны branch-aware офферы и удобный вход в request flow без нового визуального шума.',
-                            style: textTheme.bodyLarge,
-                          ),
-                        ],
+              StableFutureBuilder<_PromotionsScreenData>(
+                cacheKey: branch.id,
+                futureFactory: () => _loadScreenData(branch.id),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting &&
+                      !snapshot.hasData) {
+                    return const StarKidsContentSwitcher(
+                      child: Center(
+                        key: ValueKey('promotions-loading'),
+                        child: CircularProgressIndicator(),
                       ),
-                    ),
-                    const SizedBox(height: SKSpacing.x6),
-                    StarKidsSectionHeader(
-                      title: 'Предложения для ${data.branch.shortLabel}',
-                      description:
-                          'Коммерческий экран должен быстро показать, почему сюда стоит вернуться именно сейчас.',
-                    ),
-                    const SizedBox(height: SKSpacing.x4),
-                    ...promotions.asMap().entries.map(
-                          (entry) => Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: SKSpacing.x4,
-                            ),
-                            child: StarKidsPromoCard(
-                              revealDelay: starKidsStaggerDelay(entry.key),
-                              title: entry.value.title,
-                              description: entry.value.description,
-                              imagePath: entry.value.imagePath,
-                              badgeLabel: entry.value.badgeLabel,
-                              actionLabel: entry.value.ctaLabel,
-                              onTap: () => Navigator.of(context).pushNamed(
-                                AppRoutes.requests,
-                                arguments: const RequestPageArgs(
-                                  initialType: RequestType.birthdayRequest,
+                    );
+                  }
+
+                  if (snapshot.hasError) {
+                    return StarKidsContentSwitcher(
+                      child: _PromotionsStateView(
+                        key: const ValueKey('promotions-error'),
+                        title: 'Акции пока недоступны',
+                        description:
+                            'Не удалось загрузить коммерческие предложения. Попробуйте открыть экран позже.',
+                        actionLabel: 'Выбрать другой филиал',
+                        onActionTap: () => Navigator.of(
+                          context,
+                        ).pushNamed(AppRoutes.branchSelection),
+                      ),
+                    );
+                  }
+
+                  final data = snapshot.data ??
+                      _PromotionsScreenData(
+                        branch: branch,
+                        promotions: <PromotionOffer>[],
+                        contentBlocks: <PublicContentBlock>[],
+                      );
+                  final promotions = data.promotions;
+                  if (promotions.isEmpty) {
+                    return StarKidsContentSwitcher(
+                      child: _PromotionsStateView(
+                        key: const ValueKey('promotions-empty'),
+                        title: 'Скоро появятся новые предложения',
+                        description:
+                            'Экран уже готов для коммерческого контента, но по текущему филиалу пока нет активных офферов.',
+                        actionLabel: 'Сменить филиал',
+                        onActionTap: () => Navigator.of(
+                          context,
+                        ).pushNamed(AppRoutes.branchSelection),
+                      ),
+                    );
+                  }
+
+                  final textTheme = Theme.of(context).textTheme;
+                  final c = SKTheme.of(context).colors;
+
+                  return StarKidsContentSwitcher(
+                    child: ListView(
+                      key: ValueKey('promotions-loaded-${data.branch.id}'),
+                      padding: EdgeInsets.fromLTRB(
+                        SKSpacing.x5,
+                        SKSpacing.x4,
+                        SKSpacing.x5,
+                        MediaQuery.viewPaddingOf(context).bottom + 88,
+                      ),
+                      children: [
+                        SolidCard(
+                          padding: const EdgeInsets.all(SKSpacing.x5),
+                          radius: SKRadius.xl,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: SKSpacing.x3,
+                                  vertical: SKSpacing.x2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: c.accentSoft,
+                                  borderRadius:
+                                      BorderRadius.circular(SKRadius.pill),
+                                ),
+                                child: Text(
+                                  data.branch.shortLabel,
+                                  style: SKTextStyles.micro.copyWith(
+                                    color: c.accent,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: SKSpacing.x3),
+                              Text(
+                                'Акции должны возвращать родителя в приложение, а не просто висеть как баннер.',
+                                style: textTheme.headlineMedium,
+                              ),
+                              const SizedBox(height: SKSpacing.x3),
+                              Text(
+                                'Здесь собраны branch-aware офферы и удобный вход в request flow без нового визуального шума.',
+                                style: textTheme.bodyLarge,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: SKSpacing.x6),
+                        StarKidsSectionHeader(
+                          title: 'Предложения для ${data.branch.shortLabel}',
+                          description:
+                              'Коммерческий экран должен быстро показать, почему сюда стоит вернуться именно сейчас.',
+                        ),
+                        const SizedBox(height: SKSpacing.x4),
+                        ...promotions.asMap().entries.map(
+                              (entry) => Padding(
+                                padding: const EdgeInsets.only(
+                                  bottom: SKSpacing.x4,
+                                ),
+                                child: StarKidsPromoCard(
+                                  revealDelay: starKidsStaggerDelay(entry.key),
+                                  title: entry.value.title,
+                                  description: entry.value.description,
+                                  imagePath: entry.value.imagePath,
+                                  badgeLabel: entry.value.badgeLabel,
+                                  actionLabel: entry.value.ctaLabel,
+                                  onTap: () => Navigator.of(context).pushNamed(
+                                    AppRoutes.requests,
+                                    arguments: const RequestPageArgs(
+                                      initialType: RequestType.birthdayRequest,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
+                        const SizedBox(height: SKSpacing.x4),
+                        if (data.contentBlocks.isNotEmpty)
+                          ...data.contentBlocks.asMap().entries.map(
+                                (entry) => Padding(
+                                  padding: const EdgeInsets.only(
+                                    bottom: SKSpacing.x3,
+                                  ),
+                                  child: StarKidsContentBlockCard(
+                                    revealDelay:
+                                        starKidsStaggerDelay(entry.key),
+                                    title: entry.value.title,
+                                    body: entry.value.body,
+                                    label: entry.value.ctaLabel,
+                                  ),
+                                ),
+                              )
+                        else
+                          SolidCard(
+                            padding: const EdgeInsets.all(SKSpacing.x4),
+                            radius: SKRadius.xl,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Зачем открывать приложение снова',
+                                  style: textTheme.titleLarge,
+                                ),
+                                const SizedBox(height: SKSpacing.x2),
+                                Text(
+                                  'Филиалы, акции и birthday flow уже собраны в один сценарий: посмотреть, выбрать и оставить заявку за пару минут.',
+                                  style: textTheme.bodyLarge,
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                    const SizedBox(height: SKSpacing.x4),
-                    if (data.contentBlocks.isNotEmpty)
-                      ...data.contentBlocks.asMap().entries.map(
-                            (entry) => Padding(
-                              padding: const EdgeInsets.only(
-                                bottom: SKSpacing.x3,
-                              ),
-                              child: StarKidsContentBlockCard(
-                                revealDelay: starKidsStaggerDelay(entry.key),
-                                title: entry.value.title,
-                                body: entry.value.body,
-                                label: entry.value.ctaLabel,
-                              ),
-                            ),
-                          )
-                    else
-                      SolidCard(
-                        padding: const EdgeInsets.all(SKSpacing.x4),
-                        radius: SKRadius.xl,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Зачем открывать приложение снова',
-                              style: textTheme.titleLarge,
-                            ),
-                            const SizedBox(height: SKSpacing.x2),
-                            Text(
-                              'Филиалы, акции и birthday flow уже собраны в один сценарий: посмотреть, выбрать и оставить заявку за пару минут.',
-                              style: textTheme.bodyLarge,
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              );
-            },
-          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
               Align(
                 alignment: Alignment.bottomCenter,
                 child: SafeArea(
@@ -223,7 +228,10 @@ class PromotionsPage extends StatelessWidget {
                     label: 'Оставить заявку на праздник',
                     icon: Icons.chat_bubble_rounded,
                     margin: const EdgeInsets.fromLTRB(
-                      SKSpacing.gutter, 0, SKSpacing.gutter, SKSpacing.x3,
+                      SKSpacing.gutter,
+                      0,
+                      SKSpacing.gutter,
+                      SKSpacing.x3,
                     ),
                     onPressed: () => Navigator.of(context).pushNamed(
                       AppRoutes.requests,
@@ -242,17 +250,21 @@ class PromotionsPage extends StatelessWidget {
   }
 
   Future<_PromotionsScreenData> _loadScreenData(String branchId) async {
-    final branch =
-        await ServiceRegistry.branchRepository.getBranch(branchId).catchError(
+    final branchFuture =
+        ServiceRegistry.branchRepository.getBranch(branchId).catchError(
               (_) => ServiceRegistry.selectedBranchController.selectedBranch,
             );
-    ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
-    final promotions = await ServiceRegistry.promotionRepository
+    final promotionsFuture = ServiceRegistry.promotionRepository
         .listPromotions(branchId)
         .catchError((_) => const <PromotionOffer>[]);
-    final contentBlocks = await ServiceRegistry.publicContentRepository
+    final contentBlocksFuture = ServiceRegistry.publicContentRepository
         .listContentBlocks(surface: 'promotions')
         .catchError((_) => const <PublicContentBlock>[]);
+
+    final branch = await branchFuture;
+    final promotions = await promotionsFuture;
+    final contentBlocks = await contentBlocksFuture;
+    ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
 
     return _PromotionsScreenData(
       branch: branch,
@@ -289,6 +301,16 @@ class _PromotionsStateView extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(SKRadius.lg),
+                  child: const AspectRatio(
+                    aspectRatio: 16 / 7,
+                    child: StarKidsMediaImage(
+                      source: 'assets/images/promo_hero.jpg',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: SKSpacing.x4),
                 Text(title, style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: SKSpacing.x2),
                 Text(description, style: Theme.of(context).textTheme.bodyLarge),

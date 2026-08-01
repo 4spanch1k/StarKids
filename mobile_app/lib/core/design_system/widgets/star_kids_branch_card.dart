@@ -44,7 +44,10 @@ class StarKidsBranchCard extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    StarKidsMediaImage(source: imagePath),
+                    StarKidsMediaImage(
+                      source: imagePath,
+                      fallbackSource: 'assets/images/branch_hero.jpg',
+                    ),
                     const DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(

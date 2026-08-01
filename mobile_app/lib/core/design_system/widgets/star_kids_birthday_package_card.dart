@@ -19,6 +19,7 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
     this.onTap,
     this.onActionTap,
     this.revealDelay = Duration.zero,
+    this.compact = false,
   });
 
   final String title;
@@ -31,6 +32,7 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onActionTap;
   final Duration revealDelay;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -59,14 +61,17 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
             children: [
               AspectRatio(
                 aspectRatio: 19 / 10,
-                child: StarKidsMediaImage(source: imagePath),
+                child: StarKidsMediaImage(
+                  source: imagePath,
+                  fallbackSource: 'assets/images/birthday_hero.jpg',
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.all(SKSpacing.x4),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (isFeatured)
+                    if (isFeatured && !compact)
                       Container(
                         margin: const EdgeInsets.only(
                           bottom: SKSpacing.x3,
@@ -90,10 +95,16 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: Text(title, style: textTheme.titleLarge),
+                          child: Text(
+                            title,
+                            maxLines: compact ? 1 : null,
+                            overflow: compact ? TextOverflow.ellipsis : null,
+                            style: textTheme.titleLarge,
+                          ),
                         ),
                         const SizedBox(width: SKSpacing.x3),
                         Container(
+                          constraints: const BoxConstraints(maxWidth: 120),
                           padding: const EdgeInsets.symmetric(
                             horizontal: SKSpacing.x3,
                             vertical: SKSpacing.x2,
@@ -102,10 +113,15 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
                             color: c.accentSoft,
                             borderRadius: BorderRadius.circular(SKRadius.pill),
                           ),
-                          child: Text(
-                            priceLabel,
-                            style: textTheme.labelMedium?.copyWith(
-                              color: c.textPrimary,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              priceLabel,
+                              maxLines: 1,
+                              style: textTheme.labelMedium?.copyWith(
+                                color: c.textPrimary,
+                              ),
                             ),
                           ),
                         ),
@@ -115,9 +131,14 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
                     Text(guestLabel, style: textTheme.labelMedium),
                     if (normalizedDescription.isNotEmpty) ...[
                       const SizedBox(height: SKSpacing.x2),
-                      Text(normalizedDescription, style: textTheme.bodyMedium),
+                      Text(
+                        normalizedDescription,
+                        maxLines: compact ? 2 : null,
+                        overflow: compact ? TextOverflow.ellipsis : null,
+                        style: textTheme.bodyMedium,
+                      ),
                     ],
-                    if (normalizedHighlights.isNotEmpty) ...[
+                    if (!compact && normalizedHighlights.isNotEmpty) ...[
                       const SizedBox(height: SKSpacing.x3),
                       ...normalizedHighlights.map(
                         (highlight) => Padding(

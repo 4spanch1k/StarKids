@@ -33,12 +33,12 @@ class PrimaryButton extends StatelessWidget {
     final h = switch (size) {
       SKButtonSize.sm => 40.0,
       SKButtonSize.lg => 56.0,
-      _               => 50.0,
+      _ => 50.0,
     };
     final fs = switch (size) {
       SKButtonSize.sm => 14.0,
       SKButtonSize.lg => 17.0,
-      _               => 15.0,
+      _ => 15.0,
     };
 
     final btn = AnimatedContainer(
@@ -123,13 +123,19 @@ class SecondaryButton extends StatelessWidget {
           alignment: Alignment.center,
           child: Row(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                label,
-                style: SKTextStyles.small.copyWith(
-                  color: c.textPrimary,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: SKTextStyles.small.copyWith(
+                    color: c.textPrimary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
                 ),
               ),
               if (icon != null) ...[
@@ -178,12 +184,16 @@ class DestructiveButton extends StatelessWidget {
                 Icon(icon, size: 16, color: c.danger),
                 const SizedBox(width: 6),
               ],
-              Text(
-                label,
-                style: SKTextStyles.small.copyWith(
-                  color: c.danger,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: SKTextStyles.small.copyWith(
+                    color: c.danger,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
                 ),
               ),
             ],

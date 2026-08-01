@@ -11,6 +11,7 @@ import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
 import '../../../../core/design_system/widgets/star_kids_content_block_card.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
+import '../../../../core/design_system/widgets/stable_future_builder.dart';
 import '../../../../core/services/external_link_service.dart';
 import '../../../branches/domain/branch_option.dart';
 import '../../../content/domain/public_content_block.dart';
@@ -28,8 +29,9 @@ class ContactsMapPage extends StatelessWidget {
       builder: (context, _) {
         final branch = ServiceRegistry.selectedBranchController.selectedBranch;
 
-        return FutureBuilder<_ContactsScreenData>(
-          future: _loadScreenData(branch.id),
+        return StableFutureBuilder<_ContactsScreenData>(
+          cacheKey: branch.id,
+          futureFactory: () => _loadScreenData(branch.id),
           builder: (context, snapshot) {
             final contactLinks = snapshot.data?.contactLinks;
             final branchDetail = snapshot.data?.branch ?? branch;
@@ -50,8 +52,8 @@ class ContactsMapPage extends StatelessWidget {
                 trailing: GlassIconButton(
                   icon: Icons.swap_horiz_rounded,
                   tooltip: 'Сменить филиал',
-                  onPressed: () =>
-                      Navigator.of(context).pushNamed(AppRoutes.branchSelection),
+                  onPressed: () => Navigator.of(context)
+                      .pushNamed(AppRoutes.branchSelection),
                 ),
               ),
               bottomNavigationBar: StarKidsBottomCtaBar(
@@ -205,40 +207,33 @@ class ContactsMapPage extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: SKSpacing.x4),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: SecondaryButton(
-                                label: 'Построить маршрут',
-                                icon: Icons.map_rounded,
-                                fullWidth: true,
-                                onPressed: !canOpenMap
-                                    ? null
-                                    : () => _handleAction(
-                                          context,
-                                          () => ExternalLinkService.openMap(
-                                            contact.mapUrl,
-                                          ),
-                                        ),
-                              ),
-                            ),
-                            const SizedBox(width: SKSpacing.x3),
-                            Expanded(
-                              child: SecondaryButton(
-                                label: 'Позвонить',
-                                icon: Icons.call_rounded,
-                                fullWidth: true,
-                                onPressed: !canCall
-                                    ? null
-                                    : () => _handleAction(
-                                          context,
-                                          () => ExternalLinkService.openPhone(
-                                            contact.phone,
-                                          ),
-                                        ),
-                              ),
-                            ),
-                          ],
+                        _ResponsiveContactActions(
+                          mapButton: SecondaryButton(
+                            label: 'Построить маршрут',
+                            icon: Icons.map_rounded,
+                            fullWidth: true,
+                            onPressed: !canOpenMap
+                                ? null
+                                : () => _handleAction(
+                                      context,
+                                      () => ExternalLinkService.openMap(
+                                        contact.mapUrl,
+                                      ),
+                                    ),
+                          ),
+                          callButton: SecondaryButton(
+                            label: 'Позвонить',
+                            icon: Icons.call_rounded,
+                            fullWidth: true,
+                            onPressed: !canCall
+                                ? null
+                                : () => _handleAction(
+                                      context,
+                                      () => ExternalLinkService.openPhone(
+                                        contact.phone,
+                                      ),
+                                    ),
+                          ),
                         ),
                         const SizedBox(height: SKSpacing.x3),
                         SecondaryButton(
@@ -390,14 +385,19 @@ class ContactsMapPage extends StatelessWidget {
   }
 
   Future<_ContactsScreenData> _loadScreenData(String branchId) async {
-    final branch = await ServiceRegistry.branchRepository.getBranch(branchId);
-    ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
-    final contactLinks = await ServiceRegistry.contactLinksRepository
-        .getForBranch(branchId)
-        .catchError((_) => _buildFallbackContactLinks(branch));
-    final contentBlocks = await ServiceRegistry.publicContentRepository
+    final branchFuture = ServiceRegistry.branchRepository.getBranch(branchId);
+    final contactLinksFuture =
+        ServiceRegistry.contactLinksRepository.getForBranch(branchId);
+    final contentBlocksFuture = ServiceRegistry.publicContentRepository
         .listContentBlocks(surface: 'contacts')
         .catchError((_) => const <PublicContentBlock>[]);
+
+    final branch = await branchFuture;
+    final contactLinks = await contactLinksFuture.catchError(
+      (_) => _buildFallbackContactLinks(branch),
+    );
+    final contentBlocks = await contentBlocksFuture;
+    ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
 
     return _ContactsScreenData(
       branch: branch,
@@ -429,6 +429,41 @@ class ContactsMapPage extends StatelessWidget {
       return fallback;
     }
     return normalized;
+  }
+}
+
+class _ResponsiveContactActions extends StatelessWidget {
+  const _ResponsiveContactActions({
+    required this.mapButton,
+    required this.callButton,
+  });
+
+  final Widget mapButton;
+  final Widget callButton;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 360) {
+          return Column(
+            children: [
+              mapButton,
+              const SizedBox(height: SKSpacing.x3),
+              callButton,
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: mapButton),
+            const SizedBox(width: SKSpacing.x3),
+            Expanded(child: callButton),
+          ],
+        );
+      },
+    );
   }
 }
 

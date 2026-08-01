@@ -865,30 +865,23 @@ class _ChildrenEmptyState extends StatelessWidget {
                       : CrossAxisAlignment.center,
                   children: [
                     if (isCompact)
-                      Row(
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const _ChildAvatarBadge.placeholder(size: 76),
-                          const SizedBox(width: SKSpacing.x4),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  l.addChildSheetTitle,
-                                  style: textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                const SizedBox(height: SKSpacing.x1),
-                                Text(
-                                  l.childrenEmptyHint,
-                                  style: textTheme.bodyMedium?.copyWith(
-                                    color: c.textSecondary,
-                                    height: 1.35,
-                                  ),
-                                ),
-                              ],
+                          const SizedBox(height: SKSpacing.x3),
+                          Text(
+                            l.addChildSheetTitle,
+                            style: textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: SKSpacing.x1),
+                          Text(
+                            l.childrenEmptyHint,
+                            style: textTheme.bodyMedium?.copyWith(
+                              color: c.textSecondary,
+                              height: 1.35,
                             ),
                           ),
                         ],
@@ -1185,9 +1178,7 @@ class _ChildAvatarBadge extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: placeholder
-              ? [c.accentSoft, c.elevated]
-              : ringColors,
+          colors: placeholder ? [c.accentSoft, c.elevated] : ringColors,
         ),
       ),
       child: Container(
@@ -1352,7 +1343,8 @@ class _ChildActionMenu extends StatelessWidget {
                 final c = SKTheme.of(context).colors;
                 return Row(
                   children: [
-                    Icon(Icons.delete_outline_rounded, size: 18, color: c.danger),
+                    Icon(Icons.delete_outline_rounded,
+                        size: 18, color: c.danger),
                     const SizedBox(width: SKSpacing.x2),
                     Text(
                       l.delete,
@@ -1541,8 +1533,7 @@ class _ChildFormSheetState extends State<_ChildFormSheet> {
               SKSpacing.x4,
               SKSpacing.x4,
               SKSpacing.x4,
-              SKSpacing.x4 +
-                  MediaQuery.viewInsetsOf(context).bottom,
+              SKSpacing.x4 + MediaQuery.viewInsetsOf(context).bottom,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1596,8 +1587,9 @@ class _ChildFormSheetState extends State<_ChildFormSheet> {
                   label: l.childBirthDate,
                   selectedDate: _birthDate,
                   errorText: _birthDateError,
-                  dateLabel:
-                      _birthDate != null ? _formatDate(_birthDate!) : l.dateNotSet,
+                  dateLabel: _birthDate != null
+                      ? _formatDate(_birthDate!)
+                      : l.dateNotSet,
                   onTap: () => _pickDate(context, l),
                 ),
                 const SizedBox(height: SKSpacing.x3),
@@ -1634,9 +1626,8 @@ class _ChildFormSheetState extends State<_ChildFormSheet> {
                 const SizedBox(height: SKSpacing.x5),
                 PrimaryButton(
                   label: isEditing ? l.save : l.add,
-                  onPressed: widget.controller.isSaving
-                      ? null
-                      : () => _submit(l),
+                  onPressed:
+                      widget.controller.isSaving ? null : () => _submit(l),
                 ),
                 const SizedBox(height: SKSpacing.x2),
                 SecondaryButton(
@@ -1716,8 +1707,7 @@ class _DatePickerField extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final c = SKTheme.of(context).colors;
-    final borderColor =
-        errorText != null ? c.danger : c.hairline;
+    final borderColor = errorText != null ? c.danger : c.hairline;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1754,9 +1744,8 @@ class _DatePickerField extends StatelessWidget {
                           dateLabel,
                           style: textTheme.bodyLarge?.copyWith(
                             fontWeight: FontWeight.w700,
-                            color: selectedDate == null
-                                ? c.textSecondary
-                                : null,
+                            color:
+                                selectedDate == null ? c.textSecondary : null,
                           ),
                         ),
                       ],
@@ -1924,9 +1913,7 @@ class _GenderOption extends StatelessWidget {
                 height: 40,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: isSelected
-                      ? c.cta.withValues(alpha: 0.12)
-                      : c.bg,
+                  color: isSelected ? c.cta.withValues(alpha: 0.12) : c.bg,
                 ),
                 child: Center(
                   child: Text(emoji, style: const TextStyle(fontSize: 20)),
@@ -2003,7 +1990,8 @@ class _ProfileHeaderCard extends StatelessWidget {
           Text(
             emailOrPhone,
             textAlign: TextAlign.center,
-            style: SKTextStyles.small.copyWith(fontSize: 13, color: c.textTertiary),
+            style: SKTextStyles.small
+                .copyWith(fontSize: 13, color: c.textTertiary),
           ),
         ],
       ),
@@ -2174,8 +2162,7 @@ class _InlineErrorBanner extends StatelessWidget {
           const SizedBox(width: SKSpacing.x1),
           GestureDetector(
             onTap: onDismiss,
-            child:
-                Icon(Icons.close_rounded, color: c.textSecondary, size: 18),
+            child: Icon(Icons.close_rounded, color: c.textSecondary, size: 18),
           ),
         ],
       ),
@@ -2469,9 +2456,8 @@ class _SegmentedChoice extends StatelessWidget {
                 child: Text(
                   labels[i],
                   style: textTheme.labelMedium?.copyWith(
-                    color: selected == options[i]
-                        ? Colors.white
-                        : c.textSecondary,
+                    color:
+                        selected == options[i] ? Colors.white : c.textSecondary,
                     fontWeight: selected == options[i]
                         ? FontWeight.w700
                         : FontWeight.w500,
