@@ -50,8 +50,8 @@ class ContactsMapPage extends StatelessWidget {
                 trailing: GlassIconButton(
                   icon: Icons.swap_horiz_rounded,
                   tooltip: 'Сменить филиал',
-                  onPressed: () =>
-                      Navigator.of(context).pushNamed(AppRoutes.branchSelection),
+                  onPressed: () => Navigator.of(context)
+                      .pushNamed(AppRoutes.branchSelection),
                 ),
               ),
               bottomNavigationBar: StarKidsBottomCtaBar(
@@ -205,40 +205,33 @@ class ContactsMapPage extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: SKSpacing.x4),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: SecondaryButton(
-                                label: 'Построить маршрут',
-                                icon: Icons.map_rounded,
-                                fullWidth: true,
-                                onPressed: !canOpenMap
-                                    ? null
-                                    : () => _handleAction(
-                                          context,
-                                          () => ExternalLinkService.openMap(
-                                            contact.mapUrl,
-                                          ),
-                                        ),
-                              ),
-                            ),
-                            const SizedBox(width: SKSpacing.x3),
-                            Expanded(
-                              child: SecondaryButton(
-                                label: 'Позвонить',
-                                icon: Icons.call_rounded,
-                                fullWidth: true,
-                                onPressed: !canCall
-                                    ? null
-                                    : () => _handleAction(
-                                          context,
-                                          () => ExternalLinkService.openPhone(
-                                            contact.phone,
-                                          ),
-                                        ),
-                              ),
-                            ),
-                          ],
+                        _ResponsiveContactActions(
+                          mapButton: SecondaryButton(
+                            label: 'Построить маршрут',
+                            icon: Icons.map_rounded,
+                            fullWidth: true,
+                            onPressed: !canOpenMap
+                                ? null
+                                : () => _handleAction(
+                                      context,
+                                      () => ExternalLinkService.openMap(
+                                        contact.mapUrl,
+                                      ),
+                                    ),
+                          ),
+                          callButton: SecondaryButton(
+                            label: 'Позвонить',
+                            icon: Icons.call_rounded,
+                            fullWidth: true,
+                            onPressed: !canCall
+                                ? null
+                                : () => _handleAction(
+                                      context,
+                                      () => ExternalLinkService.openPhone(
+                                        contact.phone,
+                                      ),
+                                    ),
+                          ),
                         ),
                         const SizedBox(height: SKSpacing.x3),
                         SecondaryButton(
@@ -429,6 +422,41 @@ class ContactsMapPage extends StatelessWidget {
       return fallback;
     }
     return normalized;
+  }
+}
+
+class _ResponsiveContactActions extends StatelessWidget {
+  const _ResponsiveContactActions({
+    required this.mapButton,
+    required this.callButton,
+  });
+
+  final Widget mapButton;
+  final Widget callButton;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 360) {
+          return Column(
+            children: [
+              mapButton,
+              const SizedBox(height: SKSpacing.x3),
+              callButton,
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: mapButton),
+            const SizedBox(width: SKSpacing.x3),
+            Expanded(child: callButton),
+          ],
+        );
+      },
+    );
   }
 }
 

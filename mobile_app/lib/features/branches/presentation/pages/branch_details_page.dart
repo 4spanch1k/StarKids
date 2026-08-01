@@ -101,6 +101,7 @@ class BranchDetailsPage extends StatelessWidget {
                         aspectRatio: 2,
                         child: StarKidsMediaImage(
                           source: branchDetail.heroImagePath,
+                          fallbackSource: 'assets/images/branch_hero.jpg',
                         ),
                       ),
                     ),
@@ -175,30 +176,21 @@ class BranchDetailsPage extends StatelessWidget {
                           'Короткие переходы к важным коммерческим экранам без перегруза текущего филиала.',
                     ),
                     const SizedBox(height: SKSpacing.x3),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: SecondaryButton(
-                            label: 'Меню',
-                            icon: Icons.restaurant_menu_rounded,
-                            fullWidth: true,
-                            onPressed: () => Navigator.of(
-                              context,
-                            ).pushNamed(AppRoutes.menu),
-                          ),
-                        ),
-                        const SizedBox(width: SKSpacing.x3),
-                        Expanded(
-                          child: SecondaryButton(
-                            label: 'Контакты и маршрут',
-                            icon: Icons.pin_drop_rounded,
-                            fullWidth: true,
-                            onPressed: () => Navigator.of(
-                              context,
-                            ).pushNamed(AppRoutes.contacts),
-                          ),
-                        ),
-                      ],
+                    _ResponsiveDetailActions(
+                      first: SecondaryButton(
+                        label: 'Меню',
+                        icon: Icons.restaurant_menu_rounded,
+                        fullWidth: true,
+                        onPressed: () =>
+                            Navigator.of(context).pushNamed(AppRoutes.menu),
+                      ),
+                      second: SecondaryButton(
+                        label: 'Контакты и маршрут',
+                        icon: Icons.pin_drop_rounded,
+                        fullWidth: true,
+                        onPressed: () =>
+                            Navigator.of(context).pushNamed(AppRoutes.contacts),
+                      ),
                     ),
                     const SizedBox(height: SKSpacing.x3),
                     SecondaryButton(
@@ -316,6 +308,41 @@ class BranchDetailsPage extends StatelessWidget {
     }
 
     return normalized;
+  }
+}
+
+class _ResponsiveDetailActions extends StatelessWidget {
+  const _ResponsiveDetailActions({
+    required this.first,
+    required this.second,
+  });
+
+  final Widget first;
+  final Widget second;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 360) {
+          return Column(
+            children: [
+              first,
+              const SizedBox(height: SKSpacing.x3),
+              second,
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: first),
+            const SizedBox(width: SKSpacing.x3),
+            Expanded(child: second),
+          ],
+        );
+      },
+    );
   }
 }
 
