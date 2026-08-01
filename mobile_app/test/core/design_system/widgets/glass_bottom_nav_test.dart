@@ -51,6 +51,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
+    expect(find.byType(BackdropFilter), findsNothing);
     expect(find.text('Дни рождения'), findsOneWidget);
   });
 }

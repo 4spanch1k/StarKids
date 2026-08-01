@@ -110,7 +110,7 @@ class _HomePageState extends State<HomePage> {
                         SKSpacing.x5,
                         SKSpacing.x4,
                         SKSpacing.x5,
-                        120.0, // floating nav: 80h + 12 bottom + 28 buffer
+                        96.0,
                       ),
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
@@ -147,11 +147,14 @@ class _HomePageState extends State<HomePage> {
                           const SizedBox(height: SKSpacing.x4),
                           GridView.builder(
                             gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 2,
                               mainAxisSpacing: SKSpacing.x3,
                               crossAxisSpacing: SKSpacing.x3,
-                              mainAxisExtent: 176,
+                              mainAxisExtent:
+                                  MediaQuery.sizeOf(context).width < 380
+                                      ? 164
+                                      : 176,
                             ),
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
@@ -667,6 +670,7 @@ class _QuickActionTile extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final c = SKTheme.of(context).colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final compact = MediaQuery.sizeOf(context).width < 380;
 
     return StarKidsReveal(
       delay: revealDelay,
@@ -704,8 +708,8 @@ class _QuickActionTile extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        width: 42,
-                        height: 42,
+                        width: compact ? 38 : 42,
+                        height: compact ? 38 : 42,
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.topLeft,
@@ -717,22 +721,30 @@ class _QuickActionTile extends StatelessWidget {
                         child: Icon(
                           icon,
                           color: c.accent,
-                          size: 24,
+                          size: compact ? 21 : 24,
                         ),
                       ),
-                      const SizedBox(height: SKSpacing.x3),
+                      SizedBox(
+                        height: compact ? SKSpacing.x2 : SKSpacing.x3,
+                      ),
                       Text(
                         title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: textTheme.titleMedium,
+                        style: compact
+                            ? textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              )
+                            : textTheme.titleMedium,
                       ),
                       const SizedBox(height: SKSpacing.x1),
                       Text(
                         subtitle,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: textTheme.bodySmall,
+                        style: compact
+                            ? textTheme.bodySmall?.copyWith(fontSize: 12)
+                            : textTheme.bodySmall,
                       ),
                     ],
                   ),
