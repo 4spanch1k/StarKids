@@ -4,6 +4,7 @@ import '../../../../core/design_system/sk_design_tokens.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/router/nested_navigation.dart';
 import '../../../../core/design_system/widgets/star_kids_branch_card.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
@@ -21,7 +22,10 @@ class BranchSelectionPage extends StatelessWidget {
       animation: selectedBranchController,
       builder: (context, _) {
         return Scaffold(
-          appBar: AppBar(title: const Text('Выберите филиал')),
+          appBar: AppBar(
+            leading: const NestedBackButton(),
+            title: const Text('Выберите филиал'),
+          ),
           body: SafeArea(
             child: StableFutureBuilder<List<BranchOption>>(
               cacheKey: 'branch-list',

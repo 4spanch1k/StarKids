@@ -35,8 +35,15 @@ Future<void> main() async {
 
 Future<void> _initFirebaseSafely() async {
   try {
+    final options = DefaultFirebaseOptions.currentPlatform;
+    if (options.appId == 'PLACEHOLDER_APP_ID' ||
+        options.projectId == 'PLACEHOLDER_PROJECT_ID') {
+      debugPrint('[BOOT] Firebase init skipped: placeholder configuration');
+      return;
+    }
+
     await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
+      options: options,
     );
 
     // Background message handler (app terminated / in background).

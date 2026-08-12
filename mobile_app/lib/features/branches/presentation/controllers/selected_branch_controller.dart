@@ -43,7 +43,8 @@ class SelectedBranchController extends ChangeNotifier {
         await _localStorage.savePreferredBranch(_selectedBranch.id);
       }
     } else {
-      final resolvedBranch = await _resolveBranch(storedBranchId ?? defaultBranchId);
+      final resolvedBranch =
+          await _resolveBranch(storedBranchId ?? defaultBranchId);
       _selectedBranch = resolvedBranch;
 
       if (storedBranchId != _selectedBranch.id) {

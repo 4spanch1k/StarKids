@@ -81,9 +81,8 @@ class SkSegment<T> extends StatelessWidget {
                             duration: const Duration(milliseconds: 200),
                             style: (textTheme.labelLarge ?? const TextStyle())
                                 .copyWith(
-                              color: isSelected
-                                  ? c.textPrimary
-                                  : c.textSecondary,
+                              color:
+                                  isSelected ? c.textPrimary : c.textSecondary,
                               fontWeight: isSelected
                                   ? FontWeight.w800
                                   : FontWeight.w600,

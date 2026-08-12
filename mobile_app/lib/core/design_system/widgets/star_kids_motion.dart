@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 const starKidsPageTransitionDuration = Duration(milliseconds: 300);
@@ -15,20 +16,9 @@ Route<T> buildStarKidsPageRoute<T>({
   required Widget page,
   required RouteSettings settings,
 }) {
-  return PageRouteBuilder<T>(
+  return CupertinoPageRoute<T>(
     settings: settings,
-    transitionDuration: starKidsPageTransitionDuration,
-    reverseTransitionDuration: const Duration(milliseconds: 260),
-    pageBuilder: (_, __, ___) => page,
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      final fadeAnimation = CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeInOut,
-        reverseCurve: Curves.easeInOut,
-      );
-
-      return FadeTransition(opacity: fadeAnimation, child: child);
-    },
+    builder: (_) => page,
   );
 }
 

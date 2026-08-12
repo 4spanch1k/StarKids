@@ -14,12 +14,12 @@ import '../sk_theme.dart';
 class GlassContainer extends StatelessWidget {
   final Widget child;
   final double? radius;
-  final double blur;               // logical px; capped to SKBlur.max internally
+  final double blur; // logical px; capped to SKBlur.max internally
   final EdgeInsetsGeometry? padding;
   final List<BoxShadow> shadow;
   final bool drawBorder;
   final bool drawShine;
-  final Color? tintOverride;       // override the resolved glassTint
+  final Color? tintOverride; // override the resolved glassTint
   final VoidCallback? onTap;
 
   const GlassContainer({
@@ -66,7 +66,9 @@ class GlassContainer extends StatelessWidget {
           ),
           if (drawShine)
             Positioned(
-              top: 0, left: 0, right: 0,
+              top: 0,
+              left: 0,
+              right: 0,
               child: Container(height: 1, color: c.glassShine),
             ),
           if (drawBorder)

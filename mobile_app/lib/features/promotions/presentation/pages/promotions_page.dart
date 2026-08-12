@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/widgets/star_kids_root_navigation.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/glass_app_bar.dart';
@@ -33,11 +34,7 @@ class PromotionsPage extends StatelessWidget {
         return Scaffold(
           extendBody: true,
           appBar: GlassAppBar(
-            leading: GlassIconButton(
-              icon: Icons.arrow_back_ios_new_rounded,
-              tooltip: 'Назад',
-              onPressed: () => Navigator.of(context).pop(),
-            ),
+            leading: const SizedBox(width: 44),
             title: Text(
               'Акции',
               style: Theme.of(context).textTheme.titleLarge,
@@ -49,6 +46,8 @@ class PromotionsPage extends StatelessWidget {
                   Navigator.of(context).pushNamed(AppRoutes.branchSelection),
             ),
           ),
+          bottomNavigationBar:
+              const StarKidsRootNavigation(current: 'promotions'),
           body: Stack(
             children: [
               StableFutureBuilder<_PromotionsScreenData>(

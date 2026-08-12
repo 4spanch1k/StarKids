@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/router/nested_navigation.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/glass_app_bar.dart';
@@ -74,23 +75,19 @@ class _RequestHistoryPageState extends State<RequestHistoryPage> {
       builder: (context, _) {
         return Scaffold(
           appBar: GlassAppBar(
-            leading: GlassIconButton(
-              icon: Icons.arrow_back_ios_new_rounded,
-              tooltip: 'Назад',
-              onPressed: () => Navigator.of(context).pop(),
-            ),
+            leading: const NestedBackButton(),
             title: Text(
               'Мои заявки',
               style: Theme.of(context).textTheme.titleLarge,
             ),
-            trailing: _controller.status !=
-                    RequestHistoryViewStatus.unauthenticated
-                ? GlassIconButton(
-                    icon: Icons.refresh_rounded,
-                    tooltip: 'Обновить',
-                    onPressed: _controller.isLoading ? null : _reload,
-                  )
-                : null,
+            trailing:
+                _controller.status != RequestHistoryViewStatus.unauthenticated
+                    ? GlassIconButton(
+                        icon: Icons.refresh_rounded,
+                        tooltip: 'Обновить',
+                        onPressed: _controller.isLoading ? null : _reload,
+                      )
+                    : null,
           ),
           body: SafeArea(
             child: Padding(
@@ -147,9 +144,7 @@ class _RequestHistoryPageState extends State<RequestHistoryPage> {
       case RequestHistoryViewStatus.loaded:
         final filtered = _activeFilter == null
             ? _controller.items
-            : _controller.items
-                .where((i) => i.type == _activeFilter)
-                .toList();
+            : _controller.items.where((i) => i.type == _activeFilter).toList();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

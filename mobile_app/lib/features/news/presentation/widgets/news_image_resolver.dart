@@ -10,7 +10,9 @@ String resolveNewsImageUrl(String rawValue) {
 
   final baseUri = Uri.parse(AppEnvironment.apiBaseUrl);
   if (normalized.startsWith('/')) {
-    return baseUri.replace(path: normalized, query: null, fragment: null).toString();
+    return baseUri
+        .replace(path: normalized, query: null, fragment: null)
+        .toString();
   }
 
   return baseUri.resolve(normalized).toString();

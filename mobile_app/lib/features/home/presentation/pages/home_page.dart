@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/widgets/star_kids_root_navigation.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/glass_app_bar.dart';
-import '../../../../core/design_system/widgets/glass_bottom_nav.dart';
 import '../../../../core/design_system/widgets/glass_container.dart';
 import '../../../../core/design_system/widgets/glass_drawer.dart';
 import '../../../../core/design_system/widgets/sk_button.dart';
@@ -19,7 +19,6 @@ import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_promo_card.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../../../core/design_system/widgets/stable_future_builder.dart';
-import '../../../../core/l10n/app_l10n.dart';
 import '../../../birthdays/domain/birthday_package.dart';
 import '../../../branches/domain/branch_option.dart';
 import '../../../content/domain/public_content_block.dart';
@@ -30,7 +29,6 @@ import '../../../promotions/domain/promotion_offer.dart';
 import '../../../requests/domain/request_type.dart';
 import '../../../requests/presentation/models/request_page_args.dart';
 import '../../../tickets/presentation/sheets/ticket_purchase_flow_sheet.dart';
-import '../../../tickets/presentation/sheets/tickets_entry_sheet.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
@@ -48,6 +46,7 @@ class _HomePageState extends State<HomePage> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   late final NewsFeedController _newsController;
   late final bool _ownsNewsController;
+  bool _isOpeningDestination = false;
 
   @override
   void initState() {
@@ -67,6 +66,32 @@ class _HomePageState extends State<HomePage> {
       _newsController.dispose();
     }
     super.dispose();
+  }
+
+  Future<void> _openNested(String route, {Object? arguments}) async {
+    if (_isOpeningDestination) return;
+    _isOpeningDestination = true;
+    try {
+      await Navigator.of(context).pushNamed(route, arguments: arguments);
+    } finally {
+      _isOpeningDestination = false;
+    }
+  }
+
+  Future<void> _openTicketPurchase() async {
+    if (_isOpeningDestination) return;
+    _isOpeningDestination = true;
+    try {
+      await showTicketPurchaseFlowSheet(context);
+    } finally {
+      _isOpeningDestination = false;
+    }
+  }
+
+  void _openRoot(String route) {
+    if (_isOpeningDestination) return;
+    _isOpeningDestination = true;
+    Navigator.of(context).pushReplacementNamed(route);
   }
 
   @override
@@ -92,9 +117,7 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           drawer: const GlassDrawer(child: _AppDrawer()),
-          bottomNavigationBar: _GlassNav(
-            onChanged: (id) => unawaited(_handleNavChange(context, id)),
-          ),
+          bottomNavigationBar: const StarKidsRootNavigation(current: 'home'),
           body: StarKidsCosmicCanvas(
             child: SafeArea(
               bottom: false,
@@ -129,15 +152,11 @@ class _HomePageState extends State<HomePage> {
                                 block: true,
                                 icon: const Icon(Icons.arrow_forward_rounded),
                                 iconRight: true,
-                                onPressed: () => Navigator.of(
-                                  context,
-                                ).pushNamed(AppRoutes.birthdays),
+                                onPressed: () => _openRoot(AppRoutes.birthdays),
                               ),
                             ),
                           ),
-                          const SizedBox(height: SKSpacing.x6),
-                          HomeNewsSection(newsController: _newsController),
-                          const SizedBox(height: SKSpacing.x6),
+                          const SizedBox(height: SKSpacing.x5),
                           const StarKidsReveal(
                             delay: Duration(milliseconds: 80),
                             child: StarKidsSectionHeader(
@@ -147,18 +166,15 @@ class _HomePageState extends State<HomePage> {
                           const SizedBox(height: SKSpacing.x4),
                           GridView.builder(
                             gridDelegate:
-                                SliverGridDelegateWithFixedCrossAxisCount(
+                                const SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 2,
                               mainAxisSpacing: SKSpacing.x3,
                               crossAxisSpacing: SKSpacing.x3,
-                              mainAxisExtent:
-                                  MediaQuery.sizeOf(context).width < 380
-                                      ? 164
-                                      : 176,
+                              mainAxisExtent: 168,
                             ),
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
-                            itemCount: 6,
+                            itemCount: 4,
                             itemBuilder: (context, index) {
                               return _quickActionTiles(context)[index];
                             },
@@ -200,15 +216,14 @@ class _HomePageState extends State<HomePage> {
                                   ),
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    StarKidsSectionHeader(
-                                      title: 'Лучший пакет для дня рождения',
-                                      actionLabel: 'Все пакеты',
-                                      onActionTap: () => Navigator.of(
-                                        context,
-                                      ).pushNamed(AppRoutes.birthdays),
-                                    ),
-                                    const SizedBox(height: SKSpacing.x4),
-                                    if (content.featuredPackage != null)
+                                    if (content.featuredPackage != null) ...[
+                                      StarKidsSectionHeader(
+                                        title: 'День рождения',
+                                        actionLabel: 'Все пакеты',
+                                        onActionTap: () =>
+                                            _openRoot(AppRoutes.birthdays),
+                                      ),
+                                      const SizedBox(height: SKSpacing.x3),
                                       StarKidsBirthdayPackageCard(
                                         revealDelay: starKidsStaggerDelay(0),
                                         title: content.featuredPackage!.name,
@@ -236,19 +251,14 @@ class _HomePageState extends State<HomePage> {
                                                 content.featuredPackage,
                                           ),
                                         ),
-                                      )
-                                    else
-                                      const _HomeStateCard(
-                                        title: 'Пакеты скоро появятся',
-                                        description:
-                                            'Для выбранного филиала пока нет опубликованных пакетов. Можно оставить общую заявку, и менеджер поможет подобрать формат.',
                                       ),
-                                    const SizedBox(height: SKSpacing.x6),
-                                    const StarKidsSectionHeader(
-                                      title: 'Актуальные акции',
-                                    ),
-                                    const SizedBox(height: SKSpacing.x4),
-                                    if (content.promotions.isNotEmpty)
+                                      const SizedBox(height: SKSpacing.x5),
+                                    ],
+                                    if (content.promotions.isNotEmpty) ...[
+                                      const StarKidsSectionHeader(
+                                        title: 'Актуальные акции',
+                                      ),
+                                      const SizedBox(height: SKSpacing.x3),
                                       ...content.promotions
                                           .take(2)
                                           .toList()
@@ -271,20 +281,14 @@ class _HomePageState extends State<HomePage> {
                                                     entry.value.imagePath,
                                                 badgeLabel:
                                                     entry.value.badgeLabel,
-                                                onTap: () => Navigator.of(
-                                                  context,
-                                                ).pushNamed(
-                                                    AppRoutes.promotions),
+                                                onTap: () => _openRoot(
+                                                  AppRoutes.promotions,
+                                                ),
                                               ),
                                             ),
-                                          )
-                                    else
-                                      const _HomeStateCard(
-                                        title: 'Акции скоро появятся',
-                                        description:
-                                            'По выбранному филиалу пока нет активных предложений. Остальные экраны приложения продолжают работать в обычном режиме.',
-                                      ),
-                                    const SizedBox(height: SKSpacing.x6),
+                                          ),
+                                      const SizedBox(height: SKSpacing.x5),
+                                    ],
                                     if (content.contentBlocks.isNotEmpty) ...[
                                       const StarKidsSectionHeader(
                                         title: 'Что важно перед визитом',
@@ -350,6 +354,8 @@ class _HomePageState extends State<HomePage> {
                               );
                             },
                           ),
+                          const SizedBox(height: SKSpacing.x5),
+                          HomeNewsSection(newsController: _newsController),
                           const SizedBox(height: 96),
                         ]),
                       ),
@@ -367,41 +373,37 @@ class _HomePageState extends State<HomePage> {
   List<Widget> _quickActionTiles(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Dark mode: semi-transparent tints. Light mode: warm pastel pairs.
+    // Restrained warm tints keep the actions scannable without a card wall.
     final tileColors = isDark
         ? const [
-            [Color(0x2A3B82F6), Color(0x1A10B981)],
-            [Color(0x24E5D4F2), Color(0x18C7DDEF)],
+            [Color(0x2AFF5F61), Color(0x18FFB3AE)],
+            [Color(0x24FF5F61), Color(0x18E5D4F2)],
             [Color(0x24FF5A5F), Color(0x18E5D4F2)],
             [Color(0x18C7DDEF), Color(0x24E5D4F2)],
-            [Color(0x2AFBBF24), Color(0x1A10B981)],
-            [Color(0x24FF5A5F), Color(0x18E5D4F2)],
           ]
         : const [
-            [Color(0xFFC7DDEF), Color(0xFFB6E3C8)],
+            [Color(0xFFFFE7E5), Color(0xFFFFF4EE)],
             [Color(0xFFFFE7E5), Color(0xFFE5D4F2)],
             [Color(0xFFB6E3C8), Color(0xFFC7DDEF)],
             [Color(0xFFE5D4F2), Color(0xFFC7DDEF)],
-            [Color(0xFFFFF0CC), Color(0xFFB6E3C8)],
-            [Color(0xFFFFE7E5), Color(0xFFB6E3C8)],
           ];
 
     return [
       _QuickActionTile(
-        icon: Icons.map_rounded,
-        title: 'Филиал и маршрут',
-        subtitle: 'Как доехать и что внутри',
+        icon: Icons.confirmation_num_rounded,
+        title: 'Купить билет',
+        subtitle: 'Филиал, дата, тариф',
         revealDelay: starKidsStaggerDelay(0, initialMs: 80),
         gradientColors: tileColors[0],
-        onTap: () => Navigator.of(context).pushNamed(AppRoutes.branchDetails),
+        onTap: _openTicketPurchase,
       ),
       _QuickActionTile(
         icon: Icons.cake_rounded,
-        title: 'Дни рождения',
-        subtitle: 'Пакеты и быстрый запрос',
+        title: 'День рождения',
+        subtitle: 'Пакеты и заявка',
         revealDelay: starKidsStaggerDelay(1, initialMs: 80),
         gradientColors: tileColors[1],
-        onTap: () => Navigator.of(context).pushNamed(AppRoutes.birthdays),
+        onTap: () => _openRoot(AppRoutes.birthdays),
       ),
       _QuickActionTile(
         icon: Icons.restaurant_menu_rounded,
@@ -409,36 +411,15 @@ class _HomePageState extends State<HomePage> {
         subtitle: 'Еда и напитки в филиале',
         revealDelay: starKidsStaggerDelay(2, initialMs: 80),
         gradientColors: tileColors[2],
-        onTap: () => Navigator.of(context).pushNamed(AppRoutes.menu),
+        onTap: () => _openNested(AppRoutes.menu),
       ),
       _QuickActionTile(
         icon: Icons.pin_drop_rounded,
-        title: 'Контакты',
-        subtitle: 'Звонок, WhatsApp, маршрут',
+        title: 'Как добраться',
+        subtitle: 'Адрес и маршрут',
         revealDelay: starKidsStaggerDelay(3, initialMs: 80),
         gradientColors: tileColors[3],
-        onTap: () => Navigator.of(context).pushNamed(AppRoutes.contacts),
-      ),
-      _QuickActionTile(
-        icon: Icons.local_offer_rounded,
-        title: 'Акции',
-        subtitle: 'Текущие предложения',
-        revealDelay: starKidsStaggerDelay(4, initialMs: 80),
-        gradientColors: tileColors[4],
-        onTap: () => Navigator.of(context).pushNamed(AppRoutes.promotions),
-      ),
-      _QuickActionTile(
-        icon: Icons.chat_bubble_rounded,
-        title: 'Запрос менеджеру',
-        subtitle: 'Вопрос по филиалу',
-        revealDelay: starKidsStaggerDelay(5, initialMs: 80),
-        gradientColors: tileColors[5],
-        onTap: () => Navigator.of(context).pushNamed(
-          AppRoutes.requests,
-          arguments: const RequestPageArgs(
-            initialType: RequestType.contact,
-          ),
-        ),
+        onTap: () => _openNested(AppRoutes.contacts),
       ),
     ];
   }
@@ -483,55 +464,6 @@ class _HomePageState extends State<HomePage> {
       promotions: promotions,
       contentBlocks: contentBlocks,
       faqs: faqs,
-    );
-  }
-}
-
-Future<void> _handleNavChange(BuildContext context, String id) async {
-  switch (id) {
-    case 'birthdays':
-      Navigator.of(context).pushNamed(AppRoutes.birthdays);
-    case 'promotions':
-      Navigator.of(context).pushNamed(AppRoutes.promotions);
-    case 'tickets':
-      final action = await showTicketsEntrySheet(context);
-      if (!context.mounted || action == null) return;
-      switch (action) {
-        case TicketsEntryAction.myTickets:
-          await showMyTicketsSheet(context);
-        case TicketsEntryAction.buyTicket:
-          await showTicketPurchaseFlowSheet(context);
-      }
-    case 'profile':
-      Navigator.of(context).pushNamed(AppRoutes.profile);
-  }
-}
-
-class _GlassNav extends StatelessWidget {
-  final ValueChanged<String> onChanged;
-  const _GlassNav({required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppL10n.of(context);
-    return GlassBottomNav(
-      value: 'home',
-      onChanged: onChanged,
-      items: [
-        GlassNavItem(id: 'home', icon: Icons.home_outlined, label: l.navHome),
-        GlassNavItem(
-            id: 'birthdays', icon: Icons.cake_outlined, label: l.navBirthdays),
-        GlassNavItem(
-            id: 'promotions',
-            icon: Icons.local_offer_outlined,
-            label: l.navPromotions),
-        const GlassNavItem(
-            id: 'tickets',
-            icon: Icons.confirmation_num_outlined,
-            label: 'Билеты'),
-        GlassNavItem(
-            id: 'profile', icon: Icons.person_outline, label: l.navProfile),
-      ],
     );
   }
 }
@@ -607,8 +539,18 @@ class _AppDrawer extends StatelessWidget {
           icon: Icons.person_outline_rounded,
           label: 'Профиль',
           onTap: () {
-            Navigator.pop(context);
-            Navigator.of(context).pushNamed(AppRoutes.profile);
+            final navigator = Navigator.of(context);
+            navigator.pop();
+            navigator.pushReplacementNamed(AppRoutes.profile);
+          },
+        ),
+        GlassDrawerRow(
+          icon: Icons.storefront_outlined,
+          label: 'О филиале',
+          onTap: () {
+            final navigator = Navigator.of(context);
+            navigator.pop();
+            navigator.pushNamed(AppRoutes.branchDetails);
           },
         ),
         GlassDrawerRow(
@@ -623,8 +565,9 @@ class _AppDrawer extends StatelessWidget {
           icon: Icons.local_offer_outlined,
           label: 'Акции',
           onTap: () {
-            Navigator.pop(context);
-            Navigator.of(context).pushNamed(AppRoutes.promotions);
+            final navigator = Navigator.of(context);
+            navigator.pop();
+            navigator.pushReplacementNamed(AppRoutes.promotions);
           },
         ),
         GlassDrawerRow(
@@ -875,36 +818,6 @@ class _TrustStat extends StatelessWidget {
           ),
           const SizedBox(height: SKSpacing.x1),
           Text(subtitle, style: textTheme.bodyMedium),
-        ],
-      ),
-    );
-  }
-}
-
-class _HomeStateCard extends StatelessWidget {
-  const _HomeStateCard({required this.title, required this.description});
-
-  final String title;
-  final String description;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = SKTheme.of(context).colors;
-
-    return Container(
-      padding: const EdgeInsets.all(SKSpacing.x4),
-      decoration: BoxDecoration(
-        color: c.elevated,
-        borderRadius: BorderRadius.circular(SKRadius.xl),
-        border: Border.all(color: c.hairline, width: 0.5),
-        boxShadow: SKShadows.sm,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: SKSpacing.x2),
-          Text(description, style: Theme.of(context).textTheme.bodyLarge),
         ],
       ),
     );

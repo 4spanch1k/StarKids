@@ -9,6 +9,7 @@
 // Usage in widgets:
 //   final c = SKTheme.of(context).colors;
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -55,22 +56,24 @@ class SKTheme extends InheritedWidget {
     );
 
     final tt = base.copyWith(
-      displayLarge:   SKTextStyles.d1.copyWith(color: c.textPrimary),
-      displayMedium:  SKTextStyles.d2.copyWith(color: c.textPrimary),
-      displaySmall:   SKTextStyles.d3.copyWith(color: c.textPrimary),
+      displayLarge: SKTextStyles.d1.copyWith(color: c.textPrimary),
+      displayMedium: SKTextStyles.d2.copyWith(color: c.textPrimary),
+      displaySmall: SKTextStyles.d3.copyWith(color: c.textPrimary),
       headlineMedium: SKTextStyles.h1.copyWith(color: c.textPrimary),
-      headlineSmall:  SKTextStyles.h2.copyWith(color: c.textPrimary),
-      titleLarge:  SKTextStyles.h3.copyWith(color: c.textPrimary),
-      bodyLarge:   SKTextStyles.bodyL.copyWith(color: c.textPrimary),
-      bodyMedium:  SKTextStyles.body.copyWith(color: c.textPrimary),
-      bodySmall:   SKTextStyles.small.copyWith(color: c.textSecondary),
-      labelLarge:  SKTextStyles.body.copyWith(
-        fontWeight: FontWeight.w600, color: c.textPrimary,
+      headlineSmall: SKTextStyles.h2.copyWith(color: c.textPrimary),
+      titleLarge: SKTextStyles.h3.copyWith(color: c.textPrimary),
+      bodyLarge: SKTextStyles.bodyL.copyWith(color: c.textPrimary),
+      bodyMedium: SKTextStyles.body.copyWith(color: c.textPrimary),
+      bodySmall: SKTextStyles.small.copyWith(color: c.textSecondary),
+      labelLarge: SKTextStyles.body.copyWith(
+        fontWeight: FontWeight.w600,
+        color: c.textPrimary,
       ),
       labelMedium: SKTextStyles.small.copyWith(
-        fontWeight: FontWeight.w600, color: c.textSecondary,
+        fontWeight: FontWeight.w600,
+        color: c.textSecondary,
       ),
-      labelSmall:  SKTextStyles.micro.copyWith(color: c.textTertiary),
+      labelSmall: SKTextStyles.micro.copyWith(color: c.textTertiary),
     );
 
     return ThemeData(
@@ -80,14 +83,14 @@ class SKTheme extends InheritedWidget {
 
       colorScheme: ColorScheme(
         brightness: dark ? Brightness.dark : Brightness.light,
-        primary:     c.cta,
-        onPrimary:   Colors.white,
-        secondary:   c.accent,
+        primary: c.cta,
+        onPrimary: Colors.white,
+        secondary: c.accent,
         onSecondary: Colors.white,
-        error:       c.danger,
-        onError:     Colors.white,
-        surface:     c.elevated,
-        onSurface:   c.textPrimary,
+        error: c.danger,
+        onError: Colors.white,
+        surface: c.elevated,
+        onSurface: c.textPrimary,
       ),
 
       textTheme: tt,
@@ -109,7 +112,7 @@ class SKTheme extends InheritedWidget {
           shadowColor: const WidgetStatePropertyAll(Colors.transparent),
           backgroundColor: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.disabled)) return c.textDisabled;
-            if (states.contains(WidgetState.pressed))  return c.ctaPressed;
+            if (states.contains(WidgetState.pressed)) return c.ctaPressed;
             return c.cta;
           }),
           foregroundColor: WidgetStateProperty.resolveWith((states) {
@@ -157,7 +160,7 @@ class SKTheme extends InheritedWidget {
           ),
           foregroundColor: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.disabled)) return c.textDisabled;
-            if (states.contains(WidgetState.pressed))  return c.ctaPressed;
+            if (states.contains(WidgetState.pressed)) return c.ctaPressed;
             return c.cta;
           }),
           textStyle: WidgetStatePropertyAll(tt.labelLarge),
@@ -185,7 +188,7 @@ class SKTheme extends InheritedWidget {
           horizontal: SKSpacing.x4,
           vertical: SKSpacing.x3,
         ),
-        hintStyle:  tt.bodyLarge?.copyWith(color: c.textTertiary),
+        hintStyle: tt.bodyLarge?.copyWith(color: c.textTertiary),
         labelStyle: tt.labelMedium,
         helperStyle: tt.labelMedium,
         errorStyle: tt.labelMedium?.copyWith(color: c.danger),
@@ -314,8 +317,8 @@ class SKTheme extends InheritedWidget {
         headerBackgroundColor: c.bg,
         headerForegroundColor: c.textPrimary,
         dayForegroundColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected))  return Colors.white;
-          if (states.contains(WidgetState.disabled))  return c.textDisabled;
+          if (states.contains(WidgetState.selected)) return Colors.white;
+          if (states.contains(WidgetState.disabled)) return c.textDisabled;
           return c.textPrimary;
         }),
         dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
@@ -350,7 +353,7 @@ class SKTheme extends InheritedWidget {
       splashFactory: InkSparkle.splashFactory,
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
-          TargetPlatform.iOS:     CupertinoPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
           TargetPlatform.android: ZoomPageTransitionsBuilder(),
         },
       ),

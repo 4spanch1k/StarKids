@@ -18,7 +18,10 @@ class GlassFloatingButton extends StatelessWidget {
     this.icon,
     this.onPressed,
     this.margin = const EdgeInsets.fromLTRB(
-      SKSpacing.gutter, 0, SKSpacing.gutter, 90,
+      SKSpacing.gutter,
+      0,
+      SKSpacing.gutter,
+      90,
     ),
   });
 

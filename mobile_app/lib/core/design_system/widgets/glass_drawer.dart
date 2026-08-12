@@ -107,7 +107,8 @@ class GlassDrawerRow extends StatelessWidget {
                     Container(
                       margin: const EdgeInsets.symmetric(horizontal: 6),
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3,
+                        horizontal: 8,
+                        vertical: 3,
                       ),
                       decoration: BoxDecoration(
                         color: c.accentSoft,
