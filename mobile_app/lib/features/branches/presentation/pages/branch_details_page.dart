@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/router/nested_navigation.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/glass_app_bar.dart';
@@ -27,11 +28,7 @@ class BranchDetailsPage extends StatelessWidget {
 
         return Scaffold(
           appBar: GlassAppBar(
-            leading: GlassIconButton(
-              icon: Icons.arrow_back_ios_new_rounded,
-              tooltip: 'Назад',
-              onPressed: () => Navigator.of(context).pop(),
-            ),
+            leading: const NestedBackButton(),
             title: Text(
               branch.shortLabel,
               style: Theme.of(context).textTheme.titleLarge,
@@ -282,13 +279,14 @@ class BranchDetailsPage extends StatelessWidget {
 
   Future<_BranchDetailsScreenData> _loadScreenData(String branchId) async {
     final branchFuture = ServiceRegistry.branchRepository.getBranch(branchId);
-    final contactLinksFuture =
-        ServiceRegistry.contactLinksRepository.getForBranch(branchId);
+    final contactLinksFuture = ServiceRegistry.contactLinksRepository
+        .getForBranch(branchId)
+        .then<BranchContactLinks?>((value) => value)
+        .catchError((_) => null);
 
     final branch = await branchFuture;
-    final contactLinks = await contactLinksFuture.catchError(
-      (_) => _buildFallbackContactLinks(branch),
-    );
+    final contactLinks =
+        await contactLinksFuture ?? _buildFallbackContactLinks(branch);
     ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
 
     return _BranchDetailsScreenData(branch: branch, contactLinks: contactLinks);

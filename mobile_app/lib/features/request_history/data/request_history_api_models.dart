@@ -50,10 +50,8 @@ class RequestHistoryItemDto {
       id: json['id'] as String? ?? '',
       type: json['type'] as String? ?? '',
       status: json['status'] as String? ?? '',
-      createdAt: DateTime.parse(
-        json['createdAt'] as String? ??
-            DateTime.fromMillisecondsSinceEpoch(0).toUtc().toIso8601String(),
-      ),
+      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0).toUtc(),
       requestedDate: _parseDate(json['requestedDate'] as String?),
       guestCount: (json['guestCount'] as num?)?.toInt(),
       notes: json['notes'] as String?,

@@ -29,10 +29,8 @@ class AppNotificationDto {
       title: json['title'] as String? ?? '',
       description: json['description'] as String?,
       imageUrl: json['image_url'] as String?,
-      createdAt: DateTime.parse(
-        json['created_at'] as String? ??
-            DateTime.fromMillisecondsSinceEpoch(0).toUtc().toIso8601String(),
-      ),
+      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0).toUtc(),
       isRead: json['is_read'] as bool? ?? false,
     );
   }

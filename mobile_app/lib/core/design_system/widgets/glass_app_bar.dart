@@ -19,7 +19,10 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.title,
     this.trailing,
     this.padding = const EdgeInsets.fromLTRB(
-      SKSpacing.gutter, SKSpacing.x2, SKSpacing.gutter, SKSpacing.x2,
+      SKSpacing.gutter,
+      SKSpacing.x2,
+      SKSpacing.gutter,
+      SKSpacing.x2,
     ),
   });
 
@@ -149,9 +152,11 @@ class _GlassIconButtonState extends State<GlassIconButton> {
     return Stack(clipBehavior: Clip.none, children: [
       btn,
       Positioned(
-        right: 10, top: 10,
+        right: 10,
+        top: 10,
         child: Container(
-          width: 8, height: 8,
+          width: 8,
+          height: 8,
           decoration: BoxDecoration(
             color: c.accent,
             shape: BoxShape.circle,

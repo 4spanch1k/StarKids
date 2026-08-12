@@ -4,6 +4,7 @@ import '../../../../core/design_system/sk_design_tokens.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/router/nested_navigation.dart';
 import '../../../../core/design_system/foundations/sk_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/glass_app_bar.dart';
@@ -38,6 +39,7 @@ class _MenuPageState extends State<MenuPage> {
 
         return Scaffold(
           appBar: GlassAppBar(
+            leading: const NestedBackButton(),
             title: Text(
               'Меню',
               style: Theme.of(context).textTheme.titleLarge,
@@ -208,10 +210,10 @@ class _MenuPageState extends State<MenuPage> {
         ServiceRegistry.branchRepository.getBranch(branchId).catchError(
               (_) => ServiceRegistry.selectedBranchController.selectedBranch,
             );
-    final menuFuture = ServiceRegistry.menuRepository.getForBranch(branchId);
-
     final branch = await branchFuture;
-    final menu = await menuFuture;
+    // Await sequentially so an early menu failure cannot become an unhandled
+    // Future error while the branch request is still in flight.
+    final menu = await ServiceRegistry.menuRepository.getForBranch(branchId);
     ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
 
     return _MenuScreenData(branch: branch, menu: menu);

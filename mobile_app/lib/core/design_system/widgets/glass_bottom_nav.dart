@@ -34,19 +34,19 @@ class GlassBottomNav extends StatelessWidget {
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(12, 0, 12, 8 + bottomInset),
+      padding: EdgeInsets.fromLTRB(12, 0, 12, 6 + bottomInset),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final navWidth = constraints.maxWidth;
           final compact = navWidth < 380;
 
           return Container(
-            height: 68,
+            height: 62,
             decoration: BoxDecoration(
               color: c.elevated,
               borderRadius: BorderRadius.circular(SKRadius.lg),
               border: Border.all(color: c.hairline),
-              boxShadow: SKShadows.md,
+              boxShadow: SKShadows.sm,
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(SKRadius.lg),

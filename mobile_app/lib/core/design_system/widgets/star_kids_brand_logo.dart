@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-
 const starKidsLogoAssetPath =
     'assets/images/645959303_17890733316429584_1469844678684572952_n.jpg';
 

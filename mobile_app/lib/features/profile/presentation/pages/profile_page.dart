@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/widgets/star_kids_root_navigation.dart';
 import '../../../../core/design_system/foundations/sk_tokens.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
@@ -68,6 +69,7 @@ class _ProfilePageState extends State<ProfilePage> {
   final _emailTextController = TextEditingController();
 
   bool _didInitTextControllers = false;
+  bool _isEditingPersonalData = false;
 
   @override
   void initState() {
@@ -111,6 +113,29 @@ class _ProfilePageState extends State<ProfilePage> {
       ServiceRegistry.selectedBranchController.selectedBranch;
 
   Future<void> _handleLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        final c = SKTheme.of(dialogContext).colors;
+        return AlertDialog(
+          title: const Text('Выйти из аккаунта?'),
+          content: const Text(
+            'На этом устройстве понадобится снова войти.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Отмена'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text('Выйти', style: TextStyle(color: c.danger)),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !mounted) return;
     if (widget.onLogout != null) {
       await widget.onLogout!();
     } else {
@@ -175,6 +200,20 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _handleSave() async {
     await _controller.saveChanges();
+    if (mounted && _controller.errorMessage == null) {
+      setState(() => _isEditingPersonalData = false);
+    }
+  }
+
+  void _cancelPersonalDataEditing() {
+    final profile = _controller.profile;
+    _firstNameTextController.text = profile?.firstName ?? '';
+    _lastNameTextController.text = profile?.lastName ?? '';
+    _emailTextController.text = profile?.email ?? '';
+    _controller.updateFirstName(_firstNameTextController.text);
+    _controller.updateLastName(_lastNameTextController.text);
+    _controller.updateEmail(_emailTextController.text);
+    setState(() => _isEditingPersonalData = false);
   }
 
   @override
@@ -183,16 +222,13 @@ class _ProfilePageState extends State<ProfilePage> {
 
     return Scaffold(
       appBar: GlassAppBar(
-        leading: GlassIconButton(
-          icon: Icons.arrow_back_ios_new_rounded,
-          tooltip: 'Назад',
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        leading: const SizedBox(width: 44),
         title: Text(
           l.profileTitle,
           style: Theme.of(context).textTheme.titleLarge,
         ),
       ),
+      bottomNavigationBar: const StarKidsRootNavigation(current: 'profile'),
       body: AnimatedBuilder(
         animation: Listenable.merge([
           _controller,
@@ -249,7 +285,12 @@ class _ProfilePageState extends State<ProfilePage> {
     final l = AppL10n.of(context);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(SKSpacing.x5),
+      padding: EdgeInsets.fromLTRB(
+        SKSpacing.x4,
+        SKSpacing.x4,
+        SKSpacing.x4,
+        MediaQuery.viewPaddingOf(context).bottom + 88,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -262,7 +303,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   (profile?.hasAvatar ?? false) ? _handleDeleteAvatar : null,
             ),
           ),
-          const SizedBox(height: SKSpacing.x5),
+          const SizedBox(height: SKSpacing.x4),
           _StatRow(
             controller: _controller,
             childrenController: _childrenController,
@@ -279,13 +320,13 @@ class _ProfilePageState extends State<ProfilePage> {
             for (final child in _childrenController.todaysBirthdays)
               _BirthdayReminderBanner(child: child),
           ],
-          const SizedBox(height: SKSpacing.x5),
+          const SizedBox(height: SKSpacing.x4),
           StarKidsContentSwitcher(child: _buildPersonalDataSection(context)),
-          const SizedBox(height: SKSpacing.x5),
+          const SizedBox(height: SKSpacing.x4),
           _buildChildrenSection(context),
-          const SizedBox(height: SKSpacing.x5),
+          const SizedBox(height: SKSpacing.x4),
           _buildBranchSection(context),
-          const SizedBox(height: SKSpacing.x5),
+          const SizedBox(height: SKSpacing.x4),
           _buildRequestsSection(context),
           const SizedBox(height: SKSpacing.x5),
           _buildSettingsSection(context),
@@ -301,42 +342,71 @@ class _ProfilePageState extends State<ProfilePage> {
     final l = AppL10n.of(context);
     return ProfileSectionCard(
       title: l.personalData,
+      trailing: TextButton(
+        onPressed: () {
+          if (_isEditingPersonalData) {
+            _cancelPersonalDataEditing();
+          } else {
+            setState(() => _isEditingPersonalData = true);
+          }
+        },
+        child: Text(_isEditingPersonalData ? l.cancel : 'Изменить →'),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          StarKidsInputField(
-            controller: _firstNameTextController,
-            label: l.firstName,
-            errorText: _controller.firstNameError,
-            onChanged: _controller.updateFirstName,
-            textCapitalization: TextCapitalization.words,
-            textInputAction: TextInputAction.next,
-          ),
-          const SizedBox(height: SKSpacing.x3),
-          StarKidsInputField(
-            controller: _lastNameTextController,
-            label: l.lastName,
-            errorText: _controller.lastNameError,
-            onChanged: _controller.updateLastName,
-            textCapitalization: TextCapitalization.words,
-            textInputAction: TextInputAction.next,
-          ),
-          const SizedBox(height: SKSpacing.x3),
-          StarKidsInputField(
-            controller: _emailTextController,
-            label: l.email,
-            errorText: _controller.emailError,
-            onChanged: _controller.updateEmail,
-            keyboardType: TextInputType.emailAddress,
-            textInputAction: TextInputAction.done,
-          ),
-          const SizedBox(height: SKSpacing.x5),
-          PrimaryButton(
-            label: l.save,
-            onPressed: (_controller.isSaving || !_controller.canSave)
-                ? null
-                : _handleSave,
-          ),
+          if (!_isEditingPersonalData) ...[
+            _ReadOnlyProfileRow(
+              label: 'Имя',
+              value: _controller.profile?.firstName ?? '—',
+            ),
+            const SizedBox(height: SKSpacing.x3),
+            _ReadOnlyProfileRow(
+              label: 'Фамилия',
+              value: _controller.profile?.lastName ?? '—',
+            ),
+            const SizedBox(height: SKSpacing.x3),
+            _ReadOnlyProfileRow(
+              label: l.email,
+              value: _controller.profile?.email?.trim().isNotEmpty == true
+                  ? _controller.profile!.email!
+                  : 'Не указана',
+            ),
+          ] else ...[
+            StarKidsInputField(
+              controller: _firstNameTextController,
+              label: l.firstName,
+              errorText: _controller.firstNameError,
+              onChanged: _controller.updateFirstName,
+              textCapitalization: TextCapitalization.words,
+              textInputAction: TextInputAction.next,
+            ),
+            const SizedBox(height: SKSpacing.x3),
+            StarKidsInputField(
+              controller: _lastNameTextController,
+              label: l.lastName,
+              errorText: _controller.lastNameError,
+              onChanged: _controller.updateLastName,
+              textCapitalization: TextCapitalization.words,
+              textInputAction: TextInputAction.next,
+            ),
+            const SizedBox(height: SKSpacing.x3),
+            StarKidsInputField(
+              controller: _emailTextController,
+              label: l.email,
+              errorText: _controller.emailError,
+              onChanged: _controller.updateEmail,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.done,
+            ),
+            const SizedBox(height: SKSpacing.x4),
+            PrimaryButton(
+              label: l.save,
+              onPressed: (_controller.isSaving || !_controller.canSave)
+                  ? null
+                  : _handleSave,
+            ),
+          ],
         ],
       ),
     );
@@ -368,7 +438,7 @@ class _ProfilePageState extends State<ProfilePage> {
             const SizedBox(height: SKSpacing.x1),
             Text(branch.workingHours, style: textTheme.bodySmall),
           ],
-          const SizedBox(height: SKSpacing.x5),
+          const SizedBox(height: SKSpacing.x3),
           SecondaryButton(
             label: l.changeBranch,
             onPressed: _handleOpenBranchSelection,
@@ -439,7 +509,7 @@ class _ProfilePageState extends State<ProfilePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           content,
-          const SizedBox(height: SKSpacing.x5),
+          const SizedBox(height: SKSpacing.x3),
           SecondaryButton(
             label: l.allRequests,
             onPressed: _handleOpenAllRequests,
@@ -459,13 +529,85 @@ class _ProfilePageState extends State<ProfilePage> {
           _NotificationToggleRow(
             notificationsController: _notificationsController,
           ),
-          const SizedBox(height: SKSpacing.x4),
-          _LanguageSwitchRow(settingsController: _settingsController),
-          const SizedBox(height: SKSpacing.x4),
-          _ThemeSwitchRow(settingsController: _settingsController),
+          const Divider(height: SKSpacing.x4),
+          _SettingsSelectionRow(
+            title: l.language,
+            value: _settingsController.locale == 'ru' ? l.langRu : l.langKk,
+            onTap: () => _showLanguagePicker(context),
+          ),
+          const Divider(height: SKSpacing.x4),
+          _SettingsSelectionRow(
+            title: l.theme,
+            value: _settingsController.isDark ? l.themeDark : l.themeLight,
+            onTap: () => _showThemePicker(context),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _showLanguagePicker(BuildContext context) async {
+    final l = AppL10n.of(context);
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              minTileHeight: 52,
+              title: Text(l.langRu),
+              trailing: _settingsController.locale == 'ru'
+                  ? const Icon(Icons.check_rounded)
+                  : null,
+              onTap: () => Navigator.of(sheetContext).pop('ru'),
+            ),
+            ListTile(
+              minTileHeight: 52,
+              title: Text(l.langKk),
+              trailing: _settingsController.locale == 'kk'
+                  ? const Icon(Icons.check_rounded)
+                  : null,
+              onTap: () => Navigator.of(sheetContext).pop('kk'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (selected != null) await _settingsController.setLocale(selected);
+  }
+
+  Future<void> _showThemePicker(BuildContext context) async {
+    final l = AppL10n.of(context);
+    final selected = await showModalBottomSheet<ThemeMode>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              minTileHeight: 52,
+              title: Text(l.themeLight),
+              trailing: !_settingsController.isDark
+                  ? const Icon(Icons.check_rounded)
+                  : null,
+              onTap: () => Navigator.of(sheetContext).pop(ThemeMode.light),
+            ),
+            ListTile(
+              minTileHeight: 52,
+              title: Text(l.themeDark),
+              trailing: _settingsController.isDark
+                  ? const Icon(Icons.check_rounded)
+                  : null,
+              onTap: () => Navigator.of(sheetContext).pop(ThemeMode.dark),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (selected != null) await _settingsController.setThemeMode(selected);
   }
 
   Widget _buildFooter(BuildContext context, AppL10n l) {
@@ -478,7 +620,10 @@ class _ProfilePageState extends State<ProfilePage> {
         Center(
           child: TextButton(
             onPressed: _handleLogout,
-            child: Text(l.logout),
+            child: Text(
+              l.logout,
+              style: TextStyle(color: SKTheme.of(context).colors.danger),
+            ),
           ),
         ),
         if (version.isNotEmpty) ...[
@@ -495,6 +640,73 @@ class _ProfilePageState extends State<ProfilePage> {
 }
 
 // ─── Birthday reminder banner ─────────────────────────────────────────────────
+
+class _ReadOnlyProfileRow extends StatelessWidget {
+  const _ReadOnlyProfileRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final c = SKTheme.of(context).colors;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 88,
+          child: Text(
+            label,
+            style: textTheme.bodyMedium?.copyWith(color: c.textSecondary),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingsSelectionRow extends StatelessWidget {
+  const _SettingsSelectionRow({
+    required this.title,
+    required this.value,
+    required this.onTap,
+  });
+
+  final String title;
+  final String value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(SKRadius.md),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: SKSpacing.tapTarget),
+          child: Row(
+            children: [
+              Expanded(child: Text(title)),
+              Text(value, style: TextStyle(color: c.textSecondary)),
+              const SizedBox(width: SKSpacing.x1),
+              Icon(Icons.chevron_right_rounded, color: c.textTertiary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _BirthdayReminderBanner extends StatelessWidget {
   const _BirthdayReminderBanner({required this.child});
@@ -608,7 +820,7 @@ class _ChildrenSection extends StatelessWidget {
                 onEdit: () => _showEditChildSheet(context, child),
                 onDelete: () => _confirmDelete(context, child),
               ),
-              const SizedBox(height: SKSpacing.x4),
+              const SizedBox(height: SKSpacing.x2),
             ],
           ],
         );
@@ -618,7 +830,11 @@ class _ChildrenSection extends StatelessWidget {
       title: l.children,
       subtitle: null,
       trailing: controller.status == ChildrenStatus.success
-          ? _AddChildButton(onTap: () => _showAddChildSheet(context))
+          ? IconButton(
+              tooltip: l.add,
+              onPressed: () => _showAddChildSheet(context),
+              icon: const Icon(Icons.add_rounded),
+            )
           : null,
       child: content,
     );
@@ -692,124 +908,11 @@ class _ChildrenSectionFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final c = SKTheme.of(context).colors;
-
-    return Container(
-      clipBehavior: Clip.hardEdge,
-      decoration: BoxDecoration(
-        color: c.elevated,
-        borderRadius: BorderRadius.circular(SKRadius.xl),
-        border: Border.all(color: c.hairline, width: 0.5),
-        boxShadow: SKShadows.sm,
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -46,
-            right: -26,
-            child: _DecorativeCloud(
-              width: 168,
-              height: 132,
-              color: c.accentSoft,
-            ),
-          ),
-          Positioned(
-            left: -36,
-            bottom: -58,
-            child: _DecorativeCloud(
-              width: 184,
-              height: 142,
-              color: c.cta.withValues(alpha: 0.04),
-            ),
-          ),
-          Positioned(
-            left: 72,
-            top: 22,
-            child: _DecorativeCloud(
-              width: 62,
-              height: 62,
-              color: Colors.white.withValues(alpha: 0.06),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(SKSpacing.x5),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isCompact = constraints.maxWidth < 480;
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (isCompact) ...[
-                      Text(
-                        title,
-                        style: textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      if (subtitle != null) ...[
-                        const SizedBox(height: SKSpacing.x2),
-                        Text(
-                          subtitle!,
-                          style: textTheme.bodyMedium?.copyWith(
-                            color: c.textSecondary,
-                            height: 1.35,
-                          ),
-                        ),
-                      ],
-                      if (trailing != null) ...[
-                        const SizedBox(height: SKSpacing.x4),
-                        Align(
-                            alignment: Alignment.centerLeft, child: trailing!),
-                      ],
-                    ] else ...[
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  title,
-                                  style: textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                if (subtitle != null) ...[
-                                  const SizedBox(height: SKSpacing.x2),
-                                  ConstrainedBox(
-                                    constraints:
-                                        const BoxConstraints(maxWidth: 420),
-                                    child: Text(
-                                      subtitle!,
-                                      style: textTheme.bodyMedium?.copyWith(
-                                        color: c.textSecondary,
-                                        height: 1.35,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                          if (trailing != null) ...[
-                            const SizedBox(width: SKSpacing.x4),
-                            trailing!,
-                          ],
-                        ],
-                      ),
-                    ],
-                    const SizedBox(height: SKSpacing.x5),
-                    child,
-                  ],
-                );
-              },
-            ),
-          ),
-        ],
-      ),
+    return ProfileSectionCard(
+      title: title,
+      subtitle: subtitle,
+      trailing: trailing,
+      child: child,
     );
   }
 }
@@ -1066,7 +1169,7 @@ class _ChildCard extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(SKSpacing.x5),
+            padding: const EdgeInsets.all(SKSpacing.x3),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final genderLabel = child.gender == ChildGender.female
@@ -1079,8 +1182,8 @@ class _ChildCard extends StatelessWidget {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _ChildAvatarBadge(child: child, size: 76),
-                        const SizedBox(width: SKSpacing.x4),
+                        _ChildAvatarBadge(child: child, size: 52),
+                        const SizedBox(width: SKSpacing.x3),
                         Expanded(
                           child: Padding(
                             padding: const EdgeInsets.only(top: 4),
@@ -1092,8 +1195,7 @@ class _ChildCard extends StatelessWidget {
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 24,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                                 const SizedBox(height: SKSpacing.x2),
@@ -1473,6 +1575,7 @@ class _ChildFormSheetState extends State<_ChildFormSheet> {
       cancelText: l.datePickerCancel,
       confirmText: l.datePickerConfirm,
     );
+    if (!mounted) return;
     if (picked != null) {
       setState(() {
         _birthDate = picked;
@@ -2275,58 +2378,6 @@ class _NotificationToggleRow extends StatelessWidget {
   }
 }
 
-class _LanguageSwitchRow extends StatelessWidget {
-  const _LanguageSwitchRow({required this.settingsController});
-
-  final AppSettingsController settingsController;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final l = AppL10n.of(context);
-    final current = settingsController.locale;
-
-    return Row(
-      children: [
-        Expanded(child: Text(l.language, style: textTheme.bodyLarge)),
-        _SegmentedChoice(
-          options: const ['ru', 'kk'],
-          labels: [l.langRu, l.langKk],
-          selected: current,
-          onChanged: (v) => settingsController.setLocale(v),
-        ),
-      ],
-    );
-  }
-}
-
-class _ThemeSwitchRow extends StatelessWidget {
-  const _ThemeSwitchRow({required this.settingsController});
-
-  final AppSettingsController settingsController;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final l = AppL10n.of(context);
-    final isDark = settingsController.isDark;
-
-    return Row(
-      children: [
-        Expanded(child: Text(l.theme, style: textTheme.bodyLarge)),
-        _SegmentedChoice(
-          options: const ['light', 'dark'],
-          labels: [l.themeLight, l.themeDark],
-          selected: isDark ? 'dark' : 'light',
-          onChanged: (v) => settingsController.setThemeMode(
-            v == 'dark' ? ThemeMode.dark : ThemeMode.light,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 // ─── Stat row ─────────────────────────────────────────────────────────────────
 
 class _StatRow extends StatelessWidget {
@@ -2409,64 +2460,6 @@ class _StatDivider extends StatelessWidget {
       width: 1,
       height: 32,
       color: SKTheme.of(context).colors.hairline,
-    );
-  }
-}
-
-class _SegmentedChoice extends StatelessWidget {
-  const _SegmentedChoice({
-    required this.options,
-    required this.labels,
-    required this.selected,
-    required this.onChanged,
-  });
-
-  final List<String> options;
-  final List<String> labels;
-  final String selected;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = SKTheme.of(context).colors;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: c.elevated,
-        borderRadius: BorderRadius.circular(SKRadius.pill),
-        border: Border.all(color: c.hairline),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (int i = 0; i < options.length; i++)
-            GestureDetector(
-              onTap: () => onChanged(options[i]),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: SKSpacing.x3,
-                  vertical: SKSpacing.x1,
-                ),
-                decoration: BoxDecoration(
-                  color: selected == options[i] ? c.cta : Colors.transparent,
-                  borderRadius: BorderRadius.circular(SKRadius.pill),
-                ),
-                child: Text(
-                  labels[i],
-                  style: textTheme.labelMedium?.copyWith(
-                    color:
-                        selected == options[i] ? Colors.white : c.textSecondary,
-                    fontWeight: selected == options[i]
-                        ? FontWeight.w700
-                        : FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
     );
   }
 }

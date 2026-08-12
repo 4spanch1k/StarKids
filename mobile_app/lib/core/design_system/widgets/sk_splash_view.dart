@@ -151,8 +151,10 @@ class _GlassLoadingPill extends StatelessWidget {
         color: Colors.white.withValues(alpha: 0.74),
         border: Border.all(color: Colors.white.withValues(alpha: 0.56)),
         boxShadow: const [
-          BoxShadow(color: Color(0x0D000000), blurRadius: 12, offset: Offset(0, 4)),
-          BoxShadow(color: Color(0x06000000), blurRadius: 2, offset: Offset(0, 1)),
+          BoxShadow(
+              color: Color(0x0D000000), blurRadius: 12, offset: Offset(0, 4)),
+          BoxShadow(
+              color: Color(0x06000000), blurRadius: 2, offset: Offset(0, 1)),
         ],
       ),
       child: AnimatedBuilder(

@@ -25,12 +25,12 @@ class SKBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = SKTheme.of(context).colors;
     final (bg, fg) = switch (tone) {
-      SKTone.accent  => (c.accentSoft,  c.accent),
-      SKTone.cta     => (c.ctaSoft,     c.cta),
+      SKTone.accent => (c.accentSoft, c.accent),
+      SKTone.cta => (c.ctaSoft, c.cta),
       SKTone.success => (c.successSoft, c.success),
       SKTone.warning => (c.warningSoft, c.warning),
-      SKTone.danger  => (c.dangerSoft,  c.danger),
-      SKTone.neutral => (c.bg,          c.textSecondary),
+      SKTone.danger => (c.dangerSoft, c.danger),
+      SKTone.neutral => (c.bg, c.textSecondary),
     };
     return Container(
       padding: EdgeInsets.symmetric(

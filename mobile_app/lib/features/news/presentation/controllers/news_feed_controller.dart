@@ -35,6 +35,7 @@ class NewsFeedController extends ChangeNotifier {
   bool _hasMore = true;
   bool _isOffline = false;
   String? _errorMessage;
+  bool _isDisposed = false;
 
   List<NewsItem> get items => _items;
 
@@ -50,6 +51,17 @@ class NewsFeedController extends ChangeNotifier {
 
   static void clearCache() {
     _cache.clear();
+  }
+
+  @override
+  void notifyListeners() {
+    if (!_isDisposed) super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
   }
 
   Future<void> bootstrap() async {

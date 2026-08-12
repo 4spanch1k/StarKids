@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
+import '../../../../app/router/nested_navigation.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/primary_button.dart';
@@ -78,6 +79,7 @@ class _NewsDetailsPageState extends State<NewsDetailsPage> {
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
+            leading: const NestedBackButton(),
             pinned: true,
             expandedHeight: 320,
             backgroundColor: Colors.black,
@@ -224,7 +226,7 @@ class _NewsDetailsStateScaffold extends StatelessWidget {
     final c = SKTheme.of(context).colors;
 
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(leading: const NestedBackButton()),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(SKSpacing.x5),

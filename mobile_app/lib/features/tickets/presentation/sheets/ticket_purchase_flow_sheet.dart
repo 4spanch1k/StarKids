@@ -363,7 +363,9 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
     return FractionallySizedBox(
       heightFactor: 0.98,
       child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(SKRadius.xl),
+        ),
         child: DecoratedBox(
           decoration: BoxDecoration(color: c.elevated),
           child: SafeArea(
@@ -430,127 +432,130 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                     ],
                   ),
                 ),
-              Expanded(
-                child: StarKidsContentSwitcher(
-                  child: _currentStep == _TicketPurchaseStep.selectEntry
-                      ? _StepSelectionView(
-                          key: const ValueKey('ticket-step-selection'),
-                          selectedBranch: _selectedBranch,
-                          selectedDate: _selectedDate,
-                          ticketConfig: _ticketConfig,
-                          isConfigLoading: _isConfigLoading,
-                          configErrorMessage: _configErrorMessage,
-                          onSelectBranch: _selectBranch,
-                          onSelectDay: _selectDay,
-                        )
-                      : _StepTicketsView(
-                          key: const ValueKey('ticket-step-details'),
-                          selectedBranch: _selectedBranch,
-                          selectedDate: _selectedDate!,
-                          ticketConfig: _ticketConfig,
-                          isConfigLoading: _isConfigLoading,
-                          configErrorMessage: _configErrorMessage,
-                          ticketCounts: _ticketCounts,
-                          onDecrease: (ticketTypeId) =>
-                              _changeTicketCount(ticketTypeId, -1),
-                          onIncrease: (ticketTypeId) =>
-                              _changeTicketCount(ticketTypeId, 1),
-                        ),
-                ),
-              ),
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.fromLTRB(
-                  SKSpacing.x5,
-                  SKSpacing.x3,
-                  SKSpacing.x5,
-                  SKSpacing.x5 + bottomInset,
-                ),
-                decoration: BoxDecoration(
-                  color: c.elevated,
-                  border: Border(
-                    top: BorderSide(color: c.hairline, width: 0.5),
+                Expanded(
+                  child: StarKidsContentSwitcher(
+                    child: _currentStep == _TicketPurchaseStep.selectEntry
+                        ? _StepSelectionView(
+                            key: const ValueKey('ticket-step-selection'),
+                            selectedBranch: _selectedBranch,
+                            selectedDate: _selectedDate,
+                            ticketConfig: _ticketConfig,
+                            isConfigLoading: _isConfigLoading,
+                            configErrorMessage: _configErrorMessage,
+                            onSelectBranch: _selectBranch,
+                            onSelectDay: _selectDay,
+                          )
+                        : _StepTicketsView(
+                            key: const ValueKey('ticket-step-details'),
+                            selectedBranch: _selectedBranch,
+                            selectedDate: _selectedDate!,
+                            ticketConfig: _ticketConfig,
+                            isConfigLoading: _isConfigLoading,
+                            configErrorMessage: _configErrorMessage,
+                            ticketCounts: _ticketCounts,
+                            onDecrease: (ticketTypeId) =>
+                                _changeTicketCount(ticketTypeId, -1),
+                            onIncrease: (ticketTypeId) =>
+                                _changeTicketCount(ticketTypeId, 1),
+                          ),
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_currentStep == _TicketPurchaseStep.chooseTickets) ...[
-                      Row(
-                        children: [
-                          Text('Итого', style: textTheme.titleMedium),
-                          const Spacer(),
-                          Text(
-                            _formatTenge(_totalAmount),
-                            style: TextStyle(
-                              fontFamily: SKTypography.display,
-                              fontSize: 24,
-                              fontWeight: FontWeight.w400,
-                              letterSpacing: -0.48,
-                              color: c.textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: SKSpacing.x1),
-                      Text(
-                        _totalTickets == 0
-                            ? 'Выберите хотя бы один платный билет.'
-                            : 'Выбрано билетов: $_totalTickets',
-                        style: textTheme.bodySmall?.copyWith(
-                          color: c.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: SKSpacing.x3),
-                    ],
-                    PrimaryButton(
-                      label: _primaryActionLabel,
-                      onPressed: _currentStep == _TicketPurchaseStep.selectEntry
-                          ? (_selectedDate == null ||
-                                  _isConfigLoading ||
-                                  _configErrorMessage != null ||
-                                  !_hasAvailableTickets
-                              ? null
-                              : _goToNextStep)
-                          : (_totalAmount == 0 ||
-                                  _isPaymentBusy ||
-                                  _paymentPhase == _TicketPaymentPhase.paid
-                              ? null
-                              : _startPayment),
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.fromLTRB(
+                    SKSpacing.x4,
+                    SKSpacing.x3,
+                    SKSpacing.x4,
+                    SKSpacing.x4 + bottomInset,
+                  ),
+                  decoration: BoxDecoration(
+                    color: c.elevated,
+                    border: Border(
+                      top: BorderSide(color: c.hairline, width: 0.5),
                     ),
-                    if (_currentStep == _TicketPurchaseStep.chooseTickets &&
-                        _activePayment != null &&
-                        _paymentPhase != _TicketPaymentPhase.paid) ...[
-                      const SizedBox(height: SKSpacing.x2),
-                      SecondaryButton(
-                        label: _paymentPhase == _TicketPaymentPhase.checking
-                            ? 'Проверяем статус'
-                            : 'Проверить оплату',
-                        onPressed: _isPaymentBusy ? null : _checkPaymentStatus,
-                      ),
-                    ],
-                    if (_currentStep == _TicketPurchaseStep.chooseTickets &&
-                        _paymentMessage != null) ...[
-                      const SizedBox(height: SKSpacing.x3),
-                      Text(
-                        _paymentMessage!,
-                        style: textTheme.bodyMedium?.copyWith(
-                          color: _paymentPhase == _TicketPaymentPhase.failed
-                              ? c.danger
-                              : c.textSecondary,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_currentStep ==
+                          _TicketPurchaseStep.chooseTickets) ...[
+                        Row(
+                          children: [
+                            Text('Итого', style: textTheme.titleMedium),
+                            const Spacer(),
+                            Text(
+                              _formatTenge(_totalAmount),
+                              style: TextStyle(
+                                fontFamily: SKTypography.display,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w400,
+                                letterSpacing: -0.48,
+                                color: c.textPrimary,
+                              ),
+                            ),
+                          ],
                         ),
+                        const SizedBox(height: SKSpacing.x1),
+                        Text(
+                          _totalTickets == 0
+                              ? 'Выберите хотя бы один платный билет.'
+                              : 'Выбрано билетов: $_totalTickets',
+                          style: textTheme.bodySmall?.copyWith(
+                            color: c.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: SKSpacing.x3),
+                      ],
+                      PrimaryButton(
+                        label: _primaryActionLabel,
+                        onPressed: _currentStep ==
+                                _TicketPurchaseStep.selectEntry
+                            ? (_selectedDate == null ||
+                                    _isConfigLoading ||
+                                    _configErrorMessage != null ||
+                                    !_hasAvailableTickets
+                                ? null
+                                : _goToNextStep)
+                            : (_totalAmount == 0 ||
+                                    _isPaymentBusy ||
+                                    _paymentPhase == _TicketPaymentPhase.paid
+                                ? null
+                                : _startPayment),
                       ),
+                      if (_currentStep == _TicketPurchaseStep.chooseTickets &&
+                          _activePayment != null &&
+                          _paymentPhase != _TicketPaymentPhase.paid) ...[
+                        const SizedBox(height: SKSpacing.x2),
+                        SecondaryButton(
+                          label: _paymentPhase == _TicketPaymentPhase.checking
+                              ? 'Проверяем статус'
+                              : 'Проверить оплату',
+                          onPressed:
+                              _isPaymentBusy ? null : _checkPaymentStatus,
+                        ),
+                      ],
+                      if (_currentStep == _TicketPurchaseStep.chooseTickets &&
+                          _paymentMessage != null) ...[
+                        const SizedBox(height: SKSpacing.x3),
+                        Text(
+                          _paymentMessage!,
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: _paymentPhase == _TicketPaymentPhase.failed
+                                ? c.danger
+                                : c.textSecondary,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
   }
 
   String get _primaryActionLabel {
@@ -608,6 +613,13 @@ class _StepSelectionView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text('Ваш визит', style: textTheme.titleLarge),
+          const SizedBox(height: SKSpacing.x1),
+          Text(
+            'Выберите филиал и день — ниже покажем доступные тарифы.',
+            style: textTheme.bodyMedium,
+          ),
+          const SizedBox(height: SKSpacing.x4),
           StarKidsSelectField(
             key: const ValueKey('ticket-branch-select'),
             label: 'Филиал',
@@ -627,7 +639,7 @@ class _StepSelectionView extends StatelessWidget {
             placeholderText: 'Выберите день посещения',
             onTap: onSelectDay,
           ),
-          const SizedBox(height: SKSpacing.x5),
+          const SizedBox(height: SKSpacing.x4),
           Text(
             'ДОСТУПНЫЕ ТАРИФЫ',
             style: textTheme.labelMedium,
@@ -713,8 +725,8 @@ class _StepTicketsView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: SKSpacing.x5),
-          Text('ДОСТУПНЫЕ ТАРИФЫ', style: textTheme.labelMedium),
-          const SizedBox(height: SKSpacing.x4),
+          Text('Билеты', style: textTheme.titleMedium),
+          const SizedBox(height: SKSpacing.x3),
           if (isConfigLoading)
             const _TicketConfigStateCard(
               title: 'Загружаем билеты',
@@ -788,8 +800,8 @@ class _TicketCounterCard extends StatelessWidget {
     final c = SKTheme.of(context).colors;
 
     return SolidCard(
-      radius: SKRadius.xl,
-      padding: const EdgeInsets.all(SKSpacing.x4),
+      radius: SKRadius.lg,
+      padding: const EdgeInsets.all(SKSpacing.x3),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1177,8 +1189,7 @@ class _MyTicketsBodyState extends State<_MyTicketsBody> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _tickets.length,
-              separatorBuilder: (_, __) =>
-                  const SizedBox(height: SKSpacing.x3),
+              separatorBuilder: (_, __) => const SizedBox(height: SKSpacing.x3),
               itemBuilder: (context, index) =>
                   _PurchasedTicketCard(ticket: _tickets[index]),
             ),
@@ -1292,8 +1303,7 @@ class _SelectionSheet<T> extends StatelessWidget {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: items.length,
-        separatorBuilder: (_, __) =>
-            const SizedBox(height: SKSpacing.x2),
+        separatorBuilder: (_, __) => const SizedBox(height: SKSpacing.x2),
         itemBuilder: (context, index) {
           final item = items[index];
           final itemId = itemIdBuilder(item);

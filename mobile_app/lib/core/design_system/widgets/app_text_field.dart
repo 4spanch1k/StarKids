@@ -79,9 +79,7 @@ class _AppTextFieldState extends State<AppTextField> {
             color: c.elevated,
             borderRadius: BorderRadius.circular(SKRadius.md + 2),
             border: Border.all(
-              color: hasError
-                  ? c.danger
-                  : (_focused ? c.cta : c.hairline),
+              color: hasError ? c.danger : (_focused ? c.cta : c.hairline),
               width: _focused || hasError ? 1.2 : 1.0,
             ),
             boxShadow: _focused && !hasError

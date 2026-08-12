@@ -37,9 +37,8 @@ class _TicketsEntryBody extends StatelessWidget {
           _TicketsEntryActionCard(
             key: const ValueKey('buy-ticket-action'),
             icon: Icons.shopping_bag_rounded,
-            title: 'Купить билет',
+            title: 'Оформить покупку',
             subtitle: 'Филиал, дата и количество',
-            primary: true,
             onTap: () =>
                 Navigator.of(context).pop(TicketsEntryAction.buyTicket),
           ),
@@ -65,23 +64,17 @@ class _TicketsEntryActionCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
-    this.primary = false,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
-  final bool primary;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final c = SKTheme.of(context).colors;
-
-    final foreground = primary ? Colors.white : c.textPrimary;
-    final secondary =
-        primary ? Colors.white.withValues(alpha: 0.76) : c.textSecondary;
 
     return Material(
       color: Colors.transparent,
@@ -91,10 +84,10 @@ class _TicketsEntryActionCard extends StatelessWidget {
         child: Ink(
           padding: const EdgeInsets.all(SKSpacing.x3),
           decoration: BoxDecoration(
-            color: primary ? c.cta : c.raised,
+            color: c.raised,
             borderRadius: BorderRadius.circular(SKRadius.xl),
-            border: primary ? null : Border.all(color: c.hairline, width: 0.5),
-            boxShadow: primary ? SKShadows.ctaBlue : SKShadows.sm,
+            border: Border.all(color: c.hairline, width: 0.5),
+            boxShadow: SKShadows.sm,
           ),
           child: Row(
             children: [
@@ -102,15 +95,13 @@ class _TicketsEntryActionCard extends StatelessWidget {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: primary
-                      ? Colors.white.withValues(alpha: 0.16)
-                      : c.accentSoft,
+                  color: c.accentSoft,
                   borderRadius: BorderRadius.circular(SKRadius.md),
                 ),
                 child: Icon(
                   icon,
                   size: 22,
-                  color: primary ? Colors.white : c.accent,
+                  color: c.accent,
                 ),
               ),
               const SizedBox(width: SKSpacing.x3),
@@ -124,7 +115,7 @@ class _TicketsEntryActionCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: textTheme.titleMedium?.copyWith(
-                        color: foreground,
+                        color: c.textPrimary,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -133,7 +124,9 @@ class _TicketsEntryActionCard extends StatelessWidget {
                       subtitle,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: textTheme.bodySmall?.copyWith(color: secondary),
+                      style: textTheme.bodySmall?.copyWith(
+                        color: c.textSecondary,
+                      ),
                     ),
                   ],
                 ),
@@ -142,7 +135,7 @@ class _TicketsEntryActionCard extends StatelessWidget {
               Icon(
                 Icons.arrow_forward_rounded,
                 size: 20,
-                color: secondary,
+                color: c.textTertiary,
               ),
             ],
           ),

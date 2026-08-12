@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/router/nested_navigation.dart';
 import '../../../../core/design_system/foundations/sk_tokens.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
@@ -87,11 +88,7 @@ class _RequestPageState extends State<RequestPage> {
 
         return Scaffold(
           appBar: GlassAppBar(
-            leading: GlassIconButton(
-              icon: Icons.arrow_back_ios_new_rounded,
-              tooltip: 'Назад',
-              onPressed: () => Navigator.of(context).pop(),
-            ),
+            leading: const NestedBackButton(),
             title: Text(
               hasSubmission
                   ? _selectedType.successTitle

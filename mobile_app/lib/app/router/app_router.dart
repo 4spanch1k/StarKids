@@ -39,7 +39,11 @@ abstract final class AppRouter {
         return _page(const ContactsMapPage(), settings);
       case AppRoutes.requests:
         return _page(
-          RequestPage(args: settings.arguments as RequestPageArgs?),
+          RequestPage(
+            args: settings.arguments is RequestPageArgs
+                ? settings.arguments as RequestPageArgs
+                : null,
+          ),
           settings,
         );
       case AppRoutes.notifications:
@@ -47,7 +51,9 @@ abstract final class AppRouter {
       case AppRoutes.newsDetails:
         return _page(
           NewsDetailsPage(
-            args: settings.arguments as NewsDetailsPageArgs?,
+            args: settings.arguments is NewsDetailsPageArgs
+                ? settings.arguments as NewsDetailsPageArgs
+                : null,
           ),
           settings,
         );
@@ -56,7 +62,7 @@ abstract final class AppRouter {
       case AppRoutes.myRequests:
         return _page(const RequestHistoryPage(), settings);
       default:
-        return _page(const OnboardingPage(), settings);
+        return _page(const HomePage(), settings);
     }
   }
 

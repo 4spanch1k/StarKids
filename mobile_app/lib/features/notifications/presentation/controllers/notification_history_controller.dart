@@ -26,6 +26,7 @@ class NotificationHistoryController extends ChangeNotifier {
   bool _hasMore = true;
   bool _isOffline = false;
   String? _errorMessage;
+  bool _isDisposed = false;
 
   List<AppNotification> get items => _items;
 
@@ -41,6 +42,17 @@ class NotificationHistoryController extends ChangeNotifier {
 
   static void clearCache() {
     _cache = null;
+  }
+
+  @override
+  void notifyListeners() {
+    if (!_isDisposed) super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
   }
 
   Future<void> bootstrap() async {

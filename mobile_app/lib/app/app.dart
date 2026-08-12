@@ -11,11 +11,23 @@ import '../core/design_system/widgets/sk_splash_view.dart';
 import '../features/auth/presentation/controllers/mobile_auth_controller.dart';
 import '../features/auth/presentation/pages/email_auth_gate_page.dart';
 
+final String _requestedLaunchRoute =
+    WidgetsBinding.instance.platformDispatcher.defaultRouteName;
+const String _configuredLaunchRoute = String.fromEnvironment(
+  'STARKIDS_INITIAL_ROUTE',
+  defaultValue: '',
+);
+
 class StarKidsApp extends StatelessWidget {
   const StarKidsApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Capture this before the temporary unauthenticated bootstrap shell can
+    // consume and reset Flutter's platform-provided launch route.
+    final requestedLaunchRoute = _configuredLaunchRoute.isNotEmpty
+        ? _configuredLaunchRoute
+        : _requestedLaunchRoute;
     return AnimatedBuilder(
       animation: Listenable.merge([
         ServiceRegistry.mobileAuthController,
@@ -63,11 +75,31 @@ class StarKidsApp extends StatelessWidget {
                   ? const _AuthGateLoadingPage()
                   : const EmailAuthGatePage()
               : null,
-          initialRoute: isAuthenticated ? AppRoutes.home : null,
+          initialRoute: isAuthenticated
+              ? _authenticatedInitialRoute(requestedLaunchRoute)
+              : AppRoutes.onboarding,
           onGenerateRoute: isAuthenticated ? AppRouter.onGenerateRoute : null,
         );
       },
     );
+  }
+
+  String _authenticatedInitialRoute(String requestedRoute) {
+    const authenticatedRoutes = {
+      AppRoutes.home,
+      AppRoutes.birthdays,
+      AppRoutes.promotions,
+      AppRoutes.profile,
+      AppRoutes.menu,
+      AppRoutes.contacts,
+      AppRoutes.branchDetails,
+      AppRoutes.requests,
+      AppRoutes.notifications,
+      AppRoutes.myRequests,
+    };
+    return authenticatedRoutes.contains(requestedRoute)
+        ? requestedRoute
+        : AppRoutes.home;
   }
 }
 
