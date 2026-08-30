@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_name: str = 'Star Kids API'
+    app_name: str = 'Boom Bala API'
     app_env: str = 'development'
     backend_host: str = '0.0.0.0'
     backend_port: int = 8000
@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     news_event_rate_limit_window_seconds: int = 60
     admin_seed_email: str | None = None
     admin_seed_password: str | None = None
-    admin_seed_full_name: str = 'Star Kids Admin'
+    admin_seed_full_name: str = 'Boom Bala Admin'
     admin_seed_role: str = 'super_admin'
     freedompay_merchant_id: str | None = None
     freedompay_secret_key: str | None = None

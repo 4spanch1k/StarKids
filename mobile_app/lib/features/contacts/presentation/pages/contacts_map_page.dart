@@ -127,7 +127,7 @@ class ContactsMapPage extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Star Kids · ${branchDetail.shortLabel}'
+                                'Boom Bala · ${branchDetail.shortLabel}'
                                     .toUpperCase(),
                                 style: const TextStyle(
                                   fontFamily: 'GeistMono',

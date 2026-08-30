@@ -285,7 +285,7 @@ class MobileAuthService:
             details=[
                 {
                     'field': 'email',
-                    'message': 'Войдите другим способом или обратитесь в Star Kids.',
+                    'message': 'Войдите другим способом или обратитесь в Boom Bala.',
                 }
             ],
         )

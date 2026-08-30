@@ -83,7 +83,7 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
                     'pg_merchant_id': 'test-merchant',
                     'pg_amount': '1000',
                     'pg_currency': 'KZT',
-                    'pg_description': 'Star Kids ticket',
+                    'pg_description': 'Boom Bala ticket',
                     'pg_salt': 'salt',
                 }
             )

@@ -47,7 +47,7 @@ class StarKidsApp extends StatelessWidget {
 
         return MaterialApp(
           key: ValueKey(isAuthenticated ? 'authenticated-app' : 'auth-gate'),
-          title: 'Star Kids',
+          title: 'Boom Bala',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),

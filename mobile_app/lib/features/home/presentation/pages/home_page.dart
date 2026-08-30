@@ -315,7 +315,7 @@ class _HomePageState extends State<HomePage> {
                                           ),
                                     ] else ...[
                                       const StarKidsSectionHeader(
-                                        title: 'Почему Star Kids',
+                                        title: 'Почему Boom Bala',
                                         description:
                                             'Пространство, которое дети любят, а родители ценят за удобство.',
                                       ),
@@ -529,7 +529,7 @@ class _AppDrawer extends StatelessWidget {
             SKSpacing.x4,
           ),
           child: Text(
-            'Star Kids',
+            'Boom Bala',
             style: SKTextStyles.h1.copyWith(color: c.textPrimary),
           ),
         ),

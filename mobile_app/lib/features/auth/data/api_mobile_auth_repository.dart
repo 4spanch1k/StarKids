@@ -78,7 +78,7 @@ class ApiMobileAuthRepository implements MobileAuthRepository {
 
       if (response.statusCode == 409) {
         return const Failure<MobileAuthSession>(
-          'Этот Google аккаунт уже связан с другим профилем Star Kids.',
+          'Этот Google аккаунт уже связан с другим профилем Boom Bala.',
         );
       }
 

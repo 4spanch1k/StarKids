@@ -1,11 +1,11 @@
 {
-    "name": "Star Kids",
-    "short_name": "Star Kids",
+    "name": "Boom Bala",
+    "short_name": "Boom Bala",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#FFF7F2",
     "theme_color": "#F46A4E",
-    "description": "Star Kids mobile experience for parents.",
+    "description": "Boom Bala mobile experience for parents.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
