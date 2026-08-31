@@ -5,6 +5,7 @@ abstract final class AppRoutes {
   static const home = '/home';
   static const birthdays = '/birthdays';
   static const promotions = '/promotions';
+  static const tickets = '/tickets';
   static const menu = '/menu';
   static const contacts = '/contacts';
   static const requests = '/requests';

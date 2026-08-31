@@ -82,7 +82,10 @@ class _HomePageState extends State<HomePage> {
     if (_isOpeningDestination) return;
     _isOpeningDestination = true;
     try {
-      await showTicketPurchaseFlowSheet(context);
+      final completed = await showTicketPurchaseFlowSheet(context);
+      if (completed && mounted) {
+        await Navigator.of(context).pushReplacementNamed(AppRoutes.tickets);
+      }
     } finally {
       _isOpeningDestination = false;
     }

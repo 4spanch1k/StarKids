@@ -18,13 +18,14 @@ import '../../../branches/domain/branch_option.dart';
 import '../../domain/branch_ticket_config.dart';
 import '../../domain/ticket_purchase.dart';
 
-Future<void> showTicketPurchaseFlowSheet(BuildContext context) {
-  return showStarKidsModalBottomSheet<void>(
+Future<bool> showTicketPurchaseFlowSheet(BuildContext context) async {
+  final result = await showStarKidsModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (context) => const _TicketPurchaseFlowSheet(),
   );
+  return result ?? false;
 }
 
 Future<void> showMyTicketsSheet(BuildContext context) async {
@@ -314,6 +315,9 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
           break;
       }
     });
+    if (paymentStatus.status == TicketPaymentStatusValue.paid && mounted) {
+      Navigator.of(context).pop(true);
+    }
   }
 
   Future<void> _loadTicketConfig() async {

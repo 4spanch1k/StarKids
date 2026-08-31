@@ -3,8 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/design_system/widgets/glass_bottom_nav.dart';
-import '../../features/tickets/presentation/sheets/ticket_purchase_flow_sheet.dart';
-import '../../features/tickets/presentation/sheets/tickets_entry_sheet.dart';
 import '../router/app_routes.dart';
 
 /// Persistent navigation shared by the five authenticated root destinations.
@@ -20,16 +18,16 @@ class StarKidsRootNavigation extends StatefulWidget {
 class _StarKidsRootNavigationState extends State<StarKidsRootNavigation> {
   static const items = <GlassNavItem>[
     GlassNavItem(id: 'home', icon: Icons.home_rounded, label: 'Главная'),
+    GlassNavItem(
+      id: 'tickets',
+      icon: Icons.confirmation_num_rounded,
+      label: 'Билеты',
+    ),
     GlassNavItem(id: 'birthdays', icon: Icons.cake_rounded, label: 'Праздники'),
     GlassNavItem(
       id: 'promotions',
       icon: Icons.local_offer_rounded,
       label: 'Акции',
-    ),
-    GlassNavItem(
-      id: 'tickets',
-      icon: Icons.confirmation_num_rounded,
-      label: 'Билеты',
     ),
     GlassNavItem(id: 'profile', icon: Icons.person_rounded, label: 'Профиль'),
   ];
@@ -50,13 +48,9 @@ class _StarKidsRootNavigationState extends State<StarKidsRootNavigation> {
     setState(() => _isNavigating = true);
     try {
       if (id == 'tickets') {
-        final action = await showTicketsEntrySheet(this.context);
-        if (!mounted || action == null) return;
-        if (action == TicketsEntryAction.myTickets) {
-          await showMyTicketsSheet(this.context);
-        } else {
-          await showTicketPurchaseFlowSheet(this.context);
-        }
+        await Navigator.of(
+          this.context,
+        ).pushReplacementNamed(AppRoutes.tickets);
         return;
       }
 

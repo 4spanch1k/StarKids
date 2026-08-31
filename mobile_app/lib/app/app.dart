@@ -89,6 +89,7 @@ class StarKidsApp extends StatelessWidget {
       AppRoutes.home,
       AppRoutes.birthdays,
       AppRoutes.promotions,
+      AppRoutes.tickets,
       AppRoutes.profile,
       AppRoutes.menu,
       AppRoutes.contacts,
