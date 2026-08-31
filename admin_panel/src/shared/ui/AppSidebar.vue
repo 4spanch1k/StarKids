@@ -70,6 +70,7 @@ const iconPaths: Record<string, string> = {
   customers: 'M12 12a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm-6 8a6 6 0 0 1 12 0',
   'push-campaigns': 'M6 17h12l-1-7 2-2H5l2 2-1 7Zm4 3h4',
   'audit-logs': 'M7 5h10v14H7zM9 9h6M9 13h6',
+  'ticket-scanner': 'M5 5h5M14 5h5M5 14v5M19 14v5M8 8h8v8H8z',
 };
 
 withDefaults(

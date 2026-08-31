@@ -20,6 +20,7 @@ import NewsPage from '@/pages/news/NewsPage.vue';
 import PromotionsPage from '@/pages/promotions/PromotionsPage.vue';
 import PushCampaignsPage from '@/pages/push-campaigns/PushCampaignsPage.vue';
 import TicketsPage from '@/pages/tickets/TicketsPage.vue';
+import TicketScannerPage from '@/pages/ticket-scanner/TicketScannerPage.vue';
 import { useSessionStore } from '@/features/auth/stores/useSessionStore';
 
 const routes: RouteRecordRaw[] = [
@@ -74,6 +75,14 @@ const routes: RouteRecordRaw[] = [
         idParam: adminCrudRouteNames.tickets.idParam,
         allowCreate: false,
       }).routes,
+      {
+        path: 'ticket-scanner',
+        name: 'ticket-scanner',
+        component: TicketScannerPage,
+        meta: {
+          allowedRoles: ['super_admin', 'operator'],
+        },
+      },
       ...buildAdminCrudRouteGroup({
         path: 'promotions',
         name: adminCrudRouteNames.promotions.list,
@@ -141,6 +150,13 @@ router.beforeEach(async (to) => {
         ? to.query.redirect
         : '/';
     return redirectPath;
+  }
+
+  const allowedRoles = to.matched
+    .map((record) => record.meta.allowedRoles)
+    .find((roles): roles is string[] => Array.isArray(roles));
+  if (allowedRoles && !allowedRoles.includes(sessionStore.operatorRole)) {
+    return { name: 'leads' };
   }
 
   return true;
