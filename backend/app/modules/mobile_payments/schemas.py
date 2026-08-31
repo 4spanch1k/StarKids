@@ -9,6 +9,7 @@ class FreedomPaymentTicketItemRequest(BaseModel):
 
 
 class FreedomPaymentInitRequest(BaseModel):
+    idempotencyKey: str = Field(min_length=16, max_length=128)
     ticketItems: list[FreedomPaymentTicketItemRequest] = Field(min_length=1, max_length=20)
     visitDate: date | None = None
 

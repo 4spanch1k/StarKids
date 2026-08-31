@@ -8,6 +8,7 @@ from secrets import token_hex
 from xml.etree import ElementTree
 
 from fastapi import status
+from sqlalchemy.exc import IntegrityError
 
 from ...core.config.settings import Settings
 from ...core.exceptions.http import DomainHTTPException, NotFoundException
@@ -101,24 +102,70 @@ class MobilePaymentService:
                 message='Payment amount must be greater than zero.',
             )
 
-        local_order_id = f'sk-{token_hex(12)}'
-        initial_audit_payload = {
-            'ticketItems': ticket_items,
-            'gateway': PAYMENT_GATEWAY_FREEDOMPAY,
-        }
-        payment = self._payment_repository.create_ticket_payment(
+        existing_payment = self._payment_repository.get_by_idempotency_key_for_user(
             mobile_user_id=user.id,
-            branch_id=branch.id,
-            payable_entity_type=PAYABLE_BRANCH_TICKET_ORDER,
-            payable_entity_id=branch.id,
-            local_order_id=local_order_id,
-            amount_tenge=amount_tenge,
-            currency=PAYMENT_CURRENCY_KZT,
-            quantity=quantity,
-            visit_date=payload.visitDate,
-            ticket_items=ticket_items,
-            init_payload=initial_audit_payload,
+            idempotency_key=payload.idempotencyKey,
         )
+        if existing_payment is not None:
+            if existing_payment.status != 'created' or existing_payment.payment_url:
+                return _payment_init_response(existing_payment)
+            payment = self._payment_repository.get_by_idempotency_key_for_user(
+                mobile_user_id=user.id,
+                idempotency_key=payload.idempotencyKey,
+                for_update=True,
+            )
+            if payment is None:
+                raise DomainHTTPException(
+                    code='payment_init_race',
+                    message='Payment initialization could not be locked safely.',
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
+            if payment.status != 'created' or payment.payment_url:
+                return _payment_init_response(payment)
+        else:
+            local_order_id = f'sk-{token_hex(12)}'
+            initial_audit_payload = {
+                'ticketItems': ticket_items,
+                'gateway': PAYMENT_GATEWAY_FREEDOMPAY,
+            }
+            try:
+                payment = self._payment_repository.create_ticket_payment(
+                    mobile_user_id=user.id,
+                    branch_id=branch.id,
+                    payable_entity_type=PAYABLE_BRANCH_TICKET_ORDER,
+                    payable_entity_id=branch.id,
+                    local_order_id=local_order_id,
+                    idempotency_key=payload.idempotencyKey,
+                    amount_tenge=amount_tenge,
+                    currency=PAYMENT_CURRENCY_KZT,
+                    quantity=quantity,
+                    visit_date=payload.visitDate,
+                    ticket_items=ticket_items,
+                    init_payload=initial_audit_payload,
+                )
+            except IntegrityError:
+                self._payment_repository.db.rollback()
+                payment = self._payment_repository.get_by_idempotency_key_for_user(
+                    mobile_user_id=user.id,
+                    idempotency_key=payload.idempotencyKey,
+                    for_update=True,
+                )
+                if payment is None:
+                    raise
+                if payment.status != 'created' or payment.payment_url:
+                    return _payment_init_response(payment)
+            else:
+                payment = self._payment_repository.get_by_idempotency_key_for_user(
+                    mobile_user_id=user.id,
+                    idempotency_key=payload.idempotencyKey,
+                    for_update=True,
+                )
+                if payment is None:
+                    raise DomainHTTPException(
+                        code='payment_init_race',
+                        message='Payment initialization could not be locked safely.',
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    )
 
         gateway_request = self._build_freedompay_init_request(
             payment=payment,
@@ -144,6 +191,7 @@ class MobilePaymentService:
         payment = self._payment_repository.mark_pending(
             payment,
             external_payment_id=gateway_result.external_payment_id,
+            payment_url=gateway_result.payment_url,
             init_payload={
                 'gatewayRequest': _sanitize_gateway_payload(gateway_request),
                 'gatewayResponse': _sanitize_gateway_payload(gateway_result.raw_payload),
@@ -151,13 +199,7 @@ class MobilePaymentService:
             },
         )
 
-        return FreedomPaymentInitResponse(
-            paymentId=payment.id,
-            localOrderId=payment.local_order_id,
-            externalPaymentId=payment.external_payment_id,
-            paymentUrl=gateway_result.payment_url,
-            status=payment.status,
-        )
+        return _payment_init_response(payment, payment_url=gateway_result.payment_url)
 
     def get_payment_status(
         self,
@@ -229,25 +271,45 @@ class MobilePaymentService:
 
         callback_payload = _sanitize_gateway_payload(payload)
         if not _callback_amount_matches(payment, payload):
-            self._payment_repository.mark_failed(
-                payment,
-                status=PAYMENT_STATUS_FAILED,
-                callback_payload=callback_payload,
-                failure_reason='Gateway callback amount or currency does not match local order.',
+            can_reject = payload.get('pg_can_reject') != '0'
+            audit_result = 'rejected' if can_reject else 'reconciliation_required'
+            if not can_reject:
+                logger.error(
+                    'Freedom Pay callback validation mismatch requires reconciliation: '
+                    'payment_id=%s local_order_id=%s provider_event_id=%s.',
+                    payment.id,
+                    payment.local_order_id,
+                    payload.get('pg_payment_id'),
+                )
+            self._payment_repository.record_rejected_callback(
+                payment_id=payment.id,
+                local_order_id=payment.local_order_id,
+                payload=callback_payload,
+                reason='Gateway callback amount or currency does not match local order.',
+                audit_result=audit_result,
             )
             return self._gateway_response(
-                status='rejected',
-                description='Payment amount mismatch',
+                status='rejected' if can_reject else 'ok',
+                description=(
+                    'Payment amount mismatch'
+                    if can_reject
+                    else 'Payment validation mismatch; reconciliation required'
+                ),
                 salt=_response_salt(payload, payment.status),
             )
 
         external_payment_id = payload.get('pg_payment_id')
-        if payload.get('pg_result') == '1':
-            self._payment_repository.mark_paid(
-                payment,
+        gateway_result = payload.get('pg_result')
+        if gateway_result == '1':
+            self._payment_repository.process_verified_callback(
+                payment_id=payment.id,
+                local_order_id=payment.local_order_id,
+                payload=callback_payload,
+                success=True,
                 external_payment_id=external_payment_id,
-                callback_payload=callback_payload,
                 paid_at=_parse_gateway_datetime(payload.get('pg_payment_date')),
+                failure_status=None,
+                failure_reason=None,
             )
             return self._gateway_response(
                 status='ok',
@@ -255,15 +317,31 @@ class MobilePaymentService:
                 salt=_response_salt(payload, PAYMENT_STATUS_PAID),
             )
 
+        if gateway_result == '2':
+            self._payment_repository.process_not_completed_callback(
+                payment_id=payment.id,
+                local_order_id=payment.local_order_id,
+                payload=callback_payload,
+            )
+            return self._gateway_response(
+                status='ok',
+                description='Payment is not completed yet',
+                salt=_response_salt(payload, payment.status),
+            )
+
         failure_reason = (
             payload.get('pg_error_description')
             or payload.get('pg_failure_description')
             or 'Payment was not completed.'
         )
-        self._payment_repository.mark_failed(
-            payment,
-            status=_failure_status_from_payload(payload),
-            callback_payload=callback_payload,
+        self._payment_repository.process_verified_callback(
+            payment_id=payment.id,
+            local_order_id=payment.local_order_id,
+            payload=callback_payload,
+            success=False,
+            external_payment_id=external_payment_id,
+            paid_at=None,
+            failure_status=_failure_status_from_payload(payload),
             failure_reason=failure_reason,
         )
         return self._gateway_response(
@@ -387,6 +465,20 @@ def _payment_status_response(payment: MobilePayment) -> MobilePaymentStatusRespo
         status=payment.status,
         failureReason=payment.failure_reason,
         paidAt=payment.paid_at,
+    )
+
+
+def _payment_init_response(
+    payment: MobilePayment,
+    *,
+    payment_url: str | None = None,
+) -> FreedomPaymentInitResponse:
+    return FreedomPaymentInitResponse(
+        paymentId=payment.id,
+        localOrderId=payment.local_order_id,
+        externalPaymentId=payment.external_payment_id,
+        paymentUrl=payment_url or payment.payment_url or '',
+        status=payment.status,
     )
 
 
