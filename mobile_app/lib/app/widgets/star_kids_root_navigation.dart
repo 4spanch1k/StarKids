@@ -18,16 +18,16 @@ class StarKidsRootNavigation extends StatefulWidget {
 class _StarKidsRootNavigationState extends State<StarKidsRootNavigation> {
   static const items = <GlassNavItem>[
     GlassNavItem(id: 'home', icon: Icons.home_rounded, label: 'Главная'),
+    GlassNavItem(
+      id: 'tickets',
+      icon: Icons.confirmation_num_rounded,
+      label: 'Билеты',
+    ),
     GlassNavItem(id: 'birthdays', icon: Icons.cake_rounded, label: 'Праздники'),
     GlassNavItem(
       id: 'promotions',
       icon: Icons.local_offer_rounded,
       label: 'Акции',
-    ),
-    GlassNavItem(
-      id: 'tickets',
-      icon: Icons.confirmation_num_rounded,
-      label: 'Билеты',
     ),
     GlassNavItem(id: 'profile', icon: Icons.person_rounded, label: 'Профиль'),
   ];
