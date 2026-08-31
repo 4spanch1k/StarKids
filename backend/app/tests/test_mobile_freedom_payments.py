@@ -16,10 +16,12 @@ from app.core.database.session import get_db_session
 from app.db.models import Base
 from app.db.models.branch import Branch
 from app.db.models.branch_ticket_item import BranchTicketItem
+from app.db.models.issued_ticket import IssuedTicket
 from app.db.models.mobile_payment import MobilePayment
 from app.db.models.mobile_payment_callback import MobilePaymentCallback
 from app.db.models.mobile_session import MobileSession
 from app.db.models.mobile_user import MobileUser
+from app.db.repositories.issued_ticket_repository import IssuedTicketRepository
 from app.db.repositories.mobile_payment_repository import MobilePaymentRepository
 from app.main import app
 from app.modules.mobile_payments.dependencies import get_freedompay_client
@@ -27,6 +29,7 @@ from app.modules.mobile_payments.freedompay_client import (
     FreedomPayClient,
     FreedomPayInitResult,
 )
+from app.modules.mobile_payments.issued_ticket_service import IssuedTicketService
 from app.modules.mobile_payments.signing import build_freedompay_signature
 
 
@@ -183,6 +186,7 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
 
     def setUp(self) -> None:
         with self.SessionLocal() as session:
+            session.query(IssuedTicket).delete()
             session.query(MobilePaymentCallback).delete()
             session.query(MobilePayment).delete()
             session.query(BranchTicketItem).delete()
@@ -217,6 +221,18 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
                     price_tenge=2700,
                     badge_labels=[],
                     display_order=1,
+                    is_active=True,
+                )
+            )
+            session.add(
+                BranchTicketItem(
+                    id='ticket-adult',
+                    branch_id='branch-main',
+                    title='Взрослый билет',
+                    description='Вход для взрослого',
+                    price_tenge=1500,
+                    badge_labels=[],
+                    display_order=2,
                     is_active=True,
                 )
             )
@@ -298,6 +314,212 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
             headers=auth_headers,
         )
         self.assertEqual(second_tickets_response.json()['total'], 1)
+
+        issued_tickets_response = self.client.get('/api/v1/mobile/tickets', headers=auth_headers)
+        self.assertEqual(issued_tickets_response.status_code, 200)
+        self.assertEqual(issued_tickets_response.json()['total'], 2)
+
+    def test_paid_quantity_three_creates_individual_ticket_snapshots(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        payment = self._init_payment(headers, 'checkout-quantity-three', quantity=3)
+        self._post_success_callback(payment, amount='8100')
+
+        response = self.client.get('/api/v1/mobile/tickets', headers=headers)
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body['total'], 3)
+        self.assertEqual(len({item['ticketNumber'] for item in body['items']}), 3)
+        self.assertEqual(len({item['ticketId'] for item in body['items']}), 3)
+        self.assertTrue(all(item['ticketNumber'].startswith('BB-') for item in body['items']))
+        self.assertEqual({item['title'] for item in body['items']}, {'Детский билет'})
+        self.assertEqual({item['priceTenge'] for item in body['items']}, {2700})
+        self.assertEqual({item['ticketItemId'] for item in body['items']}, {'ticket-kids'})
+        self.assertEqual({item['status'] for item in body['items']}, {'issued'})
+
+    def test_mixed_ticket_items_expand_with_line_indexes_and_snapshots(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        payment = self._init_payment(
+            headers,
+            'checkout-mixed-items',
+            items=[
+                {'ticketItemId': 'ticket-kids', 'quantity': 2},
+                {'ticketItemId': 'ticket-adult', 'quantity': 1},
+            ],
+        )
+        self._post_success_callback(payment, amount='6900')
+
+        with self.SessionLocal() as session:
+            tickets = session.scalars(
+                select(IssuedTicket)
+                .where(IssuedTicket.mobile_payment_id == payment['paymentId'])
+                .order_by(IssuedTicket.line_index)
+            ).all()
+            self.assertEqual(len(tickets), 3)
+            self.assertEqual([ticket.line_index for ticket in tickets], [0, 1, 2])
+            self.assertEqual([ticket.ticket_item_id for ticket in tickets], [
+                'ticket-kids',
+                'ticket-kids',
+                'ticket-adult',
+            ])
+            self.assertEqual([ticket.title_snapshot for ticket in tickets], [
+                'Детский билет',
+                'Детский билет',
+                'Взрослый билет',
+            ])
+            self.assertEqual([ticket.price_tenge for ticket in tickets], [2700, 2700, 1500])
+
+    def test_callback_replay_does_not_create_more_issued_tickets(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        payment = self._init_payment(headers, 'checkout-ticket-replay', quantity=2)
+        success = self._signed_callback_payload(
+            order_id=payment['localOrderId'],
+            payment_id=payment['externalPaymentId'],
+            amount='5400',
+            result='1',
+        )
+        self.client.post('/api/v1/public/payments/freedom/result', data=success)
+        replay = dict(success)
+        replay['pg_payment_date'] = '2026-04-13 11:00:00'
+        replay['pg_sig'] = build_freedompay_signature(
+            script_name='result', params=replay, secret_key='test-secret'
+        )
+        self.client.post('/api/v1/public/payments/freedom/result', data=replay)
+
+        with self.SessionLocal() as session:
+            self.assertEqual(
+                session.scalar(
+                    select(IssuedTicket.id).where(
+                        IssuedTicket.mobile_payment_id == payment['paymentId']
+                    )
+                ),
+                session.scalar(
+                    select(IssuedTicket.id).where(
+                        IssuedTicket.mobile_payment_id == payment['paymentId']
+                    )
+                ),
+            )
+            self.assertEqual(
+                len(
+                    session.scalars(
+                        select(IssuedTicket).where(
+                            IssuedTicket.mobile_payment_id == payment['paymentId']
+                        )
+                    ).all()
+                ),
+                2,
+            )
+
+    def test_direct_repeated_issuance_is_idempotent(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        payment = self._init_payment(
+            {'Authorization': f"Bearer {auth['access_token']}"},
+            'checkout-direct-issuance',
+            quantity=3,
+        )
+        self._post_success_callback(payment, amount='8100')
+        with self.SessionLocal() as session:
+            stored_payment = session.get(MobilePayment, payment['paymentId'])
+            repository = IssuedTicketRepository(session)
+            service = IssuedTicketService(repository)
+            self.assertEqual(len(service.issue_tickets_for_paid_payment(stored_payment)), 3)
+            self.assertEqual(len(service.issue_tickets_for_paid_payment(stored_payment)), 3)
+            session.commit()
+            self.assertEqual(
+                len(repository.list_for_payment(payment['paymentId'])),
+                3,
+            )
+
+    def test_database_unique_constraint_rejects_duplicate_payment_line(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        payment = self._init_payment(
+            {'Authorization': f"Bearer {auth['access_token']}"},
+            'checkout-ticket-line-unique',
+        )
+        self._post_success_callback(payment, amount='2700')
+        with self.SessionLocal() as session:
+            duplicate = IssuedTicket(
+                mobile_payment_id=payment['paymentId'],
+                ticket_number='BB-DUPLICATE-LINE',
+                ticket_item_id='ticket-kids',
+                title_snapshot='Детский билет',
+                price_tenge=2700,
+                branch_id='branch-main',
+                line_index=0,
+                status='issued',
+            )
+            session.add(duplicate)
+            with self.assertRaises(IntegrityError):
+                session.commit()
+            session.rollback()
+
+    def test_unpaid_states_have_no_issued_tickets(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        pending = self._init_payment(headers, 'checkout-pending-no-ticket')
+        failed = self._init_payment(headers, 'checkout-failed-no-ticket')
+        self._post_failure_callback(failed, amount='2700')
+        canceled = self._init_payment(headers, 'checkout-canceled-no-ticket')
+        self._post_failure_callback(canceled, amount='2700', description='Payment canceled')
+        not_completed = self._init_payment(headers, 'checkout-not-completed-no-ticket')
+        self._post_callback(not_completed, amount='2700', result='2')
+
+        response = self.client.get('/api/v1/mobile/tickets', headers=headers)
+        self.assertEqual(response.json()['total'], 0)
+
+    def test_reconciliation_required_payment_has_no_issued_ticket(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        payment = self._init_payment(headers, 'checkout-reconciliation-ticket')
+        self._post_callback(payment, amount='1', result='1', can_reject='0')
+        response = self.client.get('/api/v1/mobile/tickets', headers=headers)
+        self.assertEqual(response.json()['total'], 0)
+
+    def test_result_two_then_one_issues_tickets_only_after_success(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        payment = self._init_payment(headers, 'checkout-result-two-then-one', quantity=2)
+        self._post_callback(payment, amount='5400', result='2')
+        self.assertEqual(self.client.get('/api/v1/mobile/tickets', headers=headers).json()['total'], 0)
+        self._post_success_callback(payment, amount='5400')
+        self.assertEqual(self.client.get('/api/v1/mobile/tickets', headers=headers).json()['total'], 2)
+
+    def test_ticket_detail_and_list_enforce_parent_ownership(self) -> None:
+        first_auth = self._authenticate_mobile_user('+77071234567')
+        first_headers = {'Authorization': f"Bearer {first_auth['access_token']}"}
+        payment = self._init_payment(first_headers, 'checkout-ticket-owner')
+        self._post_success_callback(payment, amount='2700')
+        ticket = self.client.get('/api/v1/mobile/tickets', headers=first_headers).json()['items'][0]
+
+        second_auth = self._authenticate_mobile_user('+77071234568')
+        second_headers = {'Authorization': f"Bearer {second_auth['access_token']}"}
+        self.assertEqual(self.client.get('/api/v1/mobile/tickets', headers=second_headers).json()['total'], 0)
+        self.assertEqual(
+            self.client.get(
+                f"/api/v1/mobile/tickets/{ticket['ticketId']}",
+                headers=second_headers,
+            ).status_code,
+            404,
+        )
+
+    def test_issuance_failure_rolls_back_payment_and_all_tickets(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        payment = self._init_payment(headers, 'checkout-issuance-rollback', quantity=2)
+        with patch.object(
+            IssuedTicketService,
+            '_new_ticket_number',
+            side_effect=['BB-PARTIAL', ValueError('ticket issuance failed')],
+        ):
+            with self.assertRaises(ValueError):
+                self._post_callback(payment, amount='5400', result='1')
+        payment_status = self.client.get(
+            f"/api/v1/mobile/payments/{payment['paymentId']}", headers=headers
+        )
+        self.assertEqual(payment_status.json()['status'], 'pending')
+        self.assertEqual(self.client.get('/api/v1/mobile/tickets', headers=headers).json()['total'], 0)
 
     def test_freedompay_callback_rejects_invalid_signature(self) -> None:
         auth = self._authenticate_mobile_user('+77071234567')
@@ -568,17 +790,69 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
         self,
         headers: dict[str, str],
         idempotency_key: str,
+        *,
+        quantity: int = 1,
+        items: list[dict[str, object]] | None = None,
     ) -> dict[str, object]:
+        selected_items = items or [{'ticketItemId': 'ticket-kids', 'quantity': quantity}]
         response = self.client.post(
             '/api/v1/mobile/payments/freedom/init',
             headers=headers,
             json={
                 'idempotencyKey': idempotency_key,
-                'ticketItems': [{'ticketItemId': 'ticket-kids', 'quantity': 1}],
+                'ticketItems': selected_items,
             },
         )
         self.assertEqual(response.status_code, 200)
         return response.json()
+
+    def _post_callback(
+        self,
+        payment: dict[str, object],
+        *,
+        amount: str,
+        result: str,
+        can_reject: str = '1',
+        description: str | None = None,
+        expected_status: int = 200,
+    ):
+        payload = self._signed_callback_payload(
+            order_id=payment['localOrderId'],
+            payment_id=payment['externalPaymentId'],
+            amount=amount,
+            result=result,
+            can_reject=can_reject,
+        )
+        if description is not None:
+            payload['pg_failure_description'] = description
+            payload['pg_sig'] = build_freedompay_signature(
+                script_name='result',
+                params=payload,
+                secret_key='test-secret',
+            )
+        response = self.client.post(
+            '/api/v1/public/payments/freedom/result',
+            data=payload,
+        )
+        self.assertEqual(response.status_code, expected_status)
+        return response
+
+    def _post_success_callback(self, payment: dict[str, object], *, amount: str):
+        return self._post_callback(payment, amount=amount, result='1')
+
+    def _post_failure_callback(
+        self,
+        payment: dict[str, object],
+        *,
+        amount: str,
+        description: str | None = None,
+    ):
+        return self._post_callback(
+            payment,
+            amount=amount,
+            result='0',
+            description=description,
+        )
 
     def _authenticate_mobile_user(self, phone: str) -> dict[str, object]:
         response = self.client.post(

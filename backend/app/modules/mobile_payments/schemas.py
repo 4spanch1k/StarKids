@@ -65,6 +65,28 @@ class PurchasedTicketsResponse(BaseModel):
     total: int
 
 
+class IssuedTicketResponse(BaseModel):
+    ticketId: str
+    ticketNumber: str
+    ticketItemId: str
+    title: str
+    branchId: str
+    branchName: str
+    visitDate: date | None = None
+    priceTenge: int
+    status: str
+    issuedAt: datetime
+
+    @field_serializer('issuedAt')
+    def serialize_issued_at(self, value: datetime) -> str:
+        return _serialize_datetime(value) or ''
+
+
+class IssuedTicketsResponse(BaseModel):
+    items: list[IssuedTicketResponse] = Field(default_factory=list)
+    total: int
+
+
 def _serialize_datetime(value: datetime | None) -> str | None:
     if value is None:
         return None

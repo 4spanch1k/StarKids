@@ -13,11 +13,13 @@ from sqlalchemy.exc import IntegrityError
 from ...core.config.settings import Settings
 from ...core.exceptions.http import DomainHTTPException, NotFoundException
 from ...db.models.branch import Branch
+from ...db.models.issued_ticket import IssuedTicket
 from ...db.models.mobile_payment import MobilePayment
 from ...db.models.mobile_user import MobileUser
 from ...db.repositories.branch_repository import BranchRepository
 from ...db.repositories.branch_ticket_repository import BranchTicketRepository
 from ...db.repositories.mobile_payment_repository import MobilePaymentRepository
+from .issued_ticket_service import IssuedTicketService
 from .constants import (
     PAYABLE_BRANCH_TICKET_ORDER,
     PAYMENT_CURRENCY_KZT,
@@ -37,6 +39,8 @@ from .schemas import (
     PurchasedTicketLineItemResponse,
     PurchasedTicketResponse,
     PurchasedTicketsResponse,
+    IssuedTicketResponse,
+    IssuedTicketsResponse,
 )
 from .signing import (
     build_freedompay_signature,
@@ -61,12 +65,14 @@ class MobilePaymentService:
         branch_repository: BranchRepository,
         ticket_repository: BranchTicketRepository,
         freedompay_client: FreedomPayClientProtocol,
+        issued_ticket_service: IssuedTicketService,
     ) -> None:
         self._settings = settings
         self._payment_repository = payment_repository
         self._branch_repository = branch_repository
         self._ticket_repository = ticket_repository
         self._freedompay_client = freedompay_client
+        self._issued_ticket_service = issued_ticket_service
 
     def init_freedom_ticket_payment(
         self,
@@ -226,6 +232,32 @@ class MobilePaymentService:
         ]
         return PurchasedTicketsResponse(items=items, total=len(items))
 
+    def list_issued_tickets(self, mobile_user_id: str) -> IssuedTicketsResponse:
+        records = self._issued_ticket_service.list_for_user(mobile_user_id)
+        items = [
+            _issued_ticket_response(ticket=ticket, branch=branch)
+            for ticket, branch in records
+        ]
+        return IssuedTicketsResponse(items=items, total=len(items))
+
+    def get_issued_ticket(
+        self,
+        *,
+        ticket_id: str,
+        mobile_user_id: str,
+    ) -> IssuedTicketResponse:
+        record = self._issued_ticket_service.get_for_user(
+            ticket_id=ticket_id,
+            mobile_user_id=mobile_user_id,
+        )
+        if record is None:
+            raise NotFoundException(
+                code='ticket_not_found',
+                message='Ticket was not found.',
+            )
+        ticket, branch = record
+        return _issued_ticket_response(ticket=ticket, branch=branch)
+
     def handle_freedompay_result(self, payload: dict[str, str]) -> FreedomPayCallbackResult:
         script_name = signature_script_from_url(
             self._settings.freedompay_result_url,
@@ -301,15 +333,11 @@ class MobilePaymentService:
         external_payment_id = payload.get('pg_payment_id')
         gateway_result = payload.get('pg_result')
         if gateway_result == '1':
-            self._payment_repository.process_verified_callback(
-                payment_id=payment.id,
-                local_order_id=payment.local_order_id,
+            self._process_successful_callback_atomically(
+                payment=payment,
                 payload=callback_payload,
-                success=True,
                 external_payment_id=external_payment_id,
                 paid_at=_parse_gateway_datetime(payload.get('pg_payment_date')),
-                failure_status=None,
-                failure_reason=None,
             )
             return self._gateway_response(
                 status='ok',
@@ -349,6 +377,33 @@ class MobilePaymentService:
             description='Payment cancelled',
             salt=_response_salt(payload, PAYMENT_STATUS_FAILED),
         )
+
+    def _process_successful_callback_atomically(
+        self,
+        *,
+        payment: MobilePayment,
+        payload: dict[str, object],
+        external_payment_id: str | None,
+        paid_at: datetime | None,
+    ) -> None:
+        try:
+            processed_payment = self._payment_repository.process_verified_callback(
+                payment_id=payment.id,
+                local_order_id=payment.local_order_id,
+                payload=payload,
+                success=True,
+                external_payment_id=external_payment_id,
+                paid_at=paid_at,
+                failure_status=None,
+                failure_reason=None,
+                commit=False,
+            )
+            if processed_payment is not None and processed_payment.status == PAYMENT_STATUS_PAID:
+                self._issued_ticket_service.issue_tickets_for_paid_payment(processed_payment)
+            self._payment_repository.db.commit()
+        except Exception:
+            self._payment_repository.db.rollback()
+            raise
 
     def _resolve_ticket_items(
         self,
@@ -505,6 +560,25 @@ def _purchased_ticket_response(
             )
             for item in payment.ticket_items
         ],
+    )
+
+
+def _issued_ticket_response(
+    *,
+    ticket: IssuedTicket,
+    branch: Branch | None,
+) -> IssuedTicketResponse:
+    return IssuedTicketResponse(
+        ticketId=ticket.id,
+        ticketNumber=ticket.ticket_number,
+        ticketItemId=ticket.ticket_item_id,
+        title=ticket.title_snapshot,
+        branchId=ticket.branch_id,
+        branchName=branch.name if branch is not None else 'Boom Bala',
+        visitDate=ticket.visit_date,
+        priceTenge=ticket.price_tenge,
+        status=ticket.status,
+        issuedAt=ticket.issued_at,
     )
 
 

@@ -5,8 +5,10 @@ from ...core.config.settings import Settings, get_settings
 from ...core.database.session import get_db_session
 from ...db.repositories.branch_repository import BranchRepository
 from ...db.repositories.branch_ticket_repository import BranchTicketRepository
+from ...db.repositories.issued_ticket_repository import IssuedTicketRepository
 from ...db.repositories.mobile_payment_repository import MobilePaymentRepository
 from .freedompay_client import FreedomPayClient, FreedomPayClientProtocol
+from .issued_ticket_service import IssuedTicketService
 from .service import MobilePaymentService
 
 
@@ -25,4 +27,5 @@ def get_mobile_payment_service(
         branch_repository=BranchRepository(session),
         ticket_repository=BranchTicketRepository(session),
         freedompay_client=freedompay_client,
+        issued_ticket_service=IssuedTicketService(IssuedTicketRepository(session)),
     )
