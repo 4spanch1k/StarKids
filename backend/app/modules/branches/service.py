@@ -1,4 +1,5 @@
 from ...core.exceptions.http import NotFoundException
+from ...core.config.settings import Settings, get_settings
 from ...db.repositories.branch_menu_repository import BranchMenuRepository
 from ...db.repositories.branch_pricing_repository import BranchPricingRepository
 from ...db.repositories.branch_repository import BranchRepository
@@ -27,11 +28,13 @@ class BranchService:
         pricing_repository: BranchPricingRepository | None = None,
         menu_repository: BranchMenuRepository | None = None,
         ticket_repository: BranchTicketRepository | None = None,
+        settings: Settings | None = None,
     ) -> None:
         self.repository = repository or BranchRepository()
         self.pricing_repository = pricing_repository or BranchPricingRepository()
         self.menu_repository = menu_repository or BranchMenuRepository()
         self.ticket_repository = ticket_repository or BranchTicketRepository()
+        self.settings = settings or get_settings()
 
     def list_branches(self) -> list[BranchSummary]:
         return [
@@ -164,6 +167,8 @@ class BranchService:
         return branch
 
     def _ensure_branch_menu_seeded(self, branch_id: str) -> None:
+        if not self.settings.development_seed_enabled:
+            return
         if self.menu_repository.has_menu(branch_id):
             return
         self.menu_repository.replace_branch_menu(
@@ -173,6 +178,8 @@ class BranchService:
         )
 
     def _ensure_branch_tickets_seeded(self, branch_id: str) -> None:
+        if not self.settings.development_seed_enabled:
+            return
         if self.ticket_repository.has_ticket_config(branch_id):
             return
         self.ticket_repository.replace_branch_ticket_config(

@@ -73,6 +73,12 @@ class MobilePaymentService:
         user: MobileUser,
         payload: FreedomPaymentInitRequest,
     ) -> FreedomPaymentInitResponse:
+        if self._settings.is_production and self._settings.freedompay_mock_mode:
+            raise DomainHTTPException(
+                code='freedompay_mock_disabled',
+                message='Freedom Pay mock mode is disabled in production.',
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
         if not self._settings.is_freedompay_configured and not self._settings.freedompay_mock_mode:
             raise DomainHTTPException(
                 code='freedompay_not_configured',

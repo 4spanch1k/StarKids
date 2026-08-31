@@ -9,6 +9,10 @@ from fastapi import status
 from sqlalchemy.exc import IntegrityError
 
 from ...core.config.settings import Settings, get_settings
+from ...core.config.validation import (
+    ProductionConfigurationError,
+    validate_runtime_configuration,
+)
 from ...core.exceptions.http import DomainHTTPException
 from ...core.security.passwords import (
     PasswordPolicyError,
@@ -70,6 +74,7 @@ class MobileAuthService:
 
     def request_otp(self, payload: OTPRequest) -> OTPRequestResponse:
         self._normalize_phone(payload.phone)
+        self._ensure_otp_available()
         return OTPRequestResponse(
             verification_id=f'otp_{uuid4().hex}',
             expires_in_seconds=300,
@@ -77,6 +82,7 @@ class MobileAuthService:
 
     def verify_otp(self, payload: OTPVerifyRequest) -> MobileAuthResponse:
         self._ensure_runtime_configuration()
+        self._ensure_otp_available()
         phone = self._normalize_phone(payload.phone)
         self._ensure_valid_placeholder_challenge(payload.verification_id)
 
@@ -321,13 +327,20 @@ class MobileAuthService:
         )
 
     def _ensure_runtime_configuration(self) -> None:
-        if (
-            self.settings.requires_explicit_jwt_secret
-            and self.settings.jwt_secret_key == 'replace-me'
-        ):
+        try:
+            validate_runtime_configuration(self.settings)
+        except ProductionConfigurationError as exc:
             raise DomainHTTPException(
                 code='auth_configuration_error',
-                message='JWT secret key is not configured.',
+                message='Authentication configuration is not safe for this environment.',
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            ) from exc
+
+    def _ensure_otp_available(self) -> None:
+        if self.settings.is_production:
+            raise DomainHTTPException(
+                code='otp_not_configured',
+                message='OTP authentication is not configured for production.',
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
