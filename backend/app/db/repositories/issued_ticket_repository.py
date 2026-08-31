@@ -42,6 +42,10 @@ class IssuedTicketRepository(Repository):
         )
         return self.db.execute(statement).one_or_none()
 
+    def get_by_id_for_update(self, ticket_id: str) -> IssuedTicket | None:
+        statement = select(IssuedTicket).where(IssuedTicket.id == ticket_id).with_for_update()
+        return self.db.scalar(statement)
+
     def add(self, ticket: IssuedTicket) -> IssuedTicket:
         self.db.add(ticket)
         return ticket

@@ -21,6 +21,7 @@ from .mobile_notification import MobileNotification
 from .mobile_payment import MobilePayment
 from .mobile_payment_callback import MobilePaymentCallback
 from .issued_ticket import IssuedTicket
+from .ticket_redemption import TicketRedemption
 from .mobile_user import MobileUser
 from .news import News
 from .news_event import NewsEvent
@@ -54,6 +55,7 @@ __all__ = [
     'MobilePayment',
     'MobilePaymentCallback',
     'IssuedTicket',
+    'TicketRedemption',
     'News',
     'NewsEvent',
 ]
