@@ -41,12 +41,14 @@ from .schemas import (
     PurchasedTicketsResponse,
     IssuedTicketResponse,
     IssuedTicketsResponse,
+    IssuedTicketQrResponse,
 )
 from .signing import (
     build_freedompay_signature,
     signature_script_from_url,
     verify_freedompay_signature,
 )
+from .ticket_qr_service import TicketQrService
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +68,7 @@ class MobilePaymentService:
         ticket_repository: BranchTicketRepository,
         freedompay_client: FreedomPayClientProtocol,
         issued_ticket_service: IssuedTicketService,
+        ticket_qr_service: TicketQrService,
     ) -> None:
         self._settings = settings
         self._payment_repository = payment_repository
@@ -73,6 +76,7 @@ class MobilePaymentService:
         self._ticket_repository = ticket_repository
         self._freedompay_client = freedompay_client
         self._issued_ticket_service = issued_ticket_service
+        self._ticket_qr_service = ticket_qr_service
 
     def init_freedom_ticket_payment(
         self,
@@ -257,6 +261,37 @@ class MobilePaymentService:
             )
         ticket, branch = record
         return _issued_ticket_response(ticket=ticket, branch=branch)
+
+    def get_issued_ticket_qr(
+        self,
+        *,
+        ticket_id: str,
+        mobile_user_id: str,
+    ) -> IssuedTicketQrResponse:
+        record = self._issued_ticket_service.get_for_user(
+            ticket_id=ticket_id,
+            mobile_user_id=mobile_user_id,
+        )
+        if record is None:
+            raise NotFoundException(
+                code='ticket_not_found',
+                message='Ticket was not found.',
+            )
+        ticket, _ = record
+        if ticket.status != 'issued':
+            raise NotFoundException(
+                code='ticket_qr_unavailable',
+                message='QR is not available for this ticket.',
+            )
+        if not self._ticket_qr_service.is_configured:
+            raise NotFoundException(
+                code='ticket_qr_unavailable',
+                message='QR is not configured for this environment.',
+            )
+        return IssuedTicketQrResponse(
+            ticketId=ticket.id,
+            qrPayload=self._ticket_qr_service.build_payload(ticket.id),
+        )
 
     def handle_freedompay_result(self, payload: dict[str, str]) -> FreedomPayCallbackResult:
         script_name = signature_script_from_url(

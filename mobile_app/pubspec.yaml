@@ -29,6 +29,7 @@ dependencies:
   flutter_svg: ^2.0.10+1
   shimmer: ^3.0.0
   flutter_animate: ^4.5.0
+  qr_flutter: ^4.1.0
   clerk_auth: ^0.0.15-beta
   clerk_flutter:
     git:

@@ -64,6 +64,30 @@ class ApiIssuedTicketRepository implements IssuedTicketRepository {
     return IssuedTicketDto.fromJson(response.jsonBody!).toDomain();
   }
 
+  @override
+  Future<String> getIssuedTicketQrPayload(String ticketId) async {
+    final session = await _sessionStorage.readSession();
+    if (session == null) {
+      throw const IssuedTicketApiException(
+        'Войдите в аккаунт, чтобы открыть QR-код билета.',
+      );
+    }
+    final response = await _guard(
+      () => _apiClient.getJson(
+        '/tickets/$ticketId/qr',
+        headers: buildMobileAuthAuthorizationHeader(session),
+      ),
+    );
+    if (!response.isSuccess || response.jsonBody == null) {
+      throw IssuedTicketApiException(_errorMessage(response));
+    }
+    final payload = response.jsonBody!['qrPayload'];
+    if (payload is! String || payload.isEmpty) {
+      throw const IssuedTicketApiException('QR-код билета недоступен.');
+    }
+    return payload;
+  }
+
   Future<ApiClientResponse> _guard(
     Future<ApiClientResponse> Function() request,
   ) async {

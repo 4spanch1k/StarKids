@@ -87,6 +87,12 @@ class IssuedTicketsResponse(BaseModel):
     total: int
 
 
+class IssuedTicketQrResponse(BaseModel):
+    ticketId: str
+    qrPayload: str
+    version: str = 'v1'
+
+
 def _serialize_datetime(value: datetime | None) -> str | None:
     if value is None:
         return None

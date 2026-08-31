@@ -253,4 +253,8 @@ class _FakeIssuedTicketRepository implements IssuedTicketRepository {
   Future<IssuedTicket> getIssuedTicket(String ticketId) async {
     throw StateError('No ticket details in purchase flow test.');
   }
+
+  @override
+  Future<String> getIssuedTicketQrPayload(String ticketId) async =>
+      'bb_ticket:v1:$ticketId:test';
 }

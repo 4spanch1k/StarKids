@@ -11,6 +11,7 @@ from .schemas import (
     FreedomPaymentInitResponse,
     IssuedTicketResponse,
     IssuedTicketsResponse,
+    IssuedTicketQrResponse,
     MobilePaymentStatusResponse,
     PurchasedTicketsResponse,
 )
@@ -96,6 +97,22 @@ def get_issued_ticket(
     service: MobilePaymentService = Depends(get_mobile_payment_service),
 ) -> IssuedTicketResponse:
     return service.get_issued_ticket(
+        ticket_id=ticket_id,
+        mobile_user_id=auth_context.user.id,
+    )
+
+
+@mobile_router.get(
+    '/tickets/{ticket_id}/qr',
+    response_model=IssuedTicketQrResponse,
+    responses={401: {'model': ErrorResponse}, 404: {'model': ErrorResponse}},
+)
+def get_issued_ticket_qr(
+    ticket_id: str,
+    auth_context: AuthenticatedMobileContext = Depends(get_current_mobile_auth_context),
+    service: MobilePaymentService = Depends(get_mobile_payment_service),
+) -> IssuedTicketQrResponse:
+    return service.get_issued_ticket_qr(
         ticket_id=ticket_id,
         mobile_user_id=auth_context.user.id,
     )

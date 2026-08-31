@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
@@ -33,6 +36,9 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
   IssuedTicket? _ticket;
   bool _isLoading = true;
   String? _errorMessage;
+  String? _qrPayload;
+  String? _qrErrorMessage;
+  bool _isQrLoading = false;
 
   @override
   void initState() {
@@ -53,6 +59,7 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
         _ticket = ticket;
         _isLoading = false;
       });
+      if (ticket.isIssued) unawaited(_loadQrPayload());
     } on IssuedTicketApiException catch (error) {
       if (!mounted) return;
       setState(() {
@@ -64,6 +71,35 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
       setState(() {
         _isLoading = false;
         _errorMessage = 'Не удалось загрузить билет. Попробуйте еще раз.';
+      });
+    }
+  }
+
+  Future<void> _loadQrPayload() async {
+    if (_isQrLoading || _ticket?.isIssued != true) return;
+    setState(() {
+      _isQrLoading = true;
+      _qrErrorMessage = null;
+    });
+    try {
+      final payload =
+          await _repository.getIssuedTicketQrPayload(widget.ticketId);
+      if (!mounted) return;
+      setState(() {
+        _qrPayload = payload;
+        _isQrLoading = false;
+      });
+    } on IssuedTicketApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isQrLoading = false;
+        _qrErrorMessage = error.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isQrLoading = false;
+        _qrErrorMessage = 'Не удалось загрузить QR-код. Попробуйте еще раз.';
       });
     }
   }
@@ -144,6 +180,62 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
           ),
         ),
         const SizedBox(height: SKSpacing.x4),
+        _QrSection(
+          payload: _qrPayload,
+          isLoading: _isQrLoading,
+          errorMessage: _qrErrorMessage,
+          onRetry: _loadQrPayload,
+        ),
+      ],
+    );
+  }
+}
+
+class _QrSection extends StatelessWidget {
+  const _QrSection({
+    required this.payload,
+    required this.isLoading,
+    required this.errorMessage,
+    required this.onRetry,
+  });
+
+  final String? payload;
+  final bool isLoading;
+  final String? errorMessage;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading && payload == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (errorMessage != null && payload == null) {
+      return Column(
+        children: [
+          Text(errorMessage!, textAlign: TextAlign.center),
+          const SizedBox(height: SKSpacing.x3),
+          PrimaryButton(label: 'Повторить', onPressed: onRetry),
+        ],
+      );
+    }
+    if (payload == null) return const SizedBox.shrink();
+    return Column(
+      children: [
+        SolidCard(
+          padding: const EdgeInsets.all(SKSpacing.x4),
+          child: QrImageView(
+            data: payload!,
+            size: 240,
+            padding: const EdgeInsets.all(SKSpacing.x3),
+            backgroundColor: Colors.white,
+          ),
+        ),
+        const SizedBox(height: SKSpacing.x3),
+        Text(
+          'Покажите QR сотруднику на входе.',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
       ],
     );
   }

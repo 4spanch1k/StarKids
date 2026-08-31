@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     freedompay_testing_mode: bool = False
     freedompay_mock_mode: bool = False
     freedompay_request_timeout_seconds: int = 15
+    ticket_qr_secret: str | None = None
 
     fcm_project_id: str | None = None
     fcm_client_email: str | None = None
