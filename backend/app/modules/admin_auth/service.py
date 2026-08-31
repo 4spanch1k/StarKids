@@ -7,6 +7,10 @@ from uuid import uuid4
 from fastapi import status
 
 from ...core.config.settings import Settings, get_settings
+from ...core.config.validation import (
+    ProductionConfigurationError,
+    validate_runtime_configuration,
+)
 from ...core.exceptions.http import DomainHTTPException
 from ...core.security.passwords import (
     hash_password,
@@ -202,15 +206,14 @@ class AdminAuthService:
         )
 
     def _ensure_runtime_configuration(self) -> None:
-        if (
-            self.settings.requires_explicit_jwt_secret
-            and self.settings.jwt_secret_key == 'replace-me'
-        ):
+        try:
+            validate_runtime_configuration(self.settings)
+        except ProductionConfigurationError as exc:
             raise DomainHTTPException(
                 code='auth_configuration_error',
-                message='JWT secret key is not configured.',
+                message='Authentication configuration is not safe for this environment.',
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
+            ) from exc
 
     def _ensure_bootstrap_admin(self) -> None:
         if self.user_repository.exists_any():

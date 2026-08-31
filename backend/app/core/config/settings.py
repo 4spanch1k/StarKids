@@ -13,6 +13,7 @@ class Settings(BaseSettings):
         'postgresql+psycopg://postgres:postgres@localhost:5432/star_kids'
     )
     jwt_secret_key: str = 'replace-me'
+    otp_mock_mode: bool = True
     jwt_access_token_ttl_minutes: int = 30
     jwt_refresh_token_ttl_days: int = 14
     auth_password_min_length: int = 10
@@ -67,7 +68,15 @@ class Settings(BaseSettings):
 
     @property
     def fcm_is_configured(self) -> bool:
-        return bool(self.fcm_project_id and self.fcm_client_email and self.fcm_private_key)
+        values = (self.fcm_project_id, self.fcm_client_email, self.fcm_private_key)
+        return all(
+            value
+            and value.strip()
+            and not value.strip().upper().startswith(
+                ('PLACEHOLDER', 'REPLACE_ME', 'YOUR_')
+            )
+            for value in values
+        )
 
     @property
     def clerk_authorized_parties_list(self) -> list[str]:
@@ -108,14 +117,30 @@ class Settings(BaseSettings):
         return self.normalized_app_env == 'development'
 
     @property
+    def is_test(self) -> bool:
+        return self.normalized_app_env in {'test', 'testing'}
+
+    @property
+    def is_production(self) -> bool:
+        return self.normalized_app_env == 'production'
+
+    @property
+    def development_seed_enabled(self) -> bool:
+        return self.is_development or self.is_test
+
+    @property
+    def default_database_url(self) -> str:
+        return 'postgresql+psycopg://postgres:postgres@localhost:5432/star_kids'
+
+    @property
     def requires_explicit_jwt_secret(self) -> bool:
-        return not self.is_development
+        return not self.development_seed_enabled
 
     @property
     def bootstrap_admin_email(self) -> str | None:
         if self.admin_seed_email:
             return self.admin_seed_email
-        if self.is_development:
+        if self.development_seed_enabled:
             return 'admin@starkids.kz'
         return None
 
@@ -123,7 +148,7 @@ class Settings(BaseSettings):
     def bootstrap_admin_password(self) -> str | None:
         if self.admin_seed_password:
             return self.admin_seed_password
-        if self.is_development:
+        if self.development_seed_enabled:
             return 'ChangeMe123!'
         return None
 
@@ -131,12 +156,15 @@ class Settings(BaseSettings):
     def is_freedompay_configured(self) -> bool:
         return all(
             (
-                self.freedompay_merchant_id,
-                self.freedompay_secret_key,
-                self.freedompay_base_url,
-                self.freedompay_result_url,
-                self.freedompay_success_url,
-                self.freedompay_failure_url,
+                value and value.strip()
+                for value in (
+                    self.freedompay_merchant_id,
+                    self.freedompay_secret_key,
+                    self.freedompay_base_url,
+                    self.freedompay_result_url,
+                    self.freedompay_success_url,
+                    self.freedompay_failure_url,
+                )
             )
         )
 
