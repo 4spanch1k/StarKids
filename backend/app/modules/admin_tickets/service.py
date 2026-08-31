@@ -74,7 +74,13 @@ class TicketRedemptionService:
                 message='Ticket belongs to another branch.',
                 status_code=409,
             )
-        if ticket.visit_date is not None and ticket.visit_date != self._business_date_provider():
+        if ticket.visit_date is None:
+            raise DomainHTTPException(
+                code='invalid_ticket_data',
+                message='Ticket visit date is missing.',
+                status_code=409,
+            )
+        if ticket.visit_date != self._business_date_provider():
             raise DomainHTTPException(
                 code='wrong_date',
                 message='Ticket is not valid for today.',

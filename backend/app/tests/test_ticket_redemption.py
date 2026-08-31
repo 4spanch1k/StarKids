@@ -186,6 +186,17 @@ class TicketRedemptionEndpointTests(unittest.TestCase):
             self.assertEqual(session.query(TicketRedemption).count(), 0)
             self.assertEqual(session.get(IssuedTicket, 'ticket-1').status, 'issued')
 
+    def test_missing_visit_date_is_invalid_ticket_data(self) -> None:
+        with self.SessionLocal() as session:
+            session.get(IssuedTicket, 'ticket-1').visit_date = None
+            session.commit()
+        response = self._redeem()
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()['error']['code'], 'invalid_ticket_data')
+        with self.SessionLocal() as session:
+            self.assertEqual(session.query(TicketRedemption).count(), 0)
+            self.assertEqual(session.get(IssuedTicket, 'ticket-1').status, 'issued')
+
     def test_non_issued_status_is_rejected(self) -> None:
         with self.SessionLocal() as session:
             session.get(IssuedTicket, 'ticket-1').status = 'pending'
