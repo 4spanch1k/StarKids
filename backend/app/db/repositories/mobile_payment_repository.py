@@ -164,6 +164,7 @@ class MobilePaymentRepository(Repository):
         paid_at: datetime | None,
         failure_status: str | None,
         failure_reason: str | None,
+        commit: bool = True,
     ) -> MobilePayment | None:
         return self._process_callback(
             payment_id=payment_id,
@@ -174,6 +175,7 @@ class MobilePaymentRepository(Repository):
             paid_at=paid_at,
             failure_status=failure_status,
             failure_reason=failure_reason,
+            commit=commit,
         )
 
     def _process_callback(
@@ -188,6 +190,7 @@ class MobilePaymentRepository(Repository):
         failure_status: str | None = None,
         failure_reason: str | None = None,
         deduplicate_provider_event: bool = True,
+        commit: bool = True,
     ) -> MobilePayment | None:
         payment = self.db.scalar(
             select(MobilePayment)
@@ -225,8 +228,11 @@ class MobilePaymentRepository(Repository):
             )
         if callback is not None:
             callback.duplicate_count += 1
-            self.db.commit()
-            self.db.refresh(payment)
+            if commit:
+                self.db.commit()
+                self.db.refresh(payment)
+            else:
+                self.db.flush()
             return payment
 
         status_before = payment.status
@@ -267,8 +273,11 @@ class MobilePaymentRepository(Repository):
             )
         )
         self.db.add(payment)
-        self.db.commit()
-        self.db.refresh(payment)
+        if commit:
+            self.db.commit()
+            self.db.refresh(payment)
+        else:
+            self.db.flush()
         return payment
 
     def mark_paid(
