@@ -29,7 +29,7 @@ class OnboardingPage extends StatelessWidget {
                 ),
                 const SizedBox(height: SKSpacing.x5),
                 Text(
-                  'Star Kids Shymkent',
+                  'Boom Bala Shymkent',
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
                 const SizedBox(height: 16),

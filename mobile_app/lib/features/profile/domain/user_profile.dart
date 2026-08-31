@@ -23,7 +23,7 @@ class UserProfile {
     final first = firstName?.trim() ?? '';
     final last = lastName?.trim() ?? '';
     if (first.isEmpty && last.isEmpty) {
-      return 'Профиль Star Kids';
+      return 'Профиль Boom Bala';
     }
     return '$first $last'.trim();
   }

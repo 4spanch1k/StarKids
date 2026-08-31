@@ -428,7 +428,7 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
                                   const _RedesignSessionHint(),
                                   const SizedBox(height: SK.s8),
                                   Text(
-                                    'Продолжая, вы соглашаетесь с правилами Star Kids.',
+                                    'Продолжая, вы соглашаетесь с правилами Boom Bala.',
                                     textAlign: TextAlign.center,
                                     style: SKTextStyles.small.copyWith(
                                       fontSize: 11,
@@ -485,7 +485,7 @@ class _RedesignAuthHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Star Kids',
+              'Boom Bala',
               style: SKTextStyles.h3.copyWith(
                 fontWeight: FontWeight.w600,
                 fontSize: 15,

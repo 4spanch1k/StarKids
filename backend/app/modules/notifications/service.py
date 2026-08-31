@@ -38,7 +38,7 @@ class NotificationService:
                     id='notification-1',
                     news_id=None,
                     type='system',
-                    title='Welcome to Star Kids',
+                    title='Welcome to Boom Bala',
                     description=None,
                     image_url=None,
                     created_at=datetime.now(timezone.utc),

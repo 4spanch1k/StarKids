@@ -22,19 +22,19 @@
     name="viewport"
     content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
   >
-  <meta name="description" content="Star Kids mobile experience for parents.">
+  <meta name="description" content="Boom Bala mobile experience for parents.">
   <meta name="theme-color" content="#F46A4E">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="Star Kids">
+  <meta name="apple-mobile-web-app-title" content="Boom Bala">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>Star Kids</title>
+  <title>Boom Bala</title>
   <link rel="manifest" href="manifest.json">
   <style>
     html,
@@ -100,27 +100,26 @@
       padding: 6px;
       box-sizing: border-box;
       box-shadow: 0 10px 24px rgba(23, 19, 22, 0.08);
+      display: grid;
+      place-items: center;
     }
 
-    .app-loading__logo img {
-      width: 100%;
-      height: 100%;
-      display: block;
-      border-radius: 999px;
-      object-fit: cover;
+    .app-loading__wordmark {
+      color: #1d1720;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.4px;
+      text-align: center;
     }
 
 </style>
 </head>
 <body>
-  <div class="app-loading" aria-label="Loading Star Kids">
+  <div class="app-loading" aria-label="Loading Boom Bala">
     <div>
       <div class="app-loading__shell">
         <div class="app-loading__logo">
-          <img
-            src="assets/assets/images/645959303_17890733316429584_1469844678684572952_n.jpg"
-            alt="Star Kids logo"
-          >
+          <span class="app-loading__wordmark">Boom Bala</span>
         </div>
       </div>
       <div class="app-loading__dots">
@@ -132,7 +131,7 @@
   </div>
   <script>
     // The Clerk Flutter package currently brings in passkeys_web transitively.
-    // Star Kids does not use passkeys, but the web plugin registration expects
+    // Boom Bala does not use passkeys, but the web plugin registration expects
     // this global to exist before Flutter starts. Keep it local and no-op so
     // email/password and Google auth can boot normally on web.
     window.PasskeyAuthenticator = window.PasskeyAuthenticator || {

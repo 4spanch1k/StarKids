@@ -103,7 +103,7 @@ class _SkSplashViewState extends State<SkSplashView>
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Star Kids',
+                      'Boom Bala',
                       style: SKTextStyles.d2.copyWith(
                         fontWeight: FontWeight.w700,
                         color: c.textPrimary,

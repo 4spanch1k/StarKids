@@ -1,9 +1,9 @@
 <template>
   <aside class="sidebar">
     <div class="sidebar__brand">
-      <div class="sidebar__logo">SK</div>
+      <div class="sidebar__logo">BB</div>
       <div class="sidebar__copy">
-        <p class="sidebar__eyebrow">Star Kids</p>
+        <p class="sidebar__eyebrow">Boom Bala</p>
         <h2>Операционная панель</h2>
       </div>
     </div>

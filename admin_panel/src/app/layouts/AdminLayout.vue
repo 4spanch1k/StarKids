@@ -27,7 +27,7 @@
           </button>
 
           <div class="workspace__intro">
-            <p class="workspace__label">Star Kids</p>
+            <p class="workspace__label">Boom Bala</p>
             <p class="workspace__caption">
               Панель для обработки заявок и управления контентом без лишней сложности.
             </p>

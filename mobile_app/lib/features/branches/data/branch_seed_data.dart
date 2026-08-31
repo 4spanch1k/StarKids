@@ -3,7 +3,7 @@ import '../domain/branch_option.dart';
 const branchSeedData = <BranchOption>[
   BranchOption(
     id: 'shymkent-mega',
-    name: 'Star Kids Al-Farabi',
+    name: 'Boom Bala Al-Farabi',
     shortLabel: 'Аль-Фараби',
     address: 'Шымкент, Аль-Фараби, 3 этаж, 4 кабинет',
     workingHours: 'Ежедневно 11:00 - 23:00',

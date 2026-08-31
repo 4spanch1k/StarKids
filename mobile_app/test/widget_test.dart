@@ -24,7 +24,7 @@ void main() {
     await tester.pumpWidget(const StarKidsApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('Star Kids'), findsOneWidget);
+    expect(find.text('Boom Bala'), findsOneWidget);
     expect(find.text('Вход'), findsWidgets);
     expect(find.text('Регистрация'), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);
@@ -82,7 +82,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Star Kids'), findsOneWidget);
+    expect(find.text('Boom Bala'), findsOneWidget);
     expect(find.text('Вход'), findsWidgets);
     expect(find.text('Email'), findsOneWidget);
   });
