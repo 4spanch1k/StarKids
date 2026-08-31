@@ -33,6 +33,7 @@ def production_settings(**overrides: object) -> Settings:
         'freedompay_result_url': 'https://api.boombala.kz/payments/result',
         'freedompay_success_url': 'https://app.boombala.kz/payment/success',
         'freedompay_failure_url': 'https://app.boombala.kz/payment/failure',
+        'ticket_qr_secret': 'q' * 48,
     }
     values.update(overrides)
     return Settings(**values)
@@ -44,6 +45,15 @@ class ProductionGuardTests(unittest.TestCase):
             validate_runtime_configuration(
                 production_settings(jwt_secret_key='replace-me')
             )
+
+    def test_production_requires_strong_ticket_qr_secret(self) -> None:
+        for value in (None, 'replace-me', 'short'):
+            with self.subTest(value=value), self.assertRaises(
+                ProductionConfigurationError
+            ):
+                validate_runtime_configuration(
+                    production_settings(ticket_qr_secret=value)
+                )
 
     def test_production_rejects_default_admin_bootstrap_credentials(self) -> None:
         with self.assertRaises(ProductionConfigurationError):

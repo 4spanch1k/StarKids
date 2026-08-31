@@ -9,6 +9,7 @@ from ...db.repositories.issued_ticket_repository import IssuedTicketRepository
 from ...db.repositories.mobile_payment_repository import MobilePaymentRepository
 from .freedompay_client import FreedomPayClient, FreedomPayClientProtocol
 from .issued_ticket_service import IssuedTicketService
+from .ticket_qr_service import TicketQrService
 from .service import MobilePaymentService
 
 
@@ -28,4 +29,5 @@ def get_mobile_payment_service(
         ticket_repository=BranchTicketRepository(session),
         freedompay_client=freedompay_client,
         issued_ticket_service=IssuedTicketService(IssuedTicketRepository(session)),
+        ticket_qr_service=TicketQrService(settings.ticket_qr_secret or ''),
     )

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import 'package:star_kids_mobile/features/tickets/domain/issued_ticket.dart';
 import 'package:star_kids_mobile/features/tickets/domain/issued_ticket_repository.dart';
@@ -99,6 +100,46 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('У вас пока нет билетов'), findsOneWidget);
   });
+
+  testWidgets('issued ticket detail renders backend QR payload',
+      (tester) async {
+    final ticket =
+        _ticket('8', 'BB-0008', 'Детский билет', DateTime(2026, 9, 10));
+    final repository = _FakeIssuedTicketRepository(tickets: [ticket]);
+    await tester.pumpWidget(
+      buildTestApp(
+        child: TicketDetailPage(ticketId: '8', repository: repository),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(QrImageView), findsOneWidget);
+    expect(repository.requestedQrTicketId, '8');
+    expect(find.text('Покажите QR сотруднику на входе.'), findsOneWidget);
+    expect(find.text('BB-0008'), findsOneWidget);
+  });
+
+  testWidgets('QR error keeps ticket data visible and exposes retry',
+      (tester) async {
+    final ticket =
+        _ticket('9', 'BB-0009', 'Детский билет', DateTime(2026, 9, 11));
+    final repository = _FakeIssuedTicketRepository(
+      tickets: [ticket],
+      failQr: true,
+    );
+    await tester.pumpWidget(
+      buildTestApp(
+        child: TicketDetailPage(ticketId: '9', repository: repository),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('BB-0009'), findsOneWidget);
+    expect(find.text('Не удалось загрузить QR-код. Попробуйте еще раз.'),
+        findsOneWidget);
+    expect(find.text('Повторить'), findsOneWidget);
+    expect(find.byType(QrImageView), findsNothing);
+  });
 }
 
 IssuedTicket _ticket(
@@ -123,11 +164,13 @@ IssuedTicket _ticket(
 
 class _FakeIssuedTicketRepository implements IssuedTicketRepository {
   _FakeIssuedTicketRepository(
-      {this.tickets = const [], this.failFirst = false});
+      {this.tickets = const [], this.failFirst = false, this.failQr = false});
 
   final List<IssuedTicket> tickets;
   final bool failFirst;
+  final bool failQr;
   String? requestedTicketId;
+  String? requestedQrTicketId;
   var _listCalls = 0;
 
   @override
@@ -143,5 +186,12 @@ class _FakeIssuedTicketRepository implements IssuedTicketRepository {
   Future<IssuedTicket> getIssuedTicket(String ticketId) async {
     requestedTicketId = ticketId;
     return tickets.firstWhere((ticket) => ticket.ticketId == ticketId);
+  }
+
+  @override
+  Future<String> getIssuedTicketQrPayload(String ticketId) async {
+    requestedQrTicketId = ticketId;
+    if (failQr) throw StateError('QR unavailable');
+    return 'bb_ticket:v1:$ticketId:backend-signature';
   }
 }

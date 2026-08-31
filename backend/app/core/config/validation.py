@@ -31,6 +31,9 @@ _INSECURE_ADMIN_PASSWORDS = frozenset(
 )
 _INSECURE_ADMIN_EMAILS = frozenset({'admin@starkids.kz'})
 _PLACEHOLDER_HOSTS = frozenset({'example.com', 'example.org'})
+_INSECURE_TICKET_QR_SECRETS = frozenset(
+    {'replace-me', 'change-me', 'changeme', 'secret', 'secret-key'}
+)
 
 
 def validate_runtime_configuration(settings: Settings) -> RuntimeConfigurationStatus:
@@ -58,6 +61,8 @@ def validate_runtime_configuration(settings: Settings) -> RuntimeConfigurationSt
     errors: list[str] = []
     if _is_unsafe_jwt_secret(settings.jwt_secret_key):
         errors.append('JWT_SECRET_KEY must be a unique value of at least 32 characters')
+    if _is_unsafe_ticket_qr_secret(settings.ticket_qr_secret):
+        errors.append('TICKET_QR_SECRET must be a unique value of at least 32 characters')
 
     admin_email = (settings.admin_seed_email or '').strip()
     admin_password = (settings.admin_seed_password or '').strip()
@@ -127,6 +132,16 @@ def _is_unsafe_jwt_secret(value: str) -> bool:
         not normalized
         or normalized.lower() in _INSECURE_JWT_SECRETS
         or len(normalized) < 32
+    )
+
+
+def _is_unsafe_ticket_qr_secret(value: str | None) -> bool:
+    normalized = (value or '').strip()
+    return (
+        not normalized
+        or normalized.lower() in _INSECURE_TICKET_QR_SECRETS
+        or len(normalized) < 32
+        or normalized.upper().startswith(('PLACEHOLDER', 'REPLACE_ME', 'YOUR_'))
     )
 
 

@@ -155,6 +155,7 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
             'freedompay_success_url': settings.freedompay_success_url,
             'freedompay_failure_url': settings.freedompay_failure_url,
             'freedompay_mock_mode': settings.freedompay_mock_mode,
+            'ticket_qr_secret': settings.ticket_qr_secret,
         }
         settings.freedompay_merchant_id = 'test-merchant'
         settings.freedompay_secret_key = 'test-secret'
@@ -164,6 +165,7 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
         settings.freedompay_success_url = 'starkids://payments/success'
         settings.freedompay_failure_url = 'starkids://payments/failure'
         settings.freedompay_mock_mode = False
+        settings.ticket_qr_secret = 't' * 48
 
         def override_get_db_session():
             session = cls.SessionLocal()
@@ -499,6 +501,36 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
         self.assertEqual(
             self.client.get(
                 f"/api/v1/mobile/tickets/{ticket['ticketId']}",
+                headers=second_headers,
+            ).status_code,
+            404,
+        )
+
+    def test_ticket_qr_is_stable_and_owner_protected(self) -> None:
+        first_auth = self._authenticate_mobile_user('+77071234567')
+        first_headers = {'Authorization': f"Bearer {first_auth['access_token']}"}
+        payment = self._init_payment(first_headers, 'checkout-ticket-qr')
+        self._post_success_callback(payment, amount='2700')
+        ticket = self.client.get('/api/v1/mobile/tickets', headers=first_headers).json()['items'][0]
+
+        first_qr = self.client.get(
+            f"/api/v1/mobile/tickets/{ticket['ticketId']}/qr",
+            headers=first_headers,
+        )
+        second_qr = self.client.get(
+            f"/api/v1/mobile/tickets/{ticket['ticketId']}/qr",
+            headers=first_headers,
+        )
+        self.assertEqual(first_qr.status_code, 200)
+        self.assertEqual(first_qr.json()['ticketId'], ticket['ticketId'])
+        self.assertTrue(first_qr.json()['qrPayload'].startswith('bb_ticket:v1:'))
+        self.assertEqual(first_qr.json()['qrPayload'], second_qr.json()['qrPayload'])
+
+        second_auth = self._authenticate_mobile_user('+77071234568')
+        second_headers = {'Authorization': f"Bearer {second_auth['access_token']}"}
+        self.assertEqual(
+            self.client.get(
+                f"/api/v1/mobile/tickets/{ticket['ticketId']}/qr",
                 headers=second_headers,
             ).status_code,
             404,
