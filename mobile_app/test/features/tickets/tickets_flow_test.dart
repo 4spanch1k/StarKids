@@ -13,6 +13,8 @@ import 'package:star_kids_mobile/features/tickets/data/seed_ticket_config_reposi
 import 'package:star_kids_mobile/features/tickets/domain/branch_ticket_config.dart';
 import 'package:star_kids_mobile/features/tickets/domain/ticket_purchase.dart';
 import 'package:star_kids_mobile/features/tickets/domain/ticket_purchase_repository.dart';
+import 'package:star_kids_mobile/features/tickets/domain/issued_ticket.dart';
+import 'package:star_kids_mobile/features/tickets/domain/issued_ticket_repository.dart';
 
 import '../../helpers/test_app_harness.dart';
 
@@ -49,6 +51,8 @@ void main() {
     );
     ServiceRegistry.ticketPurchaseRepository =
         const _FakeTicketPurchaseRepository();
+    ServiceRegistry.issuedTicketRepository =
+        const _FakeIssuedTicketRepository();
     ServiceRegistry.paymentUrlLauncher = (_) async => true;
     await ServiceRegistry.selectedBranchController.selectBranch(
       defaultBranchId,
@@ -59,10 +63,12 @@ void main() {
   tearDown(() {
     ServiceRegistry.resetTicketConfigRepository();
     ServiceRegistry.resetTicketPurchaseRepository();
+    ServiceRegistry.resetIssuedTicketRepository();
     ServiceRegistry.resetPaymentUrlLauncher();
   });
 
-  testWidgets('пункт Билеты открывает flow покупки и меняет количество билетов', (
+  testWidgets('пункт Билеты открывает flow покупки и меняет количество билетов',
+      (
     tester,
   ) async {
     await _pumpHomePage(tester);
@@ -75,7 +81,7 @@ void main() {
     expect(find.text('Мои билеты'), findsOneWidget);
     expect(find.text('Купить билет'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('buy-ticket-action')));
+    await tester.tap(find.text('Купить билет'));
     await tester.pumpAndSettle();
 
     expect(find.text('Шаг 1 из 2'), findsOneWidget);
@@ -135,17 +141,15 @@ void main() {
     expect(find.text('Проверить оплату'), findsOneWidget);
   });
 
-  testWidgets('Мои билеты открывают список backend-покупок', (tester) async {
+  testWidgets('Билеты открывают настоящий экран IssuedTicket', (tester) async {
     await _pumpHomePage(tester);
 
     await tester.tap(find.text('Билеты'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('my-tickets-action')));
-    await tester.pumpAndSettle();
-
     expect(find.text('Мои билеты'), findsOneWidget);
-    expect(find.text('Пока нет купленных билетов'), findsOneWidget);
+    expect(find.text('У вас пока нет билетов'), findsOneWidget);
+    expect(find.text('Купить билет'), findsOneWidget);
   });
 }
 
@@ -236,5 +240,17 @@ class _FakeTicketPurchaseRepository implements TicketPurchaseRepository {
   @override
   Future<Result<List<PurchasedTicket>>> listPurchasedTickets() async {
     return const Success<List<PurchasedTicket>>([]);
+  }
+}
+
+class _FakeIssuedTicketRepository implements IssuedTicketRepository {
+  const _FakeIssuedTicketRepository();
+
+  @override
+  Future<List<IssuedTicket>> listIssuedTickets() async => const [];
+
+  @override
+  Future<IssuedTicket> getIssuedTicket(String ticketId) async {
+    throw StateError('No ticket details in purchase flow test.');
   }
 }
