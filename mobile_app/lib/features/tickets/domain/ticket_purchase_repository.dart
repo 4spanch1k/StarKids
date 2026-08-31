@@ -5,6 +5,7 @@ abstract interface class TicketPurchaseRepository {
   Future<Result<TicketPaymentStart>> startFreedomPayment({
     required List<TicketPaymentLineItemPayload> items,
     required DateTime? visitDate,
+    required String idempotencyKey,
   });
 
   Future<Result<TicketPaymentStatus>> getPaymentStatus(String paymentId);

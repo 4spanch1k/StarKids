@@ -6,6 +6,8 @@ from urllib import parse
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -15,8 +17,10 @@ from app.db.models import Base
 from app.db.models.branch import Branch
 from app.db.models.branch_ticket_item import BranchTicketItem
 from app.db.models.mobile_payment import MobilePayment
+from app.db.models.mobile_payment_callback import MobilePaymentCallback
 from app.db.models.mobile_session import MobileSession
 from app.db.models.mobile_user import MobileUser
+from app.db.repositories.mobile_payment_repository import MobilePaymentRepository
 from app.main import app
 from app.modules.mobile_payments.dependencies import get_freedompay_client
 from app.modules.mobile_payments.freedompay_client import (
@@ -179,6 +183,7 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
 
     def setUp(self) -> None:
         with self.SessionLocal() as session:
+            session.query(MobilePaymentCallback).delete()
             session.query(MobilePayment).delete()
             session.query(BranchTicketItem).delete()
             session.query(MobileSession).delete()
@@ -225,6 +230,7 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
             '/api/v1/mobile/payments/freedom/init',
             headers=auth_headers,
             json={
+                'idempotencyKey': 'checkout-test-payment-1',
                 'ticketItems': [
                     {
                         'ticketItemId': 'ticket-kids',
@@ -294,12 +300,17 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
         self.assertEqual(second_tickets_response.json()['total'], 1)
 
     def test_freedompay_callback_rejects_invalid_signature(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        payment = self._init_payment(
+            {'Authorization': f"Bearer {auth['access_token']}"},
+            'checkout-invalid-signature',
+        )
         response = self.client.post(
             '/api/v1/public/payments/freedom/result',
             data={
-                'pg_order_id': 'unknown',
-                'pg_payment_id': 'fp-invalid',
-                'pg_amount': '100',
+                'pg_order_id': payment['localOrderId'],
+                'pg_payment_id': payment['externalPaymentId'],
+                'pg_amount': '2700',
                 'pg_currency': 'KZT',
                 'pg_result': '1',
                 'pg_salt': 'gateway-salt',
@@ -310,6 +321,264 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('<pg_status>error</pg_status>', response.text)
         self.assertIn('Invalid signature', response.text)
+        status_response = self.client.get(
+            f"/api/v1/mobile/payments/{payment['paymentId']}",
+            headers={'Authorization': f"Bearer {auth['access_token']}"},
+        )
+        self.assertEqual(status_response.json()['status'], 'pending')
+
+    def test_same_user_same_idempotency_key_reuses_one_payment(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        first = self._init_payment(headers, 'checkout-same-key')
+        second = self._init_payment(headers, 'checkout-same-key')
+
+        self.assertEqual(first['paymentId'], second['paymentId'])
+        with self.SessionLocal() as session:
+            self.assertEqual(session.query(MobilePayment).count(), 1)
+
+    def test_database_unique_constraint_rejects_duplicate_checkout_key(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        first = self._init_payment(
+            {'Authorization': f"Bearer {auth['access_token']}"},
+            'checkout-db-unique-key',
+        )
+        with self.SessionLocal() as session:
+            user = session.scalar(select(MobileUser).where(MobileUser.phone == '+77071234567'))
+            self.assertIsNotNone(user)
+            repository = MobilePaymentRepository(session)
+            with self.assertRaises(IntegrityError):
+                repository.create_ticket_payment(
+                    mobile_user_id=user.id,
+                    branch_id='branch-main',
+                    payable_entity_type='branch_ticket_order',
+                    payable_entity_id='branch-main',
+                    local_order_id='sk-db-duplicate-order',
+                    idempotency_key='checkout-db-unique-key',
+                    amount_tenge=2700,
+                    currency='KZT',
+                    quantity=1,
+                    visit_date=None,
+                    ticket_items=[{'ticketItemId': 'ticket-kids', 'quantity': 1}],
+                    init_payload={},
+                )
+            session.rollback()
+        self.assertTrue(first['paymentId'])
+
+    def test_same_user_different_idempotency_keys_create_two_payments(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        first = self._init_payment(headers, 'checkout-key-one')
+        second = self._init_payment(headers, 'checkout-key-two')
+
+        self.assertNotEqual(first['paymentId'], second['paymentId'])
+        with self.SessionLocal() as session:
+            self.assertEqual(session.query(MobilePayment).count(), 2)
+
+    def test_same_idempotency_key_isolated_between_users(self) -> None:
+        first_auth = self._authenticate_mobile_user('+77071234567')
+        second_auth = self._authenticate_mobile_user('+77071234568')
+        first = self._init_payment(
+            {'Authorization': f"Bearer {first_auth['access_token']}"},
+            'checkout-shared-key',
+        )
+        second = self._init_payment(
+            {'Authorization': f"Bearer {second_auth['access_token']}"},
+            'checkout-shared-key',
+        )
+
+        self.assertNotEqual(first['paymentId'], second['paymentId'])
+
+    def test_paid_payment_cannot_regress_and_callbacks_are_audited(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        payment = self._init_payment(headers, 'checkout-terminal-state')
+        success = self._signed_callback_payload(
+            order_id=payment['localOrderId'],
+            payment_id=payment['externalPaymentId'],
+            amount='2700',
+            result='1',
+        )
+        self.client.post('/api/v1/public/payments/freedom/result', data=success)
+        duplicate_success = dict(success)
+        duplicate_success['pg_payment_date'] = '2026-04-13 10:01:00'
+        duplicate_success['pg_sig'] = build_freedompay_signature(
+            script_name='result',
+            params=duplicate_success,
+            secret_key='test-secret',
+        )
+        self.client.post(
+            '/api/v1/public/payments/freedom/result',
+            data=duplicate_success,
+        )
+        late_failure = self._signed_callback_payload(
+            order_id=payment['localOrderId'],
+            payment_id='fp-late-failure',
+            amount='2700',
+            result='0',
+        )
+        self.client.post('/api/v1/public/payments/freedom/result', data=late_failure)
+
+        status_response = self.client.get(
+            f"/api/v1/mobile/payments/{payment['paymentId']}",
+            headers=headers,
+        )
+        self.assertEqual(status_response.json()['status'], 'paid')
+        with self.SessionLocal() as session:
+            callback_rows = session.scalars(
+                select(MobilePaymentCallback).where(
+                    MobilePaymentCallback.mobile_payment_id == payment['paymentId']
+                )
+            ).all()
+            self.assertEqual(len(callback_rows), 2)
+            self.assertEqual(callback_rows[0].duplicate_count, 1)
+
+    def test_not_completed_keeps_pending_then_success_marks_paid(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        payment = self._init_payment(headers, 'checkout-not-completed')
+        not_completed = self._signed_callback_payload(
+            order_id=payment['localOrderId'],
+            payment_id=payment['externalPaymentId'],
+            amount='2700',
+            result='2',
+        )
+        response = self.client.post(
+            '/api/v1/public/payments/freedom/result',
+            data=not_completed,
+        )
+        self.assertIn('<pg_status>ok</pg_status>', response.text)
+        pending_status = self.client.get(
+            f"/api/v1/mobile/payments/{payment['paymentId']}",
+            headers=headers,
+        )
+        self.assertEqual(pending_status.json()['status'], 'pending')
+
+        with self.SessionLocal() as session:
+            callback = session.scalar(select(MobilePaymentCallback))
+            self.assertIsNotNone(callback)
+            self.assertEqual(callback.result, 'not_completed')
+
+        success = self._signed_callback_payload(
+            order_id=payment['localOrderId'],
+            payment_id=payment['externalPaymentId'],
+            amount='2700',
+            result='1',
+        )
+        self.client.post('/api/v1/public/payments/freedom/result', data=success)
+        paid_status = self.client.get(
+            f"/api/v1/mobile/payments/{payment['paymentId']}",
+            headers=headers,
+        )
+        self.assertEqual(paid_status.json()['status'], 'paid')
+
+    def test_paid_payment_ignores_not_completed_callback(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        payment = self._init_payment(headers, 'checkout-paid-not-completed')
+        success = self._signed_callback_payload(
+            order_id=payment['localOrderId'],
+            payment_id=payment['externalPaymentId'],
+            amount='2700',
+            result='1',
+        )
+        self.client.post('/api/v1/public/payments/freedom/result', data=success)
+        not_completed = self._signed_callback_payload(
+            order_id=payment['localOrderId'],
+            payment_id=payment['externalPaymentId'],
+            amount='2700',
+            result='2',
+        )
+        self.client.post(
+            '/api/v1/public/payments/freedom/result',
+            data=not_completed,
+        )
+
+        status_response = self.client.get(
+            f"/api/v1/mobile/payments/{payment['paymentId']}",
+            headers=headers,
+        )
+        self.assertEqual(status_response.json()['status'], 'paid')
+        with self.SessionLocal() as session:
+            callbacks = session.scalars(
+                select(MobilePaymentCallback).where(
+                    MobilePaymentCallback.mobile_payment_id == payment['paymentId']
+                )
+            ).all()
+            self.assertEqual([callback.result for callback in callbacks], ['success', 'not_completed'])
+
+    def test_amount_mismatch_with_can_reject_zero_requires_reconciliation(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        payment = self._init_payment(headers, 'checkout-reconciliation-required')
+        mismatch = self._signed_callback_payload(
+            order_id=payment['localOrderId'],
+            payment_id=payment['externalPaymentId'],
+            amount='1',
+            result='1',
+            can_reject='0',
+        )
+        response = self.client.post(
+            '/api/v1/public/payments/freedom/result',
+            data=mismatch,
+        )
+        self.assertIn('<pg_status>ok</pg_status>', response.text)
+        status_response = self.client.get(
+            f"/api/v1/mobile/payments/{payment['paymentId']}",
+            headers=headers,
+        )
+        self.assertEqual(status_response.json()['status'], 'pending')
+        purchases_response = self.client.get(
+            '/api/v1/mobile/tickets/purchases',
+            headers=headers,
+        )
+        self.assertEqual(purchases_response.json()['total'], 0)
+        with self.SessionLocal() as session:
+            callback = session.scalar(select(MobilePaymentCallback))
+            self.assertIsNotNone(callback)
+            self.assertEqual(callback.result, 'reconciliation_required')
+
+    def test_invalid_amount_and_currency_do_not_change_payment_state(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        payment = self._init_payment(headers, 'checkout-invalid-callback')
+        invalid_amount = self._signed_callback_payload(
+            order_id=payment['localOrderId'],
+            payment_id=payment['externalPaymentId'],
+            amount='1',
+            result='1',
+        )
+        self.client.post('/api/v1/public/payments/freedom/result', data=invalid_amount)
+        invalid_currency = self._signed_callback_payload(
+            order_id=payment['localOrderId'],
+            payment_id=payment['externalPaymentId'],
+            amount='2700',
+            currency='USD',
+            result='1',
+        )
+        self.client.post('/api/v1/public/payments/freedom/result', data=invalid_currency)
+
+        status_response = self.client.get(
+            f"/api/v1/mobile/payments/{payment['paymentId']}",
+            headers=headers,
+        )
+        self.assertEqual(status_response.json()['status'], 'pending')
+
+    def _init_payment(
+        self,
+        headers: dict[str, str],
+        idempotency_key: str,
+    ) -> dict[str, object]:
+        response = self.client.post(
+            '/api/v1/mobile/payments/freedom/init',
+            headers=headers,
+            json={
+                'idempotencyKey': idempotency_key,
+                'ticketItems': [{'ticketItemId': 'ticket-kids', 'quantity': 1}],
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        return response.json()
 
     def _authenticate_mobile_user(self, phone: str) -> dict[str, object]:
         response = self.client.post(
@@ -330,15 +599,17 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
         payment_id: str,
         amount: str,
         result: str,
+        currency: str = 'KZT',
+        can_reject: str = '1',
     ) -> dict[str, str]:
         payload = {
             'pg_order_id': order_id,
             'pg_payment_id': payment_id,
             'pg_amount': amount,
-            'pg_currency': 'KZT',
+            'pg_currency': currency,
             'pg_result': result,
             'pg_payment_date': '2026-04-13 10:00:00',
-            'pg_can_reject': '1',
+            'pg_can_reject': can_reject,
             'pg_salt': 'gateway-salt',
         }
         payload['pg_sig'] = build_freedompay_signature(

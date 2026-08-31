@@ -10,8 +10,8 @@ class ApiTicketPurchaseRepository implements TicketPurchaseRepository {
   ApiTicketPurchaseRepository({
     required ApiClient apiClient,
     required MobileAuthSessionStorage sessionStorage,
-  })  : _apiClient = apiClient,
-        _sessionStorage = sessionStorage;
+  }) : _apiClient = apiClient,
+       _sessionStorage = sessionStorage;
 
   final ApiClient _apiClient;
   final MobileAuthSessionStorage _sessionStorage;
@@ -20,6 +20,7 @@ class ApiTicketPurchaseRepository implements TicketPurchaseRepository {
   Future<Result<TicketPaymentStart>> startFreedomPayment({
     required List<TicketPaymentLineItemPayload> items,
     required DateTime? visitDate,
+    required String idempotencyKey,
   }) async {
     final session = await _sessionStorage.readSession();
     if (session == null) {
@@ -32,6 +33,7 @@ class ApiTicketPurchaseRepository implements TicketPurchaseRepository {
       final response = await _apiClient.postJson(
         '/payments/freedom/init',
         body: {
+          'idempotencyKey': idempotencyKey,
           'ticketItems': items
               .map(
                 (item) => {
@@ -51,9 +53,7 @@ class ApiTicketPurchaseRepository implements TicketPurchaseRepository {
         );
       }
 
-      return Failure<TicketPaymentStart>(
-        _paymentErrorMessage(response),
-      );
+      return Failure<TicketPaymentStart>(_paymentErrorMessage(response));
     } catch (_) {
       return const Failure<TicketPaymentStart>(
         'Не удалось начать оплату. Проверьте интернет и попробуйте снова.',
@@ -82,9 +82,7 @@ class ApiTicketPurchaseRepository implements TicketPurchaseRepository {
         );
       }
 
-      return Failure<TicketPaymentStatus>(
-        _paymentErrorMessage(response),
-      );
+      return Failure<TicketPaymentStatus>(_paymentErrorMessage(response));
     } catch (_) {
       return const Failure<TicketPaymentStatus>(
         'Не удалось проверить статус оплаты. Попробуйте снова.',

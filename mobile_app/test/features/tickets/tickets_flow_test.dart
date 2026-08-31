@@ -62,88 +62,78 @@ void main() {
     ServiceRegistry.resetPaymentUrlLauncher();
   });
 
-  testWidgets(
-    'пункт Билеты открывает flow покупки и меняет количество билетов',
-    (tester) async {
-      await _pumpHomePage(tester);
+  testWidgets('пункт Билеты открывает flow покупки и меняет количество билетов', (
+    tester,
+  ) async {
+    await _pumpHomePage(tester);
 
-      expect(find.text('Билеты'), findsOneWidget);
+    expect(find.text('Билеты'), findsOneWidget);
 
-      await tester.tap(find.text('Билеты'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('Билеты'));
+    await tester.pumpAndSettle();
 
-      expect(find.text('Мои билеты'), findsOneWidget);
-      expect(find.text('Купить билет'), findsOneWidget);
+    expect(find.text('Мои билеты'), findsOneWidget);
+    expect(find.text('Купить билет'), findsOneWidget);
 
-      await tester.tap(find.byKey(const ValueKey('buy-ticket-action')));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('buy-ticket-action')));
+    await tester.pumpAndSettle();
 
-      expect(find.text('Шаг 1 из 2'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('ticket-branch-select')),
-        findsOneWidget,
-      );
-      expect(find.byKey(const ValueKey('ticket-day-select')), findsOneWidget);
-      expect(find.text('ДОСТУПНЫЕ ТАРИФЫ'), findsOneWidget);
-      expect(find.text('Детские билеты 1–3 лет'), findsOneWidget);
-      expect(find.text('2 700 тг'), findsOneWidget);
+    expect(find.text('Шаг 1 из 2'), findsOneWidget);
+    expect(find.byKey(const ValueKey('ticket-branch-select')), findsOneWidget);
+    expect(find.byKey(const ValueKey('ticket-day-select')), findsOneWidget);
+    expect(find.text('ДОСТУПНЫЕ ТАРИФЫ'), findsOneWidget);
+    expect(find.text('Детские билеты 1–3 лет'), findsOneWidget);
+    expect(find.text('2 700 тг'), findsOneWidget);
 
-      await tester.tap(find.byKey(const ValueKey('ticket-day-select')));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('ticket-day-select')));
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('selection-item-0')));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('selection-item-0')));
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Продолжить'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('Продолжить'));
+    await tester.pumpAndSettle();
 
-      expect(find.text('Документ обязателен'), findsOneWidget);
-      expect(find.text('Детям 0–1 лет — бесплатно'), findsOneWidget);
-      expect(
-        find.text('Имениннику в день рождения — бесплатно'),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('ticket-count-kids_1_3')),
-        findsOneWidget,
-      );
+    expect(find.text('Документ обязателен'), findsOneWidget);
+    expect(find.text('Детям 0–1 лет — бесплатно'), findsOneWidget);
+    expect(find.text('Имениннику в день рождения — бесплатно'), findsOneWidget);
+    expect(find.byKey(const ValueKey('ticket-count-kids_1_3')), findsOneWidget);
 
-      await tester.tap(find.byKey(const ValueKey('ticket-increase-kids_1_3')));
-      await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('ticket-increase-kids_1_3')));
-      await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('ticket-decrease-kids_1_3')));
-      await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('ticket-increase-kids_1_3')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('ticket-increase-kids_1_3')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('ticket-decrease-kids_1_3')));
+    await tester.pump();
 
-      final kidsOneToThreeCounter = tester.widget<Text>(
-        find.byKey(const ValueKey('ticket-count-kids_1_3')),
-      );
-      expect(kidsOneToThreeCounter.data, '1');
+    final kidsOneToThreeCounter = tester.widget<Text>(
+      find.byKey(const ValueKey('ticket-count-kids_1_3')),
+    );
+    expect(kidsOneToThreeCounter.data, '1');
 
-      final decreaseFourToFifteenButton = tester.widget<IconButton>(
-        find.descendant(
-          of: find.byKey(const ValueKey('ticket-decrease-kids_4_15')),
-          matching: find.byType(IconButton),
-        ),
-      );
-      expect(decreaseFourToFifteenButton.onPressed, isNull);
-      final kidsFourToFifteenCounter = tester.widget<Text>(
-        find.byKey(const ValueKey('ticket-count-kids_4_15')),
-      );
-      expect(kidsFourToFifteenCounter.data, '0');
+    final decreaseFourToFifteenButton = tester.widget<IconButton>(
+      find.descendant(
+        of: find.byKey(const ValueKey('ticket-decrease-kids_4_15')),
+        matching: find.byType(IconButton),
+      ),
+    );
+    expect(decreaseFourToFifteenButton.onPressed, isNull);
+    final kidsFourToFifteenCounter = tester.widget<Text>(
+      find.byKey(const ValueKey('ticket-count-kids_4_15')),
+    );
+    expect(kidsFourToFifteenCounter.data, '0');
 
-      await tester.tap(find.text('Оплатить через Freedom Pay'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('Оплатить через Freedom Pay'));
+    await tester.pumpAndSettle();
 
-      expect(
-        find.text(
-          'Страница оплаты открыта. После завершения вернитесь и проверьте статус.',
-        ),
-        findsOneWidget,
-      );
-      expect(find.text('Проверить оплату'), findsOneWidget);
-    },
-  );
+    expect(
+      find.text(
+        'Страница оплаты открыта. После завершения вернитесь и проверьте статус.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Проверить оплату'), findsOneWidget);
+  });
 
   testWidgets('Мои билеты открывают список backend-покупок', (tester) async {
     await _pumpHomePage(tester);
@@ -214,6 +204,7 @@ class _FakeTicketPurchaseRepository implements TicketPurchaseRepository {
   Future<Result<TicketPaymentStart>> startFreedomPayment({
     required List<TicketPaymentLineItemPayload> items,
     required DateTime? visitDate,
+    required String idempotencyKey,
   }) async {
     return const Success<TicketPaymentStart>(
       TicketPaymentStart(
