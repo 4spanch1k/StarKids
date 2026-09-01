@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 abstract final class AppEnvironment {
   static const appEnv = String.fromEnvironment(
     'MOBILE_APP_ENV',
@@ -10,8 +12,28 @@ abstract final class AppEnvironment {
   );
 
   static String get apiBaseUrl {
-    final configured = _configuredApiBaseUrl.trim();
-    if (isProduction) {
+    return validateApiBaseUrl(
+      environment: appEnv,
+      configuredApiBaseUrl: _configuredApiBaseUrl,
+      releaseMode: kReleaseMode,
+    );
+  }
+
+  static String validateApiBaseUrl({
+    required String environment,
+    required String configuredApiBaseUrl,
+    required bool releaseMode,
+  }) {
+    final normalizedEnvironment = environment.trim().toLowerCase();
+    final configured = configuredApiBaseUrl.trim();
+
+    if (releaseMode && normalizedEnvironment != 'production') {
+      throw StateError(
+        'MOBILE_APP_ENV must be production in Flutter release mode.',
+      );
+    }
+
+    if (releaseMode || normalizedEnvironment == 'production') {
       final uri = Uri.tryParse(configured);
       if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
         throw StateError(
@@ -19,7 +41,9 @@ abstract final class AppEnvironment {
         );
       }
       final host = uri.host.toLowerCase();
-      if (host == 'localhost' || host == '127.0.0.1' || host.endsWith('.invalid')) {
+      if (host == 'localhost' ||
+          host == '127.0.0.1' ||
+          host.endsWith('.invalid')) {
         throw StateError(
           'MOBILE_API_BASE_URL cannot point to localhost or a placeholder host in production.',
         );
@@ -27,7 +51,9 @@ abstract final class AppEnvironment {
       return configured;
     }
 
-    return configured.isEmpty ? 'http://localhost:8000/api/v1/mobile' : configured;
+    return configured.isEmpty
+        ? 'http://localhost:8000/api/v1/mobile'
+        : configured;
   }
 
   static const clerkPublishableKey = String.fromEnvironment(
