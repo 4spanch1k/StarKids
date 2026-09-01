@@ -64,6 +64,19 @@ abstract final class AppEnvironment {
   static bool get hasClerkPublishableKey =>
       clerkPublishableKey.trim().isNotEmpty;
 
+  static const googleServerClientId = String.fromEnvironment(
+    'MOBILE_GOOGLE_SERVER_CLIENT_ID',
+    defaultValue: '',
+  );
+
+  static const googleIosClientId = String.fromEnvironment(
+    'MOBILE_GOOGLE_IOS_CLIENT_ID',
+    defaultValue: '',
+  );
+
+  static bool get hasGoogleSignInConfig =>
+      googleServerClientId.trim().isNotEmpty;
+
   static const _useMockBirthdayRequests = bool.fromEnvironment(
     'MOBILE_USE_MOCK_BIRTHDAY_REQUESTS',
     defaultValue: false,

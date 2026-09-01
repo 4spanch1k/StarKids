@@ -51,14 +51,12 @@ void main() {
     expect(find.byTooltip('Скрыть пароль'), findsOneWidget);
     await tester.enterText(passwordField, '');
 
-    const hasClerkPublishableKey = String.fromEnvironment(
-          'MOBILE_CLERK_PUBLISHABLE_KEY',
-          defaultValue: '',
-        ) !=
-        '';
+    const hasGoogleConfiguration =
+        String.fromEnvironment('MOBILE_CLERK_PUBLISHABLE_KEY') != '' &&
+            String.fromEnvironment('MOBILE_GOOGLE_SERVER_CLIENT_ID') != '';
     expect(
-      find.text('Google вход недоступен: не задан Clerk publishable key.'),
-      hasClerkPublishableKey ? findsNothing : findsOneWidget,
+      find.text('Вход через Google не настроен для этой сборки.'),
+      hasGoogleConfiguration ? findsNothing : findsOneWidget,
     );
 
     await tester.tap(find.text('Войти').last);
