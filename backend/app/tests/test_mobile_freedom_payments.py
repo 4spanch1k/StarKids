@@ -321,6 +321,24 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
         self.assertEqual(issued_tickets_response.status_code, 200)
         self.assertEqual(issued_tickets_response.json()['total'], 2)
 
+    def test_freedompay_init_requires_visit_date_for_date_bound_tickets(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+
+        response = self.client.post(
+            '/api/v1/mobile/payments/freedom/init',
+            headers=headers,
+            json={
+                'idempotencyKey': 'checkout-missing-visit-date',
+                'ticketItems': [
+                    {'ticketItemId': 'ticket-kids', 'quantity': 1},
+                ],
+            },
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()['error']['code'], 'validation_error')
+
     def test_paid_quantity_three_creates_individual_ticket_snapshots(self) -> None:
         auth = self._authenticate_mobile_user('+77071234567')
         headers = {'Authorization': f"Bearer {auth['access_token']}"}
@@ -833,6 +851,7 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
             json={
                 'idempotencyKey': idempotency_key,
                 'ticketItems': selected_items,
+                'visitDate': str(date.today()),
             },
         )
         self.assertEqual(response.status_code, 200)

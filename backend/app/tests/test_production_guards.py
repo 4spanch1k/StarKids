@@ -83,6 +83,12 @@ class ProductionGuardTests(unittest.TestCase):
                 production_settings(freedompay_secret_key=None)
             )
 
+    def test_production_rejects_freedompay_testing_mode(self) -> None:
+        with self.assertRaises(ProductionConfigurationError):
+            validate_runtime_configuration(
+                production_settings(freedompay_testing_mode=True)
+            )
+
     def test_placeholder_firebase_values_are_reported_as_disabled(self) -> None:
         settings = Settings(
             fcm_project_id='PLACEHOLDER_PROJECT_ID',

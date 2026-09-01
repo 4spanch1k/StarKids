@@ -207,7 +207,7 @@ class _FakeTicketPurchaseRepository implements TicketPurchaseRepository {
   @override
   Future<Result<TicketPaymentStart>> startFreedomPayment({
     required List<TicketPaymentLineItemPayload> items,
-    required DateTime? visitDate,
+    required DateTime visitDate,
     required String idempotencyKey,
   }) async {
     return const Success<TicketPaymentStart>(

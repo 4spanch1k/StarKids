@@ -78,6 +78,8 @@ def validate_runtime_configuration(settings: Settings) -> RuntimeConfigurationSt
 
     if settings.freedompay_mock_mode:
         errors.append('FREEDOMPAY_MOCK_MODE must be false')
+    if settings.freedompay_testing_mode:
+        errors.append('FREEDOMPAY_TESTING_MODE must be false')
     if not settings.is_freedompay_configured:
         errors.append(
             'FreedomPay merchant, secret, base, result, success and failure settings are required'
