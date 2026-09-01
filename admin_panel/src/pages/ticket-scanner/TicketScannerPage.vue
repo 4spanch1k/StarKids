@@ -103,19 +103,21 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Html5Qrcode } from 'html5-qrcode';
 
 import { useSessionStore } from '@/features/auth/stores/useSessionStore';
-import { listAdminBranches } from '@/features/branches/api/adminBranchesApi';
-import type { AdminBranchSummary } from '@/features/branches/model/adminBranch';
 import {
   redeemTicket,
   resolveRedemptionOutcome,
   type RedemptionOutcome,
   type TicketRedemptionResponse,
 } from '@/features/ticket-scanner/api/ticketRedemptionApi';
+import {
+  listScannerBranches,
+  type ScannerBranch,
+} from '@/features/ticket-scanner/api/publicBranchesApi';
 import PageShell from '@/shared/ui/PageShell.vue';
 import { resolveAdminRequestError } from '@/features/auth/lib/adminRequest';
 
 const sessionStore = useSessionStore();
-const branches = ref<AdminBranchSummary[]>([]);
+const branches = ref<ScannerBranch[]>([]);
 const selectedBranchId = ref(sessionStorage.getItem('boom-bala.scanner.branch-id') ?? '');
 const readerElement = ref<HTMLElement | null>(null);
 const branchesLoading = ref(false);
@@ -182,10 +184,7 @@ async function loadBranches() {
   branchesLoading.value = true;
   branchesError.value = '';
   try {
-    branches.value = await listAdminBranches({
-      accessToken: sessionStore.accessToken,
-      includeInactive: false,
-    });
+    branches.value = await listScannerBranches();
     if (!branches.value.some((branch) => branch.id === selectedBranchId.value)) {
       selectedBranchId.value = '';
       sessionStorage.removeItem('boom-bala.scanner.branch-id');
