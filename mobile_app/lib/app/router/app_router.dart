@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../features/birthdays/presentation/pages/birthdays_page.dart';
+import '../../features/events/presentation/pages/afisha_page.dart';
 import '../../features/branches/presentation/pages/branch_selection_page.dart';
 import '../../features/branches/presentation/pages/branch_details_page.dart';
 import '../../features/contacts/presentation/pages/contacts_map_page.dart';
@@ -32,6 +33,8 @@ abstract final class AppRouter {
         return _page(const BranchDetailsPage(), settings);
       case AppRoutes.birthdays:
         return _page(const BirthdaysPage(), settings);
+      case AppRoutes.afisha:
+        return _page(const AfishaPage(), settings);
       case AppRoutes.promotions:
         return _page(const PromotionsPage(), settings);
       case AppRoutes.tickets:

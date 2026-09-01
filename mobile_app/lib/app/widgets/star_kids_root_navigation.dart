@@ -23,12 +23,8 @@ class _StarKidsRootNavigationState extends State<StarKidsRootNavigation> {
       icon: Icons.confirmation_num_rounded,
       label: 'Билеты',
     ),
+    GlassNavItem(id: 'afisha', icon: Icons.event_rounded, label: 'Афиша'),
     GlassNavItem(id: 'birthdays', icon: Icons.cake_rounded, label: 'Праздники'),
-    GlassNavItem(
-      id: 'promotions',
-      icon: Icons.local_offer_rounded,
-      label: 'Акции',
-    ),
     GlassNavItem(id: 'profile', icon: Icons.person_rounded, label: 'Профиль'),
   ];
 
@@ -56,8 +52,8 @@ class _StarKidsRootNavigationState extends State<StarKidsRootNavigation> {
 
       final route = switch (id) {
         'home' => AppRoutes.home,
+        'afisha' => AppRoutes.afisha,
         'birthdays' => AppRoutes.birthdays,
-        'promotions' => AppRoutes.promotions,
         'profile' => AppRoutes.profile,
         _ => null,
       };

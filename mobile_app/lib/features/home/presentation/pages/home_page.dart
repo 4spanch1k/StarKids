@@ -222,12 +222,14 @@ class _HomePageState extends State<HomePage> {
                         delegate: SliverChildListDelegate([
                           const _HomeHeading(),
                           const SizedBox(height: SKSpacing.x4),
-                          _StorefrontHero(
-                            branch: branch,
-                            onBuyTicket: _openTicketPurchase,
+                          _buildAdaptivePrimary(context, branch),
+                          const SizedBox(height: SKSpacing.x5),
+                          _QuickActionsRow(
+                            onAfisha: () => _openRoot(AppRoutes.afisha),
+                            onBirthday: () => _openRoot(AppRoutes.birthdays),
+                            onDirections: () =>
+                                _openNested(AppRoutes.branchDetails),
                           ),
-                          const SizedBox(height: SKSpacing.x6),
-                          _buildTicketsSection(context),
                           const SizedBox(height: SKSpacing.x6),
                           _buildChildrenSection(context),
                           const SizedBox(height: SKSpacing.x6),
@@ -258,6 +260,31 @@ class _HomePageState extends State<HomePage> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildAdaptivePrimary(BuildContext context, BranchOption branch) {
+    final today = _dateOnly(_nowProvider());
+    final hasUpcoming = _issuedTickets.any(
+      (ticket) => _isUpcomingIssuedTicket(ticket, today),
+    );
+
+    // Returning families need their admission credential first. New or
+    // lapsed families get one clear commercial entry point instead.
+    if (hasUpcoming || _ticketsLoading || _ticketsError != null) {
+      return _buildTicketsSection(context);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _StorefrontHero(
+          branch: branch,
+          onBuyTicket: _openTicketPurchase,
+        ),
+        const SizedBox(height: SKSpacing.x3),
+        _buildTicketsSection(context),
+      ],
     );
   }
 
@@ -293,16 +320,12 @@ class _HomePageState extends State<HomePage> {
       );
     }
     if (upcoming.isEmpty) {
-      return _HomeStateCard(
-        key: const ValueKey('home-no-tickets'),
+      return const _HomeStateCard(
+        key: ValueKey('home-no-tickets'),
         icon: Icons.local_activity_outlined,
         title: 'Планируете посещение?',
-        description: 'Купите билет заранее — он появится здесь после оплаты.',
-        action: PrimaryButton(
-          label: 'Купить билет',
-          icon: Icons.arrow_forward_rounded,
-          onPressed: _openTicketPurchase,
-        ),
+        description:
+            'После оплаты билет появится здесь и будет готов к визиту.',
       );
     }
     final ticket = upcoming.first;
@@ -380,7 +403,7 @@ class _HomePageState extends State<HomePage> {
           key: const ValueKey('home-children-success'),
           icon: Icons.child_care_rounded,
           title: 'Дети',
-          subtitle: _childrenLabel(children),
+          subtitle: _childrenLabel(children, _nowProvider()),
           onTap: () => _openRoot(AppRoutes.profile),
         );
       },
@@ -438,10 +461,40 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-String _childrenLabel(List<Child> children) {
+String _childrenLabel(List<Child> children, DateTime now) {
   final names = children.map((child) => child.name).take(3).join(', ');
-  if (children.length <= 3) return names;
-  return '$names и ещё ${children.length - 3}';
+  final nextBirthday = _nextBirthday(children, now);
+  final suffix = nextBirthday == null
+      ? ''
+      : nextBirthday.daysUntil == 0
+          ? ' · день рождения сегодня'
+          : ' · день рождения через ${nextBirthday.daysUntil} дн.';
+  if (children.length <= 3) return '$names$suffix';
+  return '$names и ещё ${children.length - 3}$suffix';
+}
+
+_BirthdayCountdown? _nextBirthday(List<Child> children, DateTime now) {
+  final today = _dateOnly(now);
+  _BirthdayCountdown? result;
+  for (final child in children) {
+    var birthday =
+        DateTime(today.year, child.birthDate.month, child.birthDate.day);
+    if (birthday.isBefore(today)) {
+      birthday =
+          DateTime(today.year + 1, child.birthDate.month, child.birthDate.day);
+    }
+    final days = birthday.difference(today).inDays;
+    if (result == null || days < result.daysUntil) {
+      result = _BirthdayCountdown(days);
+    }
+  }
+  return result;
+}
+
+class _BirthdayCountdown {
+  const _BirthdayCountdown(this.daysUntil);
+
+  final int daysUntil;
 }
 
 int _compareIssuedTickets(IssuedTicket a, IssuedTicket b) {
@@ -560,7 +613,7 @@ class _StorefrontHero extends StatelessWidget {
                     SizedBox(
                       width: 226,
                       child: Text(
-                        'Время для ярких впечатлений',
+                        'Куда пойдём сегодня?',
                         style: textTheme.headlineMedium?.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.w700,
@@ -573,7 +626,7 @@ class _StorefrontHero extends StatelessWidget {
                     SizedBox(
                       width: 210,
                       child: PrimaryButton(
-                        label: 'Выбрать билет',
+                        label: 'Купить билет',
                         icon: Icons.arrow_forward_rounded,
                         onPressed: onBuyTicket,
                       ),
@@ -745,6 +798,85 @@ class _HomeInlineLink extends StatelessWidget {
                 ),
               ),
               Icon(Icons.chevron_right_rounded, color: c.textTertiary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickActionsRow extends StatelessWidget {
+  const _QuickActionsRow({
+    required this.onAfisha,
+    required this.onBirthday,
+    required this.onDirections,
+  });
+
+  final VoidCallback onAfisha;
+  final VoidCallback onBirthday;
+  final VoidCallback onDirections;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _QuickAction(
+            icon: Icons.event_rounded,
+            label: 'Афиша',
+            onTap: onAfisha,
+          ),
+        ),
+        const SizedBox(width: SKSpacing.x2),
+        Expanded(
+          child: _QuickAction(
+            icon: Icons.cake_outlined,
+            label: 'Праздник',
+            onTap: onBirthday,
+          ),
+        ),
+        const SizedBox(width: SKSpacing.x2),
+        Expanded(
+          child: _QuickAction(
+            icon: Icons.directions_outlined,
+            label: 'Как добраться',
+            onTap: onDirections,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickAction extends StatelessWidget {
+  const _QuickAction(
+      {required this.icon, required this.label, required this.onTap});
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+    return Material(
+      color: c.elevated,
+      borderRadius: BorderRadius.circular(SKRadius.lg),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(SKRadius.lg),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+              vertical: SKSpacing.x3, horizontal: SKSpacing.x2),
+          child: Column(
+            children: [
+              Icon(icon, color: c.cta, size: 22),
+              const SizedBox(height: SKSpacing.x1),
+              Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium),
             ],
           ),
         ),
@@ -1090,6 +1222,15 @@ class _AppDrawer extends StatelessWidget {
           onTap: () {
             Navigator.pop(context);
             Navigator.of(context).pushNamed(AppRoutes.myRequests);
+          },
+        ),
+        GlassDrawerRow(
+          icon: Icons.event_outlined,
+          label: 'Афиша',
+          onTap: () {
+            final navigator = Navigator.of(context);
+            navigator.pop();
+            navigator.pushReplacementNamed(AppRoutes.afisha);
           },
         ),
         GlassDrawerRow(

@@ -47,7 +47,9 @@ class PromotionsPage extends StatelessWidget {
             ),
           ),
           bottomNavigationBar:
-              const StarKidsRootNavigation(current: 'promotions'),
+              // Promotions is a secondary destination; keep the retention
+              // tab as the nearest root context without exposing a sixth tab.
+              const StarKidsRootNavigation(current: 'afisha'),
           body: Stack(
             children: [
               StableFutureBuilder<_PromotionsScreenData>(

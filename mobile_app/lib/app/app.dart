@@ -88,6 +88,7 @@ class StarKidsApp extends StatelessWidget {
     const authenticatedRoutes = {
       AppRoutes.home,
       AppRoutes.birthdays,
+      AppRoutes.afisha,
       AppRoutes.promotions,
       AppRoutes.tickets,
       AppRoutes.profile,
