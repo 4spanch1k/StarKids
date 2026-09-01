@@ -212,6 +212,13 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
     if (_isPaymentBusy) {
       return;
     }
+    final visitDate = _selectedDate;
+    if (visitDate == null) {
+      setState(() {
+        _paymentMessage = 'Выберите день посещения.';
+      });
+      return;
+    }
 
     setState(() {
       _paymentPhase = _TicketPaymentPhase.starting;
@@ -222,7 +229,7 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
     final result = await ServiceRegistry.ticketPurchaseRepository
         .startFreedomPayment(
           items: _selectedPaymentItems,
-          visitDate: _selectedDate,
+          visitDate: visitDate,
           idempotencyKey: _checkoutIdempotencyKey ??= _newIdempotencyKey(),
         );
 

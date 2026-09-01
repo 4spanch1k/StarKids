@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 import logging
 from secrets import token_hex
@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 
 from ...core.config.settings import Settings
 from ...core.exceptions.http import DomainHTTPException, NotFoundException
+from ...core.time.business_time import business_today
 from ...db.models.branch import Branch
 from ...db.models.issued_ticket import IssuedTicket
 from ...db.models.mobile_payment import MobilePayment
@@ -97,7 +98,7 @@ class MobilePaymentService:
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
-        if payload.visitDate is not None and payload.visitDate < date.today():
+        if payload.visitDate < business_today():
             raise DomainHTTPException(
                 code='invalid_visit_date',
                 message='Visit date must be today or later.',

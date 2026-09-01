@@ -19,7 +19,7 @@ class ApiTicketPurchaseRepository implements TicketPurchaseRepository {
   @override
   Future<Result<TicketPaymentStart>> startFreedomPayment({
     required List<TicketPaymentLineItemPayload> items,
-    required DateTime? visitDate,
+    required DateTime visitDate,
     required String idempotencyKey,
   }) async {
     final session = await _sessionStorage.readSession();
@@ -42,7 +42,7 @@ class ApiTicketPurchaseRepository implements TicketPurchaseRepository {
                 },
               )
               .toList(),
-          if (visitDate != null) 'visitDate': _formatDate(visitDate),
+          'visitDate': _formatDate(visitDate),
         },
         headers: buildMobileAuthAuthorizationHeader(session),
       );
