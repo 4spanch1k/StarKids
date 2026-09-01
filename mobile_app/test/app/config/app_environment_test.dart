@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:star_kids_mobile/app/config/app_environment.dart';
 
@@ -65,6 +66,48 @@ void main() {
         releaseMode: true,
       ),
       url,
+    );
+  });
+
+  test('iOS Google Sign-In requires native client and reversed URL config', () {
+    expect(
+      AppEnvironment.isGoogleSignInConfigured(
+        platform: TargetPlatform.iOS,
+        serverClientId: 'web-client-id',
+        iosClientId: '',
+        iosReversedClientId: 'reversed-client-id',
+      ),
+      isFalse,
+    );
+    expect(
+      AppEnvironment.isGoogleSignInConfigured(
+        platform: TargetPlatform.iOS,
+        serverClientId: 'web-client-id',
+        iosClientId: 'ios-client-id',
+        iosReversedClientId: '',
+      ),
+      isFalse,
+    );
+    expect(
+      AppEnvironment.isGoogleSignInConfigured(
+        platform: TargetPlatform.iOS,
+        serverClientId: 'web-client-id',
+        iosClientId: 'ios-client-id',
+        iosReversedClientId: 'reversed-client-id',
+      ),
+      isTrue,
+    );
+  });
+
+  test('Google Sign-In always requires the Web/server client ID', () {
+    expect(
+      AppEnvironment.isGoogleSignInConfigured(
+        platform: TargetPlatform.android,
+        serverClientId: '',
+        iosClientId: 'ios-client-id',
+        iosReversedClientId: 'reversed-client-id',
+      ),
+      isFalse,
     );
   });
 }

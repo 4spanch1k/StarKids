@@ -14,6 +14,8 @@ import '../../../../core/design_system/widgets/primary_button.dart';
 import '../../../../core/design_system/widgets/sk_fade.dart';
 import '../../../../core/design_system/widgets/sk_field.dart';
 import '../../../../core/design_system/widgets/sk_segment.dart';
+import '../../data/google_clerk_session_token_requester.dart';
+import '../../data/google_sign_in_gateway.dart';
 import '../controllers/mobile_auth_controller.dart';
 
 enum _EmailAuthMode {
@@ -21,17 +23,10 @@ enum _EmailAuthMode {
   register,
 }
 
-class _GoogleClerkAuthException implements Exception {
-  const _GoogleClerkAuthException([this.message]);
-
-  final String? message;
-
-  @override
-  String toString() => message ?? 'Google auth failed.';
-}
-
 class EmailAuthGatePage extends StatefulWidget {
-  const EmailAuthGatePage({super.key});
+  const EmailAuthGatePage({super.key, this.googleSessionTokenRequester});
+
+  final GoogleClerkSessionTokenRequester? googleSessionTokenRequester;
 
   @override
   State<EmailAuthGatePage> createState() => _EmailAuthGatePageState();
@@ -44,6 +39,7 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   late final AnimationController _entryController;
+  late final GoogleClerkSessionTokenRequester _googleSessionTokenRequester;
 
   _EmailAuthMode _mode = _EmailAuthMode.login;
   AutovalidateMode _autovalidateMode = AutovalidateMode.disabled;
@@ -56,6 +52,8 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
   @override
   void initState() {
     super.initState();
+    _googleSessionTokenRequester = widget.googleSessionTokenRequester ??
+        NativeGoogleClerkSessionTokenRequester();
     debugPrint(
       '[CLERK] publishable key present='
       '${AppEnvironment.hasClerkPublishableKey}',
@@ -108,31 +106,33 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
   Future<String> _requestGoogleClerkSessionToken(
     BuildContext clerkContext,
   ) async {
-    if (!AppEnvironment.hasClerkPublishableKey) {
-      debugPrint('[CLERK] session token request blocked: missing key');
-      throw const _GoogleClerkAuthException();
+    try {
+      return await _googleSessionTokenRequester.request(clerkContext);
+    } on GoogleAuthCancelledException {
+      debugPrint('[GOOGLE] sign-in cancelled');
+      throw const MobileAuthCancelledException();
+    } on GoogleAuthConfigurationException catch (error) {
+      debugPrint(
+          '[GOOGLE] configuration unavailable: ${error.message ?? 'unknown'}');
+      throw const MobileAuthFlowException(
+        'Вход через Google не настроен для этой сборки.',
+      );
+    } on GoogleAuthTokenException {
+      debugPrint('[GOOGLE] ID token missing');
+      throw const MobileAuthFlowException(
+        'Не удалось получить подтверждение Google аккаунта.',
+      );
+    } on GoogleAuthVerificationException {
+      debugPrint('[GOOGLE] Clerk session verification failed');
+      throw const MobileAuthFlowException(
+        'Не удалось подтвердить Google аккаунт.',
+      );
+    } on clerk.ClerkError catch (error) {
+      debugPrint('[GOOGLE] Clerk rejected Google token: ${error.code}');
+      throw const MobileAuthFlowException(
+        'Не удалось подтвердить Google аккаунт.',
+      );
     }
-
-    debugPrint('[CLERK] Google OAuth started');
-    final authState = ClerkAuth.of(clerkContext, listen: false);
-    clerk.ClerkError? signInError;
-
-    await authState.ssoSignIn(
-      clerkContext,
-      clerk.Strategy.oauthGoogle,
-      onError: (error) {
-        signInError = error;
-      },
-    );
-
-    if (signInError != null || !mounted) {
-      debugPrint('[CLERK] Google OAuth failed: ${signInError?.message}');
-      throw _GoogleClerkAuthException(signInError?.message);
-    }
-
-    final sessionToken = await authState.sessionToken();
-    debugPrint('[CLERK] session token acquired');
-    return sessionToken.jwt;
   }
 
   void _setMode(_EmailAuthMode mode) {
@@ -418,8 +418,9 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
                                   SkFade(
                                     delayMs: 500,
                                     child: _GoogleClerkAuthButton(
-                                      isConfigured:
-                                          AppEnvironment.hasClerkPublishableKey,
+                                      isConfigured: AppEnvironment
+                                              .hasClerkPublishableKey &&
+                                          AppEnvironment.hasGoogleSignInConfig,
                                       isLoading: isLoading,
                                       onPressed: _loginWithGoogleClerk,
                                     ),
@@ -641,7 +642,7 @@ class _GoogleAuthButton extends StatelessWidget {
           const SizedBox(height: SK.s2),
           Text(
             statusMessage ??
-                'Google вход недоступен: не задан Clerk publishable key.',
+                'Вход через Google не настроен для этой сборки.',
             textAlign: TextAlign.center,
             style: SKTextStyles.small.copyWith(
               fontSize: 11,
@@ -655,7 +656,7 @@ class _GoogleAuthButton extends StatelessWidget {
   }
 }
 
-class _GoogleClerkAuthButton extends StatefulWidget {
+class _GoogleClerkAuthButton extends StatelessWidget {
   const _GoogleClerkAuthButton({
     required this.isConfigured,
     required this.isLoading,
@@ -667,98 +668,13 @@ class _GoogleClerkAuthButton extends StatefulWidget {
   final Future<void> Function(BuildContext clerkContext) onPressed;
 
   @override
-  State<_GoogleClerkAuthButton> createState() => _GoogleClerkAuthButtonState();
-}
-
-class _GoogleClerkAuthButtonState extends State<_GoogleClerkAuthButton> {
-  static const _clerkInitializationTimeout = Duration(seconds: 15);
-
-  bool _isClerkRequested = false;
-  bool _didLauncherStart = false;
-  bool _hasInitializationError = false;
-  Timer? _initializationTimer;
-
-  @override
-  void didUpdateWidget(covariant _GoogleClerkAuthButton oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!widget.isConfigured && oldWidget.isConfigured) {
-      _resetClerkRequest();
-    }
-  }
-
-  @override
-  void dispose() {
-    _initializationTimer?.cancel();
-    super.dispose();
-  }
-
-  void _requestClerkSignIn() {
-    debugPrint('[CLERK] initialization requested by Google button');
-    setState(() {
-      _isClerkRequested = true;
-      _didLauncherStart = false;
-      _hasInitializationError = false;
-    });
-
-    _initializationTimer?.cancel();
-    _initializationTimer = Timer(_clerkInitializationTimeout, () {
-      if (!mounted || _didLauncherStart) {
-        return;
-      }
-
-      setState(() {
-        _isClerkRequested = false;
-        _hasInitializationError = true;
-      });
-    });
-  }
-
-  void _resetClerkRequest() {
-    _initializationTimer?.cancel();
-    _isClerkRequested = false;
-    _didLauncherStart = false;
-  }
-
-  void _markLauncherStarted() {
-    _initializationTimer?.cancel();
-    _didLauncherStart = true;
-  }
-
-  Future<void> _runClerkSignIn(BuildContext clerkContext) async {
-    try {
-      await widget.onPressed(clerkContext);
-    } finally {
-      if (mounted) {
-        setState(_resetClerkRequest);
-      }
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (!widget.isConfigured) {
+    if (!isConfigured) {
       return _GoogleAuthButton(
         isConfigured: false,
-        isLoading: widget.isLoading,
+        isLoading: isLoading,
         onPressed: () {},
-      );
-    }
-
-    if (_hasInitializationError) {
-      return _GoogleAuthButton(
-        isConfigured: false,
-        isLoading: false,
-        onPressed: () {},
-        statusMessage:
-            'Google вход временно недоступен. Проверьте Clerk publishable key.',
-      );
-    }
-
-    if (!_isClerkRequested) {
-      return _GoogleAuthButton(
-        isConfigured: true,
-        isLoading: widget.isLoading,
-        onPressed: _requestClerkSignIn,
+        statusMessage: 'Вход через Google не настроен для этой сборки.',
       );
     }
 
@@ -767,62 +683,19 @@ class _GoogleClerkAuthButtonState extends State<_GoogleClerkAuthButton> {
         publishableKey: AppEnvironment.clerkPublishableKey,
         loading: _GoogleAuthButton(
           isConfigured: true,
-          isLoading: true,
+          isLoading: isLoading,
           onPressed: () {},
-          statusMessage: 'Готовим вход через Google...',
         ),
       ),
       child: Builder(
         builder: (clerkContext) {
-          return _GoogleClerkSignInLauncher(
-            onStarted: _markLauncherStarted,
-            onStart: () => _runClerkSignIn(clerkContext),
+          return _GoogleAuthButton(
+            isConfigured: true,
+            isLoading: isLoading,
+            onPressed: () => onPressed(clerkContext),
           );
         },
       ),
-    );
-  }
-}
-
-class _GoogleClerkSignInLauncher extends StatefulWidget {
-  const _GoogleClerkSignInLauncher({
-    required this.onStarted,
-    required this.onStart,
-  });
-
-  final VoidCallback onStarted;
-  final Future<void> Function() onStart;
-
-  @override
-  State<_GoogleClerkSignInLauncher> createState() =>
-      _GoogleClerkSignInLauncherState();
-}
-
-class _GoogleClerkSignInLauncherState
-    extends State<_GoogleClerkSignInLauncher> {
-  bool _started = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _started) {
-        return;
-      }
-
-      _started = true;
-      widget.onStarted();
-      unawaited(widget.onStart());
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _GoogleAuthButton(
-      isConfigured: true,
-      isLoading: true,
-      onPressed: () {},
-      statusMessage: 'Открываем вход через Google...',
     );
   }
 }

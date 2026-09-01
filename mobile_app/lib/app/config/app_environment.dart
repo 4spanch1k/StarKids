@@ -64,6 +64,44 @@ abstract final class AppEnvironment {
   static bool get hasClerkPublishableKey =>
       clerkPublishableKey.trim().isNotEmpty;
 
+  static const googleServerClientId = String.fromEnvironment(
+    'MOBILE_GOOGLE_SERVER_CLIENT_ID',
+    defaultValue: '',
+  );
+
+  static const googleIosClientId = String.fromEnvironment(
+    'MOBILE_GOOGLE_IOS_CLIENT_ID',
+    defaultValue: '',
+  );
+
+  static const googleIosReversedClientId = String.fromEnvironment(
+    'MOBILE_GOOGLE_IOS_REVERSED_CLIENT_ID',
+    defaultValue: '',
+  );
+
+  static bool get hasGoogleSignInConfig => isGoogleSignInConfigured(
+        platform: defaultTargetPlatform,
+        serverClientId: googleServerClientId,
+        iosClientId: googleIosClientId,
+        iosReversedClientId: googleIosReversedClientId,
+      );
+
+  static bool isGoogleSignInConfigured({
+    required TargetPlatform platform,
+    required String serverClientId,
+    required String iosClientId,
+    required String iosReversedClientId,
+  }) {
+    if (serverClientId.trim().isEmpty) {
+      return false;
+    }
+    if (platform == TargetPlatform.iOS) {
+      return iosClientId.trim().isNotEmpty &&
+          iosReversedClientId.trim().isNotEmpty;
+    }
+    return true;
+  }
+
   static const _useMockBirthdayRequests = bool.fromEnvironment(
     'MOBILE_USE_MOCK_BIRTHDAY_REQUESTS',
     defaultValue: false,
