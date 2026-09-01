@@ -4,6 +4,7 @@ abstract final class AppRoutes {
   static const branchDetails = '/branches/details';
   static const home = '/home';
   static const birthdays = '/birthdays';
+  static const afisha = '/afisha';
   static const promotions = '/promotions';
   static const tickets = '/tickets';
   static const menu = '/menu';

@@ -222,10 +222,17 @@ class _HomePageState extends State<HomePage> {
                         delegate: SliverChildListDelegate([
                           const _HomeHeading(),
                           const SizedBox(height: SKSpacing.x4),
-                          _buildTicketsSection(context),
+                          _buildAdaptivePrimary(context, branch),
                           const SizedBox(height: SKSpacing.x5),
+                          _QuickActionsRow(
+                            onAfisha: () => _openRoot(AppRoutes.afisha),
+                            onBirthday: () => _openRoot(AppRoutes.birthdays),
+                            onDirections: () =>
+                                _openNested(AppRoutes.branchDetails),
+                          ),
+                          const SizedBox(height: SKSpacing.x6),
                           _buildChildrenSection(context),
-                          const SizedBox(height: SKSpacing.x4),
+                          const SizedBox(height: SKSpacing.x6),
                           _buildBirthdaySection(context),
                           const SizedBox(height: SKSpacing.x5),
                           StableFutureBuilder<_HomeContentData>(
@@ -253,6 +260,31 @@ class _HomePageState extends State<HomePage> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildAdaptivePrimary(BuildContext context, BranchOption branch) {
+    final today = _dateOnly(_nowProvider());
+    final hasUpcoming = _issuedTickets.any(
+      (ticket) => _isUpcomingIssuedTicket(ticket, today),
+    );
+
+    // Returning families need their admission credential first. New or
+    // lapsed families get one clear commercial entry point instead.
+    if (hasUpcoming || _ticketsLoading || _ticketsError != null) {
+      return _buildTicketsSection(context);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _StorefrontHero(
+          branch: branch,
+          onBuyTicket: _openTicketPurchase,
+        ),
+        const SizedBox(height: SKSpacing.x3),
+        _buildTicketsSection(context),
+      ],
     );
   }
 
@@ -288,16 +320,12 @@ class _HomePageState extends State<HomePage> {
       );
     }
     if (upcoming.isEmpty) {
-      return _HomeStateCard(
-        key: const ValueKey('home-no-tickets'),
+      return const _HomeStateCard(
+        key: ValueKey('home-no-tickets'),
         icon: Icons.local_activity_outlined,
         title: 'Планируете посещение?',
-        description: 'Купите билет заранее — он появится здесь после оплаты.',
-        action: PrimaryButton(
-          label: 'Купить билет',
-          icon: Icons.arrow_forward_rounded,
-          onPressed: _openTicketPurchase,
-        ),
+        description:
+            'После оплаты билет появится здесь и будет готов к визиту.',
       );
     }
     final ticket = upcoming.first;
@@ -371,72 +399,21 @@ class _HomePageState extends State<HomePage> {
             compact: true,
           );
         }
-        return SolidCard(
+        return _HomeInlineLink(
           key: const ValueKey('home-children-success'),
-          child: Row(
-            children: [
-              const _HomeSectionIcon(icon: Icons.child_care_rounded),
-              const SizedBox(width: SKSpacing.x3),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Дети',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: SKSpacing.x1),
-                    Text(
-                      _childrenLabel(children),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                tooltip: 'Открыть профиль',
-                onPressed: () => _openRoot(AppRoutes.profile),
-                icon: const Icon(Icons.chevron_right_rounded),
-              ),
-            ],
-          ),
+          icon: Icons.child_care_rounded,
+          title: 'Дети',
+          subtitle: _childrenLabel(children, _nowProvider()),
+          onTap: () => _openRoot(AppRoutes.profile),
         );
       },
     );
   }
 
   Widget _buildBirthdaySection(BuildContext context) {
-    return SolidCard(
+    return _BirthdayMerchandisingBlock(
       key: const ValueKey('home-birthday-cta'),
-      child: Row(
-        children: [
-          const _HomeSectionIcon(icon: Icons.cake_rounded),
-          const SizedBox(width: SKSpacing.x3),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Планируете день рождения?',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: SKSpacing.x1),
-                Text(
-                  'Посмотрите пакеты и оставьте заявку менеджеру.',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: 'Открыть раздел дней рождения',
-            onPressed: () => _openRoot(AppRoutes.birthdays),
-            icon: const Icon(Icons.arrow_forward_rounded),
-          ),
-        ],
-      ),
+      onTap: () => _openRoot(AppRoutes.birthdays),
     );
   }
 
@@ -484,10 +461,40 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-String _childrenLabel(List<Child> children) {
+String _childrenLabel(List<Child> children, DateTime now) {
   final names = children.map((child) => child.name).take(3).join(', ');
-  if (children.length <= 3) return names;
-  return '$names и ещё ${children.length - 3}';
+  final nextBirthday = _nextBirthday(children, now);
+  final suffix = nextBirthday == null
+      ? ''
+      : nextBirthday.daysUntil == 0
+          ? ' · день рождения сегодня'
+          : ' · день рождения через ${nextBirthday.daysUntil} дн.';
+  if (children.length <= 3) return '$names$suffix';
+  return '$names и ещё ${children.length - 3}$suffix';
+}
+
+_BirthdayCountdown? _nextBirthday(List<Child> children, DateTime now) {
+  final today = _dateOnly(now);
+  _BirthdayCountdown? result;
+  for (final child in children) {
+    var birthday =
+        DateTime(today.year, child.birthDate.month, child.birthDate.day);
+    if (birthday.isBefore(today)) {
+      birthday =
+          DateTime(today.year + 1, child.birthDate.month, child.birthDate.day);
+    }
+    final days = birthday.difference(today).inDays;
+    if (result == null || days < result.daysUntil) {
+      result = _BirthdayCountdown(days);
+    }
+  }
+  return result;
+}
+
+class _BirthdayCountdown {
+  const _BirthdayCountdown(this.daysUntil);
+
+  final int daysUntil;
 }
 
 int _compareIssuedTickets(IssuedTicket a, IssuedTicket b) {
@@ -516,7 +523,7 @@ class _HomeHeading extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Ваши планы',
+          'Boom Bala',
           style: Theme.of(context).textTheme.displaySmall?.copyWith(
                 color: c.textPrimary,
                 fontWeight: FontWeight.w700,
@@ -525,12 +532,112 @@ class _HomeHeading extends StatelessWidget {
         ),
         const SizedBox(height: SKSpacing.x1),
         Text(
-          'Всё важное для следующего визита — в одном месте.',
+          'Пространство для ярких семейных дней.',
           style: Theme.of(
             context,
           ).textTheme.bodyLarge?.copyWith(color: c.textSecondary),
         ),
       ],
+    );
+  }
+}
+
+class _StorefrontHero extends StatelessWidget {
+  const _StorefrontHero({required this.branch, required this.onBuyTicket});
+
+  final BranchOption branch;
+  final VoidCallback onBuyTicket;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Semantics(
+      container: true,
+      label: 'Boom Bala. Купить билет в ${branch.name}',
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(SKRadius.xl),
+        child: SizedBox(
+          height: 286,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.asset(
+                'assets/images/boom_bala_home_hero.jpg',
+                fit: BoxFit.cover,
+                alignment: Alignment.centerRight,
+                cacheWidth: 1000,
+                semanticLabel: 'Дети играют в пространстве Boom Bala',
+              ),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      Color(0xE3211E19),
+                      Color(0xA3211E19),
+                      Color(0x14211E19),
+                    ],
+                    stops: [0, .54, 1],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(SKSpacing.x5),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: SKSpacing.x2,
+                        vertical: SKSpacing.x1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: .18),
+                        borderRadius: BorderRadius.circular(SKRadius.sm),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: .25),
+                        ),
+                      ),
+                      child: Text(
+                        branch.shortLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: SKTextStyles.small.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    SizedBox(
+                      width: 226,
+                      child: Text(
+                        'Куда пойдём сегодня?',
+                        style: textTheme.headlineMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          height: 1.05,
+                          letterSpacing: -.6,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: SKSpacing.x2),
+                    SizedBox(
+                      width: 210,
+                      child: PrimaryButton(
+                        label: 'Купить билет',
+                        icon: Icons.arrow_forward_rounded,
+                        onPressed: onBuyTicket,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -557,8 +664,13 @@ class _HomeTicketCard extends StatelessWidget {
         : DateFormat('dd.MM.yyyy').format(ticket.visitDate!);
     final countLabel = groupedCount > 1 ? '$groupedCount билета · ' : '';
 
-    return SolidCard(
+    return Container(
       padding: const EdgeInsets.all(SKSpacing.x5),
+      decoration: BoxDecoration(
+        color: c.inverse,
+        borderRadius: BorderRadius.circular(SKRadius.xl),
+        boxShadow: SKShadows.md,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -570,7 +682,7 @@ class _HomeTicketCard extends StatelessWidget {
                   ticket.title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: textTheme.headlineSmall,
+                  style: textTheme.headlineSmall?.copyWith(color: Colors.white),
                 ),
               ),
               const SizedBox(width: SKSpacing.x2),
@@ -580,12 +692,12 @@ class _HomeTicketCard extends StatelessWidget {
                   vertical: SKSpacing.x1,
                 ),
                 decoration: BoxDecoration(
-                  color: c.successSoft,
+                  color: Colors.white.withValues(alpha: .14),
                   borderRadius: BorderRadius.circular(SKRadius.sm),
                 ),
                 child: Text(
                   'Действует',
-                  style: textTheme.labelMedium?.copyWith(color: c.success),
+                  style: textTheme.labelMedium?.copyWith(color: Colors.white),
                 ),
               ),
             ],
@@ -594,16 +706,19 @@ class _HomeTicketCard extends StatelessWidget {
           _TicketMetaRow(
             icon: Icons.calendar_today_rounded,
             text: '$countLabel$dateLabel',
+            color: Colors.white.withValues(alpha: .78),
           ),
           const SizedBox(height: SKSpacing.x2),
           _TicketMetaRow(
             icon: Icons.location_on_outlined,
             text: ticket.branchName,
+            color: Colors.white.withValues(alpha: .78),
           ),
           const SizedBox(height: SKSpacing.x2),
           _TicketMetaRow(
             icon: Icons.confirmation_num_outlined,
             text: ticket.ticketNumber,
+            color: Colors.white.withValues(alpha: .78),
           ),
           const SizedBox(height: SKSpacing.x4),
           Row(
@@ -618,7 +733,8 @@ class _HomeTicketCard extends StatelessWidget {
               const SizedBox(width: SKSpacing.x2),
               TextButton(
                 onPressed: onAllTickets,
-                child: const Text('Все билеты'),
+                child: const Text('Все билеты',
+                    style: TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -628,25 +744,253 @@ class _HomeTicketCard extends StatelessWidget {
   }
 }
 
+class _HomeInlineLink extends StatelessWidget {
+  const _HomeInlineLink({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(SKRadius.md),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: SKSpacing.x2),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: c.accentSoft,
+                  borderRadius: BorderRadius.circular(SKRadius.md),
+                ),
+                child: Icon(icon, color: c.accent),
+              ),
+              const SizedBox(width: SKSpacing.x3),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: c.textSecondary,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: c.textTertiary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickActionsRow extends StatelessWidget {
+  const _QuickActionsRow({
+    required this.onAfisha,
+    required this.onBirthday,
+    required this.onDirections,
+  });
+
+  final VoidCallback onAfisha;
+  final VoidCallback onBirthday;
+  final VoidCallback onDirections;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _QuickAction(
+            icon: Icons.event_rounded,
+            label: 'Афиша',
+            onTap: onAfisha,
+          ),
+        ),
+        const SizedBox(width: SKSpacing.x2),
+        Expanded(
+          child: _QuickAction(
+            icon: Icons.cake_outlined,
+            label: 'Праздник',
+            onTap: onBirthday,
+          ),
+        ),
+        const SizedBox(width: SKSpacing.x2),
+        Expanded(
+          child: _QuickAction(
+            icon: Icons.directions_outlined,
+            label: 'Как добраться',
+            onTap: onDirections,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickAction extends StatelessWidget {
+  const _QuickAction(
+      {required this.icon, required this.label, required this.onTap});
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+    return Material(
+      color: c.elevated,
+      borderRadius: BorderRadius.circular(SKRadius.lg),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(SKRadius.lg),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+              vertical: SKSpacing.x3, horizontal: SKSpacing.x2),
+          child: Column(
+            children: [
+              Icon(icon, color: c.cta, size: 22),
+              const SizedBox(height: SKSpacing.x1),
+              Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BirthdayMerchandisingBlock extends StatelessWidget {
+  const _BirthdayMerchandisingBlock({super.key, required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Планируете день рождения? Открыть праздничные пакеты',
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(SKRadius.xl),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            child: SizedBox(
+              height: 190,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.asset(
+                    'assets/images/birthday_hero.jpg',
+                    fit: BoxFit.cover,
+                    alignment: Alignment.center,
+                    cacheWidth: 900,
+                    semanticLabel: 'Дети играют на празднике',
+                  ),
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [Color(0xDC211E19), Color(0x32211E19)],
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(SKSpacing.x5),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Планируете день рождения?',
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineMedium
+                              ?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                height: 1.08,
+                              ),
+                        ),
+                        const Spacer(),
+                        Row(
+                          children: [
+                            Text(
+                              'Посмотреть пакеты',
+                              style: SKTextStyles.small.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(width: SKSpacing.x1),
+                            const Icon(
+                              Icons.arrow_forward_rounded,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _TicketMetaRow extends StatelessWidget {
-  const _TicketMetaRow({required this.icon, required this.text});
+  const _TicketMetaRow({required this.icon, required this.text, this.color});
 
   final IconData icon;
   final String text;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     final c = SKTheme.of(context).colors;
     return Row(
       children: [
-        Icon(icon, size: 18, color: c.textTertiary),
+        Icon(icon, size: 18, color: color ?? c.textTertiary),
         const SizedBox(width: SKSpacing.x2),
         Expanded(
           child: Text(
             text,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodyMedium,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: color,
+                ),
           ),
         ),
       ],
@@ -878,6 +1222,15 @@ class _AppDrawer extends StatelessWidget {
           onTap: () {
             Navigator.pop(context);
             Navigator.of(context).pushNamed(AppRoutes.myRequests);
+          },
+        ),
+        GlassDrawerRow(
+          icon: Icons.event_outlined,
+          label: 'Афиша',
+          onTap: () {
+            final navigator = Navigator.of(context);
+            navigator.pop();
+            navigator.pushReplacementNamed(AppRoutes.afisha);
           },
         ),
         GlassDrawerRow(

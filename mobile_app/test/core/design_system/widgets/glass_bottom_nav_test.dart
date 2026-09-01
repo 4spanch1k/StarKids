@@ -24,14 +24,14 @@ void main() {
                 label: 'Главная',
               ),
               GlassNavItem(
-                id: 'birthdays',
-                icon: Icons.cake_outlined,
-                label: 'Дни рождения',
+                id: 'afisha',
+                icon: Icons.event_outlined,
+                label: 'Афиша',
               ),
               GlassNavItem(
-                id: 'promotions',
-                icon: Icons.local_offer_outlined,
-                label: 'Акции',
+                id: 'birthdays',
+                icon: Icons.cake_outlined,
+                label: 'Праздники',
               ),
               GlassNavItem(
                 id: 'tickets',
@@ -53,7 +53,7 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.byType(BackdropFilter), findsNothing);
-    expect(find.text('Дни рождения'), findsOneWidget);
+    expect(find.text('Праздники'), findsOneWidget);
   });
 
   testWidgets('root tabs keep the product order with Tickets second', (
@@ -68,7 +68,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final labels = ['Главная', 'Билеты', 'Праздники', 'Акции', 'Профиль'];
+    final labels = ['Главная', 'Билеты', 'Афиша', 'Праздники', 'Профиль'];
     final centers = labels
         .map((label) => tester.getCenter(find.text(label)))
         .toList(growable: false);

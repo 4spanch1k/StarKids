@@ -223,11 +223,20 @@ class _QrSection extends StatelessWidget {
       children: [
         SolidCard(
           padding: const EdgeInsets.all(SKSpacing.x4),
-          child: QrImageView(
-            data: payload!,
-            size: 240,
-            padding: const EdgeInsets.all(SKSpacing.x3),
-            backgroundColor: Colors.white,
+          child: Column(
+            children: [
+              Text(
+                'Покажите код на входе',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: SKSpacing.x3),
+              QrImageView(
+                data: payload!,
+                size: 240,
+                padding: const EdgeInsets.all(SKSpacing.x3),
+                backgroundColor: Colors.white,
+              ),
+            ],
           ),
         ),
         const SizedBox(height: SKSpacing.x3),

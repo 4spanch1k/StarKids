@@ -266,43 +266,131 @@ class _IssuedTicketCard extends StatelessWidget {
     final colors = SKTheme.of(context).colors;
     return StarKidsReveal(
       delay: revealDelay,
-      child: SolidCard(
-        onTap: onTap,
-        padding: const EdgeInsets.all(SKSpacing.x4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(SKRadius.xl),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(SKRadius.xl),
+          child: Container(
+            padding: const EdgeInsets.all(SKSpacing.x4),
+            decoration: BoxDecoration(
+              color: ticket.isIssued ? colors.inverse : colors.elevated,
+              borderRadius: BorderRadius.circular(SKRadius.xl),
+              border:
+                  ticket.isIssued ? null : Border.all(color: colors.hairline),
+              boxShadow: ticket.isIssued ? SKShadows.md : SKShadows.sm,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(ticket.title, style: textTheme.titleLarge),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        ticket.title,
+                        style: textTheme.titleLarge?.copyWith(
+                          color: ticket.isIssued
+                              ? Colors.white
+                              : colors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: SKSpacing.x2,
+                        vertical: SKSpacing.x1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: ticket.isIssued
+                            ? Colors.white.withValues(alpha: .14)
+                            : colors.divider,
+                        borderRadius: BorderRadius.circular(SKRadius.sm),
+                      ),
+                      child: Text(
+                        ticket.isIssued ? 'Действует' : ticket.status,
+                        style: textTheme.labelMedium?.copyWith(
+                          color: ticket.isIssued
+                              ? Colors.white
+                              : colors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: SKSpacing.x3),
                 Text(
-                  ticket.isIssued ? 'Действует' : ticket.status,
-                  style: textTheme.labelLarge?.copyWith(color: colors.success),
+                  ticket.ticketNumber,
+                  style: SKTextStyles.mono.copyWith(
+                    color: ticket.isIssued
+                        ? Colors.white.withValues(alpha: .72)
+                        : colors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: SKSpacing.x4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _TicketInfo(
+                        icon: Icons.location_on_outlined,
+                        text: ticket.branchName,
+                        foreground:
+                            ticket.isIssued ? Colors.white : colors.textPrimary,
+                      ),
+                    ),
+                    Expanded(
+                      child: _TicketInfo(
+                        icon: Icons.calendar_today_outlined,
+                        text: _formatTicketDate(ticket.visitDate),
+                        foreground:
+                            ticket.isIssued ? Colors.white : colors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: SKSpacing.x3),
+                SecondaryButton(
+                  label: 'Открыть билет',
+                  fullWidth: true,
+                  onPressed: onTap,
                 ),
               ],
             ),
-            const SizedBox(height: SKSpacing.x3),
-            Text(ticket.ticketNumber, style: textTheme.titleMedium),
-            const SizedBox(height: SKSpacing.x2),
-            Text(ticket.branchName, style: textTheme.bodyMedium),
-            const SizedBox(height: SKSpacing.x1),
-            Text(
-              _formatTicketDate(ticket.visitDate),
-              style: textTheme.bodyMedium,
-            ),
-            const SizedBox(height: SKSpacing.x1),
-            Text('${ticket.priceTenge} тг', style: textTheme.bodyMedium),
-            const SizedBox(height: SKSpacing.x3),
-            SecondaryButton(
-              label: 'Открыть билет',
-              fullWidth: true,
-              onPressed: onTap,
-            ),
-          ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _TicketInfo extends StatelessWidget {
+  const _TicketInfo({
+    required this.icon,
+    required this.text,
+    required this.foreground,
+  });
+
+  final IconData icon;
+  final String text;
+  final Color foreground;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: foreground.withValues(alpha: .72)),
+        const SizedBox(width: SKSpacing.x1),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: SKTextStyles.small.copyWith(
+              color: foreground.withValues(alpha: .86),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

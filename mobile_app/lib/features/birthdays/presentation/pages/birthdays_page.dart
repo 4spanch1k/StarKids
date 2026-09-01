@@ -4,7 +4,6 @@ import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/widgets/star_kids_root_navigation.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
-import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/glass_app_bar.dart';
 import '../../../../core/design_system/widgets/glass_card.dart';
 import '../../../../core/design_system/widgets/glass_floating_button.dart';
@@ -14,6 +13,7 @@ import '../../../../core/design_system/widgets/star_kids_content_block_card.dart
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../../../core/design_system/widgets/stable_future_builder.dart';
+import '../../../../core/design_system/widgets/primary_button.dart';
 import '../../../branches/domain/branch_option.dart';
 import '../../../content/domain/public_content_block.dart';
 import '../../../requests/domain/request_type.dart';
@@ -67,23 +67,35 @@ class BirthdaysPage extends StatelessWidget {
                   }
 
                   if (snapshot.hasError && packages.isEmpty) {
-                    return const StarKidsContentSwitcher(
+                    return StarKidsContentSwitcher(
                       child: _BirthdaysStateView(
-                        key: ValueKey('birthdays-error'),
+                        key: const ValueKey('birthdays-error'),
                         title: 'Пакеты пока недоступны',
                         description:
                             'Не удалось загрузить live-данные по пакетам праздника. Попробуйте открыть экран позже.',
+                        onAction: () => Navigator.of(context).pushNamed(
+                          AppRoutes.requests,
+                          arguments: const RequestPageArgs(
+                            initialType: RequestType.birthdayRequest,
+                          ),
+                        ),
                       ),
                     );
                   }
 
                   if (packages.isEmpty) {
-                    return const StarKidsContentSwitcher(
+                    return StarKidsContentSwitcher(
                       child: _BirthdaysStateView(
-                        key: ValueKey('birthdays-empty'),
-                        title: 'Пакеты скоро появятся',
+                        key: const ValueKey('birthdays-empty'),
+                        title: 'Организуем день рождения в Boom Bala',
                         description:
-                            'Для выбранного филиала пока нет опубликованных пакетов. Можно оставить общую заявку, и менеджер подберет формат вручную.',
+                            'Оставьте заявку — менеджер подберёт формат праздника вручную, даже если пакеты ещё не опубликованы.',
+                        onAction: () => Navigator.of(context).pushNamed(
+                          AppRoutes.requests,
+                          arguments: const RequestPageArgs(
+                            initialType: RequestType.birthdayRequest,
+                          ),
+                        ),
                       ),
                     );
                   }
@@ -99,47 +111,19 @@ class BirthdaysPage extends StatelessWidget {
                       ),
                       children: [
                         SkHero(
-                          imageUrl:
-                              'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?auto=format&fit=crop&w=900&q=80',
+                          imageUrl: 'assets/images/birthday_hero.jpg',
                           aspectRatio: 5 / 4,
                           chip: resolvedBranch.shortLabel,
-                          title: 'Праздник, который дети запомнят.',
-                          italicText: 'запомнят',
+                          title: 'Праздник, который хочется повторить.',
+                          italicText: 'повторить',
                           meta:
-                              'Игровая зона, аниматор, кафе и торт в одном сценарии.',
-                        ),
-                        const SizedBox(height: SKSpacing.x6),
-                        const StarKidsSectionHeader(
-                          title: 'Что входит',
-                        ),
-                        const SizedBox(height: SKSpacing.x4),
-                        const Column(
-                          children: [
-                            _IncludedRow(
-                              title: 'Аниматоры и шоу',
-                              subtitle: 'Авторские программы под возраст',
-                              icon: Icons.auto_awesome_rounded,
-                            ),
-                            _IncludedRow(
-                              icon: Icons.sports_gymnastics_rounded,
-                              title: 'Безлимит активити-парк',
-                              subtitle: '3000 м² зон, лабиринты, батуты',
-                            ),
-                            _IncludedRow(
-                              icon: Icons.cake_rounded,
-                              title: 'Торт и угощения',
-                              subtitle: 'Меню по бюджету',
-                            ),
-                            _IncludedRow(
-                              icon: Icons.send_rounded,
-                              title: 'Заявка без переписок',
-                              subtitle: 'Менеджер свяжется в течение 30 мин',
-                            ),
-                          ],
+                              'Выберите пакет и оставьте заявку — команда поможет с деталями.',
                         ),
                         const SizedBox(height: SKSpacing.x6),
                         const StarKidsSectionHeader(
                           title: 'Пакеты',
+                          description:
+                              'Состав и стоимость указаны в каждом пакете.',
                         ),
                         const SizedBox(height: SKSpacing.x3),
                         SizedBox(
@@ -201,7 +185,7 @@ class BirthdaysPage extends StatelessWidget {
                               ),
                         ] else ...[
                           const StarKidsSectionHeader(
-                            title: 'Какой пакет подойдет',
+                            title: 'Нужна помощь с выбором?',
                           ),
                           const SizedBox(height: SKSpacing.x3),
                           const SolidCard(
@@ -210,19 +194,9 @@ class BirthdaysPage extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _ComparisonRow(
-                                  title: 'Нужен быстрый семейный праздник',
-                                  value: 'Выбирайте WOW PARTY',
-                                ),
-                                SizedBox(height: SKSpacing.x3),
-                                _ComparisonRow(
-                                  title: 'Нужен wow-эффект и шоу',
-                                  value: 'Лучше всего подойдет STAR PARTY',
-                                ),
-                                SizedBox(height: SKSpacing.x3),
-                                _ComparisonRow(
-                                  title: 'Большая компания и семейный формат',
-                                  value: 'Берите MAGIC PARTY',
+                                Text(
+                                  'Оставьте заявку — менеджер поможет подобрать формат праздника.',
+                                  style: TextStyle(fontSize: 16, height: 1.4),
                                 ),
                               ],
                             ),
@@ -287,72 +261,17 @@ class BirthdaysPage extends StatelessWidget {
   }
 }
 
-class _IncludedRow extends StatelessWidget {
-  const _IncludedRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = SKTheme.of(context).colors;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: SKSpacing.x3),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: c.elevated,
-              borderRadius: BorderRadius.circular(SKRadius.lg),
-            ),
-            child: Icon(icon, size: 20, color: c.textPrimary),
-          ),
-          const SizedBox(width: SKSpacing.x3),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: SKTextStyles.bodyL.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: c.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: SKTextStyles.small.copyWith(
-                    color: c.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _BirthdaysStateView extends StatelessWidget {
   const _BirthdaysStateView({
     super.key,
     required this.title,
     required this.description,
+    this.onAction,
   });
 
   final String title;
   final String description;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -370,32 +289,19 @@ class _BirthdaysStateView extends StatelessWidget {
                 Text(title, style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: SKSpacing.x2),
                 Text(description, style: Theme.of(context).textTheme.bodyLarge),
+                if (onAction != null) ...[
+                  const SizedBox(height: SKSpacing.x4),
+                  PrimaryButton(
+                    label: 'Оставить заявку',
+                    icon: Icons.arrow_forward_rounded,
+                    onPressed: onAction,
+                  ),
+                ],
               ],
             ),
           ),
         ),
       ),
-    );
-  }
-}
-
-class _ComparisonRow extends StatelessWidget {
-  const _ComparisonRow({required this.title, required this.value});
-
-  final String title;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: textTheme.labelMedium),
-        const SizedBox(height: SKSpacing.x1),
-        Text(value, style: textTheme.bodyLarge),
-      ],
     );
   }
 }

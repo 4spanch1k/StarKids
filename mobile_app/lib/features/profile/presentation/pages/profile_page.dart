@@ -2397,20 +2397,14 @@ class _StatRow extends StatelessWidget {
       child: Row(
         children: [
           _StatCell(
-            value: controller.previewRequests.isEmpty
-                ? '3'
-                : controller.previewRequests.length.toString(),
-            label: 'праздника',
+            value: controller.totalRequests.toString(),
+            label: 'заявок',
           ),
           const _StatDivider(),
           _StatCell(
-            value: childrenController.children.isEmpty
-                ? '2'
-                : childrenController.children.length.toString(),
+            value: childrenController.children.length.toString(),
             label: 'детей',
           ),
-          const _StatDivider(),
-          const _StatCell(value: '8 200', label: 'бонусов'),
         ],
       ),
     );

@@ -171,7 +171,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('home-upcoming-ticket')), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('home-children-error')),
+      240,
+    );
     expect(find.byKey(const ValueKey('home-children-error')), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('home-birthday-cta')),
+      240,
+    );
     expect(find.byKey(const ValueKey('home-birthday-cta')), findsOneWidget);
     expect(find.text('Планируете день рождения?'), findsOneWidget);
 
