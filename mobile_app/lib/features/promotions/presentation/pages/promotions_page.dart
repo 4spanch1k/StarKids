@@ -140,12 +140,12 @@ class PromotionsPage extends StatelessWidget {
                               ),
                               const SizedBox(height: SKSpacing.x3),
                               Text(
-                                'Акции должны возвращать родителя в приложение, а не просто висеть как баннер.',
+                                'Актуальные предложения',
                                 style: textTheme.headlineMedium,
                               ),
                               const SizedBox(height: SKSpacing.x3),
                               Text(
-                                'Здесь собраны branch-aware офферы и удобный вход в request flow без нового визуального шума.',
+                                'Подобрали предложения, доступные в этом филиале.',
                                 style: textTheme.bodyLarge,
                               ),
                             ],
@@ -153,9 +153,9 @@ class PromotionsPage extends StatelessWidget {
                         ),
                         const SizedBox(height: SKSpacing.x6),
                         StarKidsSectionHeader(
-                          title: 'Предложения для ${data.branch.shortLabel}',
+                          title: 'Для ${data.branch.shortLabel}',
                           description:
-                              'Коммерческий экран должен быстро показать, почему сюда стоит вернуться именно сейчас.',
+                              'Условия и детали — внутри каждого предложения.',
                         ),
                         const SizedBox(height: SKSpacing.x4),
                         ...promotions.asMap().entries.map(
@@ -203,12 +203,12 @@ class PromotionsPage extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Зачем открывать приложение снова',
+                                  'Следите за новостями',
                                   style: textTheme.titleLarge,
                                 ),
                                 const SizedBox(height: SKSpacing.x2),
                                 Text(
-                                  'Филиалы, акции и birthday flow уже собраны в один сценарий: посмотреть, выбрать и оставить заявку за пару минут.',
+                                  'Когда появятся новые предложения, они будут собраны здесь.',
                                   style: textTheme.bodyLarge,
                                 ),
                               ],
