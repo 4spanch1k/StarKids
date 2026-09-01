@@ -4,10 +4,31 @@ abstract final class AppEnvironment {
     defaultValue: 'development',
   );
 
-  static const apiBaseUrl = String.fromEnvironment(
+  static const _configuredApiBaseUrl = String.fromEnvironment(
     'MOBILE_API_BASE_URL',
-    defaultValue: 'http://localhost:8000/api/v1/mobile',
+    defaultValue: '',
   );
+
+  static String get apiBaseUrl {
+    final configured = _configuredApiBaseUrl.trim();
+    if (isProduction) {
+      final uri = Uri.tryParse(configured);
+      if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
+        throw StateError(
+          'MOBILE_API_BASE_URL must be an explicit HTTPS URL in production.',
+        );
+      }
+      final host = uri.host.toLowerCase();
+      if (host == 'localhost' || host == '127.0.0.1' || host.endsWith('.invalid')) {
+        throw StateError(
+          'MOBILE_API_BASE_URL cannot point to localhost or a placeholder host in production.',
+        );
+      }
+      return configured;
+    }
+
+    return configured.isEmpty ? 'http://localhost:8000/api/v1/mobile' : configured;
+  }
 
   static const clerkPublishableKey = String.fromEnvironment(
     'MOBILE_CLERK_PUBLISHABLE_KEY',
@@ -23,6 +44,8 @@ abstract final class AppEnvironment {
   );
 
   static bool get isDevelopment => appEnv.trim().toLowerCase() == 'development';
+
+  static bool get isProduction => appEnv.trim().toLowerCase() == 'production';
 
   static bool get isTest =>
       appEnv.trim().toLowerCase() == 'test' ||

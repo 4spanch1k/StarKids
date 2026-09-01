@@ -9,6 +9,11 @@
 .tags*
 **/.vagrant/
 **/DerivedData/
+**/*.mobileprovision
+**/*.provisionprofile
+**/*.p12
+**/*.cer
+**/*.pem
 Icon?
 **/Pods/
 **/.symlinks/
