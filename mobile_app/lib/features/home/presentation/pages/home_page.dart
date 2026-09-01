@@ -42,11 +42,13 @@ class HomePage extends StatefulWidget {
     this.newsController,
     this.issuedTicketRepository,
     this.childrenController,
+    this.nowProvider,
   });
 
   final NewsFeedController? newsController;
   final IssuedTicketRepository? issuedTicketRepository;
   final ChildrenController? childrenController;
+  final DateTime Function()? nowProvider;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -58,6 +60,7 @@ class _HomePageState extends State<HomePage> {
   late final bool _ownsNewsController;
   late final IssuedTicketRepository _issuedTicketRepository;
   late final ChildrenController _childrenController;
+  late final DateTime Function() _nowProvider;
   bool _isOpeningDestination = false;
   List<IssuedTicket> _issuedTickets = const [];
   bool _ticketsLoading = true;
@@ -78,6 +81,7 @@ class _HomePageState extends State<HomePage> {
         widget.issuedTicketRepository ?? ServiceRegistry.issuedTicketRepository;
     _childrenController =
         widget.childrenController ?? ServiceRegistry.childrenController;
+    _nowProvider = widget.nowProvider ?? DateTime.now;
     unawaited(_loadIssuedTickets());
     unawaited(_childrenController.load());
   }
@@ -253,7 +257,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildTicketsSection(BuildContext context) {
-    final upcoming = _issuedTickets.where((ticket) => ticket.isIssued).toList();
+    final today = _dateOnly(_nowProvider());
+    final upcoming = _issuedTickets
+        .where((ticket) => _isUpcomingIssuedTicket(ticket, today))
+        .toList();
     if (_ticketsLoading && _issuedTickets.isEmpty) {
       return const _HomeStateCard(
         key: ValueKey('home-tickets-loading'),
@@ -488,6 +495,15 @@ int _compareIssuedTickets(IssuedTicket a, IssuedTicket b) {
   if (a.visitDate == null) return 1;
   if (b.visitDate == null) return -1;
   return a.visitDate!.compareTo(b.visitDate!);
+}
+
+DateTime _dateOnly(DateTime value) =>
+    DateTime(value.year, value.month, value.day);
+
+bool _isUpcomingIssuedTicket(IssuedTicket ticket, DateTime today) {
+  final visitDate = ticket.visitDate;
+  if (!ticket.isIssued || visitDate == null) return false;
+  return !_dateOnly(visitDate).isBefore(_dateOnly(today));
 }
 
 class _HomeHeading extends StatelessWidget {

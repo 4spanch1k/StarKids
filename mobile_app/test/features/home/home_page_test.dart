@@ -73,6 +73,74 @@ void main() {
     children.dispose();
   });
 
+  testWidgets('past issued ticket is skipped in favor of future ticket',
+      (tester) async {
+    final children = _childrenController(const []);
+    await _pumpHome(
+      tester,
+      tickets: [
+        _ticket(id: 'ticket-past', visitDate: DateTime(2026, 8, 31)),
+        _ticket(id: 'ticket-future', number: 'BB-0000000002'),
+      ],
+      childrenController: children,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('home-upcoming-ticket')), findsOneWidget);
+    expect(find.text('BB-0000000002'), findsOneWidget);
+    expect(find.text('BB-0000000001'), findsNothing);
+    children.dispose();
+  });
+
+  testWidgets('only past issued tickets show the purchase empty state',
+      (tester) async {
+    final children = _childrenController(const []);
+    await _pumpHome(
+      tester,
+      tickets: [
+        _ticket(id: 'ticket-past', visitDate: DateTime(2026, 8, 31)),
+      ],
+      childrenController: children,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('home-no-tickets')), findsOneWidget);
+    expect(find.text('Ближайшее посещение'), findsNothing);
+    children.dispose();
+  });
+
+  testWidgets('today issued ticket is upcoming', (tester) async {
+    final children = _childrenController(const []);
+    await _pumpHome(
+      tester,
+      tickets: [
+        _ticket(id: 'ticket-today', visitDate: DateTime(2026, 9, 1)),
+      ],
+      childrenController: children,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('home-upcoming-ticket')), findsOneWidget);
+    children.dispose();
+  });
+
+  testWidgets('issued ticket without visit date is not upcoming',
+      (tester) async {
+    final children = _childrenController(const []);
+    await _pumpHome(
+      tester,
+      tickets: [
+        _ticket(id: 'ticket-open', noVisitDate: true),
+      ],
+      childrenController: children,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('home-no-tickets')), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-upcoming-ticket')), findsNothing);
+    children.dispose();
+  });
+
   testWidgets('same-date tickets are represented without losing quantity',
       (tester) async {
     final tickets = [
@@ -130,6 +198,7 @@ Future<void> _pumpHome(
   WidgetTester tester, {
   required List<IssuedTicket> tickets,
   required ChildrenController childrenController,
+  DateTime Function()? nowProvider,
 }) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
@@ -143,6 +212,7 @@ Future<void> _pumpHome(
         newsController: NewsFeedController(
           repository: const _EmptyNewsRepository(),
         ),
+        nowProvider: nowProvider ?? _fixedToday,
       ),
     ),
   );
@@ -153,6 +223,8 @@ IssuedTicket _ticket({
   required String id,
   String? number,
   String status = 'issued',
+  DateTime? visitDate,
+  bool noVisitDate = false,
 }) {
   return IssuedTicket(
     ticketId: id,
@@ -161,12 +233,14 @@ IssuedTicket _ticket({
     title: 'Детский билет',
     branchId: defaultBranchId,
     branchName: 'Boom Bala Алматы',
-    visitDate: DateTime(2026, 9, 5),
+    visitDate: noVisitDate ? null : (visitDate ?? DateTime(2026, 9, 5)),
     priceTenge: 3700,
     status: status,
     issuedAt: DateTime(2026, 9, 1),
   );
 }
+
+DateTime _fixedToday() => DateTime(2026, 9, 1, 12);
 
 ChildrenController _childrenController(List<Child> children) {
   return ChildrenController(
