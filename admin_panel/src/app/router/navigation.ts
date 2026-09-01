@@ -1,7 +1,10 @@
+import type { AdminRole } from '@/features/auth/types';
+
 export type NavigationItem = {
   name: string;
   label: string;
   to: string;
+  allowedRoles?: AdminRole[];
 };
 
 export const primaryNavigationItems: NavigationItem[] = [
@@ -19,6 +22,12 @@ export const secondaryNavigationItems: NavigationItem[] = [
   { name: 'dashboard', label: 'Сводка', to: '/dashboard' },
   { name: 'menu', label: 'Меню', to: '/menu' },
   { name: 'tickets', label: 'Билеты', to: '/tickets' },
+  {
+    name: 'ticket-scanner',
+    label: 'Сканер билетов',
+    to: '/ticket-scanner',
+    allowedRoles: ['operator', 'super_admin'],
+  },
   { name: 'customers', label: 'Клиенты', to: '/customers' },
   { name: 'push-campaigns', label: 'Пуш-кампании', to: '/push-campaigns' },
   { name: 'audit-logs', label: 'Журнал аудита', to: '/audit-logs' },
