@@ -31,6 +31,7 @@ dependencies:
   flutter_animate: ^4.5.0
   qr_flutter: ^4.1.0
   google_sign_in: ^7.1.0
+  uuid: ^4.5.1
   clerk_auth: ^0.0.15-beta
   clerk_flutter:
     git:

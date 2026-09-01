@@ -1,4 +1,5 @@
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:uuid/uuid.dart';
 
 class GoogleIdentityToken {
   const GoogleIdentityToken({required this.idToken, this.displayName});
@@ -61,6 +62,7 @@ class NativeGoogleSignInGateway implements GoogleSignInGateway {
     _initializedServerClientId ??= normalizedServerClientId;
     return _initialization ??= _googleSignIn.initialize(
       serverClientId: normalizedServerClientId,
+      nonce: const Uuid().v4(),
       clientId: switch (clientId?.trim()) {
         final value when value != null && value.isNotEmpty => value,
         _ => null,
