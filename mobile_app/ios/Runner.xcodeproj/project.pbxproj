@@ -199,6 +199,7 @@
 			buildConfigurationList = 97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget "Runner" */;
 			buildPhases = (
 				885732DBB2349C653443C24C /* [CP] Check Pods Manifest.lock */,
+				A9B3E7C1D9F14C7A8E2B0A11 /* Validate production identity */,
 				9740EEB61CF901F6004384FC /* Run Script */,
 				97C146EA1CF9000F007C117D /* Sources */,
 				97C146EB1CF9000F007C117D /* Frameworks */,
@@ -283,6 +284,22 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		A9B3E7C1D9F14C7A8E2B0A11 /* Validate production identity */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Validate production identity";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if { [ \"$CONFIGURATION\" = \"Release\" ] || [ \"$CONFIGURATION\" = \"Profile\" ]; } && { [ \"$ACTION\" = \"install\" ] || [ \"$CODE_SIGNING_ALLOWED\" = \"YES\" ]; }; then\n    case \"$PRODUCT_BUNDLE_IDENTIFIER\" in\n        \"\"|com.example.*)\n            echo \"error: Set an authoritative production PRODUCT_BUNDLE_IDENTIFIER (for example via xcodebuild PRODUCT_BUNDLE_IDENTIFIER=...). Placeholder com.example identifiers are blocked for signed/archive builds.\" >&2\n            exit 1\n            ;;\n    esac\nfi\n";
+			showEnvVarsInLog = 0;
+		};
 		3B06AD1E1E4923F5004D2608 /* Thin Binary */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
