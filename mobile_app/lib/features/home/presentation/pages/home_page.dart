@@ -35,6 +35,7 @@ import '../../../tickets/data/api_issued_ticket_repository.dart';
 import '../../../tickets/domain/issued_ticket.dart';
 import '../../../tickets/domain/issued_ticket_repository.dart';
 import '../../../tickets/presentation/pages/ticket_detail_page.dart';
+import '../models/home_primary_state.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
@@ -220,13 +221,11 @@ class _HomePageState extends State<HomePage> {
                       ),
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
-                          const _HomeHeading(),
-                          const SizedBox(height: SKSpacing.x4),
-                          _buildTicketsSection(context),
+                          _buildPrimarySection(context),
                           const SizedBox(height: SKSpacing.x5),
                           _buildChildrenSection(context),
                           const SizedBox(height: SKSpacing.x4),
-                          _buildBirthdaySection(context),
+                          _buildSecondaryBirthdaySection(context),
                           const SizedBox(height: SKSpacing.x5),
                           StableFutureBuilder<_HomeContentData>(
                             cacheKey: '${branch.id}-$_secondaryRefreshVersion',
@@ -256,10 +255,67 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildPrimarySection(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _childrenController,
+      builder: (context, _) {
+        final primary = resolveHomePrimaryState(
+          tickets: _issuedTickets,
+          children: _childrenController.children,
+          now: _nowProvider(),
+        );
+        final hasUpcomingTicket = _issuedTickets.any(
+          (ticket) => isUpcomingIssuedTicket(
+            ticket,
+            homeDateOnly(_nowProvider()),
+          ),
+        );
+        if (_ticketsLoading && _issuedTickets.isEmpty) {
+          return _buildTicketsSection(context);
+        }
+        if (_ticketsError != null && !hasUpcomingTicket) {
+          return _buildTicketsSection(context);
+        }
+        switch (primary.state) {
+          case HomePrimaryState.activeTicket:
+            return _buildTicketsSection(context);
+          case HomePrimaryState.birthday:
+            return _BirthdayHero(
+              key: const ValueKey('home-primary-birthday'),
+              child: primary.child!,
+              nextBirthday: primary.nextBirthday!,
+              birthdayAge: primary.birthdayAge!,
+              now: _nowProvider(),
+              onOpen: () => _openRoot(AppRoutes.birthdays),
+            );
+          case HomePrimaryState.returningFamily:
+            // Visit history is not available yet, so never invent a count.
+            return _NewFamilyHero(
+              key: const ValueKey('home-primary-returning-family'),
+              returning: true,
+              branchName:
+                  ServiceRegistry.selectedBranchController.selectedBranch.name,
+              onBuy: _openTicketPurchase,
+            );
+          case HomePrimaryState.newFamily:
+            return KeyedSubtree(
+              key: const ValueKey('home-primary-new-family'),
+              child: _NewFamilyHero(
+                key: const ValueKey('home-no-tickets'),
+                branchName: ServiceRegistry
+                    .selectedBranchController.selectedBranch.name,
+                onBuy: _openTicketPurchase,
+              ),
+            );
+        }
+      },
+    );
+  }
+
   Widget _buildTicketsSection(BuildContext context) {
-    final today = _dateOnly(_nowProvider());
+    final today = homeDateOnly(_nowProvider());
     final upcoming = _issuedTickets
-        .where((ticket) => _isUpcomingIssuedTicket(ticket, today))
+        .where((ticket) => isUpcomingIssuedTicket(ticket, today))
         .toList();
     if (_ticketsLoading && _issuedTickets.isEmpty) {
       return const _HomeStateCard(
@@ -440,6 +496,23 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildSecondaryBirthdaySection(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _childrenController,
+      builder: (context, _) {
+        final primary = resolveHomePrimaryState(
+          tickets: _issuedTickets,
+          children: _childrenController.children,
+          now: _nowProvider(),
+        );
+        if (primary.state == HomePrimaryState.birthday) {
+          return const SizedBox.shrink();
+        }
+        return _buildBirthdaySection(context);
+      },
+    );
+  }
+
   Future<_HomeContentData> _loadHomeContent(String branchId) async {
     final branchFuture =
         ServiceRegistry.branchRepository.getBranch(branchId).catchError(
@@ -497,40 +570,151 @@ int _compareIssuedTickets(IssuedTicket a, IssuedTicket b) {
   return a.visitDate!.compareTo(b.visitDate!);
 }
 
-DateTime _dateOnly(DateTime value) =>
-    DateTime(value.year, value.month, value.day);
+class _BirthdayHero extends StatelessWidget {
+  const _BirthdayHero({
+    super.key,
+    required this.child,
+    required this.nextBirthday,
+    required this.birthdayAge,
+    required this.now,
+    required this.onOpen,
+  });
 
-bool _isUpcomingIssuedTicket(IssuedTicket ticket, DateTime today) {
-  final visitDate = ticket.visitDate;
-  if (!ticket.isIssued || visitDate == null) return false;
-  return !_dateOnly(visitDate).isBefore(_dateOnly(today));
-}
-
-class _HomeHeading extends StatelessWidget {
-  const _HomeHeading();
+  final Child child;
+  final DateTime nextBirthday;
+  final int birthdayAge;
+  final DateTime now;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
     final c = SKTheme.of(context).colors;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Ваши планы',
-          style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                color: c.textPrimary,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -1.1,
+    final days = nextBirthday.difference(homeDateOnly(now)).inDays;
+    final when = days == 0 ? 'сегодня' : 'через $days дней';
+    return SolidCard(
+      padding: const EdgeInsets.all(SKSpacing.x5),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const _HomeSectionIcon(icon: Icons.cake_rounded),
+              const SizedBox(width: SKSpacing.x3),
+              Expanded(
+                child: Text(
+                  '${child.name} скоро $birthdayAge лет',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
               ),
+            ],
+          ),
+          const SizedBox(height: SKSpacing.x2),
+          Text(
+            'День рождения $when. Подберите праздник в Boom Bala.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(color: c.textSecondary),
+          ),
+          const SizedBox(height: SKSpacing.x4),
+          PrimaryButton(
+            label: 'Посмотреть праздники',
+            icon: Icons.arrow_forward_rounded,
+            onPressed: onOpen,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NewFamilyHero extends StatelessWidget {
+  const _NewFamilyHero({
+    super.key,
+    required this.onBuy,
+    this.returning = false,
+    this.branchName,
+  });
+
+  final VoidCallback onBuy;
+  final bool returning;
+  final String? branchName;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+    final branchLabel = branchName?.trim();
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(SKRadius.xl),
+      child: SizedBox(
+        height: 264,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
+              'assets/images/home_hero.jpg',
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => ColoredBox(color: c.accentSoft),
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    c.textPrimary.withValues(alpha: 0.82),
+                    c.textPrimary.withValues(alpha: 0.12),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(SKSpacing.x5),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (branchLabel != null && branchLabel.isNotEmpty) ...[
+                    Text(
+                      branchLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.82),
+                          ),
+                    ),
+                    const SizedBox(height: SKSpacing.x3),
+                  ],
+                  Text(
+                    returning
+                        ? 'Готовы к следующему визиту?'
+                        : 'Планируете посещение?',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: SKSpacing.x2),
+                  Text(
+                    returning
+                        ? 'Выберите дату и оформите следующий билет.'
+                        : 'Выберите дату и оформите первый билет Boom Bala.',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.86),
+                        ),
+                  ),
+                  const Spacer(),
+                  PrimaryButton(
+                    label: 'Купить билет',
+                    icon: Icons.arrow_forward_rounded,
+                    onPressed: onBuy,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: SKSpacing.x1),
-        Text(
-          'Всё важное для следующего визита — в одном месте.',
-          style: Theme.of(
-            context,
-          ).textTheme.bodyLarge?.copyWith(color: c.textSecondary),
-        ),
-      ],
+      ),
     );
   }
 }
