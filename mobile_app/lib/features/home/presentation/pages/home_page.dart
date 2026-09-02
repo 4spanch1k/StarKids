@@ -18,6 +18,7 @@ import '../../../../core/design_system/widgets/glass_drawer.dart';
 import '../../../../core/design_system/widgets/primary_button.dart';
 import '../../../../core/design_system/widgets/glass_card.dart';
 import '../../../../core/design_system/widgets/star_kids_cosmic_canvas.dart';
+import '../../../../core/design_system/widgets/star_kids_birthday_package_card.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../../../core/design_system/widgets/stable_future_builder.dart';
@@ -227,17 +228,40 @@ class _HomePageState extends State<HomePage> {
                           const SizedBox(height: SKSpacing.x4),
                           _buildSecondaryBirthdaySection(context),
                           const SizedBox(height: SKSpacing.x5),
+                          _HomeQuickActions(
+                            onBranchTap: () =>
+                                _openNested(AppRoutes.branchDetails),
+                            onBirthdayTap: () => _openRoot(AppRoutes.birthdays),
+                            onMenuTap: () => _openNested(AppRoutes.menu),
+                            onContactsTap: () =>
+                                _openNested(AppRoutes.contacts),
+                          ),
+                          const SizedBox(height: SKSpacing.x5),
                           StableFutureBuilder<_HomeContentData>(
                             cacheKey: '${branch.id}-$_secondaryRefreshVersion',
                             futureFactory: () => _loadHomeContent(branch.id),
                             builder: (context, snapshot) {
                               final content = snapshot.data;
-                              if (content == null ||
-                                  content.promotions.isEmpty) {
+                              if (content == null) {
                                 return const SizedBox.shrink();
                               }
-                              return _HomePromotions(
-                                promotions: content.promotions,
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (content.featuredPackage != null) ...[
+                                    _HomeFeaturedPackage(
+                                      package: content.featuredPackage!,
+                                      onOpen: () =>
+                                          _openRoot(AppRoutes.birthdays),
+                                    ),
+                                    if (content.promotions.isNotEmpty)
+                                      const SizedBox(height: SKSpacing.x5),
+                                  ],
+                                  if (content.promotions.isNotEmpty)
+                                    _HomePromotions(
+                                      promotions: content.promotions,
+                                    ),
+                                ],
                               );
                             },
                           ),
@@ -653,9 +677,13 @@ class _NewFamilyHero extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             Image.asset(
-              'assets/images/home_hero.jpg',
+              'assets/images/home_hero_generated.png',
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => ColoredBox(color: c.accentSoft),
+              errorBuilder: (_, __, ___) => Image.asset(
+                'assets/images/home_hero.jpg',
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => ColoredBox(color: c.accentSoft),
+              ),
             ),
             DecoratedBox(
               decoration: BoxDecoration(
@@ -832,6 +860,106 @@ class _TicketMetaRow extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A small set of real entry points keeps discovery useful without turning
+/// Home into a catalogue. Each tile leads to an existing route.
+class _HomeQuickActions extends StatelessWidget {
+  const _HomeQuickActions({
+    required this.onBranchTap,
+    required this.onBirthdayTap,
+    required this.onMenuTap,
+    required this.onContactsTap,
+  });
+
+  final VoidCallback onBranchTap;
+  final VoidCallback onBirthdayTap;
+  final VoidCallback onMenuTap;
+  final VoidCallback onContactsTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const StarKidsSectionHeader(title: 'Быстрые действия'),
+        const SizedBox(height: SKSpacing.x3),
+        GridView.count(
+          crossAxisCount: 2,
+          crossAxisSpacing: SKSpacing.x3,
+          mainAxisSpacing: SKSpacing.x3,
+          // Keep enough vertical room for the two-line editorial copy on
+          // compact simulator/test widths.
+          childAspectRatio: 1.05,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          children: [
+            _QuickActionTile(
+              icon: Icons.map_outlined,
+              title: 'Филиал и маршрут',
+              subtitle: 'Как доехать и что внутри',
+              gradientColors: const [Color(0xFFFFE4DE), Color(0xFFFFF3E7)],
+              onTap: onBranchTap,
+            ),
+            _QuickActionTile(
+              icon: Icons.cake_outlined,
+              title: 'Дни рождения',
+              subtitle: 'Пакеты и заявка',
+              gradientColors: const [Color(0xFFFFE0E8), Color(0xFFFFF0F4)],
+              onTap: onBirthdayTap,
+            ),
+            _QuickActionTile(
+              icon: Icons.restaurant_outlined,
+              title: 'Меню',
+              subtitle: 'Еда и напитки',
+              gradientColors: const [Color(0xFFE7F0F4), Color(0xFFF3F8F8)],
+              onTap: onMenuTap,
+            ),
+            _QuickActionTile(
+              icon: Icons.phone_outlined,
+              title: 'Контакты',
+              subtitle: 'WhatsApp и звонок',
+              gradientColors: const [Color(0xFFE8E4F5), Color(0xFFF6F3FA)],
+              onTap: onContactsTap,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _HomeFeaturedPackage extends StatelessWidget {
+  const _HomeFeaturedPackage({required this.package, required this.onOpen});
+
+  final BirthdayPackage package;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        StarKidsSectionHeader(
+          title: 'Главный пакет',
+          actionLabel: 'Все пакеты',
+          onActionTap: onOpen,
+        ),
+        const SizedBox(height: SKSpacing.x3),
+        StarKidsBirthdayPackageCard(
+          title: package.name,
+          priceLabel: package.priceLabel,
+          guestLabel: package.guestLabel,
+          description: package.description,
+          highlights: package.highlights,
+          imagePath: package.imagePath,
+          isFeatured: package.isFeatured,
+          compact: true,
+          onActionTap: onOpen,
         ),
       ],
     );
@@ -1114,7 +1242,10 @@ class _QuickActionTile extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final c = SKTheme.of(context).colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final compact = MediaQuery.sizeOf(context).width < 380;
+    // The tile is intentionally compact on phones and narrow test surfaces;
+    // this prevents the editorial two-line copy from overflowing a 2-column
+    // grid while retaining comfortable tap targets.
+    final compact = MediaQuery.sizeOf(context).width < 500;
 
     return StarKidsReveal(
       child: StarKidsPressEffect(
@@ -1146,13 +1277,15 @@ class _QuickActionTile extends StatelessWidget {
                 splashColor: gradientColors.first.withValues(alpha: 0.4),
                 highlightColor: Colors.transparent,
                 child: Padding(
-                  padding: const EdgeInsets.all(SKSpacing.x3),
+                  padding: EdgeInsets.all(
+                    compact ? SKSpacing.x2 : SKSpacing.x3,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        width: compact ? 38 : 42,
-                        height: compact ? 38 : 42,
+                        width: compact ? 34 : 42,
+                        height: compact ? 34 : 42,
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.topLeft,
@@ -1167,10 +1300,10 @@ class _QuickActionTile extends StatelessWidget {
                           size: compact ? 21 : 24,
                         ),
                       ),
-                      SizedBox(height: compact ? SKSpacing.x2 : SKSpacing.x3),
+                      SizedBox(height: compact ? SKSpacing.x1 : SKSpacing.x3),
                       Text(
                         title,
-                        maxLines: 2,
+                        maxLines: compact ? 1 : 2,
                         overflow: TextOverflow.ellipsis,
                         style: compact
                             ? textTheme.titleSmall?.copyWith(
@@ -1181,10 +1314,10 @@ class _QuickActionTile extends StatelessWidget {
                       const SizedBox(height: SKSpacing.x1),
                       Text(
                         subtitle,
-                        maxLines: 2,
+                        maxLines: compact ? 1 : 2,
                         overflow: TextOverflow.ellipsis,
                         style: compact
-                            ? textTheme.bodySmall?.copyWith(fontSize: 12)
+                            ? textTheme.bodySmall?.copyWith(fontSize: 11)
                             : textTheme.bodySmall,
                       ),
                     ],
