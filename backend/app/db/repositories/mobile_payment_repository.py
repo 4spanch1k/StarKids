@@ -66,6 +66,11 @@ class MobilePaymentRepository(Repository):
     def get_by_id(self, payment_id: str) -> MobilePayment | None:
         return self.db.scalar(select(MobilePayment).where(MobilePayment.id == payment_id))
 
+    def get_by_id_for_update(self, payment_id: str) -> MobilePayment | None:
+        return self.db.scalar(
+            select(MobilePayment).where(MobilePayment.id == payment_id).with_for_update()
+        )
+
     def get_by_id_for_user(
         self,
         *,

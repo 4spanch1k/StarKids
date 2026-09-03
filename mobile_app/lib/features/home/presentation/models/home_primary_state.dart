@@ -2,7 +2,13 @@ import '../../../children/domain/child.dart';
 import '../../../tickets/domain/issued_ticket.dart';
 
 /// Resolves Home's primary action without coupling business priority to UI.
-enum HomePrimaryState { activeTicket, birthday, returningFamily, newFamily }
+enum HomePrimaryState {
+  checkedIn,
+  activeTicket,
+  birthday,
+  returningFamily,
+  newFamily
+}
 
 class HomePrimaryContext {
   const HomePrimaryContext({
@@ -27,9 +33,13 @@ HomePrimaryContext resolveHomePrimaryState({
   required Iterable<Child> children,
   required DateTime now,
   bool hasVisitHistory = false,
+  bool hasCheckedInVisit = false,
   int birthdayWindowDays = 60,
 }) {
   final today = homeDateOnly(now);
+  if (hasCheckedInVisit) {
+    return const HomePrimaryContext(state: HomePrimaryState.checkedIn);
+  }
   final upcoming = tickets
       .where((ticket) => isUpcomingIssuedTicket(ticket, today))
       .toList()

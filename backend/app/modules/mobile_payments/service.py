@@ -20,6 +20,7 @@ from ...db.models.mobile_user import MobileUser
 from ...db.repositories.branch_repository import BranchRepository
 from ...db.repositories.branch_ticket_repository import BranchTicketRepository
 from ...db.repositories.mobile_payment_repository import MobilePaymentRepository
+from ...db.repositories.visit_repository import VisitRepository
 from .issued_ticket_service import IssuedTicketService
 from .constants import (
     PAYABLE_BRANCH_TICKET_ORDER,
@@ -43,6 +44,7 @@ from .schemas import (
     IssuedTicketResponse,
     IssuedTicketsResponse,
     IssuedTicketQrResponse,
+    CurrentVisitResponse,
 )
 from .signing import (
     build_freedompay_signature,
@@ -70,6 +72,7 @@ class MobilePaymentService:
         freedompay_client: FreedomPayClientProtocol,
         issued_ticket_service: IssuedTicketService,
         ticket_qr_service: TicketQrService,
+        visit_repository: VisitRepository,
     ) -> None:
         self._settings = settings
         self._payment_repository = payment_repository
@@ -78,6 +81,7 @@ class MobilePaymentService:
         self._freedompay_client = freedompay_client
         self._issued_ticket_service = issued_ticket_service
         self._ticket_qr_service = ticket_qr_service
+        self._visit_repository = visit_repository
 
     def init_freedom_ticket_payment(
         self,
@@ -244,6 +248,19 @@ class MobilePaymentService:
             for ticket, branch in records
         ]
         return IssuedTicketsResponse(items=items, total=len(items))
+
+    def get_current_visit(self, mobile_user_id: str) -> CurrentVisitResponse | None:
+        visit = self._visit_repository.get_active_for_user(mobile_user_id)
+        if visit is None:
+            return None
+        branch = self._branch_repository.get_by_id(visit.branch_id)
+        return CurrentVisitResponse(
+            visitId=visit.id,
+            branchId=visit.branch_id,
+            branchName=branch.name if branch is not None else 'Boom Bala',
+            status=visit.status,
+            startedAt=visit.started_at,
+        )
 
     def get_issued_ticket(
         self,

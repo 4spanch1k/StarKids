@@ -95,6 +95,18 @@ class IssuedTicketQrResponse(BaseModel):
     version: str = 'v1'
 
 
+class CurrentVisitResponse(BaseModel):
+    visitId: str
+    branchId: str
+    branchName: str
+    status: str
+    startedAt: datetime
+
+    @field_serializer('startedAt')
+    def serialize_started_at(self, value: datetime) -> str:
+        return _serialize_datetime(value) or ''
+
+
 def _serialize_datetime(value: datetime | None) -> str | None:
     if value is None:
         return None

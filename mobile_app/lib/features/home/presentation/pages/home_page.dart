@@ -36,6 +36,8 @@ import '../../../tickets/data/api_issued_ticket_repository.dart';
 import '../../../tickets/domain/issued_ticket.dart';
 import '../../../tickets/domain/issued_ticket_repository.dart';
 import '../../../tickets/presentation/pages/ticket_detail_page.dart';
+import '../../../visits/domain/current_visit.dart';
+import '../../../visits/domain/current_visit_repository.dart';
 import '../models/home_primary_state.dart';
 
 class HomePage extends StatefulWidget {
@@ -45,12 +47,14 @@ class HomePage extends StatefulWidget {
     this.issuedTicketRepository,
     this.childrenController,
     this.nowProvider,
+    this.currentVisitRepository,
   });
 
   final NewsFeedController? newsController;
   final IssuedTicketRepository? issuedTicketRepository;
   final ChildrenController? childrenController;
   final DateTime Function()? nowProvider;
+  final CurrentVisitRepository? currentVisitRepository;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -63,10 +67,12 @@ class _HomePageState extends State<HomePage> {
   late final IssuedTicketRepository _issuedTicketRepository;
   late final ChildrenController _childrenController;
   late final DateTime Function() _nowProvider;
+  late final CurrentVisitRepository _currentVisitRepository;
   bool _isOpeningDestination = false;
   List<IssuedTicket> _issuedTickets = const [];
   bool _ticketsLoading = true;
   String? _ticketsError;
+  CurrentVisit? _currentVisit;
   int _secondaryRefreshVersion = 0;
 
   @override
@@ -84,7 +90,10 @@ class _HomePageState extends State<HomePage> {
     _childrenController =
         widget.childrenController ?? ServiceRegistry.childrenController;
     _nowProvider = widget.nowProvider ?? DateTime.now;
+    _currentVisitRepository =
+        widget.currentVisitRepository ?? ServiceRegistry.currentVisitRepository;
     unawaited(_loadIssuedTickets());
+    unawaited(_loadCurrentVisit());
     unawaited(_childrenController.load());
   }
 
@@ -124,9 +133,21 @@ class _HomePageState extends State<HomePage> {
       _loadIssuedTickets(),
       _childrenController.load(),
       _newsController.forceRefresh(),
+      _loadCurrentVisit(),
     ]);
     if (!mounted) return;
     setState(() => _secondaryRefreshVersion++);
+  }
+
+  Future<void> _loadCurrentVisit() async {
+    try {
+      final visit = await _currentVisitRepository.getCurrentVisit();
+      if (!mounted) return;
+      setState(() => _currentVisit = visit);
+    } catch (_) {
+      // A visit lookup is non-critical; keep the ticket/purchase Home usable.
+      if (mounted) setState(() => _currentVisit = null);
+    }
   }
 
   @override
@@ -287,6 +308,7 @@ class _HomePageState extends State<HomePage> {
           tickets: _issuedTickets,
           children: _childrenController.children,
           now: _nowProvider(),
+          hasCheckedInVisit: _currentVisit != null,
         );
         final hasUpcomingTicket = _issuedTickets.any(
           (ticket) => isUpcomingIssuedTicket(
@@ -301,6 +323,12 @@ class _HomePageState extends State<HomePage> {
           return _buildTicketsSection(context);
         }
         switch (primary.state) {
+          case HomePrimaryState.checkedIn:
+            return _CheckedInHero(
+              key: const ValueKey('home-primary-checked-in'),
+              visit: _currentVisit!,
+              onOpenTickets: () => _openRoot(AppRoutes.tickets),
+            );
           case HomePrimaryState.activeTicket:
             return _buildTicketsSection(context);
           case HomePrimaryState.birthday:
@@ -528,6 +556,7 @@ class _HomePageState extends State<HomePage> {
           tickets: _issuedTickets,
           children: _childrenController.children,
           now: _nowProvider(),
+          hasCheckedInVisit: _currentVisit != null,
         );
         if (primary.state == HomePrimaryState.birthday) {
           return const SizedBox.shrink();
@@ -647,6 +676,49 @@ class _BirthdayHero extends StatelessWidget {
             icon: Icons.arrow_forward_rounded,
             onPressed: onOpen,
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CheckedInHero extends StatelessWidget {
+  const _CheckedInHero(
+      {super.key, required this.visit, required this.onOpenTickets});
+
+  final CurrentVisit visit;
+  final VoidCallback onOpenTickets;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+    final time = DateFormat('HH:mm').format(visit.startedAt.toLocal());
+    return SolidCard(
+      padding: const EdgeInsets.all(SKSpacing.x5),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const _HomeSectionIcon(icon: Icons.check_circle_outline_rounded),
+              const SizedBox(width: SKSpacing.x3),
+              Expanded(
+                child: Text('Вы в Boom Bala',
+                    style: Theme.of(context).textTheme.headlineSmall),
+              ),
+            ],
+          ),
+          const SizedBox(height: SKSpacing.x2),
+          Text('$time · ${visit.branchName}',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyLarge
+                  ?.copyWith(color: c.textSecondary)),
+          const SizedBox(height: SKSpacing.x4),
+          PrimaryButton(
+              label: 'Открыть билеты',
+              icon: Icons.arrow_forward_rounded,
+              onPressed: onOpenTickets),
         ],
       ),
     );

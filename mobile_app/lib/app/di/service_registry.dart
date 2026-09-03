@@ -55,6 +55,8 @@ import '../../features/tickets/data/api_issued_ticket_repository.dart';
 import '../../features/tickets/domain/ticket_config_repository.dart';
 import '../../features/tickets/domain/issued_ticket_repository.dart';
 import '../../features/tickets/domain/ticket_purchase_repository.dart';
+import '../../features/visits/data/api_current_visit_repository.dart';
+import '../../features/visits/domain/current_visit_repository.dart';
 import '../config/app_environment.dart';
 
 typedef PaymentUrlLauncher = Future<bool> Function(String url);
@@ -102,6 +104,11 @@ abstract final class ServiceRegistry {
   );
   static IssuedTicketRepository issuedTicketRepository =
       ApiIssuedTicketRepository(
+    apiClient: apiClient,
+    sessionStorage: mobileAuthSessionStorage,
+  );
+  static CurrentVisitRepository currentVisitRepository =
+      ApiCurrentVisitRepository(
     apiClient: apiClient,
     sessionStorage: mobileAuthSessionStorage,
   );

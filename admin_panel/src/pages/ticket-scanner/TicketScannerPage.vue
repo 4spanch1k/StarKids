@@ -33,6 +33,38 @@
             Повторить
           </button>
         </div>
+
+        <div class="scanner-lookup">
+          <div class="scanner-section-heading">
+            <div>
+              <p class="scanner-eyebrow">Резервный поиск</p>
+              <h2>Не получается показать QR?</h2>
+            </div>
+          </div>
+          <form class="scanner-lookup__form" @submit.prevent="runLookup">
+            <input
+              v-model="lookupQuery"
+              class="admin-control"
+              type="search"
+              placeholder="Номер заказа или телефон"
+              aria-label="Номер заказа или телефон"
+            />
+            <button class="admin-button admin-button--secondary" type="submit" :disabled="lookupLoading || !lookupQuery.trim()">
+              {{ lookupLoading ? 'Ищем…' : 'Найти' }}
+            </button>
+          </form>
+          <p v-if="lookupError" class="scanner-inline-error">{{ lookupError }}</p>
+          <div v-if="lookupResults.length" class="scanner-lookup__results">
+            <article v-for="order in lookupResults" :key="order.paymentId" class="scanner-lookup__order">
+              <strong>{{ order.localOrderId }}</strong>
+              <span>{{ order.phone || 'Телефон не указан' }} · {{ order.branchName }}</span>
+              <span v-for="ticket in order.tickets" :key="ticket.ticketId">
+                {{ ticket.title }} · {{ ticket.status === 'used' ? 'использован' : 'готов к входу' }}
+              </span>
+            </article>
+          </div>
+          <p v-else-if="lookupDone" class="scanner-hint">Оплаченный заказ не найден.</p>
+        </div>
       </div>
 
       <div class="scanner-panel scanner-panel--camera">
@@ -108,6 +140,7 @@ import {
   resolveRedemptionOutcome,
   type RedemptionOutcome,
   type TicketRedemptionResponse,
+  lookupTickets,
 } from '@/features/ticket-scanner/api/ticketRedemptionApi';
 import {
   listScannerBranches,
@@ -125,6 +158,11 @@ const branchesError = ref('');
 const cameraError = ref('');
 const isScannerActive = ref(false);
 const isRedeeming = ref(false);
+const lookupQuery = ref('');
+const lookupLoading = ref(false);
+const lookupDone = ref(false);
+const lookupError = ref('');
+const lookupResults = ref<Awaited<ReturnType<typeof lookupTickets>>>([]);
 const result = ref<{
   outcome: RedemptionOutcome | 'network_error';
   ticket: TicketRedemptionResponse | null;
@@ -156,6 +194,8 @@ const resultTitle = computed(() => {
       return 'Билет недействителен';
     case 'invalid_ticket_data':
       return 'Ошибка данных билета';
+    case 'invalid_payment':
+      return 'Оплата не подтверждена';
     default:
       return 'Нет связи. Вход не подтверждён.';
   }
@@ -193,6 +233,22 @@ async function loadBranches() {
     branchesError.value = resolveAdminRequestError(error, 'Не удалось загрузить филиалы.');
   } finally {
     branchesLoading.value = false;
+  }
+}
+
+async function runLookup() {
+  if (!lookupQuery.value.trim()) return;
+  lookupLoading.value = true;
+  lookupDone.value = false;
+  lookupError.value = '';
+  lookupResults.value = [];
+  try {
+    lookupResults.value = await lookupTickets(lookupQuery.value);
+  } catch (error) {
+    lookupError.value = resolveAdminRequestError(error, 'Не удалось выполнить поиск.');
+  } finally {
+    lookupLoading.value = false;
+    lookupDone.value = true;
   }
 }
 

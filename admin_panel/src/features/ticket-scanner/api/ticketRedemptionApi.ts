@@ -10,7 +10,8 @@ export type RedemptionOutcome =
   | 'wrong_branch'
   | 'wrong_date'
   | 'invalid_status'
-  | 'invalid_ticket_data';
+  | 'invalid_ticket_data'
+  | 'invalid_payment';
 
 export type TicketRedemptionResponse = {
   outcome: 'redeemed' | 'already_used';
@@ -22,6 +23,29 @@ export type TicketRedemptionResponse = {
   visitDate: string | null;
   status: string;
   redeemedAt: string | null;
+  visitId: string | null;
+};
+
+export type TicketLookupTicket = {
+  ticketId: string;
+  ticketNumber: string;
+  title: string;
+  status: string;
+  visitDate: string | null;
+  redeemedAt: string | null;
+  visitId: string | null;
+};
+
+export type TicketLookupOrder = {
+  paymentId: string;
+  localOrderId: string;
+  phone: string | null;
+  branchId: string;
+  branchName: string;
+  visitDate: string | null;
+  amountTenge: number;
+  status: string;
+  tickets: TicketLookupTicket[];
 };
 
 export async function redeemTicket({
@@ -39,6 +63,17 @@ export async function redeemTicket({
       body: JSON.stringify({ qrPayload, branchId }),
     }),
   );
+}
+
+export async function lookupTickets(query: string): Promise<TicketLookupOrder[]> {
+  const response = await executeAuthorizedAdminRequest((accessToken) =>
+    httpClient<{ items: TicketLookupOrder[] }>({
+      path: `/admin/tickets/lookup?query=${encodeURIComponent(query.trim())}`,
+      method: 'GET',
+      headers: buildAdminAuthHeaders(accessToken),
+    }),
+  );
+  return response.items;
 }
 
 export function resolveRedemptionOutcome(error: unknown): RedemptionOutcome | 'network_error' {
@@ -64,6 +99,7 @@ const REDEMPTION_OUTCOMES = new Set<RedemptionOutcome>([
   'wrong_date',
   'invalid_status',
   'invalid_ticket_data',
+  'invalid_payment',
 ]);
 
 function isRedemptionOutcome(value: string): value is RedemptionOutcome {
