@@ -1,3 +1,5 @@
+import 'notification_destination.dart';
+
 enum NotificationType {
   news,
   system,
@@ -26,6 +28,8 @@ class AppNotification {
     this.newsId,
     this.description,
     this.imageUrl,
+    this.destinationType,
+    this.destinationId,
   });
 
   final String id;
@@ -36,6 +40,16 @@ class AppNotification {
   final String? imageUrl;
   final DateTime createdAt;
   final bool isRead;
+  final String? destinationType;
+  final String? destinationId;
+
+  NotificationDestination? get destination =>
+      NotificationDestination.fromPayload({
+        'destination_type': destinationType,
+        'destination_id': destinationId,
+        'type': type.name,
+        'news_id': newsId,
+      });
 
   bool get opensNewsDetails {
     return type == NotificationType.news &&

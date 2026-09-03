@@ -1,5 +1,6 @@
 from datetime import timedelta
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
@@ -22,7 +23,12 @@ from app.db.models.mobile_user import MobileUser
 from app.db.models.ticket_redemption import TicketRedemption
 from app.db.models.visit import Visit
 from app.db.repositories.ticket_redemption_repository import TicketRedemptionRepository
+from app.db.repositories.branch_repository import BranchRepository
+from app.db.repositories.issued_ticket_repository import IssuedTicketRepository
+from app.db.repositories.mobile_payment_repository import MobilePaymentRepository
+from app.db.repositories.visit_repository import VisitRepository
 from app.main import app
+from app.modules.admin_tickets.service import TicketRedemptionService
 from app.modules.mobile_payments.ticket_qr_service import TicketQrService
 from app.core.security.passwords import hash_password
 
@@ -78,7 +84,7 @@ class TicketRedemptionEndpointTests(unittest.TestCase):
             session.add(
                 Branch(
                     id='branch-main', slug='main', name='Boom Bala Main', city='Shymkent',
-                    address='Al-Farabi', short_label='Main', working_hours='11:00 - 23:00',
+                    address='Al-Farabi', short_label='Main', working_hours='00:00 - 23:59',
                     description='Main', phone='+77070000000', whatsapp_phone='+77070000000',
                     gallery_image_urls=[], facilities=[], display_order=1, is_active=True,
                 )
@@ -219,6 +225,70 @@ class TicketRedemptionEndpointTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.json()['items']), 1)
 
+    def test_manual_redeem_uses_shared_visit_and_records_reason(self) -> None:
+        response = self.client.post(
+            '/api/v1/admin/tickets/redeem-manual',
+            headers=self._admin_headers(),
+            json={
+                'ticketId': 'ticket-1',
+                'branchId': 'branch-main',
+                'reason': 'qr_unavailable',
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['outcome'], 'redeemed')
+        with self.SessionLocal() as session:
+            redemption = session.scalar(select(TicketRedemption))
+            self.assertEqual(redemption.source, 'manual')
+            self.assertEqual(redemption.reason, 'qr_unavailable')
+            self.assertEqual(session.query(Visit).count(), 1)
+
+        second = self.client.post(
+            '/api/v1/admin/tickets/redeem-manual',
+            headers=self._admin_headers(),
+            json={'ticketId': 'ticket-1', 'branchId': 'branch-main', 'reason': 'support_override'},
+        )
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(second.json()['outcome'], 'already_used')
+
+    def test_manual_redeem_is_staff_only(self) -> None:
+        response = self.client.post(
+            '/api/v1/admin/tickets/redeem-manual',
+            headers=self._admin_headers('content_manager'),
+            json={'ticketId': 'ticket-1', 'branchId': 'branch-main', 'reason': 'qr_unavailable'},
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_current_visit_lazily_completes_after_branch_closing(self) -> None:
+        from datetime import datetime
+        from app.core.time.business_time import BUSINESS_TIMEZONE
+
+        old_date = business_today() - timedelta(days=1)
+        with self.SessionLocal() as session:
+            payment = session.get(MobilePayment, 'payment-1')
+            payment.visit_date = old_date
+            session.add(Visit(
+                id='visit-stale', mobile_payment_id='payment-1', mobile_user_id='mobile-1',
+                branch_id='branch-main', status='active',
+                started_at=datetime.combine(old_date, datetime.min.time(), tzinfo=BUSINESS_TIMEZONE),
+            ))
+            session.commit()
+        login = self.client.post(
+            '/api/v1/mobile/auth/login',
+            json={'email': 'parent@example.com', 'password': 'StrongPass123!'},
+        )
+        response = self.client.get(
+            '/api/v1/mobile/visits/current',
+            headers={'Authorization': f"Bearer {login.json()['access_token']}"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.json())
+        with self.SessionLocal() as session:
+            stale = session.get(Visit, 'visit-stale')
+            self.assertEqual(stale.status, 'completed')
+            self.assertEqual(stale.completion_reason, 'validity_cutoff')
+            self.assertIsNotNone(stale.ended_at)
+
     def test_invalid_qr_and_nonexistent_ticket_are_rejected_without_side_effects(self) -> None:
         invalid = self._redeem(qr='bb_ticket:v1:ticket-1:invalid')
         nonexistent = self._redeem(qr=self._qr('missing-ticket'))
@@ -293,6 +363,31 @@ class TicketRedemptionEndpointTests(unittest.TestCase):
             with self.assertRaises(IntegrityError):
                 session.commit()
             session.rollback()
+
+    def test_redemption_transaction_failure_rolls_back_visit_and_ticket(self) -> None:
+        with self.SessionLocal() as session:
+            service = TicketRedemptionService(
+                issued_ticket_repository=IssuedTicketRepository(session),
+                redemption_repository=TicketRedemptionRepository(session),
+                payment_repository=MobilePaymentRepository(session),
+                visit_repository=VisitRepository(session),
+                branch_repository=BranchRepository(session),
+                ticket_qr_service=TicketQrService(get_settings().ticket_qr_secret),
+            )
+            admin = session.get(AdminUser, 'admin-operator')
+            with patch.object(session, 'commit', side_effect=RuntimeError('commit failed')):
+                with self.assertRaises(RuntimeError):
+                    service.redeem(
+                        qr_payload=self._qr(),
+                        branch_id='branch-main',
+                        admin_user=admin,
+                    )
+            session.rollback()
+
+        with self.SessionLocal() as session:
+            self.assertEqual(session.query(Visit).count(), 0)
+            self.assertEqual(session.query(TicketRedemption).count(), 0)
+            self.assertEqual(session.get(IssuedTicket, 'ticket-1').status, 'issued')
 
     def test_mobile_qr_is_unavailable_after_redemption(self) -> None:
         self._redeem()

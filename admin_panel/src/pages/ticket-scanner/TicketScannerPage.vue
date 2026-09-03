@@ -60,6 +60,15 @@
               <span>{{ order.phone || 'Телефон не указан' }} · {{ order.branchName }}</span>
               <span v-for="ticket in order.tickets" :key="ticket.ticketId">
                 {{ ticket.title }} · {{ ticket.status === 'used' ? 'использован' : 'готов к входу' }}
+                <button
+                  v-if="ticket.status === 'issued'"
+                  type="button"
+                  class="admin-button admin-button--ghost scanner-lookup__manual"
+                  :disabled="manualRedeemingTicketId === ticket.ticketId || !selectedBranchId"
+                  @click="redeemManually(ticket.ticketId)"
+                >
+                  {{ manualRedeemingTicketId === ticket.ticketId ? 'Проводим…' : 'Провести вручную' }}
+                </button>
               </span>
             </article>
           </div>
@@ -141,6 +150,7 @@ import {
   type RedemptionOutcome,
   type TicketRedemptionResponse,
   lookupTickets,
+  redeemTicketManually,
 } from '@/features/ticket-scanner/api/ticketRedemptionApi';
 import {
   listScannerBranches,
@@ -163,6 +173,7 @@ const lookupLoading = ref(false);
 const lookupDone = ref(false);
 const lookupError = ref('');
 const lookupResults = ref<Awaited<ReturnType<typeof lookupTickets>>>([]);
+const manualRedeemingTicketId = ref('');
 const result = ref<{
   outcome: RedemptionOutcome | 'network_error';
   ticket: TicketRedemptionResponse | null;
@@ -249,6 +260,35 @@ async function runLookup() {
   } finally {
     lookupLoading.value = false;
     lookupDone.value = true;
+  }
+}
+
+async function redeemManually(ticketId: string) {
+  if (!selectedBranchId.value || manualRedeemingTicketId.value) return;
+  const reason = window.prompt(
+    'Причина: customer_device_unavailable, qr_unavailable или support_override',
+    'qr_unavailable',
+  );
+  if (!reason || !['customer_device_unavailable', 'qr_unavailable', 'support_override'].includes(reason)) {
+    lookupError.value = 'Укажите разрешённую причину ручного входа.';
+    return;
+  }
+  if (!window.confirm(`Провести билет вручную? Причина: ${reason}`)) {
+    return;
+  }
+  manualRedeemingTicketId.value = ticketId;
+  lookupError.value = '';
+  try {
+    await redeemTicketManually({
+      ticketId,
+      branchId: selectedBranchId.value,
+      reason: reason as 'customer_device_unavailable' | 'qr_unavailable' | 'support_override',
+    });
+    await runLookup();
+  } catch (error) {
+    lookupError.value = resolveAdminRequestError(error, 'Не удалось провести билет вручную.');
+  } finally {
+    manualRedeemingTicketId.value = '';
   }
 }
 

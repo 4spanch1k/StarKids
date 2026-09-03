@@ -47,3 +47,5 @@ class TicketRedemption(Base):
         nullable=False,
         server_default=func.now(),
     )
+    source: Mapped[str] = mapped_column(String(16), nullable=False, default='scan')
+    reason: Mapped[str | None] = mapped_column(String(64), nullable=True)

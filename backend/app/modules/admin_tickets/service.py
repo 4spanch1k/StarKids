@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from datetime import UTC, date, datetime
+import logging
 from uuid import uuid4
 
 from sqlalchemy.exc import IntegrityError
@@ -23,6 +24,8 @@ from .schemas import (
     AdminTicketLookupTicket,
     AdminTicketRedemptionResponse,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class TicketRedemptionService:
@@ -54,11 +57,48 @@ class TicketRedemptionService:
     ) -> AdminTicketRedemptionResponse:
         ticket_id = self._ticket_qr_service.verify_payload(qr_payload)
         if ticket_id is None:
+            logger.warning(
+                'Ticket redemption rejected: invalid_qr admin_id=%s branch_id=%s',
+                admin_user.id,
+                branch_id,
+            )
             raise DomainHTTPException(
                 code='invalid_qr',
                 message='QR payload is invalid.',
             )
 
+        return self._redeem_ticket(
+            ticket_id=ticket_id,
+            branch_id=branch_id,
+            admin_user=admin_user,
+            source='scan',
+        )
+
+    def redeem_manual(
+        self,
+        *,
+        ticket_id: str,
+        branch_id: str,
+        reason: str,
+        admin_user: AdminUser,
+    ) -> AdminTicketRedemptionResponse:
+        return self._redeem_ticket(
+            ticket_id=ticket_id,
+            branch_id=branch_id,
+            admin_user=admin_user,
+            source='manual',
+            reason=reason,
+        )
+
+    def _redeem_ticket(
+        self,
+        *,
+        ticket_id: str,
+        branch_id: str,
+        admin_user: AdminUser,
+        source: str,
+        reason: str | None = None,
+    ) -> AdminTicketRedemptionResponse:
         ticket = self._issued_ticket_repository.get_by_id_for_update(ticket_id)
         if ticket is None:
             raise NotFoundException(
@@ -68,6 +108,12 @@ class TicketRedemptionService:
 
         redemption = self._redemption_repository.get_for_ticket(ticket.id)
         if redemption is not None:
+            logger.info(
+                'Duplicate ticket redemption attempt ticket_id=%s admin_id=%s source=%s',
+                ticket.id,
+                admin_user.id,
+                source,
+            )
             branch = self._branch_repository.get_by_id(ticket.branch_id)
             return self._response(
                 outcome='already_used',
@@ -124,6 +170,9 @@ class TicketRedemptionService:
                     started_at=datetime.now(UTC),
                 )
             )
+        # PostgreSQL enforces the redemption.visit_id FK during the same
+        # flush; materialize the Visit row before inserting its audit record.
+        self._issued_ticket_repository.db.flush()
 
         redeemed_at = datetime.now(UTC)
         redemption = TicketRedemption(
@@ -132,6 +181,8 @@ class TicketRedemptionService:
             redeemed_by_admin_user_id=admin_user.id,
             redeemed_at=redeemed_at,
             visit_id=visit.id,
+            source=source,
+            reason=reason,
         )
         self._redemption_repository.add(redemption)
         ticket.status = 'used'
@@ -140,6 +191,12 @@ class TicketRedemptionService:
             self._issued_ticket_repository.db.commit()
         except IntegrityError:
             self._issued_ticket_repository.db.rollback()
+            logger.warning(
+                'Ticket redemption integrity conflict ticket_id=%s admin_id=%s source=%s',
+                ticket.id,
+                admin_user.id,
+                source,
+            )
             locked_ticket = self._issued_ticket_repository.get_by_id_for_update(ticket.id)
             existing_redemption = self._redemption_repository.get_for_ticket(ticket.id)
             if locked_ticket is not None and existing_redemption is not None:
@@ -184,6 +241,8 @@ class TicketRedemptionService:
                             visitDate=ticket.visit_date,
                             redeemedAt=redemption.redeemed_at if redemption else None,
                             visitId=redemption.visit_id if redemption else None,
+                            redemptionSource=redemption.source if redemption else None,
+                            redemptionReason=redemption.reason if redemption else None,
                         )
                         for ticket, redemption in tickets
                     ],

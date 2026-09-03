@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'di/service_registry.dart';
 import 'router/app_router.dart';
 import 'router/app_routes.dart';
+import 'router/notification_navigation_coordinator.dart';
 import 'theme/app_theme.dart';
 import '../core/design_system/sk_color_scheme.dart';
 import '../core/design_system/sk_theme.dart';
@@ -20,6 +21,8 @@ const String _configuredLaunchRoute = String.fromEnvironment(
 
 class StarKidsApp extends StatelessWidget {
   const StarKidsApp({super.key});
+
+  static final navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   Widget build(BuildContext context) {
@@ -48,11 +51,21 @@ class StarKidsApp extends StatelessWidget {
         return MaterialApp(
           key: ValueKey(isAuthenticated ? 'authenticated-app' : 'auth-gate'),
           title: 'Boom Bala',
+          navigatorKey: navigatorKey,
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),
           themeMode: settings.themeMode,
           builder: (ctx, child) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              final navigator = navigatorKey.currentState;
+              if (navigator != null) {
+                NotificationNavigationCoordinator.instance.attach(
+                  navigator: navigator,
+                  authenticated: isAuthenticated,
+                );
+              }
+            });
             final isDark = Theme.of(ctx).brightness == Brightness.dark;
             return SKTheme(
               dark: isDark,

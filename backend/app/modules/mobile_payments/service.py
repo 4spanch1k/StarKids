@@ -52,6 +52,7 @@ from .signing import (
     verify_freedompay_signature,
 )
 from .ticket_qr_service import TicketQrService
+from .visit_lifecycle import should_complete_visit
 
 logger = logging.getLogger(__name__)
 
@@ -253,7 +254,33 @@ class MobilePaymentService:
         visit = self._visit_repository.get_active_for_user(mobile_user_id)
         if visit is None:
             return None
+        payment = self._payment_repository.get_by_id(visit.mobile_payment_id)
         branch = self._branch_repository.get_by_id(visit.branch_id)
+        now = datetime.now(UTC)
+        if should_complete_visit(
+            visit=visit,
+            payment_visit_date=payment.visit_date if payment is not None else None,
+            branch=branch,
+            now=now,
+        ):
+            # Re-read under a row lock before completing so a concurrent
+            # redemption/current-visit request cannot overwrite the state.
+            locked = self._visit_repository.get_for_payment(
+                visit.mobile_payment_id,
+                for_update=True,
+            )
+            if locked is not None and locked.status == 'active':
+                locked.status = 'completed'
+                locked.ended_at = now
+                locked.completion_reason = 'validity_cutoff'
+                self._visit_repository.db.add(locked)
+                self._visit_repository.db.commit()
+                logger.info(
+                    'Visit completed by validity cutoff visit_id=%s payment_id=%s',
+                    locked.id,
+                    locked.mobile_payment_id,
+                )
+            return None
         return CurrentVisitResponse(
             visitId=visit.id,
             branchId=visit.branch_id,

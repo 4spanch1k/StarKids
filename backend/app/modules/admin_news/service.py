@@ -216,6 +216,8 @@ class AdminNewsService:
             'id': news.id,
             'news_id': news.id,
             'notification_type': 'news',
+            'destination_type': 'news_detail',
+            'destination_id': news.id,
             'title': news.title,
             'description': news.description,
             'image_url': news.image_url,
@@ -228,6 +230,8 @@ class AdminNewsService:
             return
 
         notification.title = news.title
+        notification.destination_type = 'news_detail'
+        notification.destination_id = news.id
         notification.description = news.description
         notification.image_url = news.image_url
         notification.is_active = news.is_active

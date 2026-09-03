@@ -34,6 +34,8 @@ export type TicketLookupTicket = {
   visitDate: string | null;
   redeemedAt: string | null;
   visitId: string | null;
+  redemptionSource: string | null;
+  redemptionReason: string | null;
 };
 
 export type TicketLookupOrder = {
@@ -74,6 +76,25 @@ export async function lookupTickets(query: string): Promise<TicketLookupOrder[]>
     }),
   );
   return response.items;
+}
+
+export async function redeemTicketManually({
+  ticketId,
+  branchId,
+  reason,
+}: {
+  ticketId: string;
+  branchId: string;
+  reason: 'customer_device_unavailable' | 'qr_unavailable' | 'support_override';
+}): Promise<TicketRedemptionResponse> {
+  return executeAuthorizedAdminRequest((accessToken) =>
+    httpClient<TicketRedemptionResponse>({
+      path: '/admin/tickets/redeem-manual',
+      method: 'POST',
+      headers: buildAdminAuthHeaders(accessToken),
+      body: JSON.stringify({ ticketId, branchId, reason }),
+    }),
+  );
 }
 
 export function resolveRedemptionOutcome(error: unknown): RedemptionOutcome | 'network_error' {

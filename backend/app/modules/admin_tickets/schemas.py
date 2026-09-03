@@ -1,11 +1,26 @@
 from datetime import UTC, date, datetime
 
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_serializer
 
 
 class AdminTicketRedeemRequest(BaseModel):
     qrPayload: str = Field(min_length=1, max_length=512)
     branchId: str = Field(min_length=1, max_length=32)
+
+
+ManualRedemptionReason = Literal[
+    'customer_device_unavailable',
+    'qr_unavailable',
+    'support_override',
+]
+
+
+class AdminManualTicketRedeemRequest(BaseModel):
+    ticketId: str = Field(min_length=1, max_length=32)
+    branchId: str = Field(min_length=1, max_length=32)
+    reason: ManualRedemptionReason
 
 
 class AdminTicketRedemptionResponse(BaseModel):
@@ -40,6 +55,8 @@ class AdminTicketLookupTicket(BaseModel):
     visitDate: date | None = None
     redeemedAt: datetime | None = None
     visitId: str | None = None
+    redemptionSource: str | None = None
+    redemptionReason: str | None = None
 
     @field_serializer('redeemedAt')
     def serialize_redeemed_at(self, value: datetime | None) -> str | None:

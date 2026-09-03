@@ -7,6 +7,7 @@ from .dependencies import get_ticket_redemption_service
 from .schemas import (
     AdminTicketLookupResponse,
     AdminTicketRedeemRequest,
+    AdminManualTicketRedeemRequest,
     AdminTicketRedemptionResponse,
 )
 from .service import TicketRedemptionService
@@ -36,6 +37,26 @@ def redeem_ticket(
     return service.redeem(
         qr_payload=payload.qrPayload,
         branch_id=payload.branchId,
+        admin_user=current_admin_user,
+    )
+
+
+@router.post(
+    '/tickets/redeem-manual',
+    response_model=AdminTicketRedemptionResponse,
+    responses={400: {'model': ErrorResponse}, 401: {'model': ErrorResponse}, 403: {'model': ErrorResponse}, 404: {'model': ErrorResponse}, 409: {'model': ErrorResponse}},
+)
+def redeem_ticket_manually(
+    payload: AdminManualTicketRedeemRequest,
+    current_admin_user: AdminCurrentUserResponse = Depends(
+        require_admin_roles('super_admin', 'operator')
+    ),
+    service: TicketRedemptionService = Depends(get_ticket_redemption_service),
+) -> AdminTicketRedemptionResponse:
+    return service.redeem_manual(
+        ticket_id=payload.ticketId,
+        branch_id=payload.branchId,
+        reason=payload.reason,
         admin_user=current_admin_user,
     )
 

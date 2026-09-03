@@ -40,6 +40,9 @@ class Visit(Base):
         server_default=func.now(),
     )
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # When no operational checkout exists, this is the server-side validity
+    # cutoff rather than a claim about the customer's physical exit time.
+    completion_reason: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
