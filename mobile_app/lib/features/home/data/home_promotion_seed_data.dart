@@ -11,7 +11,7 @@ const homePromotionSeedData = <HomePromotion>[
   ),
   HomePromotion(
     id: 'weekend-visit',
-    title: 'Выходные в Star Kids',
+    title: 'Выходные в Boom Bala',
     description:
         'Посмотреть площадку, выбрать филиал и вернуться на праздник без долгого поиска.',
     imagePath: 'assets/images/promo_hero.jpg',

@@ -136,12 +136,35 @@ class _FakeMobileAuthRepository implements MobileAuthRepository {
   }
 
   @override
+  Future<Result<MobileAuthSession>> exchangeClerkSession({
+    required String sessionToken,
+  }) async {
+    return const Failure<MobileAuthSession>('not used');
+  }
+
+  @override
   Future<Result<void>> logout(MobileAuthSession session) async {
     return const Success<void>(null);
   }
 
   @override
   Future<Result<MobileAuthSession>> refreshSession(String refreshToken) async {
+    return const Failure<MobileAuthSession>('not used');
+  }
+
+  @override
+  Future<Result<MobileAuthSession>> registerWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    return const Failure<MobileAuthSession>('not used');
+  }
+
+  @override
+  Future<Result<MobileAuthSession>> loginWithEmail({
+    required String email,
+    required String password,
+  }) async {
     return const Failure<MobileAuthSession>('not used');
   }
 

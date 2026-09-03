@@ -2,20 +2,19 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_colors.dart';
-import '../../../../core/design_system/foundations/star_kids_radii.dart';
-import '../../../../core/design_system/foundations/star_kids_shadows.dart';
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
-import '../../../../core/design_system/widgets/star_kids_button.dart';
+import '../../../../app/router/nested_navigation.dart';
+import '../../../../core/design_system/sk_design_tokens.dart';
+import '../../../../core/design_system/sk_theme.dart';
+import '../../../../core/design_system/widgets/glass_app_bar.dart';
+import '../../../../core/design_system/widgets/glass_card.dart';
+import '../../../../core/design_system/widgets/primary_button.dart';
+import '../../../../core/design_system/widgets/star_kids_motion.dart';
+import '../../../requests/domain/request_type.dart';
 import '../../domain/request_history_item.dart';
 import '../controllers/request_history_controller.dart';
 
 class RequestHistoryPage extends StatefulWidget {
-  const RequestHistoryPage({
-    super.key,
-    this.controller,
-    this.onOpenProfile,
-  });
+  const RequestHistoryPage({super.key, this.controller, this.onOpenProfile});
 
   final RequestHistoryController? controller;
   final VoidCallback? onOpenProfile;
@@ -27,6 +26,7 @@ class RequestHistoryPage extends StatefulWidget {
 class _RequestHistoryPageState extends State<RequestHistoryPage> {
   late final RequestHistoryController _controller;
   late final bool _ownsController;
+  RequestType? _activeFilter;
 
   @override
   void initState() {
@@ -74,22 +74,25 @@ class _RequestHistoryPageState extends State<RequestHistoryPage> {
       animation: _controller,
       builder: (context, _) {
         return Scaffold(
-          appBar: AppBar(
-            title: const Text('Мои заявки'),
-            actions: [
-              if (_controller.status !=
-                  RequestHistoryViewStatus.unauthenticated)
-                IconButton(
-                  icon: const Icon(Icons.refresh_rounded),
-                  tooltip: 'Обновить',
-                  onPressed: _controller.isLoading ? null : _reload,
-                ),
-            ],
+          appBar: GlassAppBar(
+            leading: const NestedBackButton(),
+            title: Text(
+              'Мои заявки',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            trailing:
+                _controller.status != RequestHistoryViewStatus.unauthenticated
+                    ? GlassIconButton(
+                        icon: Icons.refresh_rounded,
+                        tooltip: 'Обновить',
+                        onPressed: _controller.isLoading ? null : _reload,
+                      )
+                    : null,
           ),
           body: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(StarKidsSpacing.xl),
-              child: _buildBody(context),
+              padding: const EdgeInsets.all(SKSpacing.x5),
+              child: StarKidsContentSwitcher(child: _buildBody(context)),
             ),
           ),
         );
@@ -102,6 +105,7 @@ class _RequestHistoryPageState extends State<RequestHistoryPage> {
       case RequestHistoryViewStatus.idle:
       case RequestHistoryViewStatus.loading:
         return const _HistoryStateView(
+          key: ValueKey('request-history-loading'),
           icon: Icons.history_rounded,
           title: 'Загружаем заявки',
           description:
@@ -110,15 +114,16 @@ class _RequestHistoryPageState extends State<RequestHistoryPage> {
         );
       case RequestHistoryViewStatus.unauthenticated:
         return _HistoryStateView(
+          key: const ValueKey('request-history-unauthenticated'),
           icon: Icons.lock_outline_rounded,
           title: 'История доступна после входа',
-          description:
-              'Войдите по номеру телефона в профиле, чтобы увидеть только свои заявки.',
-          buttonLabel: 'Войти по номеру',
+          description: 'Войдите по email, чтобы увидеть только свои заявки.',
+          buttonLabel: 'Перейти ко входу',
           onPressed: _openProfile,
         );
       case RequestHistoryViewStatus.empty:
         return _HistoryStateView(
+          key: const ValueKey('request-history-empty'),
           icon: Icons.inbox_outlined,
           title: 'Пока нет заявок',
           description:
@@ -128,6 +133,7 @@ class _RequestHistoryPageState extends State<RequestHistoryPage> {
         );
       case RequestHistoryViewStatus.error:
         return _HistoryStateView(
+          key: const ValueKey('request-history-error'),
           icon: Icons.cloud_off_rounded,
           title: 'Не удалось загрузить историю',
           description: _controller.errorMessage ??
@@ -136,39 +142,53 @@ class _RequestHistoryPageState extends State<RequestHistoryPage> {
           onPressed: _reload,
         );
       case RequestHistoryViewStatus.loaded:
-        return ListView.separated(
-          itemCount: _controller.items.length + 1,
-          separatorBuilder: (_, __) =>
-              const SizedBox(height: StarKidsSpacing.md),
-          itemBuilder: (context, index) {
-            if (index == 0) {
-              return _HistoryHeader(total: _controller.total);
-            }
-
-            final item = _controller.items[index - 1];
-            return _RequestHistoryCard(item: item);
-          },
+        final filtered = _activeFilter == null
+            ? _controller.items
+            : _controller.items.where((i) => i.type == _activeFilter).toList();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _FilterRail(
+              active: _activeFilter,
+              onSelected: (t) => setState(() => _activeFilter = t),
+            ),
+            const SizedBox(height: SKSpacing.x3),
+            Expanded(
+              child: ListView.separated(
+                key: ValueKey(
+                  'request-history-${_activeFilter?.apiValue ?? 'all'}-${filtered.length}',
+                ),
+                itemCount: filtered.length + 1,
+                separatorBuilder: (_, __) =>
+                    const SizedBox(height: SKSpacing.x3),
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    return _HistoryHeader(total: filtered.length);
+                  }
+                  final item = filtered[index - 1];
+                  return StarKidsReveal(
+                    delay: starKidsStaggerDelay(index - 1),
+                    child: _RequestHistoryCard(item: item),
+                  );
+                },
+              ),
+            ),
+          ],
         );
     }
   }
 }
 
 class _HistoryHeader extends StatelessWidget {
-  const _HistoryHeader({
-    required this.total,
-  });
+  const _HistoryHeader({required this.total});
 
   final int total;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
-      decoration: BoxDecoration(
-        color: StarKidsColors.surfaceSecondary,
-        borderRadius: BorderRadius.circular(StarKidsRadii.lg),
-        border: Border.all(color: StarKidsColors.borderDefault),
-      ),
+    return SolidCard(
+      padding: const EdgeInsets.all(SKSpacing.x4),
+      radius: SKRadius.lg,
       child: Text(
         total == 1 ? 'Найдена 1 заявка.' : 'Найдено $total заявок.',
         style: Theme.of(context).textTheme.bodyLarge,
@@ -178,26 +198,20 @@ class _HistoryHeader extends StatelessWidget {
 }
 
 class _RequestHistoryCard extends StatelessWidget {
-  const _RequestHistoryCard({
-    required this.item,
-  });
+  const _RequestHistoryCard({required this.item});
 
   final RequestHistoryItem item;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final c = SKTheme.of(context).colors;
     final createdAtLabel = _formatCreatedAt(context, item.createdAt);
     final details = _buildDetails(context, item);
 
-    return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
-      decoration: BoxDecoration(
-        color: StarKidsColors.surfacePrimary,
-        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-        border: Border.all(color: StarKidsColors.borderDefault),
-        boxShadow: StarKidsShadows.depth1,
-      ),
+    return SolidCard(
+      padding: const EdgeInsets.all(SKSpacing.x4),
+      radius: SKRadius.xl,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -209,11 +223,11 @@ class _RequestHistoryCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(item.type.label, style: textTheme.titleMedium),
-                    const SizedBox(height: StarKidsSpacing.xs),
+                    const SizedBox(height: SKSpacing.x1),
                     Text(
                       'Создана $createdAtLabel',
                       style: textTheme.bodySmall?.copyWith(
-                        color: StarKidsColors.textSecondary,
+                        color: c.textSecondary,
                       ),
                     ),
                   ],
@@ -223,10 +237,10 @@ class _RequestHistoryCard extends StatelessWidget {
             ],
           ),
           if (details.isNotEmpty) ...[
-            const SizedBox(height: StarKidsSpacing.lg),
+            const SizedBox(height: SKSpacing.x4),
             ...details,
           ],
-          const SizedBox(height: StarKidsSpacing.lg),
+          const SizedBox(height: SKSpacing.x4),
           Text(
             item.hasNotes ? item.notes!.trim() : item.type.fallbackHistoryNotes,
             style: textTheme.bodyMedium,
@@ -251,30 +265,15 @@ class _RequestHistoryCard extends StatelessWidget {
     }
 
     if (item.guestCount != null) {
-      rows.add(
-        _HistoryFactRow(
-          label: 'Гостей',
-          value: '${item.guestCount}',
-        ),
-      );
+      rows.add(_HistoryFactRow(label: 'Гостей', value: '${item.guestCount}'));
     }
 
     if (item.branch != null) {
-      rows.add(
-        _HistoryFactRow(
-          label: 'Филиал',
-          value: item.branch!.name,
-        ),
-      );
+      rows.add(_HistoryFactRow(label: 'Филиал', value: item.branch!.name));
     }
 
     if (item.package != null) {
-      rows.add(
-        _HistoryFactRow(
-          label: 'Пакет',
-          value: item.package!.name,
-        ),
-      );
+      rows.add(_HistoryFactRow(label: 'Пакет', value: item.package!.name));
     }
 
     if (rows.isEmpty) {
@@ -285,7 +284,7 @@ class _RequestHistoryCard extends StatelessWidget {
     for (var index = 0; index < rows.length; index += 1) {
       widgets.add(rows[index]);
       if (index < rows.length - 1) {
-        widgets.add(const SizedBox(height: StarKidsSpacing.sm));
+        widgets.add(const SizedBox(height: SKSpacing.x2));
       }
     }
 
@@ -300,10 +299,7 @@ class _RequestHistoryCard extends StatelessWidget {
 }
 
 class _HistoryFactRow extends StatelessWidget {
-  const _HistoryFactRow({
-    required this.label,
-    required this.value,
-  });
+  const _HistoryFactRow({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -311,18 +307,17 @@ class _HistoryFactRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final c = SKTheme.of(context).colors;
 
     return Row(
       children: [
         Expanded(
           child: Text(
             label,
-            style: textTheme.labelMedium?.copyWith(
-              color: StarKidsColors.textSecondary,
-            ),
+            style: textTheme.labelMedium?.copyWith(color: c.textSecondary),
           ),
         ),
-        const SizedBox(width: StarKidsSpacing.md),
+        const SizedBox(width: SKSpacing.x3),
         Expanded(
           child: Text(
             value,
@@ -336,27 +331,28 @@ class _HistoryFactRow extends StatelessWidget {
 }
 
 class _HistoryStatusChip extends StatelessWidget {
-  const _HistoryStatusChip({
-    required this.label,
-  });
+  const _HistoryStatusChip({required this.label});
 
   final String label;
 
   @override
   Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: StarKidsSpacing.md,
-        vertical: StarKidsSpacing.xs,
+        horizontal: SKSpacing.x3,
+        vertical: SKSpacing.x1,
       ),
       decoration: BoxDecoration(
-        color: StarKidsColors.brandHighlight,
-        borderRadius: BorderRadius.circular(StarKidsRadii.full),
+        color: c.accentSoft,
+        borderRadius: BorderRadius.circular(SKRadius.pill),
       ),
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: StarKidsColors.textPrimary,
+              color: c.accent,
+              fontWeight: FontWeight.w600,
             ),
       ),
     );
@@ -365,6 +361,7 @@ class _HistoryStatusChip extends StatelessWidget {
 
 class _HistoryStateView extends StatelessWidget {
   const _HistoryStateView({
+    super.key,
     required this.icon,
     required this.title,
     required this.description,
@@ -383,50 +380,101 @@ class _HistoryStateView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final c = SKTheme.of(context).colors;
 
     return Center(
-      child: Container(
+      child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520),
-        padding: const EdgeInsets.all(StarKidsSpacing.xl),
-        decoration: BoxDecoration(
-          color: StarKidsColors.surfacePrimary,
-          borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-          border: Border.all(color: StarKidsColors.borderDefault),
-          boxShadow: StarKidsShadows.depth1,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (isLoading)
-              const SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            else
-              Icon(
-                icon,
-                size: 36,
-                color: StarKidsColors.brandPrimary,
+        child: SolidCard(
+          padding: const EdgeInsets.all(SKSpacing.x5),
+          radius: SKRadius.xl,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isLoading)
+                const SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Icon(icon, size: 36, color: c.accent),
+              const SizedBox(height: SKSpacing.x4),
+              Text(
+                title,
+                style: textTheme.titleLarge,
+                textAlign: TextAlign.center,
               ),
-            const SizedBox(height: StarKidsSpacing.lg),
-            Text(title,
-                style: textTheme.titleLarge, textAlign: TextAlign.center),
-            const SizedBox(height: StarKidsSpacing.sm),
-            Text(
-              description,
-              style: textTheme.bodyMedium,
-              textAlign: TextAlign.center,
-            ),
-            if (buttonLabel != null && onPressed != null) ...[
-              const SizedBox(height: StarKidsSpacing.lg),
-              StarKidsButton.primary(
-                label: buttonLabel!,
-                onPressed: isLoading ? null : onPressed,
+              const SizedBox(height: SKSpacing.x2),
+              Text(
+                description,
+                style: textTheme.bodyMedium,
+                textAlign: TextAlign.center,
               ),
+              if (buttonLabel != null && onPressed != null) ...[
+                const SizedBox(height: SKSpacing.x4),
+                PrimaryButton(
+                  label: buttonLabel!,
+                  onPressed: isLoading ? null : onPressed,
+                ),
+              ],
             ],
-          ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+// ─── Filter chip rail ─────────────────────────────────────────────────────────
+
+class _FilterRail extends StatelessWidget {
+  const _FilterRail({required this.active, required this.onSelected});
+
+  final RequestType? active;
+  final ValueChanged<RequestType?> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+    final textTheme = Theme.of(context).textTheme;
+
+    Widget chip(String label, RequestType? type) {
+      final isActive = active == type;
+      return GestureDetector(
+        onTap: () => onSelected(isActive ? null : type),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(
+            horizontal: SKSpacing.x3,
+            vertical: SKSpacing.x1,
+          ),
+          decoration: BoxDecoration(
+            color: isActive ? c.cta : c.elevated,
+            borderRadius: BorderRadius.circular(SKRadius.pill),
+            border: Border.all(color: isActive ? c.cta : c.hairline),
+          ),
+          child: Text(
+            label,
+            style: textTheme.labelMedium?.copyWith(
+              color: isActive ? Colors.white : c.textSecondary,
+              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          chip('Все', null),
+          const SizedBox(width: SKSpacing.x2),
+          chip(RequestType.birthdayRequest.label, RequestType.birthdayRequest),
+          const SizedBox(width: SKSpacing.x2),
+          chip(RequestType.contact.label, RequestType.contact),
+        ],
       ),
     );
   }

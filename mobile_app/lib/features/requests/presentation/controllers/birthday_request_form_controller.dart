@@ -70,6 +70,11 @@ class BirthdayRequestFormController extends ChangeNotifier {
   bool get isSubmitting =>
       _status == BirthdayRequestSubmissionStatus.submitting;
 
+  @override
+  void notifyListeners() {
+    if (!_isDisposed) super.notifyListeners();
+  }
+
   void updateSelectedPackage(
     String? packageId, {
     BirthdayPackage? selectedPackage,
@@ -104,7 +109,7 @@ class BirthdayRequestFormController extends ChangeNotifier {
       lastDate: now.add(const Duration(days: 365)),
     );
 
-    if (selectedDate != null) {
+    if (selectedDate != null && !_isDisposed) {
       updateDesiredDate(selectedDate);
     }
   }
@@ -259,15 +264,12 @@ class BirthdayRequestFormController extends ChangeNotifier {
 
   Future<void> _hydrateInitialPackage(String packageId) async {
     final package = await _packageRepository.getPackageById(packageId);
-    if (package == null) {
+    if (package == null || _isDisposed) {
       return;
     }
 
     _selectedPackage = package;
     _applySuggestedGuests(package);
-    if (_isDisposed) {
-      return;
-    }
     notifyListeners();
   }
 

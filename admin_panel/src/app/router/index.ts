@@ -15,9 +15,12 @@ import FAQPage from '@/pages/faq/FAQPage.vue';
 import GalleryPage from '@/pages/gallery/GalleryPage.vue';
 import LeadsPage from '@/pages/leads/LeadsPage.vue';
 import LoginPage from '@/pages/login/LoginPage.vue';
+import MenuPage from '@/pages/menu/MenuPage.vue';
+import NewsPage from '@/pages/news/NewsPage.vue';
 import PromotionsPage from '@/pages/promotions/PromotionsPage.vue';
 import PushCampaignsPage from '@/pages/push-campaigns/PushCampaignsPage.vue';
-import TariffsPage from '@/pages/tariffs/TariffsPage.vue';
+import TicketsPage from '@/pages/tickets/TicketsPage.vue';
+import TicketScannerPage from '@/pages/ticket-scanner/TicketScannerPage.vue';
 import { useSessionStore } from '@/features/auth/stores/useSessionStore';
 
 const routes: RouteRecordRaw[] = [
@@ -59,17 +62,38 @@ const routes: RouteRecordRaw[] = [
         idParam: adminCrudRouteNames.birthdayPackages.idParam,
       }).routes,
       ...buildAdminCrudRouteGroup({
-        path: 'tariffs',
-        name: adminCrudRouteNames.tariffs.list,
-        component: TariffsPage,
-        idParam: adminCrudRouteNames.tariffs.idParam,
+        path: 'menu',
+        name: adminCrudRouteNames.menu.list,
+        component: MenuPage,
+        idParam: adminCrudRouteNames.menu.idParam,
         allowCreate: false,
       }).routes,
+      ...buildAdminCrudRouteGroup({
+        path: 'tickets',
+        name: adminCrudRouteNames.tickets.list,
+        component: TicketsPage,
+        idParam: adminCrudRouteNames.tickets.idParam,
+        allowCreate: false,
+      }).routes,
+      {
+        path: 'ticket-scanner',
+        name: 'ticket-scanner',
+        component: TicketScannerPage,
+        meta: {
+          allowedRoles: ['super_admin', 'operator'],
+        },
+      },
       ...buildAdminCrudRouteGroup({
         path: 'promotions',
         name: adminCrudRouteNames.promotions.list,
         component: PromotionsPage,
         idParam: adminCrudRouteNames.promotions.idParam,
+      }).routes,
+      ...buildAdminCrudRouteGroup({
+        path: 'news',
+        name: adminCrudRouteNames.news.list,
+        component: NewsPage,
+        idParam: adminCrudRouteNames.news.idParam,
       }).routes,
       ...buildAdminCrudRouteGroup({
         path: 'content',
@@ -126,6 +150,13 @@ router.beforeEach(async (to) => {
         ? to.query.redirect
         : '/';
     return redirectPath;
+  }
+
+  const allowedRoles = to.matched
+    .map((record) => record.meta.allowedRoles)
+    .find((roles): roles is string[] => Array.isArray(roles));
+  if (allowedRoles && !allowedRoles.includes(sessionStore.operatorRole)) {
+    return { name: 'leads' };
   }
 
   return true;

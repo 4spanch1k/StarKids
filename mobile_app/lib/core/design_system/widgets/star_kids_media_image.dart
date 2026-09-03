@@ -1,6 +1,33 @@
 import 'package:flutter/material.dart';
 
-import '../foundations/star_kids_colors.dart';
+import '../../../app/config/app_environment.dart';
+import '../sk_theme.dart';
+
+String? resolveMediaImageSource(String? value) {
+  final normalized = value?.trim();
+  if (normalized == null || normalized.isEmpty) {
+    return null;
+  }
+
+  if (normalized.startsWith('assets/') ||
+      normalized.startsWith('http://') ||
+      normalized.startsWith('https://')) {
+    return normalized;
+  }
+
+  if (!normalized.contains('/') && !normalized.contains('.')) {
+    return 'assets/images/$normalized.jpg';
+  }
+
+  final baseUri = Uri.parse(AppEnvironment.apiBaseUrl);
+  if (normalized.startsWith('/')) {
+    return baseUri
+        .replace(path: normalized, query: null, fragment: null)
+        .toString();
+  }
+
+  return baseUri.resolve(normalized).toString();
+}
 
 class StarKidsMediaImage extends StatelessWidget {
   const StarKidsMediaImage({
@@ -16,8 +43,8 @@ class StarKidsMediaImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolvedSource =
-        _normalizeSource(source) ?? _normalizeSource(fallbackSource);
+    final resolvedSource = resolveMediaImageSource(source) ??
+        resolveMediaImageSource(fallbackSource);
 
     if (resolvedSource == null) {
       return const _MediaPlaceholder();
@@ -46,9 +73,10 @@ class StarKidsMediaImage extends StatelessWidget {
   }
 
   Widget _buildFallback() {
-    final resolvedFallback = _normalizeSource(fallbackSource);
+    final resolvedFallback = resolveMediaImageSource(fallbackSource);
 
-    if (resolvedFallback == null || resolvedFallback == source) {
+    if (resolvedFallback == null ||
+        resolvedFallback == resolveMediaImageSource(source)) {
       return const _MediaPlaceholder();
     }
 
@@ -67,15 +95,6 @@ class StarKidsMediaImage extends StatelessWidget {
     );
   }
 
-  static String? _normalizeSource(String? value) {
-    final normalized = value?.trim();
-    if (normalized == null || normalized.isEmpty) {
-      return null;
-    }
-
-    return normalized;
-  }
-
   static bool _isRemote(String source) {
     return source.startsWith('http://') || source.startsWith('https://');
   }
@@ -86,15 +105,11 @@ class _MediaPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DecoratedBox(
-      decoration: BoxDecoration(
-        color: StarKidsColors.surfaceSecondary,
-      ),
+    final c = SKTheme.of(context).colors;
+    return DecoratedBox(
+      decoration: BoxDecoration(color: c.elevated),
       child: Center(
-        child: Icon(
-          Icons.image_rounded,
-          color: StarKidsColors.textSecondary,
-        ),
+        child: Icon(Icons.image_rounded, color: c.textSecondary),
       ),
     );
   }

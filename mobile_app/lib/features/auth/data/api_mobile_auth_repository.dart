@@ -19,6 +19,86 @@ class ApiMobileAuthRepository implements MobileAuthRepository {
   final MobileAuthSessionStorage _sessionStorage;
 
   @override
+  Future<Result<MobileAuthSession>> registerWithEmail({
+    required String email,
+    required String password,
+  }) {
+    return _submitEmailAuth(
+      path: '/auth/register',
+      email: email,
+      password: password,
+      duplicateEmailMessage:
+          'Эта электронная почта уже зарегистрирована. Войдите в аккаунт.',
+      fallbackMessage:
+          'Не удалось зарегистрироваться. Проверьте интернет и попробуйте снова.',
+    );
+  }
+
+  @override
+  Future<Result<MobileAuthSession>> loginWithEmail({
+    required String email,
+    required String password,
+  }) {
+    return _submitEmailAuth(
+      path: '/auth/login',
+      email: email,
+      password: password,
+      invalidCredentialsMessage: 'Проверьте почту и пароль.',
+      fallbackMessage:
+          'Не удалось войти. Проверьте интернет и попробуйте снова.',
+    );
+  }
+
+  @override
+  Future<Result<MobileAuthSession>> exchangeClerkSession({
+    required String sessionToken,
+  }) async {
+    try {
+      final response = await _apiClient.postJson(
+        '/auth/clerk/exchange',
+        body: {'session_token': sessionToken.trim()},
+      );
+
+      if (response.isSuccess) {
+        final session = await _storeTokenResponse(response.jsonBody);
+        if (session != null) {
+          return Success<MobileAuthSession>(session);
+        }
+
+        return const Failure<MobileAuthSession>(
+          'Не удалось завершить вход через Google. Попробуйте снова.',
+        );
+      }
+
+      if (response.statusCode == 401) {
+        return const Failure<MobileAuthSession>(
+          'Не удалось подтвердить вход через Google. Попробуйте снова.',
+        );
+      }
+
+      if (response.statusCode == 409) {
+        return const Failure<MobileAuthSession>(
+          'Этот Google аккаунт уже связан с другим профилем Boom Bala.',
+        );
+      }
+
+      if (response.statusCode == 422) {
+        return const Failure<MobileAuthSession>(
+          'Подтвердите email в Google и попробуйте снова.',
+        );
+      }
+
+      return const Failure<MobileAuthSession>(
+        'Не удалось войти через Google. Проверьте интернет и попробуйте снова.',
+      );
+    } catch (_) {
+      return const Failure<MobileAuthSession>(
+        'Не удалось войти через Google. Проверьте интернет и попробуйте снова.',
+      );
+    }
+  }
+
+  @override
   Future<Result<OtpChallenge>> requestOtp(String phone) async {
     try {
       final response = await _apiClient.postJson(
@@ -115,6 +195,7 @@ class ApiMobileAuthRepository implements MobileAuthRepository {
           final updatedSession = session.copyWith(
             user: currentUser,
             phone: currentUser.phone,
+            email: currentUser.email,
           );
           await _sessionStorage.saveSession(updatedSession);
           return Success<MobileAuthSession?>(updatedSession);
@@ -267,6 +348,50 @@ class ApiMobileAuthRepository implements MobileAuthRepository {
     ).toDomain(verifiedAt: DateTime.now());
     await _sessionStorage.saveSession(session);
     return session;
+  }
+
+  Future<Result<MobileAuthSession>> _submitEmailAuth({
+    required String path,
+    required String email,
+    required String password,
+    String? duplicateEmailMessage,
+    String? invalidCredentialsMessage,
+    required String fallbackMessage,
+  }) async {
+    try {
+      final response = await _apiClient.postJson(
+        path,
+        body: {
+          'email': email.trim(),
+          'password': password,
+        },
+      );
+
+      if (response.isSuccess) {
+        final session = await _storeTokenResponse(response.jsonBody);
+        if (session != null) {
+          return Success<MobileAuthSession>(session);
+        }
+      }
+
+      if (response.statusCode == 409 && duplicateEmailMessage != null) {
+        return Failure<MobileAuthSession>(duplicateEmailMessage);
+      }
+
+      if (response.statusCode == 401 && invalidCredentialsMessage != null) {
+        return Failure<MobileAuthSession>(invalidCredentialsMessage);
+      }
+
+      if (response.statusCode == 422) {
+        return const Failure<MobileAuthSession>(
+          'Проверьте почту и пароль.',
+        );
+      }
+
+      return Failure<MobileAuthSession>(fallbackMessage);
+    } catch (_) {
+      return Failure<MobileAuthSession>(fallbackMessage);
+    }
   }
 
   MobileAuthUser? _parseCurrentUser(Object? jsonBody) {

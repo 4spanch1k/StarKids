@@ -7,8 +7,10 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.database.session import get_db_session
+from app.core.rate_limit.service import reset_rate_limit_state
 from app.core.security.passwords import hash_password
 from app.db.models import Base
+from app.db.models.auth_throttle_state import AuthThrottleState
 from app.db.models.admin_session import AdminSession
 from app.db.models.admin_user import AdminUser
 from app.main import app
@@ -63,7 +65,9 @@ class AdminAuthEndpointTests(unittest.TestCase):
         Base.metadata.drop_all(cls.engine)
 
     def setUp(self) -> None:
+        reset_rate_limit_state()
         with self.SessionLocal() as session:
+            session.query(AuthThrottleState).delete()
             session.query(AdminSession).delete()
             session.query(AdminUser).delete()
             session.add_all(
@@ -106,6 +110,11 @@ class AdminAuthEndpointTests(unittest.TestCase):
         self.assertEqual(body['user']['role'], 'super_admin')
         self.assertGreater(body['expires_in_seconds'], 0)
         self.assertGreater(body['refresh_expires_in_seconds'], 0)
+
+        with self.SessionLocal() as session:
+            saved_session = session.query(AdminSession).one()
+            self.assertNotEqual(saved_session.refresh_token_hash, body['refresh_token'])
+            self.assertTrue(saved_session.refresh_token_hash.startswith('hmac-sha256$'))
 
     def test_current_user_returns_authenticated_admin(self) -> None:
         login_response = self.client.post(
@@ -182,3 +191,61 @@ class AdminAuthEndpointTests(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 403)
+
+    def test_logout_revokes_admin_refresh_session(self) -> None:
+        login_response = self.client.post(
+            '/api/v1/admin/auth/login',
+            json={
+                'email': 'admin@starkids.kz',
+                'password': 'StrongPass123!',
+            },
+            headers={'X-Forwarded-For': '198.51.100.50'},
+        )
+        auth_body = login_response.json()
+
+        logout_response = self.client.post(
+            '/api/v1/admin/auth/logout',
+            headers={'Authorization': f"Bearer {auth_body['access_token']}"},
+        )
+        self.assertEqual(logout_response.status_code, 204)
+
+        current_user_response = self.client.get(
+            '/api/v1/admin/auth/current-user',
+            headers={'Authorization': f"Bearer {auth_body['access_token']}"},
+        )
+        self.assertEqual(current_user_response.status_code, 401)
+
+        refresh_response = self.client.post(
+            '/api/v1/admin/auth/refresh',
+            json={'refresh_token': auth_body['refresh_token']},
+        )
+        self.assertEqual(refresh_response.status_code, 401)
+
+    def test_login_blocks_after_five_failed_attempts_for_same_ip(self) -> None:
+        headers = {'X-Forwarded-For': '203.0.113.70'}
+
+        for _ in range(4):
+            response = self.client.post(
+                '/api/v1/admin/auth/login',
+                json={
+                    'email': 'admin@starkids.kz',
+                    'password': 'wrong-password',
+                },
+                headers=headers,
+            )
+            self.assertEqual(response.status_code, 401)
+
+        blocked_response = self.client.post(
+            '/api/v1/admin/auth/login',
+            json={
+                'email': 'admin@starkids.kz',
+                'password': 'wrong-password',
+            },
+            headers=headers,
+        )
+
+        self.assertEqual(blocked_response.status_code, 429)
+        self.assertEqual(
+            blocked_response.json()['error']['code'],
+            'login_temporarily_locked',
+        )

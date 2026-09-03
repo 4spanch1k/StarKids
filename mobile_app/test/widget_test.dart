@@ -2,17 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:star_kids_mobile/app/bootstrap/star_kids_bootstrap_app.dart';
 import 'package:star_kids_mobile/app/app.dart';
-import 'package:star_kids_mobile/app/router/app_routes.dart';
+import 'package:star_kids_mobile/app/di/service_registry.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() {
+  setUp(() async {
     SharedPreferences.setMockInitialValues({});
+    await ServiceRegistry.mobileAuthController.logout();
   });
 
-  testWidgets('commercial surfaces are reachable from home', (
+  testWidgets('unauthenticated app opens email auth gate', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(1280, 2400);
@@ -20,47 +22,66 @@ void main() {
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(const StarKidsApp());
-    expect(find.text('Star Kids Shymkent'), findsOneWidget);
-
-    await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Star Kids Al-Farabi'));
-    await tester.tap(find.text('Star Kids Al-Farabi'));
-    await tester.pumpAndSettle();
+    expect(find.text('Boom Bala'), findsOneWidget);
+    expect(find.text('Вход'), findsWidgets);
+    expect(find.text('Регистрация'), findsOneWidget);
+    expect(find.text('Email'), findsOneWidget);
+    expect(find.text('Пароль'), findsOneWidget);
+    expect(find.text('Продолжить с Google'), findsOneWidget);
 
-    final navigator = Navigator.of(
-      tester.element(find.byType(Scaffold).first),
+    final passwordField = find.descendant(
+      of: find.byKey(const ValueKey('auth-password-field')),
+      matching: find.byType(TextField),
+    );
+    expect(tester.widget<TextField>(passwordField).obscureText, isTrue);
+
+    await tester.enterText(passwordField, 'copied-password');
+    await tester.tap(
+      find.byKey(const ValueKey('auth-password-visibility-toggle')),
+    );
+    await tester.pump();
+
+    expect(tester.widget<TextField>(passwordField).obscureText, isFalse);
+    expect(
+      tester.widget<TextField>(passwordField).controller?.text,
+      'copied-password',
+    );
+    expect(find.byTooltip('Скрыть пароль'), findsOneWidget);
+    await tester.enterText(passwordField, '');
+
+    const hasGoogleConfiguration =
+        String.fromEnvironment('MOBILE_CLERK_PUBLISHABLE_KEY') != '' &&
+            String.fromEnvironment('MOBILE_GOOGLE_SERVER_CLIENT_ID') != '';
+    expect(
+      find.text('Вход через Google не настроен для этой сборки.'),
+      hasGoogleConfiguration ? findsNothing : findsOneWidget,
     );
 
-    navigator.pushNamed(AppRoutes.promotions);
-    await tester.pumpAndSettle();
-    expect(find.text('Акции'), findsWidgets);
-
-    navigator.pop();
+    await tester.tap(find.text('Войти').last);
     await tester.pumpAndSettle();
 
-    navigator.pushNamed(AppRoutes.pricesRules);
-    await tester.pumpAndSettle();
-    expect(find.text('Цены и правила'), findsWidgets);
+    expect(find.text('Введите электронную почту.'), findsOneWidget);
+    expect(find.text('Введите пароль.'), findsOneWidget);
+  });
 
-    navigator.pop();
+  testWidgets('bootstrap shell leaves splash after initialization completes', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      StarKidsBootstrapApp(
+        initialize: () async {},
+      ),
+    );
     await tester.pumpAndSettle();
 
-    navigator.pushNamed(AppRoutes.contacts);
-    await tester.pumpAndSettle();
-    expect(find.text('Контакты и маршрут'), findsOneWidget);
-
-    navigator.pop();
-    await tester.pumpAndSettle();
-
-    navigator.pushNamed(AppRoutes.profile);
-    await tester.pumpAndSettle();
-    expect(find.text('Войдите по номеру телефона'), findsOneWidget);
-    expect(find.text('Мои заявки'), findsOneWidget);
-
-    await tester.tap(find.text('Мои заявки'));
-    await tester.pumpAndSettle();
-    expect(find.text('История доступна после входа'), findsOneWidget);
+    expect(find.text('Boom Bala'), findsOneWidget);
+    expect(find.text('Вход'), findsWidgets);
+    expect(find.text('Email'), findsOneWidget);
   });
 }

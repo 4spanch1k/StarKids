@@ -1,14 +1,20 @@
 from fastapi import APIRouter, Depends, Response, status
 
 from ...core.exceptions.schemas import ErrorResponse
+from ..auth_security.dependencies import AuthRequestContext, get_auth_request_context
 from .dependencies import (
+    get_clerk_session_verifier,
     get_current_mobile_user,
     get_mobile_access_token,
     get_mobile_auth_service,
 )
+from .clerk_verifier import ClerkSessionVerifier
 from .schemas import (
+    MobileClerkExchangeRequest,
     MobileAuthResponse,
     MobileCurrentUserResponse,
+    MobileEmailLoginRequest,
+    MobileEmailRegistrationRequest,
     MobileRefreshRequest,
     OTPRequest,
     OTPRequestResponse,
@@ -17,7 +23,62 @@ from .schemas import (
 from .service import MobileAuthService
 
 router = APIRouter()
-me_router = APIRouter()
+
+
+@router.post(
+    '/register',
+    response_model=MobileAuthResponse,
+    response_model_exclude_none=True,
+    responses={
+        409: {'model': ErrorResponse},
+        422: {'model': ErrorResponse},
+        503: {'model': ErrorResponse},
+    },
+)
+def register(
+    payload: MobileEmailRegistrationRequest,
+    service: MobileAuthService = Depends(get_mobile_auth_service),
+) -> MobileAuthResponse:
+    return service.register_with_email(payload)
+
+
+@router.post(
+    '/login',
+    response_model=MobileAuthResponse,
+    response_model_exclude_none=True,
+    responses={
+        401: {'model': ErrorResponse},
+        403: {'model': ErrorResponse},
+        429: {'model': ErrorResponse},
+        422: {'model': ErrorResponse},
+        503: {'model': ErrorResponse},
+    },
+)
+def login(
+    payload: MobileEmailLoginRequest,
+    context: AuthRequestContext = Depends(get_auth_request_context),
+    service: MobileAuthService = Depends(get_mobile_auth_service),
+) -> MobileAuthResponse:
+    return service.login_with_email(payload, context=context)
+
+
+@router.post(
+    '/clerk/exchange',
+    response_model=MobileAuthResponse,
+    response_model_exclude_none=True,
+    responses={
+        401: {'model': ErrorResponse},
+        409: {'model': ErrorResponse},
+        422: {'model': ErrorResponse},
+        503: {'model': ErrorResponse},
+    },
+)
+def exchange_clerk_session(
+    payload: MobileClerkExchangeRequest,
+    service: MobileAuthService = Depends(get_mobile_auth_service),
+    verifier: ClerkSessionVerifier = Depends(get_clerk_session_verifier),
+) -> MobileAuthResponse:
+    return service.exchange_clerk_session(payload, verifier=verifier)
 
 
 @router.post(
@@ -35,6 +96,7 @@ def request_otp(
 @router.post(
     '/verify-otp',
     response_model=MobileAuthResponse,
+    response_model_exclude_none=True,
     responses={
         401: {'model': ErrorResponse},
         422: {'model': ErrorResponse},
@@ -51,6 +113,7 @@ def verify_otp(
 @router.post(
     '/refresh',
     response_model=MobileAuthResponse,
+    response_model_exclude_none=True,
     responses={401: {'model': ErrorResponse}, 503: {'model': ErrorResponse}},
 )
 def refresh(
@@ -63,11 +126,13 @@ def refresh(
 @router.get(
     '/current-user',
     response_model=MobileCurrentUserResponse,
+    response_model_exclude_none=True,
     responses={401: {'model': ErrorResponse}, 503: {'model': ErrorResponse}},
 )
-@me_router.get(
+@router.get(
     '/me',
     response_model=MobileCurrentUserResponse,
+    response_model_exclude_none=True,
     responses={401: {'model': ErrorResponse}, 503: {'model': ErrorResponse}},
 )
 def current_user(

@@ -5,10 +5,12 @@ abstract final class AppRoutes {
   static const home = '/home';
   static const birthdays = '/birthdays';
   static const promotions = '/promotions';
-  static const pricesRules = '/prices-rules';
+  static const tickets = '/tickets';
+  static const menu = '/menu';
   static const contacts = '/contacts';
   static const requests = '/requests';
   static const notifications = '/notifications';
+  static const newsDetails = '/news/details';
   static const profile = '/profile';
   static const myRequests = '/profile/requests';
 }

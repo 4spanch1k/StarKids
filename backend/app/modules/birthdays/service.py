@@ -14,12 +14,17 @@ class BirthdayService:
         self.branch_repository = branch_repository or BranchRepository()
 
     def list_packages(self, branch_id: str | None = None) -> list[BirthdayPackageSummary]:
-        if branch_id and self.branch_repository.get_active_by_id(branch_id) is None:
-            raise NotFoundException(
-                code='branch_not_found',
-                message='Branch was not found.',
-            )
-        packages = self.repository.list_active(branch_id=branch_id)
+        resolved_branch_id: str | None = None
+        if branch_id:
+            branch = self.branch_repository.get_active_by_id_or_slug(branch_id)
+            if branch is None:
+                raise NotFoundException(
+                    code='branch_not_found',
+                    message='Branch was not found.',
+                )
+            resolved_branch_id = branch.id
+
+        packages = self.repository.list_active(branch_id=resolved_branch_id)
         return [
             BirthdayPackageSummary.model_validate(package)
             for package in packages

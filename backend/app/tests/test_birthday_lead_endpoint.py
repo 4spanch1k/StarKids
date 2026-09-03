@@ -176,6 +176,67 @@ class BirthdayLeadEndpointTests(unittest.TestCase):
         )
         self.assertTrue(response.json()['submittedAt'].endswith('Z'))
 
+    def test_branch_slug_is_accepted_and_persisted_as_canonical_branch_id(self) -> None:
+        with self.SessionLocal() as session:
+            slug_branch = Branch(
+                id='7d9da50798f74a719f2d37f198e1735f',
+                slug='shymkent-mega',
+                name='Star Kids Al-Farabi',
+                city='Shymkent',
+                address='Al-Farabi',
+                short_label='Mega',
+                working_hours='11:00 - 23:00',
+                description='Slug branch',
+                phone='+77070000002',
+                whatsapp_phone='+77070000002',
+                hero_image_url=None,
+                gallery_image_urls=[],
+                facilities=[],
+                display_order=3,
+                is_active=True,
+            )
+            slug_package = BirthdayPackage(
+                id='package-slug',
+                branch_id=slug_branch.id,
+                slug='package-slug',
+                name='Slug Party',
+                price_from=65000,
+                price_label='от 65 000 ₸',
+                guest_capacity_label='до 12 детей',
+                description='Slug package',
+                highlights=['Animator'],
+                image_url=None,
+                is_featured=False,
+                is_active=True,
+                display_order=3,
+            )
+            session.add_all([slug_branch, slug_package])
+            session.commit()
+
+        response = self.client.post(
+            '/api/v1/mobile/leads/birthday',
+            json={
+                'name': 'Amina',
+                'phone': '+77070000000',
+                'branchId': 'shymkent-mega',
+                'preferredDate': str(date.today()),
+                'guestCount': 12,
+                'packageId': 'package-slug',
+            },
+        )
+
+        self.assertEqual(response.status_code, 201)
+
+        with self.SessionLocal() as session:
+            saved = session.scalar(
+                select(BirthdayRequest).where(
+                    BirthdayRequest.id == response.json()['requestId']
+                )
+            )
+            self.assertIsNotNone(saved)
+            self.assertEqual(saved.branch_id, '7d9da50798f74a719f2d37f198e1735f')
+            self.assertEqual(saved.birthday_package_id, 'package-slug')
+
     def test_missing_phone_uses_frontend_error_shape(self) -> None:
         response = self.client.post(
             '/api/v1/mobile/leads/birthday',
