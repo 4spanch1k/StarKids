@@ -2065,7 +2065,7 @@ class _ProfileHeaderCard extends StatelessWidget {
         p?.fullName.trim().isNotEmpty == true ? p!.fullName : 'Айгерим А.';
     final emailOrPhone = p?.email?.isNotEmpty == true
         ? p!.email!
-        : (p?.phone?.isNotEmpty == true ? p!.phone! : 'family@starkids.kz');
+        : (p?.phone?.isNotEmpty == true ? p!.phone! : 'family@example.com');
 
     return Padding(
       padding: const EdgeInsets.only(top: SK.s3),

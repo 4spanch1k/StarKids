@@ -38,11 +38,13 @@ class NotificationService:
                     id='notification-1',
                     news_id=None,
                     type='system',
-                    title='Welcome to Star Kids',
+                    title='Welcome to Boom Bala',
                     description=None,
                     image_url=None,
                     created_at=datetime.now(timezone.utc),
                     is_read=False,
+                    destination_type=None,
+                    destination_id=None,
                 )
             ]
 
@@ -51,6 +53,8 @@ class NotificationService:
             NotificationItem(
                 id=item.id,
                 news_id=item.news_id,
+                destination_type=item.destination_type,
+                destination_id=item.destination_id,
                 type=item.notification_type,  # type: ignore[arg-type]
                 title=item.title,
                 description=item.description,

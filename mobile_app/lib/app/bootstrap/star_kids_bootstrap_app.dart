@@ -48,7 +48,7 @@ class _StarKidsBootstrapAppState extends State<StarKidsBootstrapApp> {
               : '[APP] rendering loading',
         );
         return MaterialApp(
-          title: 'Star Kids',
+          title: 'Boom Bala',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light(),
           builder: (ctx, child) {

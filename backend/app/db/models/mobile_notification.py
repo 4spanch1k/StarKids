@@ -23,6 +23,8 @@ class MobileNotification(Base):
         unique=True,
     )
     notification_type: Mapped[str] = mapped_column(String(16), default='news')
+    destination_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    destination_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)

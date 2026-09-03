@@ -15,6 +15,16 @@ enum MobileAuthStatus {
   error,
 }
 
+class MobileAuthCancelledException implements Exception {
+  const MobileAuthCancelledException();
+}
+
+class MobileAuthFlowException implements Exception {
+  const MobileAuthFlowException(this.message);
+
+  final String message;
+}
+
 class MobileAuthController extends ChangeNotifier {
   MobileAuthController({
     required MobileAuthRepository repository,
@@ -77,6 +87,9 @@ class MobileAuthController extends ChangeNotifier {
   Future<void> loginWithGoogleClerk({
     required Future<String> Function() requestSessionToken,
   }) async {
+    if (isBusy) {
+      return;
+    }
     _errorMessage = null;
     _pendingChallenge = null;
     _status = MobileAuthStatus.loading;
@@ -107,6 +120,16 @@ class MobileAuthController extends ChangeNotifier {
 
       _session = null;
       _errorMessage = (result as Failure<MobileAuthSession>).message;
+      _status = MobileAuthStatus.error;
+      notifyListeners();
+    } on MobileAuthCancelledException {
+      _session = null;
+      _errorMessage = null;
+      _status = MobileAuthStatus.idle;
+      notifyListeners();
+    } on MobileAuthFlowException catch (error) {
+      _session = null;
+      _errorMessage = error.message;
       _status = MobileAuthStatus.error;
       notifyListeners();
     } catch (_) {

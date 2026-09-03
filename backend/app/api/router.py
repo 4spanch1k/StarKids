@@ -7,6 +7,7 @@ from ..modules.admin_content.router import router as admin_content_router
 from ..modules.admin_leads.router import router as admin_leads_router
 from ..modules.admin_news.router import router as admin_news_router
 from ..modules.admin_promotions.router import router as admin_promotions_router
+from ..modules.admin_tickets.router import router as admin_tickets_router
 from ..modules.birthdays.router import router as birthdays_router
 from ..modules.branches.router import router as branches_router
 from ..modules.content.router import router as content_router
@@ -67,3 +68,4 @@ api_router.include_router(admin_promotions_router, prefix='/admin', tags=['admin
 api_router.include_router(admin_news_router, prefix='/admin', tags=['admin-news'])
 api_router.include_router(admin_content_router, prefix='/admin', tags=['admin-content'])
 api_router.include_router(admin_leads_router, prefix='/admin', tags=['admin-leads'])
+api_router.include_router(admin_tickets_router, prefix='/admin', tags=['admin-tickets'])

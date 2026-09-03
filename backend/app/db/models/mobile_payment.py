@@ -1,7 +1,17 @@
 from datetime import date, datetime
 from uuid import uuid4
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, JSON, String, Text, func
+from sqlalchemy import (
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    JSON,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
@@ -9,6 +19,13 @@ from .base import Base
 
 class MobilePayment(Base):
     __tablename__ = 'mobile_payments'
+    __table_args__ = (
+        UniqueConstraint(
+            'mobile_user_id',
+            'idempotency_key',
+            name='uq_mobile_payments_user_idempotency',
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid4().hex)
     mobile_user_id: Mapped[str] = mapped_column(
@@ -24,6 +41,8 @@ class MobilePayment(Base):
     payable_entity_type: Mapped[str] = mapped_column(String(64))
     payable_entity_id: Mapped[str] = mapped_column(String(32), index=True)
     local_order_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    payment_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     external_payment_id: Mapped[str | None] = mapped_column(
         String(128),
         nullable=True,

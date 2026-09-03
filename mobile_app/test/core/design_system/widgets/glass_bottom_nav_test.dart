@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:star_kids_mobile/app/widgets/star_kids_root_navigation.dart';
 import 'package:star_kids_mobile/core/design_system/widgets/glass_bottom_nav.dart';
 
 import '../../../helpers/test_app_harness.dart';
@@ -53,5 +54,26 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byType(BackdropFilter), findsNothing);
     expect(find.text('Дни рождения'), findsOneWidget);
+  });
+
+  testWidgets('root tabs keep the product order with Tickets second', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      buildTestApp(
+        child: const Scaffold(
+          bottomNavigationBar: StarKidsRootNavigation(current: 'home'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final labels = ['Главная', 'Билеты', 'Праздники', 'Акции', 'Профиль'];
+    final centers = labels
+        .map((label) => tester.getCenter(find.text(label)))
+        .toList(growable: false);
+    for (var index = 1; index < centers.length; index++) {
+      expect(centers[index].dx, greaterThan(centers[index - 1].dx));
+    }
   });
 }

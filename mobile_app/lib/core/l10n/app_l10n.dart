@@ -15,7 +15,7 @@ class AppL10n {
 
   // ─── App-wide ─────────────────────────────────────────────────────────────
 
-  String get appTitle => _kk ? 'Star Kids' : 'Star Kids';
+  String get appTitle => _kk ? 'Boom Bala' : 'Boom Bala';
 
   // ─── Navigation ───────────────────────────────────────────────────────────
 
@@ -39,7 +39,7 @@ class AppL10n {
   // ─── Profile page ─────────────────────────────────────────────────────────
 
   String get profileTitle => _kk ? 'Профиль' : 'Профиль';
-  String get profileDefault => _kk ? 'Star Kids профилі' : 'Профиль Star Kids';
+  String get profileDefault => _kk ? 'Boom Bala профилі' : 'Профиль Boom Bala';
   String get personalData => _kk ? 'Жеке деректер' : 'Личные данные';
   String get firstName => _kk ? 'Аты' : 'Имя';
   String get lastName => _kk ? 'Тегі' : 'Фамилия';

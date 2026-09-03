@@ -99,8 +99,7 @@ class BirthdaysPage extends StatelessWidget {
                       ),
                       children: [
                         SkHero(
-                          imageUrl:
-                              'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?auto=format&fit=crop&w=900&q=80',
+                          imageUrl: 'assets/images/birthday_hero.jpg',
                           aspectRatio: 5 / 4,
                           chip: resolvedBranch.shortLabel,
                           title: 'Праздник, который дети запомнят.',

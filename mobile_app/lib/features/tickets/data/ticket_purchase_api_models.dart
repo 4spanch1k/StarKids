@@ -131,7 +131,7 @@ class PurchasedTicketDto {
       paymentId: json['paymentId'] as String,
       localOrderId: json['localOrderId'] as String,
       branchId: json['branchId'] as String,
-      branchName: json['branchName'] as String? ?? 'Star Kids',
+      branchName: json['branchName'] as String? ?? 'Boom Bala',
       visitDate: _parseDateTime(json['visitDate']),
       amountTenge: json['amountTenge'] as int? ?? 0,
       currency: json['currency'] as String? ?? 'KZT',

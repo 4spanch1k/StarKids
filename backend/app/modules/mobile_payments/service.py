@@ -1,22 +1,27 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 import logging
 from secrets import token_hex
 from xml.etree import ElementTree
 
 from fastapi import status
+from sqlalchemy.exc import IntegrityError
 
 from ...core.config.settings import Settings
 from ...core.exceptions.http import DomainHTTPException, NotFoundException
+from ...core.time.business_time import business_today
 from ...db.models.branch import Branch
+from ...db.models.issued_ticket import IssuedTicket
 from ...db.models.mobile_payment import MobilePayment
 from ...db.models.mobile_user import MobileUser
 from ...db.repositories.branch_repository import BranchRepository
 from ...db.repositories.branch_ticket_repository import BranchTicketRepository
 from ...db.repositories.mobile_payment_repository import MobilePaymentRepository
+from ...db.repositories.visit_repository import VisitRepository
+from .issued_ticket_service import IssuedTicketService
 from .constants import (
     PAYABLE_BRANCH_TICKET_ORDER,
     PAYMENT_CURRENCY_KZT,
@@ -36,12 +41,18 @@ from .schemas import (
     PurchasedTicketLineItemResponse,
     PurchasedTicketResponse,
     PurchasedTicketsResponse,
+    IssuedTicketResponse,
+    IssuedTicketsResponse,
+    IssuedTicketQrResponse,
+    CurrentVisitResponse,
 )
 from .signing import (
     build_freedompay_signature,
     signature_script_from_url,
     verify_freedompay_signature,
 )
+from .ticket_qr_service import TicketQrService
+from .visit_lifecycle import should_complete_visit
 
 logger = logging.getLogger(__name__)
 
@@ -60,12 +71,18 @@ class MobilePaymentService:
         branch_repository: BranchRepository,
         ticket_repository: BranchTicketRepository,
         freedompay_client: FreedomPayClientProtocol,
+        issued_ticket_service: IssuedTicketService,
+        ticket_qr_service: TicketQrService,
+        visit_repository: VisitRepository,
     ) -> None:
         self._settings = settings
         self._payment_repository = payment_repository
         self._branch_repository = branch_repository
         self._ticket_repository = ticket_repository
         self._freedompay_client = freedompay_client
+        self._issued_ticket_service = issued_ticket_service
+        self._ticket_qr_service = ticket_qr_service
+        self._visit_repository = visit_repository
 
     def init_freedom_ticket_payment(
         self,
@@ -73,6 +90,12 @@ class MobilePaymentService:
         user: MobileUser,
         payload: FreedomPaymentInitRequest,
     ) -> FreedomPaymentInitResponse:
+        if self._settings.is_production and self._settings.freedompay_mock_mode:
+            raise DomainHTTPException(
+                code='freedompay_mock_disabled',
+                message='Freedom Pay mock mode is disabled in production.',
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
         if not self._settings.is_freedompay_configured and not self._settings.freedompay_mock_mode:
             raise DomainHTTPException(
                 code='freedompay_not_configured',
@@ -80,7 +103,7 @@ class MobilePaymentService:
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
-        if payload.visitDate is not None and payload.visitDate < date.today():
+        if payload.visitDate < business_today():
             raise DomainHTTPException(
                 code='invalid_visit_date',
                 message='Visit date must be today or later.',
@@ -95,24 +118,70 @@ class MobilePaymentService:
                 message='Payment amount must be greater than zero.',
             )
 
-        local_order_id = f'sk-{token_hex(12)}'
-        initial_audit_payload = {
-            'ticketItems': ticket_items,
-            'gateway': PAYMENT_GATEWAY_FREEDOMPAY,
-        }
-        payment = self._payment_repository.create_ticket_payment(
+        existing_payment = self._payment_repository.get_by_idempotency_key_for_user(
             mobile_user_id=user.id,
-            branch_id=branch.id,
-            payable_entity_type=PAYABLE_BRANCH_TICKET_ORDER,
-            payable_entity_id=branch.id,
-            local_order_id=local_order_id,
-            amount_tenge=amount_tenge,
-            currency=PAYMENT_CURRENCY_KZT,
-            quantity=quantity,
-            visit_date=payload.visitDate,
-            ticket_items=ticket_items,
-            init_payload=initial_audit_payload,
+            idempotency_key=payload.idempotencyKey,
         )
+        if existing_payment is not None:
+            if existing_payment.status != 'created' or existing_payment.payment_url:
+                return _payment_init_response(existing_payment)
+            payment = self._payment_repository.get_by_idempotency_key_for_user(
+                mobile_user_id=user.id,
+                idempotency_key=payload.idempotencyKey,
+                for_update=True,
+            )
+            if payment is None:
+                raise DomainHTTPException(
+                    code='payment_init_race',
+                    message='Payment initialization could not be locked safely.',
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
+            if payment.status != 'created' or payment.payment_url:
+                return _payment_init_response(payment)
+        else:
+            local_order_id = f'sk-{token_hex(12)}'
+            initial_audit_payload = {
+                'ticketItems': ticket_items,
+                'gateway': PAYMENT_GATEWAY_FREEDOMPAY,
+            }
+            try:
+                payment = self._payment_repository.create_ticket_payment(
+                    mobile_user_id=user.id,
+                    branch_id=branch.id,
+                    payable_entity_type=PAYABLE_BRANCH_TICKET_ORDER,
+                    payable_entity_id=branch.id,
+                    local_order_id=local_order_id,
+                    idempotency_key=payload.idempotencyKey,
+                    amount_tenge=amount_tenge,
+                    currency=PAYMENT_CURRENCY_KZT,
+                    quantity=quantity,
+                    visit_date=payload.visitDate,
+                    ticket_items=ticket_items,
+                    init_payload=initial_audit_payload,
+                )
+            except IntegrityError:
+                self._payment_repository.db.rollback()
+                payment = self._payment_repository.get_by_idempotency_key_for_user(
+                    mobile_user_id=user.id,
+                    idempotency_key=payload.idempotencyKey,
+                    for_update=True,
+                )
+                if payment is None:
+                    raise
+                if payment.status != 'created' or payment.payment_url:
+                    return _payment_init_response(payment)
+            else:
+                payment = self._payment_repository.get_by_idempotency_key_for_user(
+                    mobile_user_id=user.id,
+                    idempotency_key=payload.idempotencyKey,
+                    for_update=True,
+                )
+                if payment is None:
+                    raise DomainHTTPException(
+                        code='payment_init_race',
+                        message='Payment initialization could not be locked safely.',
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    )
 
         gateway_request = self._build_freedompay_init_request(
             payment=payment,
@@ -138,6 +207,7 @@ class MobilePaymentService:
         payment = self._payment_repository.mark_pending(
             payment,
             external_payment_id=gateway_result.external_payment_id,
+            payment_url=gateway_result.payment_url,
             init_payload={
                 'gatewayRequest': _sanitize_gateway_payload(gateway_request),
                 'gatewayResponse': _sanitize_gateway_payload(gateway_result.raw_payload),
@@ -145,13 +215,7 @@ class MobilePaymentService:
             },
         )
 
-        return FreedomPaymentInitResponse(
-            paymentId=payment.id,
-            localOrderId=payment.local_order_id,
-            externalPaymentId=payment.external_payment_id,
-            paymentUrl=gateway_result.payment_url,
-            status=payment.status,
-        )
+        return _payment_init_response(payment, payment_url=gateway_result.payment_url)
 
     def get_payment_status(
         self,
@@ -177,6 +241,102 @@ class MobilePaymentService:
             for payment, branch in records
         ]
         return PurchasedTicketsResponse(items=items, total=len(items))
+
+    def list_issued_tickets(self, mobile_user_id: str) -> IssuedTicketsResponse:
+        records = self._issued_ticket_service.list_for_user(mobile_user_id)
+        items = [
+            _issued_ticket_response(ticket=ticket, branch=branch)
+            for ticket, branch in records
+        ]
+        return IssuedTicketsResponse(items=items, total=len(items))
+
+    def get_current_visit(self, mobile_user_id: str) -> CurrentVisitResponse | None:
+        visit = self._visit_repository.get_active_for_user(mobile_user_id)
+        if visit is None:
+            return None
+        payment = self._payment_repository.get_by_id(visit.mobile_payment_id)
+        branch = self._branch_repository.get_by_id(visit.branch_id)
+        now = datetime.now(UTC)
+        if should_complete_visit(
+            visit=visit,
+            payment_visit_date=payment.visit_date if payment is not None else None,
+            branch=branch,
+            now=now,
+        ):
+            # Re-read under a row lock before completing so a concurrent
+            # redemption/current-visit request cannot overwrite the state.
+            locked = self._visit_repository.get_for_payment(
+                visit.mobile_payment_id,
+                for_update=True,
+            )
+            if locked is not None and locked.status == 'active':
+                locked.status = 'completed'
+                locked.ended_at = now
+                locked.completion_reason = 'validity_cutoff'
+                self._visit_repository.db.add(locked)
+                self._visit_repository.db.commit()
+                logger.info(
+                    'Visit completed by validity cutoff visit_id=%s payment_id=%s',
+                    locked.id,
+                    locked.mobile_payment_id,
+                )
+            return None
+        return CurrentVisitResponse(
+            visitId=visit.id,
+            branchId=visit.branch_id,
+            branchName=branch.name if branch is not None else 'Boom Bala',
+            status=visit.status,
+            startedAt=visit.started_at,
+        )
+
+    def get_issued_ticket(
+        self,
+        *,
+        ticket_id: str,
+        mobile_user_id: str,
+    ) -> IssuedTicketResponse:
+        record = self._issued_ticket_service.get_for_user(
+            ticket_id=ticket_id,
+            mobile_user_id=mobile_user_id,
+        )
+        if record is None:
+            raise NotFoundException(
+                code='ticket_not_found',
+                message='Ticket was not found.',
+            )
+        ticket, branch = record
+        return _issued_ticket_response(ticket=ticket, branch=branch)
+
+    def get_issued_ticket_qr(
+        self,
+        *,
+        ticket_id: str,
+        mobile_user_id: str,
+    ) -> IssuedTicketQrResponse:
+        record = self._issued_ticket_service.get_for_user(
+            ticket_id=ticket_id,
+            mobile_user_id=mobile_user_id,
+        )
+        if record is None:
+            raise NotFoundException(
+                code='ticket_not_found',
+                message='Ticket was not found.',
+            )
+        ticket, _ = record
+        if ticket.status != 'issued':
+            raise NotFoundException(
+                code='ticket_qr_unavailable',
+                message='QR is not available for this ticket.',
+            )
+        if not self._ticket_qr_service.is_configured:
+            raise NotFoundException(
+                code='ticket_qr_unavailable',
+                message='QR is not configured for this environment.',
+            )
+        return IssuedTicketQrResponse(
+            ticketId=ticket.id,
+            qrPayload=self._ticket_qr_service.build_payload(ticket.id),
+        )
 
     def handle_freedompay_result(self, payload: dict[str, str]) -> FreedomPayCallbackResult:
         script_name = signature_script_from_url(
@@ -223,24 +383,40 @@ class MobilePaymentService:
 
         callback_payload = _sanitize_gateway_payload(payload)
         if not _callback_amount_matches(payment, payload):
-            self._payment_repository.mark_failed(
-                payment,
-                status=PAYMENT_STATUS_FAILED,
-                callback_payload=callback_payload,
-                failure_reason='Gateway callback amount or currency does not match local order.',
+            can_reject = payload.get('pg_can_reject') != '0'
+            audit_result = 'rejected' if can_reject else 'reconciliation_required'
+            if not can_reject:
+                logger.error(
+                    'Freedom Pay callback validation mismatch requires reconciliation: '
+                    'payment_id=%s local_order_id=%s provider_event_id=%s.',
+                    payment.id,
+                    payment.local_order_id,
+                    payload.get('pg_payment_id'),
+                )
+            self._payment_repository.record_rejected_callback(
+                payment_id=payment.id,
+                local_order_id=payment.local_order_id,
+                payload=callback_payload,
+                reason='Gateway callback amount or currency does not match local order.',
+                audit_result=audit_result,
             )
             return self._gateway_response(
-                status='rejected',
-                description='Payment amount mismatch',
+                status='rejected' if can_reject else 'ok',
+                description=(
+                    'Payment amount mismatch'
+                    if can_reject
+                    else 'Payment validation mismatch; reconciliation required'
+                ),
                 salt=_response_salt(payload, payment.status),
             )
 
         external_payment_id = payload.get('pg_payment_id')
-        if payload.get('pg_result') == '1':
-            self._payment_repository.mark_paid(
-                payment,
+        gateway_result = payload.get('pg_result')
+        if gateway_result == '1':
+            self._process_successful_callback_atomically(
+                payment=payment,
+                payload=callback_payload,
                 external_payment_id=external_payment_id,
-                callback_payload=callback_payload,
                 paid_at=_parse_gateway_datetime(payload.get('pg_payment_date')),
             )
             return self._gateway_response(
@@ -249,15 +425,31 @@ class MobilePaymentService:
                 salt=_response_salt(payload, PAYMENT_STATUS_PAID),
             )
 
+        if gateway_result == '2':
+            self._payment_repository.process_not_completed_callback(
+                payment_id=payment.id,
+                local_order_id=payment.local_order_id,
+                payload=callback_payload,
+            )
+            return self._gateway_response(
+                status='ok',
+                description='Payment is not completed yet',
+                salt=_response_salt(payload, payment.status),
+            )
+
         failure_reason = (
             payload.get('pg_error_description')
             or payload.get('pg_failure_description')
             or 'Payment was not completed.'
         )
-        self._payment_repository.mark_failed(
-            payment,
-            status=_failure_status_from_payload(payload),
-            callback_payload=callback_payload,
+        self._payment_repository.process_verified_callback(
+            payment_id=payment.id,
+            local_order_id=payment.local_order_id,
+            payload=callback_payload,
+            success=False,
+            external_payment_id=external_payment_id,
+            paid_at=None,
+            failure_status=_failure_status_from_payload(payload),
             failure_reason=failure_reason,
         )
         return self._gateway_response(
@@ -265,6 +457,33 @@ class MobilePaymentService:
             description='Payment cancelled',
             salt=_response_salt(payload, PAYMENT_STATUS_FAILED),
         )
+
+    def _process_successful_callback_atomically(
+        self,
+        *,
+        payment: MobilePayment,
+        payload: dict[str, object],
+        external_payment_id: str | None,
+        paid_at: datetime | None,
+    ) -> None:
+        try:
+            processed_payment = self._payment_repository.process_verified_callback(
+                payment_id=payment.id,
+                local_order_id=payment.local_order_id,
+                payload=payload,
+                success=True,
+                external_payment_id=external_payment_id,
+                paid_at=paid_at,
+                failure_status=None,
+                failure_reason=None,
+                commit=False,
+            )
+            if processed_payment is not None and processed_payment.status == PAYMENT_STATUS_PAID:
+                self._issued_ticket_service.issue_tickets_for_paid_payment(processed_payment)
+            self._payment_repository.db.commit()
+        except Exception:
+            self._payment_repository.db.rollback()
+            raise
 
     def _resolve_ticket_items(
         self,
@@ -326,7 +545,7 @@ class MobilePaymentService:
             'pg_order_id': payment.local_order_id,
             'pg_merchant_id': self._settings.freedompay_merchant_id or 'mock-merchant',
             'pg_amount': str(payment.amount_tenge),
-            'pg_description': f'Star Kids tickets: {branch.name}',
+            'pg_description': f'Boom Bala tickets: {branch.name}',
             'pg_currency': payment.currency,
             'pg_salt': token_hex(8),
             'pg_result_url': self._settings.freedompay_result_url or '',
@@ -384,6 +603,20 @@ def _payment_status_response(payment: MobilePayment) -> MobilePaymentStatusRespo
     )
 
 
+def _payment_init_response(
+    payment: MobilePayment,
+    *,
+    payment_url: str | None = None,
+) -> FreedomPaymentInitResponse:
+    return FreedomPaymentInitResponse(
+        paymentId=payment.id,
+        localOrderId=payment.local_order_id,
+        externalPaymentId=payment.external_payment_id,
+        paymentUrl=payment_url or payment.payment_url or '',
+        status=payment.status,
+    )
+
+
 def _purchased_ticket_response(
     *,
     payment: MobilePayment,
@@ -393,7 +626,7 @@ def _purchased_ticket_response(
         paymentId=payment.id,
         localOrderId=payment.local_order_id,
         branchId=payment.branch_id,
-        branchName=branch.name if branch is not None else 'Star Kids',
+        branchName=branch.name if branch is not None else 'Boom Bala',
         visitDate=payment.visit_date,
         amountTenge=payment.amount_tenge,
         currency=payment.currency,
@@ -407,6 +640,25 @@ def _purchased_ticket_response(
             )
             for item in payment.ticket_items
         ],
+    )
+
+
+def _issued_ticket_response(
+    *,
+    ticket: IssuedTicket,
+    branch: Branch | None,
+) -> IssuedTicketResponse:
+    return IssuedTicketResponse(
+        ticketId=ticket.id,
+        ticketNumber=ticket.ticket_number,
+        ticketItemId=ticket.ticket_item_id,
+        title=ticket.title_snapshot,
+        branchId=ticket.branch_id,
+        branchName=branch.name if branch is not None else 'Boom Bala',
+        visitDate=ticket.visit_date,
+        priceTenge=ticket.price_tenge,
+        status=ticket.status,
+        issuedAt=ticket.issued_at,
     )
 
 

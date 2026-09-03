@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/config/app_environment.dart';
 import '../../../../core/storage/local_storage.dart';
 import '../../data/branch_seed_data.dart';
 import '../../domain/branch_option.dart';
@@ -9,8 +10,8 @@ class SelectedBranchController extends ChangeNotifier {
   SelectedBranchController({
     required LocalStorage localStorage,
     required BranchRepository branchRepository,
-  })  : _localStorage = localStorage,
-        _branchRepository = branchRepository;
+  }) : _localStorage = localStorage,
+       _branchRepository = branchRepository;
 
   final LocalStorage _localStorage;
   final BranchRepository _branchRepository;
@@ -43,8 +44,9 @@ class SelectedBranchController extends ChangeNotifier {
         await _localStorage.savePreferredBranch(_selectedBranch.id);
       }
     } else {
-      final resolvedBranch =
-          await _resolveBranch(storedBranchId ?? defaultBranchId);
+      final resolvedBranch = await _resolveBranch(
+        storedBranchId ?? defaultBranchId,
+      );
       _selectedBranch = resolvedBranch;
 
       if (storedBranchId != _selectedBranch.id) {
@@ -81,6 +83,9 @@ class SelectedBranchController extends ChangeNotifier {
     try {
       return await _branchRepository.getBranch(branchId);
     } catch (_) {
+      if (!AppEnvironment.allowsDevelopmentFixtures) {
+        throw StateError('Branch data is unavailable');
+      }
       try {
         return getBranchById(branchId);
       } catch (_) {

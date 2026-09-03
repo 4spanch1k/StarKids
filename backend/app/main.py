@@ -6,11 +6,17 @@ from fastapi.staticfiles import StaticFiles
 
 from .api.router import api_router
 from .core.config.settings import get_settings
+from .core.config.validation import (
+    log_runtime_configuration,
+    validate_runtime_configuration,
+)
 from .core.exceptions.handlers import register_exception_handlers
 from .core.logging.setup import configure_logging
 
 configure_logging()
 settings = get_settings()
+runtime_configuration = validate_runtime_configuration(settings)
+log_runtime_configuration(runtime_configuration)
 
 app = FastAPI(
     title=settings.app_name,

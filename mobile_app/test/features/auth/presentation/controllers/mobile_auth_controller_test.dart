@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:star_kids_mobile/core/utils/result.dart';
@@ -258,6 +260,50 @@ void main() {
       expect(controller.status, MobileAuthStatus.error);
       expect(controller.session, isNull);
       expect(controller.errorMessage, 'Не удалось войти через Google.');
+    });
+
+    test('google cancellation returns controller to idle without an error',
+        () async {
+      final controller = MobileAuthController(
+        repository: _FakeMobileAuthRepository(),
+      );
+
+      await controller.bootstrap();
+      await controller.loginWithGoogleClerk(
+        requestSessionToken: () async {
+          throw const MobileAuthCancelledException();
+        },
+      );
+
+      expect(controller.status, MobileAuthStatus.idle);
+      expect(controller.errorMessage, isNull);
+    });
+
+    test('repeated Google taps do not start concurrent requests', () async {
+      final controller = MobileAuthController(
+        repository: _FakeMobileAuthRepository(),
+      );
+      final release = Completer<String>();
+      var calls = 0;
+
+      await controller.bootstrap();
+      final first = controller.loginWithGoogleClerk(
+        requestSessionToken: () {
+          calls++;
+          return release.future;
+        },
+      );
+      final second = controller.loginWithGoogleClerk(
+        requestSessionToken: () async {
+          calls++;
+          return 'unexpected';
+        },
+      );
+
+      expect(calls, 1);
+      release.complete('');
+      await Future.wait([first, second]);
+      expect(controller.status, MobileAuthStatus.error);
     });
 
     test('validates email password and confirmation inputs', () {

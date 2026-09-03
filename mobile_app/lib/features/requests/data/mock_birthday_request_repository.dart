@@ -21,7 +21,7 @@ class MockBirthdayRequestRepository implements BirthdayRequestRepository {
         requestId: 'bday-${DateTime.now().millisecondsSinceEpoch}',
         submittedAt: DateTime.now(),
         nextStep:
-            'Менеджер Star Kids свяжется с вами для подтверждения даты и деталей праздника.',
+            'Менеджер Boom Bala свяжется с вами для подтверждения даты и деталей праздника.',
       ),
     );
   }

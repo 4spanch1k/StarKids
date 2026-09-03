@@ -102,7 +102,6 @@ class PromotionsPage extends StatelessWidget {
                   }
 
                   final textTheme = Theme.of(context).textTheme;
-                  final c = SKTheme.of(context).colors;
 
                   return StarKidsContentSwitcher(
                     child: ListView(
@@ -114,43 +113,7 @@ class PromotionsPage extends StatelessWidget {
                         MediaQuery.viewPaddingOf(context).bottom + 88,
                       ),
                       children: [
-                        SolidCard(
-                          padding: const EdgeInsets.all(SKSpacing.x5),
-                          radius: SKRadius.xl,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: SKSpacing.x3,
-                                  vertical: SKSpacing.x2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: c.accentSoft,
-                                  borderRadius:
-                                      BorderRadius.circular(SKRadius.pill),
-                                ),
-                                child: Text(
-                                  data.branch.shortLabel,
-                                  style: SKTextStyles.micro.copyWith(
-                                    color: c.accent,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: SKSpacing.x3),
-                              Text(
-                                'Акции должны возвращать родителя в приложение, а не просто висеть как баннер.',
-                                style: textTheme.headlineMedium,
-                              ),
-                              const SizedBox(height: SKSpacing.x3),
-                              Text(
-                                'Здесь собраны branch-aware офферы и удобный вход в request flow без нового визуального шума.',
-                                style: textTheme.bodyLarge,
-                              ),
-                            ],
-                          ),
-                        ),
+                        _PromotionsHero(branch: data.branch),
                         const SizedBox(height: SKSpacing.x6),
                         StarKidsSectionHeader(
                           title: 'Предложения для ${data.branch.shortLabel}',
@@ -269,6 +232,67 @@ class PromotionsPage extends StatelessWidget {
       branch: branch,
       promotions: promotions,
       contentBlocks: contentBlocks,
+    );
+  }
+}
+
+class _PromotionsHero extends StatelessWidget {
+  const _PromotionsHero({required this.branch});
+
+  final BranchOption branch;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(SKRadius.xl),
+      child: SizedBox(
+        height: 220,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            const StarKidsMediaImage(
+              source: 'assets/images/promo_hero.jpg',
+              fallbackSource: 'assets/images/home_hero_generated.png',
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    c.textPrimary.withValues(alpha: 0.05),
+                    c.textPrimary.withValues(alpha: 0.82),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(SKSpacing.x5),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    branch.shortLabel,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.84),
+                        ),
+                  ),
+                  const SizedBox(height: SKSpacing.x1),
+                  Text(
+                    'Предложения для вашего визита',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

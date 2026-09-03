@@ -9,6 +9,8 @@ NotificationType = Literal['news', 'system', 'promo']
 class NotificationItem(BaseModel):
     id: str
     news_id: str | None = None
+    destination_type: str | None = None
+    destination_id: str | None = None
     type: NotificationType
     title: str
     description: str | None = None

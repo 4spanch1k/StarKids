@@ -2,9 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-const starKidsLogoAssetPath =
-    'assets/images/645959303_17890733316429584_1469844678684572952_n.jpg';
-
 class StarKidsBrandLogo extends StatelessWidget {
   const StarKidsBrandLogo({
     super.key,
@@ -41,11 +38,21 @@ class StarKidsBrandLogo extends StatelessWidget {
           child: Padding(
             padding: EdgeInsets.all(padding),
             child: ClipOval(
-              child: Image.asset(
-                starKidsLogoAssetPath,
+              child: SizedBox(
                 width: resolvedLogoSize,
                 height: resolvedLogoSize,
-                fit: BoxFit.cover,
+                child: Center(
+                  child: Text(
+                    'Boom Bala',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: const Color(0xFF1D1720),
+                      fontSize: resolvedLogoSize * 0.19,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),

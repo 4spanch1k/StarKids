@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:star_kids_mobile/app/router/app_router.dart';
 import 'package:star_kids_mobile/app/theme/app_theme.dart';
 import 'package:star_kids_mobile/core/design_system/sk_color_scheme.dart';
 import 'package:star_kids_mobile/core/design_system/sk_theme.dart';
@@ -10,6 +11,7 @@ Widget buildTestApp({
 }) {
   return MaterialApp(
     debugShowCheckedModeBanner: false,
+    onGenerateRoute: AppRouter.onGenerateRoute,
     theme: AppTheme.light(),
     darkTheme: AppTheme.dark(),
     locale: locale,

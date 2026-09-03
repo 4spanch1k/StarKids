@@ -1,5 +1,7 @@
 // ignore_for_file: unused_element
 
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
@@ -16,13 +18,14 @@ import '../../../branches/domain/branch_option.dart';
 import '../../domain/branch_ticket_config.dart';
 import '../../domain/ticket_purchase.dart';
 
-Future<void> showTicketPurchaseFlowSheet(BuildContext context) {
-  return showStarKidsModalBottomSheet<void>(
+Future<bool> showTicketPurchaseFlowSheet(BuildContext context) async {
+  final result = await showStarKidsModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (context) => const _TicketPurchaseFlowSheet(),
   );
+  return result ?? false;
 }
 
 Future<void> showMyTicketsSheet(BuildContext context) async {
@@ -59,6 +62,7 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
   BranchTicketConfig? _ticketConfig;
   String? _configErrorMessage;
   String? _paymentMessage;
+  String? _checkoutIdempotencyKey;
   TicketPaymentStart? _activePayment;
   Map<String, int> _ticketCounts = <String, int>{};
 
@@ -208,6 +212,13 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
     if (_isPaymentBusy) {
       return;
     }
+    final visitDate = _selectedDate;
+    if (visitDate == null) {
+      setState(() {
+        _paymentMessage = 'Выберите день посещения.';
+      });
+      return;
+    }
 
     setState(() {
       _paymentPhase = _TicketPaymentPhase.starting;
@@ -215,11 +226,12 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
       _activePayment = null;
     });
 
-    final result =
-        await ServiceRegistry.ticketPurchaseRepository.startFreedomPayment(
-      items: _selectedPaymentItems,
-      visitDate: _selectedDate,
-    );
+    final result = await ServiceRegistry.ticketPurchaseRepository
+        .startFreedomPayment(
+          items: _selectedPaymentItems,
+          visitDate: visitDate,
+          idempotencyKey: _checkoutIdempotencyKey ??= _newIdempotencyKey(),
+        );
 
     if (!mounted) {
       return;
@@ -297,7 +309,8 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
         case TicketPaymentStatusValue.canceled:
         case TicketPaymentStatusValue.expired:
           _paymentPhase = _TicketPaymentPhase.failed;
-          _paymentMessage = paymentStatus.failureReason ??
+          _paymentMessage =
+              paymentStatus.failureReason ??
               'Оплата не прошла. Можно попробовать еще раз.';
           break;
         case TicketPaymentStatusValue.created:
@@ -309,6 +322,9 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
           break;
       }
     });
+    if (paymentStatus.status == TicketPaymentStatusValue.paid && mounted) {
+      Navigator.of(context).pop(true);
+    }
   }
 
   Future<void> _loadTicketConfig() async {
@@ -352,6 +368,12 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
     _paymentPhase = _TicketPaymentPhase.idle;
     _paymentMessage = null;
     _activePayment = null;
+    _checkoutIdempotencyKey = null;
+  }
+
+  String _newIdempotencyKey() {
+    final randomPart = Random.secure().nextInt(1 << 32).toRadixString(16);
+    return 'checkout-${DateTime.now().microsecondsSinceEpoch}-$randomPart';
   }
 
   @override
@@ -509,19 +531,19 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                       ],
                       PrimaryButton(
                         label: _primaryActionLabel,
-                        onPressed: _currentStep ==
-                                _TicketPurchaseStep.selectEntry
+                        onPressed:
+                            _currentStep == _TicketPurchaseStep.selectEntry
                             ? (_selectedDate == null ||
-                                    _isConfigLoading ||
-                                    _configErrorMessage != null ||
-                                    !_hasAvailableTickets
-                                ? null
-                                : _goToNextStep)
+                                      _isConfigLoading ||
+                                      _configErrorMessage != null ||
+                                      !_hasAvailableTickets
+                                  ? null
+                                  : _goToNextStep)
                             : (_totalAmount == 0 ||
-                                    _isPaymentBusy ||
-                                    _paymentPhase == _TicketPaymentPhase.paid
-                                ? null
-                                : _startPayment),
+                                      _isPaymentBusy ||
+                                      _paymentPhase == _TicketPaymentPhase.paid
+                                  ? null
+                                  : _startPayment),
                       ),
                       if (_currentStep == _TicketPurchaseStep.chooseTickets &&
                           _activePayment != null &&
@@ -531,8 +553,9 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                           label: _paymentPhase == _TicketPaymentPhase.checking
                               ? 'Проверяем статус'
                               : 'Проверить оплату',
-                          onPressed:
-                              _isPaymentBusy ? null : _checkPaymentStatus,
+                          onPressed: _isPaymentBusy
+                              ? null
+                              : _checkPaymentStatus,
                         ),
                       ],
                       if (_currentStep == _TicketPurchaseStep.chooseTickets &&
@@ -632,18 +655,16 @@ class _StepSelectionView extends StatelessWidget {
           StarKidsSelectField(
             key: const ValueKey('ticket-day-select'),
             label: 'День',
-            value:
-                selectedDate == null ? null : _formatTicketDate(selectedDate!),
+            value: selectedDate == null
+                ? null
+                : _formatTicketDate(selectedDate!),
             helperText: 'Выберите дату посещения заранее.',
             leadingIcon: Icons.calendar_today_rounded,
             placeholderText: 'Выберите день посещения',
             onTap: onSelectDay,
           ),
           const SizedBox(height: SKSpacing.x4),
-          Text(
-            'ДОСТУПНЫЕ ТАРИФЫ',
-            style: textTheme.labelMedium,
-          ),
+          Text('ДОСТУПНЫЕ ТАРИФЫ', style: textTheme.labelMedium),
           const SizedBox(height: SKSpacing.x2),
           if (isConfigLoading)
             const _TicketConfigStateCard(
@@ -765,9 +786,11 @@ class _StepTicketsView extends StatelessWidget {
                 children: [
                   Text('Важно знать', style: textTheme.titleMedium),
                   const SizedBox(height: SKSpacing.x3),
-                  for (var index = 0;
-                      index < ticketConfig!.notes.length;
-                      index++) ...[
+                  for (
+                    var index = 0;
+                    index < ticketConfig!.notes.length;
+                    index++
+                  ) ...[
                     _BenefitLine(label: ticketConfig!.notes[index]),
                     if (index < ticketConfig!.notes.length - 1)
                       const SizedBox(height: SKSpacing.x2),
@@ -1118,8 +1141,8 @@ class _MyTicketsBodyState extends State<_MyTicketsBody> {
       _errorMessage = null;
     });
 
-    final result =
-        await ServiceRegistry.ticketPurchaseRepository.listPurchasedTickets();
+    final result = await ServiceRegistry.ticketPurchaseRepository
+        .listPurchasedTickets();
     if (!mounted) {
       return;
     }
@@ -1225,10 +1248,7 @@ class _PurchasedTicketCard extends StatelessWidget {
                   color: c.accentSoft,
                   borderRadius: BorderRadius.circular(SKRadius.lg),
                 ),
-                child: Icon(
-                  Icons.confirmation_num_rounded,
-                  color: c.accent,
-                ),
+                child: Icon(Icons.confirmation_num_rounded, color: c.accent),
               ),
               const SizedBox(width: SKSpacing.x3),
               Expanded(

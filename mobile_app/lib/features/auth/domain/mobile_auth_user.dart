@@ -9,5 +9,5 @@ class MobileAuthUser {
   final String? phone;
   final String? email;
 
-  String get displayIdentity => email ?? phone ?? 'Аккаунт Star Kids';
+  String get displayIdentity => email ?? phone ?? 'Аккаунт Boom Bala';
 }

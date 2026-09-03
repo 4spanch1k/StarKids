@@ -51,8 +51,12 @@ import '../../features/requests/data/mock_birthday_request_repository.dart';
 import '../../features/requests/domain/contact_request_repository.dart';
 import '../../features/tickets/data/api_ticket_config_repository.dart';
 import '../../features/tickets/data/api_ticket_purchase_repository.dart';
+import '../../features/tickets/data/api_issued_ticket_repository.dart';
 import '../../features/tickets/domain/ticket_config_repository.dart';
+import '../../features/tickets/domain/issued_ticket_repository.dart';
 import '../../features/tickets/domain/ticket_purchase_repository.dart';
+import '../../features/visits/data/api_current_visit_repository.dart';
+import '../../features/visits/domain/current_visit_repository.dart';
 import '../config/app_environment.dart';
 
 typedef PaymentUrlLauncher = Future<bool> Function(String url);
@@ -95,6 +99,16 @@ abstract final class ServiceRegistry {
       ApiTicketConfigRepository(apiClient: apiClient);
   static TicketPurchaseRepository ticketPurchaseRepository =
       ApiTicketPurchaseRepository(
+    apiClient: apiClient,
+    sessionStorage: mobileAuthSessionStorage,
+  );
+  static IssuedTicketRepository issuedTicketRepository =
+      ApiIssuedTicketRepository(
+    apiClient: apiClient,
+    sessionStorage: mobileAuthSessionStorage,
+  );
+  static CurrentVisitRepository currentVisitRepository =
+      ApiCurrentVisitRepository(
     apiClient: apiClient,
     sessionStorage: mobileAuthSessionStorage,
   );
@@ -207,6 +221,13 @@ abstract final class ServiceRegistry {
 
   static void resetTicketPurchaseRepository() {
     ticketPurchaseRepository = ApiTicketPurchaseRepository(
+      apiClient: apiClient,
+      sessionStorage: mobileAuthSessionStorage,
+    );
+  }
+
+  static void resetIssuedTicketRepository() {
+    issuedTicketRepository = ApiIssuedTicketRepository(
       apiClient: apiClient,
       sessionStorage: mobileAuthSessionStorage,
     );
