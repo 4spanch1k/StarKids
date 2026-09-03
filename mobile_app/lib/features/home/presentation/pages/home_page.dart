@@ -18,6 +18,7 @@ import '../../../../core/design_system/widgets/glass_drawer.dart';
 import '../../../../core/design_system/widgets/primary_button.dart';
 import '../../../../core/design_system/widgets/glass_card.dart';
 import '../../../../core/design_system/widgets/star_kids_cosmic_canvas.dart';
+import '../../../../core/design_system/widgets/star_kids_birthday_package_card.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
 import '../../../../core/design_system/widgets/stable_future_builder.dart';
@@ -35,6 +36,7 @@ import '../../../tickets/data/api_issued_ticket_repository.dart';
 import '../../../tickets/domain/issued_ticket.dart';
 import '../../../tickets/domain/issued_ticket_repository.dart';
 import '../../../tickets/presentation/pages/ticket_detail_page.dart';
+import '../models/home_primary_state.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
@@ -220,25 +222,46 @@ class _HomePageState extends State<HomePage> {
                       ),
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
-                          const _HomeHeading(),
-                          const SizedBox(height: SKSpacing.x4),
-                          _buildTicketsSection(context),
+                          _buildPrimarySection(context),
                           const SizedBox(height: SKSpacing.x5),
                           _buildChildrenSection(context),
                           const SizedBox(height: SKSpacing.x4),
-                          _buildBirthdaySection(context),
+                          _buildSecondaryBirthdaySection(context),
+                          const SizedBox(height: SKSpacing.x5),
+                          _HomeQuickActions(
+                            onBranchTap: () =>
+                                _openNested(AppRoutes.branchDetails),
+                            onBirthdayTap: () => _openRoot(AppRoutes.birthdays),
+                            onMenuTap: () => _openNested(AppRoutes.menu),
+                            onContactsTap: () =>
+                                _openNested(AppRoutes.contacts),
+                          ),
                           const SizedBox(height: SKSpacing.x5),
                           StableFutureBuilder<_HomeContentData>(
                             cacheKey: '${branch.id}-$_secondaryRefreshVersion',
                             futureFactory: () => _loadHomeContent(branch.id),
                             builder: (context, snapshot) {
                               final content = snapshot.data;
-                              if (content == null ||
-                                  content.promotions.isEmpty) {
+                              if (content == null) {
                                 return const SizedBox.shrink();
                               }
-                              return _HomePromotions(
-                                promotions: content.promotions,
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (content.featuredPackage != null) ...[
+                                    _HomeFeaturedPackage(
+                                      package: content.featuredPackage!,
+                                      onOpen: () =>
+                                          _openRoot(AppRoutes.birthdays),
+                                    ),
+                                    if (content.promotions.isNotEmpty)
+                                      const SizedBox(height: SKSpacing.x5),
+                                  ],
+                                  if (content.promotions.isNotEmpty)
+                                    _HomePromotions(
+                                      promotions: content.promotions,
+                                    ),
+                                ],
                               );
                             },
                           ),
@@ -256,10 +279,67 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildPrimarySection(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _childrenController,
+      builder: (context, _) {
+        final primary = resolveHomePrimaryState(
+          tickets: _issuedTickets,
+          children: _childrenController.children,
+          now: _nowProvider(),
+        );
+        final hasUpcomingTicket = _issuedTickets.any(
+          (ticket) => isUpcomingIssuedTicket(
+            ticket,
+            homeDateOnly(_nowProvider()),
+          ),
+        );
+        if (_ticketsLoading && _issuedTickets.isEmpty) {
+          return _buildTicketsSection(context);
+        }
+        if (_ticketsError != null && !hasUpcomingTicket) {
+          return _buildTicketsSection(context);
+        }
+        switch (primary.state) {
+          case HomePrimaryState.activeTicket:
+            return _buildTicketsSection(context);
+          case HomePrimaryState.birthday:
+            return _BirthdayHero(
+              key: const ValueKey('home-primary-birthday'),
+              child: primary.child!,
+              nextBirthday: primary.nextBirthday!,
+              birthdayAge: primary.birthdayAge!,
+              now: _nowProvider(),
+              onOpen: () => _openRoot(AppRoutes.birthdays),
+            );
+          case HomePrimaryState.returningFamily:
+            // Visit history is not available yet, so never invent a count.
+            return _NewFamilyHero(
+              key: const ValueKey('home-primary-returning-family'),
+              returning: true,
+              branchName:
+                  ServiceRegistry.selectedBranchController.selectedBranch.name,
+              onBuy: _openTicketPurchase,
+            );
+          case HomePrimaryState.newFamily:
+            return KeyedSubtree(
+              key: const ValueKey('home-primary-new-family'),
+              child: _NewFamilyHero(
+                key: const ValueKey('home-no-tickets'),
+                branchName: ServiceRegistry
+                    .selectedBranchController.selectedBranch.name,
+                onBuy: _openTicketPurchase,
+              ),
+            );
+        }
+      },
+    );
+  }
+
   Widget _buildTicketsSection(BuildContext context) {
-    final today = _dateOnly(_nowProvider());
+    final today = homeDateOnly(_nowProvider());
     final upcoming = _issuedTickets
-        .where((ticket) => _isUpcomingIssuedTicket(ticket, today))
+        .where((ticket) => isUpcomingIssuedTicket(ticket, today))
         .toList();
     if (_ticketsLoading && _issuedTickets.isEmpty) {
       return const _HomeStateCard(
@@ -440,6 +520,23 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildSecondaryBirthdaySection(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _childrenController,
+      builder: (context, _) {
+        final primary = resolveHomePrimaryState(
+          tickets: _issuedTickets,
+          children: _childrenController.children,
+          now: _nowProvider(),
+        );
+        if (primary.state == HomePrimaryState.birthday) {
+          return const SizedBox.shrink();
+        }
+        return _buildBirthdaySection(context);
+      },
+    );
+  }
+
   Future<_HomeContentData> _loadHomeContent(String branchId) async {
     final branchFuture =
         ServiceRegistry.branchRepository.getBranch(branchId).catchError(
@@ -497,40 +594,155 @@ int _compareIssuedTickets(IssuedTicket a, IssuedTicket b) {
   return a.visitDate!.compareTo(b.visitDate!);
 }
 
-DateTime _dateOnly(DateTime value) =>
-    DateTime(value.year, value.month, value.day);
+class _BirthdayHero extends StatelessWidget {
+  const _BirthdayHero({
+    super.key,
+    required this.child,
+    required this.nextBirthday,
+    required this.birthdayAge,
+    required this.now,
+    required this.onOpen,
+  });
 
-bool _isUpcomingIssuedTicket(IssuedTicket ticket, DateTime today) {
-  final visitDate = ticket.visitDate;
-  if (!ticket.isIssued || visitDate == null) return false;
-  return !_dateOnly(visitDate).isBefore(_dateOnly(today));
-}
-
-class _HomeHeading extends StatelessWidget {
-  const _HomeHeading();
+  final Child child;
+  final DateTime nextBirthday;
+  final int birthdayAge;
+  final DateTime now;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
     final c = SKTheme.of(context).colors;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Ваши планы',
-          style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                color: c.textPrimary,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -1.1,
+    final days = nextBirthday.difference(homeDateOnly(now)).inDays;
+    final when = days == 0 ? 'сегодня' : 'через $days дней';
+    return SolidCard(
+      padding: const EdgeInsets.all(SKSpacing.x5),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const _HomeSectionIcon(icon: Icons.cake_rounded),
+              const SizedBox(width: SKSpacing.x3),
+              Expanded(
+                child: Text(
+                  '${child.name} скоро $birthdayAge лет',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
               ),
+            ],
+          ),
+          const SizedBox(height: SKSpacing.x2),
+          Text(
+            'День рождения $when. Подберите праздник в Boom Bala.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(color: c.textSecondary),
+          ),
+          const SizedBox(height: SKSpacing.x4),
+          PrimaryButton(
+            label: 'Посмотреть праздники',
+            icon: Icons.arrow_forward_rounded,
+            onPressed: onOpen,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NewFamilyHero extends StatelessWidget {
+  const _NewFamilyHero({
+    super.key,
+    required this.onBuy,
+    this.returning = false,
+    this.branchName,
+  });
+
+  final VoidCallback onBuy;
+  final bool returning;
+  final String? branchName;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+    final branchLabel = branchName?.trim();
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(SKRadius.xl),
+      child: SizedBox(
+        height: 264,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
+              'assets/images/home_hero_generated.png',
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Image.asset(
+                'assets/images/home_hero.jpg',
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => ColoredBox(color: c.accentSoft),
+              ),
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    c.textPrimary.withValues(alpha: 0.82),
+                    c.textPrimary.withValues(alpha: 0.12),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(SKSpacing.x5),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (branchLabel != null && branchLabel.isNotEmpty) ...[
+                    Text(
+                      branchLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.82),
+                          ),
+                    ),
+                    const SizedBox(height: SKSpacing.x3),
+                  ],
+                  Text(
+                    returning
+                        ? 'Готовы к следующему визиту?'
+                        : 'Планируете посещение?',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: SKSpacing.x2),
+                  Text(
+                    returning
+                        ? 'Выберите дату и оформите следующий билет.'
+                        : 'Выберите дату и оформите первый билет Boom Bala.',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.86),
+                        ),
+                  ),
+                  const Spacer(),
+                  PrimaryButton(
+                    label: 'Купить билет',
+                    icon: Icons.arrow_forward_rounded,
+                    onPressed: onBuy,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: SKSpacing.x1),
-        Text(
-          'Всё важное для следующего визита — в одном месте.',
-          style: Theme.of(
-            context,
-          ).textTheme.bodyLarge?.copyWith(color: c.textSecondary),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -648,6 +860,106 @@ class _TicketMetaRow extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A small set of real entry points keeps discovery useful without turning
+/// Home into a catalogue. Each tile leads to an existing route.
+class _HomeQuickActions extends StatelessWidget {
+  const _HomeQuickActions({
+    required this.onBranchTap,
+    required this.onBirthdayTap,
+    required this.onMenuTap,
+    required this.onContactsTap,
+  });
+
+  final VoidCallback onBranchTap;
+  final VoidCallback onBirthdayTap;
+  final VoidCallback onMenuTap;
+  final VoidCallback onContactsTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const StarKidsSectionHeader(title: 'Быстрые действия'),
+        const SizedBox(height: SKSpacing.x3),
+        GridView.count(
+          crossAxisCount: 2,
+          crossAxisSpacing: SKSpacing.x3,
+          mainAxisSpacing: SKSpacing.x3,
+          // Keep enough vertical room for the two-line editorial copy on
+          // compact simulator/test widths.
+          childAspectRatio: 1.05,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          children: [
+            _QuickActionTile(
+              icon: Icons.map_outlined,
+              title: 'Филиал и маршрут',
+              subtitle: 'Как доехать и что внутри',
+              gradientColors: const [Color(0xFFFFE4DE), Color(0xFFFFF3E7)],
+              onTap: onBranchTap,
+            ),
+            _QuickActionTile(
+              icon: Icons.cake_outlined,
+              title: 'Дни рождения',
+              subtitle: 'Пакеты и заявка',
+              gradientColors: const [Color(0xFFFFE0E8), Color(0xFFFFF0F4)],
+              onTap: onBirthdayTap,
+            ),
+            _QuickActionTile(
+              icon: Icons.restaurant_outlined,
+              title: 'Меню',
+              subtitle: 'Еда и напитки',
+              gradientColors: const [Color(0xFFE7F0F4), Color(0xFFF3F8F8)],
+              onTap: onMenuTap,
+            ),
+            _QuickActionTile(
+              icon: Icons.phone_outlined,
+              title: 'Контакты',
+              subtitle: 'WhatsApp и звонок',
+              gradientColors: const [Color(0xFFE8E4F5), Color(0xFFF6F3FA)],
+              onTap: onContactsTap,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _HomeFeaturedPackage extends StatelessWidget {
+  const _HomeFeaturedPackage({required this.package, required this.onOpen});
+
+  final BirthdayPackage package;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        StarKidsSectionHeader(
+          title: 'Главный пакет',
+          actionLabel: 'Все пакеты',
+          onActionTap: onOpen,
+        ),
+        const SizedBox(height: SKSpacing.x3),
+        StarKidsBirthdayPackageCard(
+          title: package.name,
+          priceLabel: package.priceLabel,
+          guestLabel: package.guestLabel,
+          description: package.description,
+          highlights: package.highlights,
+          imagePath: package.imagePath,
+          isFeatured: package.isFeatured,
+          compact: true,
+          onActionTap: onOpen,
         ),
       ],
     );
@@ -930,7 +1242,10 @@ class _QuickActionTile extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final c = SKTheme.of(context).colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final compact = MediaQuery.sizeOf(context).width < 380;
+    // The tile is intentionally compact on phones and narrow test surfaces;
+    // this prevents the editorial two-line copy from overflowing a 2-column
+    // grid while retaining comfortable tap targets.
+    final compact = MediaQuery.sizeOf(context).width < 500;
 
     return StarKidsReveal(
       child: StarKidsPressEffect(
@@ -962,13 +1277,15 @@ class _QuickActionTile extends StatelessWidget {
                 splashColor: gradientColors.first.withValues(alpha: 0.4),
                 highlightColor: Colors.transparent,
                 child: Padding(
-                  padding: const EdgeInsets.all(SKSpacing.x3),
+                  padding: EdgeInsets.all(
+                    compact ? SKSpacing.x2 : SKSpacing.x3,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        width: compact ? 38 : 42,
-                        height: compact ? 38 : 42,
+                        width: compact ? 34 : 42,
+                        height: compact ? 34 : 42,
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.topLeft,
@@ -983,10 +1300,10 @@ class _QuickActionTile extends StatelessWidget {
                           size: compact ? 21 : 24,
                         ),
                       ),
-                      SizedBox(height: compact ? SKSpacing.x2 : SKSpacing.x3),
+                      SizedBox(height: compact ? SKSpacing.x1 : SKSpacing.x3),
                       Text(
                         title,
-                        maxLines: 2,
+                        maxLines: compact ? 1 : 2,
                         overflow: TextOverflow.ellipsis,
                         style: compact
                             ? textTheme.titleSmall?.copyWith(
@@ -997,10 +1314,10 @@ class _QuickActionTile extends StatelessWidget {
                       const SizedBox(height: SKSpacing.x1),
                       Text(
                         subtitle,
-                        maxLines: 2,
+                        maxLines: compact ? 1 : 2,
                         overflow: TextOverflow.ellipsis,
                         style: compact
-                            ? textTheme.bodySmall?.copyWith(fontSize: 12)
+                            ? textTheme.bodySmall?.copyWith(fontSize: 11)
                             : textTheme.bodySmall,
                       ),
                     ],
