@@ -10,17 +10,56 @@ class ApiTicketPurchaseRepository implements TicketPurchaseRepository {
   ApiTicketPurchaseRepository({
     required ApiClient apiClient,
     required MobileAuthSessionStorage sessionStorage,
-  }) : _apiClient = apiClient,
-       _sessionStorage = sessionStorage;
+  })  : _apiClient = apiClient,
+        _sessionStorage = sessionStorage;
 
   final ApiClient _apiClient;
   final MobileAuthSessionStorage _sessionStorage;
+
+  @override
+  Future<Result<TicketCheckoutQuote>> getCheckoutQuote({
+    required List<TicketPaymentLineItemPayload> items,
+    required DateTime visitDate,
+    required int requestedBonusAmount,
+  }) async {
+    final session = await _sessionStorage.readSession();
+    if (session == null) {
+      return const Failure<TicketCheckoutQuote>(
+          'Войдите в аккаунт, чтобы использовать бонусы.');
+    }
+    try {
+      final response = await _apiClient.postJson(
+        '/payments/freedom/quote',
+        body: {
+          'ticketItems': items
+              .map((item) => {
+                    'ticketItemId': item.ticketItemId,
+                    'quantity': item.quantity,
+                  })
+              .toList(),
+          'visitDate': _formatDate(visitDate),
+          'requestedBonusAmount': requestedBonusAmount,
+        },
+        headers: buildMobileAuthAuthorizationHeader(session),
+      );
+      if (response.isSuccess && response.jsonBody != null) {
+        return Success<TicketCheckoutQuote>(
+          TicketCheckoutQuoteDto.fromJson(response.jsonBody!).toDomain(),
+        );
+      }
+      return Failure<TicketCheckoutQuote>(_paymentErrorMessage(response));
+    } catch (_) {
+      return const Failure<TicketCheckoutQuote>(
+          'Не удалось пересчитать сумму заказа.');
+    }
+  }
 
   @override
   Future<Result<TicketPaymentStart>> startFreedomPayment({
     required List<TicketPaymentLineItemPayload> items,
     required DateTime visitDate,
     required String idempotencyKey,
+    required int requestedBonusAmount,
   }) async {
     final session = await _sessionStorage.readSession();
     if (session == null) {
@@ -43,6 +82,7 @@ class ApiTicketPurchaseRepository implements TicketPurchaseRepository {
               )
               .toList(),
           'visitDate': _formatDate(visitDate),
+          'requestedBonusAmount': requestedBonusAmount,
         },
         headers: buildMobileAuthAuthorizationHeader(session),
       );

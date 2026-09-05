@@ -36,6 +36,53 @@ class FreedomPaymentStartDto {
   }
 }
 
+class TicketCheckoutQuoteDto {
+  const TicketCheckoutQuoteDto({
+    required this.subtotalTenge,
+    required this.bonusBalance,
+    required this.availableBonusBalance,
+    required this.maxRedemptionPercent,
+    required this.maxRedeemableBonus,
+    required this.requestedBonusAmount,
+    required this.payableTenge,
+    required this.bonusSpendingEnabled,
+  });
+
+  final int subtotalTenge;
+  final int bonusBalance;
+  final int availableBonusBalance;
+  final double maxRedemptionPercent;
+  final int maxRedeemableBonus;
+  final int requestedBonusAmount;
+  final int payableTenge;
+  final bool bonusSpendingEnabled;
+
+  factory TicketCheckoutQuoteDto.fromJson(Map<String, dynamic> json) {
+    return TicketCheckoutQuoteDto(
+      subtotalTenge: json['subtotalTenge'] as int? ?? 0,
+      bonusBalance: json['bonusBalance'] as int? ?? 0,
+      availableBonusBalance: json['availableBonusBalance'] as int? ?? 0,
+      maxRedemptionPercent:
+          double.tryParse('${json['maxRedemptionPercent'] ?? 0}') ?? 0,
+      maxRedeemableBonus: json['maxRedeemableBonus'] as int? ?? 0,
+      requestedBonusAmount: json['requestedBonusAmount'] as int? ?? 0,
+      payableTenge: json['payableTenge'] as int? ?? 0,
+      bonusSpendingEnabled: json['bonusSpendingEnabled'] as bool? ?? false,
+    );
+  }
+
+  TicketCheckoutQuote toDomain() => TicketCheckoutQuote(
+        subtotalTenge: subtotalTenge,
+        bonusBalance: bonusBalance,
+        availableBonusBalance: availableBonusBalance,
+        maxRedemptionPercent: maxRedemptionPercent,
+        maxRedeemableBonus: maxRedeemableBonus,
+        requestedBonusAmount: requestedBonusAmount,
+        payableTenge: payableTenge,
+        bonusSpendingEnabled: bonusSpendingEnabled,
+      );
+}
+
 class TicketPaymentStatusDto {
   const TicketPaymentStatusDto({
     required this.paymentId,

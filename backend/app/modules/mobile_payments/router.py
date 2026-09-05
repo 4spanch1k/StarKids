@@ -9,6 +9,8 @@ from .dependencies import get_mobile_payment_service
 from .schemas import (
     FreedomPaymentInitRequest,
     FreedomPaymentInitResponse,
+    FreedomPaymentQuoteRequest,
+    FreedomPaymentQuoteResponse,
     IssuedTicketResponse,
     IssuedTicketsResponse,
     IssuedTicketQrResponse,
@@ -20,6 +22,19 @@ from .service import MobilePaymentService
 
 mobile_router = APIRouter()
 public_router = APIRouter()
+
+
+@mobile_router.post(
+    '/payments/freedom/quote',
+    response_model=FreedomPaymentQuoteResponse,
+    responses={401: {'model': ErrorResponse}, 404: {'model': ErrorResponse}, 422: {'model': ErrorResponse}},
+)
+def quote_freedom_payment(
+    payload: FreedomPaymentQuoteRequest,
+    auth_context: AuthenticatedMobileContext = Depends(get_current_mobile_auth_context),
+    service: MobilePaymentService = Depends(get_mobile_payment_service),
+) -> FreedomPaymentQuoteResponse:
+    return service.quote_ticket_payment(user=auth_context.user, payload=payload)
 
 
 @mobile_router.post(

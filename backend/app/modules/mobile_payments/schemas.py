@@ -14,6 +14,24 @@ class FreedomPaymentInitRequest(BaseModel):
     # Entry tickets are date-bound. A payment cannot be initialized without
     # the date that will later be validated at redemption.
     visitDate: date
+    requestedBonusAmount: int = Field(default=0, ge=0)
+
+
+class FreedomPaymentQuoteRequest(BaseModel):
+    ticketItems: list[FreedomPaymentTicketItemRequest] = Field(min_length=1, max_length=20)
+    visitDate: date
+    requestedBonusAmount: int = Field(default=0, ge=0)
+
+
+class FreedomPaymentQuoteResponse(BaseModel):
+    subtotalTenge: int
+    bonusBalance: int
+    availableBonusBalance: int
+    maxRedemptionPercent: str
+    maxRedeemableBonus: int
+    requestedBonusAmount: int
+    payableTenge: int
+    bonusSpendingEnabled: bool
 
 
 class FreedomPaymentInitResponse(BaseModel):
@@ -22,6 +40,9 @@ class FreedomPaymentInitResponse(BaseModel):
     externalPaymentId: str | None = None
     paymentUrl: str
     status: str
+    grossAmountTenge: int = 0
+    bonusAmount: int = 0
+    cashAmountTenge: int = 0
 
 
 class MobilePaymentStatusResponse(BaseModel):
@@ -29,6 +50,9 @@ class MobilePaymentStatusResponse(BaseModel):
     localOrderId: str
     externalPaymentId: str | None = None
     amountTenge: int
+    grossAmountTenge: int = 0
+    bonusAmount: int = 0
+    cashAmountTenge: int = 0
     currency: str
     status: str
     failureReason: str | None = None

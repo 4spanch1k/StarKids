@@ -78,6 +78,12 @@ class LoyaltyService:
         settings = self.get_settings()
         return int((Decimal(order_amount_kzt) * settings.max_redemption_percent / Decimal('100')).to_integral_value(rounding=ROUND_DOWN))
 
+    def available_balance(self, user_id: str) -> int:
+        return self.account_response(user_id)['availableBalance']
+
+    def reservation_for_source(self, *, source_type: str, source_id: str) -> LoyaltyTransaction | None:
+        return self.repository.get_by_event_source('reserve', source_type, source_id)
+
     def apply_event(
         self,
         *,
