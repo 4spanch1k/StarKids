@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class LoyaltyAccountResponse(BaseModel):
@@ -38,8 +38,9 @@ class LoyaltySettingsResponse(BaseModel):
 
 
 class LoyaltySettingsRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     maxRedemptionPercent: Decimal = Field(ge=0, le=100, max_digits=5, decimal_places=2)
-    bonusValueKzt: Decimal = Field(gt=0, max_digits=12, decimal_places=4)
 
 
 class LoyaltyRuleResponse(BaseModel):

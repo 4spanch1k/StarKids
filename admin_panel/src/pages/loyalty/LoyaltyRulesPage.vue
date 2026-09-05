@@ -1,10 +1,11 @@
 <template>
   <PageShell eyebrow="Финансовые настройки" title="Лояльность" description="Правила выключены по умолчанию. Изменение правил влияет на новые события после публикации.">
+    <p v-if="saveError" class="admin-inline-message admin-inline-message--error">{{ saveError }}</p>
     <div class="admin-section-heading"><h2>Экономика списания</h2></div>
     <form class="admin-list-record" @submit.prevent="saveSettings">
       <label class="admin-field"><span>Максимум списания, %</span><input v-model="settings.maxRedemptionPercent" class="admin-control" type="number" min="0" max="100" step="0.01" /></label>
-      <label class="admin-field"><span>Стоимость 1 бонуса, ₸</span><input v-model="settings.bonusValueKzt" class="admin-control" type="number" min="0.0001" step="0.0001" /></label>
-      <button class="admin-button admin-button--secondary" type="submit" :disabled="savingSettings">{{ savingSettings ? 'Сохраняем…' : 'Сохранить настройки' }}</button>
+      <p class="admin-inline-message">1 бонус всегда равен 1 ₸ и не может быть изменён.</p>
+      <button class="admin-button admin-button--secondary" type="submit" :disabled="savingSettings">{{ savingSettings ? 'Сохраняем…' : 'Сохранить лимит' }}</button>
     </form>
     <div class="admin-section-heading"><h2>Правила начисления</h2><button class="admin-button admin-button--primary" type="button" @click="addRule">Добавить правило</button></div>
     <StatePanel v-if="loading" title="Загружаем правила" description="Проверяем текущую конфигурацию бонусов." />
@@ -31,12 +32,12 @@ import PageShell from '@/shared/ui/PageShell.vue';
 import StatePanel from '@/shared/ui/StatePanel.vue';
 import { createLoyaltyRule, getLoyaltySettings, listLoyaltyRules, updateLoyaltyRule, updateLoyaltySettings, type LoyaltyRule } from '@/features/loyalty/api/loyaltyRulesApi';
 
-const rules = ref<LoyaltyRule[]>([]); const loading = ref(true); const error = ref(''); const savingId = ref(''); const savingSettings = ref(false); const settings = ref({ maxRedemptionPercent: '0', bonusValueKzt: '1' });
+const rules = ref<LoyaltyRule[]>([]); const loading = ref(true); const error = ref(''); const saveError = ref(''); const savingId = ref(''); const savingSettings = ref(false); const settings = ref({ maxRedemptionPercent: '0' });
 const eventLabels: Record<string, string> = { registration: 'Регистрация', ticket_purchase: 'Покупка билета', birthday_purchase: 'Покупка праздника', restaurant_purchase: 'Покупка в кафе' };
-async function load() { loading.value = true; error.value = ''; try { const [loadedRules, loadedSettings] = await Promise.all([listLoyaltyRules(), getLoyaltySettings()]); rules.value = loadedRules; settings.value = loadedSettings; } catch (e) { error.value = e instanceof Error ? e.message : 'Ошибка загрузки'; } finally { loading.value = false; } }
-async function saveSettings() { savingSettings.value = true; try { settings.value = await updateLoyaltySettings(settings.value); } finally { savingSettings.value = false; } }
-async function addRule() { const rule = await createLoyaltyRule({ eventType: 'ticket_purchase', rewardType: 'percent', value: '0', isActive: false, startsAt: null, endsAt: null }); rules.value.unshift(rule); }
-async function save(rule: LoyaltyRule) { savingId.value = rule.id; try { const updated = await updateLoyaltyRule(rule.id, { eventType: rule.eventType, rewardType: rule.rewardType, value: rule.value, isActive: rule.isActive, startsAt: rule.startsAt, endsAt: rule.endsAt }); Object.assign(rule, updated); } finally { savingId.value = ''; } }
+async function load() { loading.value = true; error.value = ''; try { const [loadedRules, loadedSettings] = await Promise.all([listLoyaltyRules(), getLoyaltySettings()]); rules.value = loadedRules; settings.value = { maxRedemptionPercent: loadedSettings.maxRedemptionPercent }; } catch (e) { error.value = e instanceof Error ? e.message : 'Ошибка загрузки'; } finally { loading.value = false; } }
+async function saveSettings() { savingSettings.value = true; saveError.value = ''; try { const updated = await updateLoyaltySettings(settings.value); settings.value = { maxRedemptionPercent: updated.maxRedemptionPercent }; } catch (e) { saveError.value = e instanceof Error ? e.message : 'Не удалось сохранить лимит'; } finally { savingSettings.value = false; } }
+async function addRule() { saveError.value = ''; try { const rule = await createLoyaltyRule({ eventType: 'ticket_purchase', rewardType: 'percent', value: '0', isActive: false, startsAt: null, endsAt: null }); rules.value.unshift(rule); } catch (e) { saveError.value = e instanceof Error ? e.message : 'Не удалось создать правило'; } }
+async function save(rule: LoyaltyRule) { savingId.value = rule.id; saveError.value = ''; try { const updated = await updateLoyaltyRule(rule.id, { eventType: rule.eventType, rewardType: rule.rewardType, value: rule.value, isActive: rule.isActive, startsAt: rule.startsAt, endsAt: rule.endsAt }); Object.assign(rule, updated); } catch (e) { saveError.value = e instanceof Error ? e.message : 'Не удалось сохранить правило'; } finally { savingId.value = ''; } }
 function formatDate(value: string) { return new Date(value).toLocaleDateString('ru-RU'); }
 onMounted(load);
 </script>

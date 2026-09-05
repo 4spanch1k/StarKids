@@ -10,7 +10,7 @@ from ..admin_auth.schemas import AdminCurrentUserResponse
 from ..mobile_auth.dependencies import AuthenticatedMobileContext, get_current_mobile_auth_context
 from .dependencies import get_loyalty_service
 from .schemas import LoyaltyAccountResponse, LoyaltyRuleListResponse, LoyaltyRuleRequest, LoyaltyRuleResponse, LoyaltySettingsRequest, LoyaltySettingsResponse, LoyaltyTransactionListResponse
-from .service import LoyaltyService, to_rule_response, to_settings_response, to_transaction_response, validate_rule
+from .service import LoyaltyService, ensure_rule_does_not_overlap, to_rule_response, to_settings_response, to_transaction_response, validate_rule
 
 mobile_router = APIRouter()
 admin_router = APIRouter()
@@ -23,7 +23,7 @@ def get_settings(_: AdminCurrentUserResponse = Depends(require_admin_roles('supe
 
 @admin_router.patch('/loyalty/settings', response_model=LoyaltySettingsResponse)
 def update_settings(payload: LoyaltySettingsRequest, _: AdminCurrentUserResponse = Depends(require_admin_roles('super_admin')), service: LoyaltyService = Depends(get_loyalty_service)) -> LoyaltySettingsResponse:
-    settings = service.update_settings(max_redemption_percent=payload.maxRedemptionPercent, bonus_value_kzt=payload.bonusValueKzt)
+    settings = service.update_settings(max_redemption_percent=payload.maxRedemptionPercent)
     service.repository.db.commit()
     service.repository.db.refresh(settings)
     return LoyaltySettingsResponse(**to_settings_response(settings))
@@ -48,6 +48,9 @@ def list_rules(_: AdminCurrentUserResponse = Depends(require_admin_roles('super_
 @admin_router.post('/loyalty/rules', response_model=LoyaltyRuleResponse, status_code=status.HTTP_201_CREATED)
 def create_rule(payload: LoyaltyRuleRequest, _: AdminCurrentUserResponse = Depends(require_admin_roles('super_admin')), session: Session = Depends(get_db_session)) -> LoyaltyRuleResponse:
     validate_rule(payload.eventType, payload.rewardType, payload.value, payload.startsAt, payload.endsAt)
+    repository = LoyaltyRepository(session)
+    if payload.isActive:
+        ensure_rule_does_not_overlap(repository, event_type=payload.eventType, starts_at=payload.startsAt, ends_at=payload.endsAt)
     rule = LoyaltyRule(event_type=payload.eventType, reward_type=payload.rewardType, value=payload.value, is_active=payload.isActive, starts_at=payload.startsAt, ends_at=payload.endsAt)
     session.add(rule)
     session.commit()
@@ -58,10 +61,13 @@ def create_rule(payload: LoyaltyRuleRequest, _: AdminCurrentUserResponse = Depen
 @admin_router.patch('/loyalty/rules/{rule_id}', response_model=LoyaltyRuleResponse)
 def update_rule(rule_id: str, payload: LoyaltyRuleRequest, _: AdminCurrentUserResponse = Depends(require_admin_roles('super_admin')), session: Session = Depends(get_db_session)) -> LoyaltyRuleResponse:
     validate_rule(payload.eventType, payload.rewardType, payload.value, payload.startsAt, payload.endsAt)
-    rule = LoyaltyRepository(session).get_rule(rule_id)
+    repository = LoyaltyRepository(session)
+    rule = repository.get_rule(rule_id)
     if rule is None:
         from ...core.exceptions.http import NotFoundException
         raise NotFoundException(code='loyalty_rule_not_found', message='Правило лояльности не найдено.')
+    if payload.isActive:
+        ensure_rule_does_not_overlap(repository, event_type=payload.eventType, starts_at=payload.startsAt, ends_at=payload.endsAt, exclude_id=rule_id)
     rule.event_type = payload.eventType
     rule.reward_type = payload.rewardType
     rule.value = payload.value

@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import and_, func, or_, select
 
 from ..models.loyalty_account import LoyaltyAccount
 from ..models.loyalty_rule import LoyaltyRule
@@ -10,6 +10,35 @@ from .base import Repository
 
 
 class LoyaltyRepository(Repository):
+    def lock_rule_event(self, event_type: str) -> None:
+        """Serialize rule mutations for one event type on PostgreSQL."""
+        if self.db.bind is not None and self.db.bind.dialect.name == 'postgresql':
+            self.db.execute(select(func.pg_advisory_xact_lock(func.hashtext(f'loyalty-rule:{event_type}'))))
+
+    def overlapping_active_rule(
+        self,
+        *,
+        event_type: str,
+        starts_at,
+        ends_at,
+        exclude_id: str | None = None,
+    ) -> LoyaltyRule | None:
+        # Intervals are [starts_at, ends_at): touching endpoints do not overlap.
+        starts_before_existing_end = (
+            True if starts_at is None else or_(LoyaltyRule.ends_at.is_(None), LoyaltyRule.ends_at > starts_at)
+        )
+        existing_starts_before_ends = (
+            True if ends_at is None else or_(LoyaltyRule.starts_at.is_(None), LoyaltyRule.starts_at < ends_at)
+        )
+        conditions = [
+            LoyaltyRule.event_type == event_type,
+            LoyaltyRule.is_active.is_(True),
+            and_(starts_before_existing_end, existing_starts_before_ends),
+        ]
+        if exclude_id is not None:
+            conditions.append(LoyaltyRule.id != exclude_id)
+        return self.db.scalar(select(LoyaltyRule).where(*conditions).order_by(LoyaltyRule.created_at, LoyaltyRule.id).limit(1))
+
     def get_settings(self, *, for_update: bool = False) -> LoyaltySettings | None:
         statement = select(LoyaltySettings).where(LoyaltySettings.id == 1)
         if for_update:
@@ -52,6 +81,10 @@ class LoyaltyRepository(Repository):
         return int(self.db.scalar(select(func.count()).select_from(LoyaltyTransaction).where(LoyaltyTransaction.mobile_user_id == user_id)) or 0)
 
     def active_rule(self, event_type: str, *, now: datetime | None = None) -> LoyaltyRule | None:
+        rules = self.active_rules(event_type, now=now)
+        return rules[0] if len(rules) == 1 else None
+
+    def active_rules(self, event_type: str, *, now: datetime | None = None) -> list[LoyaltyRule]:
         now = now or datetime.now(UTC)
         statement = (
             select(LoyaltyRule)
@@ -61,10 +94,9 @@ class LoyaltyRepository(Repository):
                 (LoyaltyRule.starts_at.is_(None) | (LoyaltyRule.starts_at <= now)),
                 (LoyaltyRule.ends_at.is_(None) | (LoyaltyRule.ends_at > now)),
             )
-            .order_by(LoyaltyRule.created_at.desc())
-            .limit(1)
+            .order_by(LoyaltyRule.created_at, LoyaltyRule.id)
         )
-        return self.db.scalar(statement)
+        return list(self.db.scalars(statement))
 
     def list_rules(self) -> list[LoyaltyRule]:
         return list(self.db.scalars(select(LoyaltyRule).order_by(LoyaltyRule.event_type, LoyaltyRule.created_at.desc())))

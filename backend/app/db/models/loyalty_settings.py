@@ -14,7 +14,7 @@ class LoyaltySettings(Base):
     __table_args__ = (
         CheckConstraint('id = 1', name='ck_loyalty_settings_singleton'),
         CheckConstraint('max_redemption_percent >= 0 AND max_redemption_percent <= 100', name='ck_loyalty_settings_max_redemption_percent'),
-        CheckConstraint('bonus_value_kzt > 0', name='ck_loyalty_settings_bonus_value_positive'),
+        CheckConstraint('bonus_value_kzt = 1', name='ck_loyalty_settings_bonus_value_kzt_one'),
     )
 
     id: Mapped[int] = mapped_column(SmallInteger, primary_key=True, default=1)

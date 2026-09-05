@@ -16,13 +16,17 @@ export type LoyaltySettings = {
   bonusValueKzt: string;
 };
 
+export type LoyaltySettingsUpdate = {
+  maxRedemptionPercent: string;
+};
+
 export async function getLoyaltySettings(): Promise<LoyaltySettings> {
   return executeAuthorizedAdminRequest((token) => httpClient<LoyaltySettings>({
     path: '/admin/loyalty/settings', method: 'GET', headers: buildAdminAuthHeaders(token),
   }));
 }
 
-export async function updateLoyaltySettings(payload: LoyaltySettings): Promise<LoyaltySettings> {
+export async function updateLoyaltySettings(payload: LoyaltySettingsUpdate): Promise<LoyaltySettings> {
   return executeAuthorizedAdminRequest((token) => httpClient<LoyaltySettings>({
     path: '/admin/loyalty/settings', method: 'PATCH', headers: buildAdminAuthHeaders(token), body: JSON.stringify(payload),
   }));

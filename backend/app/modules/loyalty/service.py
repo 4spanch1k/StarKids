@@ -57,16 +57,17 @@ class LoyaltyService:
             settings = LoyaltySettings(id=1)
             self.repository.db.add(settings)
             self.repository.db.flush()
+        self._assert_fixed_bonus_value(settings)
         return settings
 
-    def update_settings(self, *, max_redemption_percent: Decimal, bonus_value_kzt: Decimal) -> LoyaltySettings:
+    def update_settings(self, *, max_redemption_percent: Decimal) -> LoyaltySettings:
         settings = self.repository.get_settings(for_update=True)
         if settings is None:
             settings = LoyaltySettings(id=1)
             self.repository.db.add(settings)
             self.repository.db.flush()
+        self._assert_fixed_bonus_value(settings)
         settings.max_redemption_percent = max_redemption_percent
-        settings.bonus_value_kzt = bonus_value_kzt
         self.repository.db.add(settings)
         self.repository.db.flush()
         return settings
@@ -91,7 +92,11 @@ class LoyaltyService:
         existing = self.repository.get_transaction_by_idempotency(idempotency_key)
         if existing is not None:
             return existing
-        rule = self.repository.active_rule(event_type)
+        active_rules = self.repository.active_rules(event_type)
+        if len(active_rules) > 1:
+            logger.critical('Ambiguous active loyalty rules event_type=%s rule_ids=%s', event_type, [item.id for item in active_rules])
+            raise DomainHTTPException(code='loyalty_ambiguous_rule', message='Для этого события найдено несколько активных правил лояльности.', status_code=409)
+        rule = active_rules[0] if active_rules else None
         if rule is None or rule.value <= 0:
             return None
         reward = self._calculate_reward(rule, cash_amount_kzt)
@@ -164,6 +169,9 @@ class LoyaltyService:
         if original.type not in {'earn', 'capture'} or original.status != 'posted' and original.status != 'captured':
             raise DomainHTTPException(code='loyalty_invalid_reversal', message='Эту транзакцию нельзя отменить.', status_code=409)
         account = self._locked_account(user_id)
+        source_existing = self.repository.get_by_event_source('reversal', 'loyalty_transaction', original.id)
+        if source_existing is not None:
+            return source_existing
         if account.balance - account.reserved_balance < original.amount:
             raise DomainHTTPException(code='loyalty_reversal_insufficient_balance', message='Нельзя отменить начисление: бонусы уже использованы.', status_code=409)
         return self._create_transaction(account=account, user_id=user_id, type='reversal', amount=original.amount, balance_delta=-original.amount, reserved_delta=0, source_type='loyalty_transaction', source_id=original.id, idempotency_key=idempotency_key, status='posted', description='Отмена начисления бонусов', metadata={'originalTransactionId': original.id})
@@ -197,6 +205,12 @@ class LoyaltyService:
         if account is None:
             raise RuntimeError('Could not lock loyalty account.')
         return account
+
+    @staticmethod
+    def _assert_fixed_bonus_value(settings: LoyaltySettings) -> None:
+        if settings.bonus_value_kzt != Decimal('1'):
+            logger.critical('Invalid loyalty bonus value invariant: settings_id=%s value=%s', settings.id, settings.bonus_value_kzt)
+            raise RuntimeError('Loyalty invariant violated: one bonus must equal one KZT.')
 
     def _create_transaction(self, *, account: LoyaltyAccount, user_id: str, type: str, amount: int, balance_delta: int, reserved_delta: int, source_type: str, source_id: str, idempotency_key: str, status: str, description: str, metadata: dict[str, object]) -> LoyaltyTransaction:
         next_balance = account.balance + balance_delta
@@ -237,8 +251,33 @@ def validate_rule(event_type: str, reward_type: str, value: Decimal, starts_at: 
         raise DomainHTTPException(code='loyalty_invalid_reward_type', message='Неизвестный тип начисления.', status_code=422)
     if reward_type == 'percent' and value > 100:
         raise DomainHTTPException(code='loyalty_invalid_percent', message='Процент не может быть больше 100.', status_code=422)
+    if value < 0:
+        raise DomainHTTPException(code='loyalty_invalid_value', message='Значение правила не может быть отрицательным.', status_code=422)
     if ends_at is not None and starts_at is not None and ends_at <= starts_at:
         raise DomainHTTPException(code='loyalty_invalid_period', message='Дата окончания должна быть позже даты начала.', status_code=422)
+
+
+def ensure_rule_does_not_overlap(
+    repository: LoyaltyRepository,
+    *,
+    event_type: str,
+    starts_at: datetime | None,
+    ends_at: datetime | None,
+    exclude_id: str | None = None,
+) -> None:
+    repository.lock_rule_event(event_type)
+    existing = repository.overlapping_active_rule(
+        event_type=event_type,
+        starts_at=starts_at,
+        ends_at=ends_at,
+        exclude_id=exclude_id,
+    )
+    if existing is not None:
+        raise DomainHTTPException(
+            code='loyalty_rule_overlap',
+            message=f'Активное правило {event_type} пересекается с правилом {existing.id}.',
+            status_code=409,
+        )
 
 
 def to_rule_response(rule: LoyaltyRule) -> dict[str, object]:
