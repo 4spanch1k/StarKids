@@ -12,6 +12,8 @@ from .freedompay_client import FreedomPayClient, FreedomPayClientProtocol
 from .issued_ticket_service import IssuedTicketService
 from .ticket_qr_service import TicketQrService
 from .service import MobilePaymentService
+from ..loyalty.dependencies import get_loyalty_service
+from ..loyalty.service import LoyaltyService
 
 
 def get_freedompay_client(settings: Settings = Depends(get_settings)) -> FreedomPayClientProtocol:
@@ -22,6 +24,7 @@ def get_mobile_payment_service(
     session: Session = Depends(get_db_session),
     settings: Settings = Depends(get_settings),
     freedompay_client: FreedomPayClientProtocol = Depends(get_freedompay_client),
+    loyalty_service: LoyaltyService = Depends(get_loyalty_service),
 ) -> MobilePaymentService:
     return MobilePaymentService(
         settings=settings,
@@ -32,4 +35,5 @@ def get_mobile_payment_service(
         issued_ticket_service=IssuedTicketService(IssuedTicketRepository(session)),
         ticket_qr_service=TicketQrService(settings.ticket_qr_secret or ''),
         visit_repository=VisitRepository(session),
+        loyalty_service=loyalty_service,
     )

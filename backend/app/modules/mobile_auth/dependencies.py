@@ -15,6 +15,8 @@ from ...core.config.settings import Settings, get_settings
 from .clerk_verifier import ClerkSessionVerifier
 from .schemas import MobileCurrentUserResponse
 from .service import MobileAuthService
+from ..loyalty.dependencies import get_loyalty_service
+from ..loyalty.service import LoyaltyService
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -27,6 +29,7 @@ class AuthenticatedMobileContext:
 
 def get_mobile_auth_service(
     session: Session = Depends(get_db_session),
+    loyalty_service: LoyaltyService = Depends(get_loyalty_service),
 ) -> MobileAuthService:
     return MobileAuthService(
         user_repository=MobileUserRepository(session),
@@ -34,6 +37,7 @@ def get_mobile_auth_service(
         auth_protection_service=AuthProtectionService(
             throttle_repository=AuthThrottleStateRepository(session),
         ),
+        loyalty_service=loyalty_service,
     )
 
 

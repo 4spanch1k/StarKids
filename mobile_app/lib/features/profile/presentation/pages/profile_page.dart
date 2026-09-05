@@ -25,6 +25,7 @@ import '../../../children/presentation/controllers/children_controller.dart';
 import '../../../notifications/domain/notification_permission_status.dart';
 import '../../../notifications/presentation/controllers/mobile_notifications_controller.dart';
 import '../../../request_history/domain/request_history_item.dart';
+import '../../../loyalty/presentation/controllers/loyalty_controller.dart';
 import '../../domain/user_profile.dart';
 import '../controllers/profile_controller.dart';
 import '../widgets/profile_section_card.dart';
@@ -42,6 +43,7 @@ class ProfilePage extends StatefulWidget {
     this.onOpenAllRequests,
     this.onLogout,
     this.appVersionOverride,
+    this.loyaltyControllerOverride,
   });
 
   final ProfileController? controller;
@@ -53,6 +55,7 @@ class ProfilePage extends StatefulWidget {
   final VoidCallback? onOpenAllRequests;
   final Future<void> Function()? onLogout;
   final String? appVersionOverride;
+  final LoyaltyController? loyaltyControllerOverride;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -63,6 +66,7 @@ class _ProfilePageState extends State<ProfilePage> {
   late final MobileNotificationsController _notificationsController;
   late final ChildrenController _childrenController;
   late final AppSettingsController _settingsController;
+  late final LoyaltyController _loyaltyController;
 
   final _firstNameTextController = TextEditingController();
   final _lastNameTextController = TextEditingController();
@@ -81,10 +85,12 @@ class _ProfilePageState extends State<ProfilePage> {
         widget.childrenControllerOverride ?? ServiceRegistry.childrenController;
     _settingsController = widget.settingsControllerOverride ??
         ServiceRegistry.appSettingsController;
+    _loyaltyController = widget.loyaltyControllerOverride ?? ServiceRegistry.loyaltyController;
 
     unawaited(_controller.load());
     unawaited(_notificationsController.bootstrap());
     unawaited(_childrenController.load());
+    unawaited(_loyaltyController.load());
 
     _controller.addListener(_syncTextControllers);
   }
@@ -235,6 +241,7 @@ class _ProfilePageState extends State<ProfilePage> {
           _notificationsController,
           _childrenController,
           _settingsController,
+          _loyaltyController,
         ]),
         builder: (context, _) {
           return switch (_controller.status) {
@@ -307,6 +314,7 @@ class _ProfilePageState extends State<ProfilePage> {
           _StatRow(
             controller: _controller,
             childrenController: _childrenController,
+            loyaltyController: _loyaltyController,
           ),
           if (_controller.errorMessage != null) ...[
             const SizedBox(height: SKSpacing.x4),
@@ -2384,10 +2392,12 @@ class _StatRow extends StatelessWidget {
   const _StatRow({
     required this.controller,
     required this.childrenController,
+    required this.loyaltyController,
   });
 
   final ProfileController controller;
   final ChildrenController childrenController;
+  final LoyaltyController loyaltyController;
 
   @override
   Widget build(BuildContext context) {
@@ -2410,11 +2420,28 @@ class _StatRow extends StatelessWidget {
             label: 'детей',
           ),
           const _StatDivider(),
-          const _StatCell(value: '8 200', label: 'бонусов'),
+          _StatCell(
+            value: loyaltyController.status == LoyaltyViewStatus.success
+                ? _formatBonusBalance(loyaltyController.account?.availableBalance ?? 0)
+                : loyaltyController.status == LoyaltyViewStatus.loading
+                    ? '…'
+                    : '0',
+            label: 'бонусов',
+          ),
         ],
       ),
     );
   }
+}
+
+String _formatBonusBalance(int value) {
+  final raw = value.toString();
+  final buffer = StringBuffer();
+  for (var index = 0; index < raw.length; index++) {
+    if (index > 0 && (raw.length - index) % 3 == 0) buffer.write(' ');
+    buffer.write(raw[index]);
+  }
+  return buffer.toString();
 }
 
 class _StatCell extends StatelessWidget {

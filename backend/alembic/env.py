@@ -19,6 +19,10 @@ from app.db.models import (  # noqa: F401
     issued_ticket,
     ticket_redemption,
     visit,
+    loyalty_account,
+    loyalty_rule,
+    loyalty_transaction,
+    loyalty_settings,
 )
 
 config = context.config

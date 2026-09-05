@@ -22,6 +22,8 @@ from ..modules.mobile_profile.router import router as mobile_profile_router
 from ..modules.mobile_request_history.router import router as mobile_request_history_router
 from ..modules.news.router import router as news_router
 from ..modules.notifications.router import router as notifications_router
+from ..modules.loyalty.router import mobile_router as mobile_loyalty_router
+from ..modules.loyalty.router import admin_router as admin_loyalty_router
 from ..modules.promotions.router import router as promotions_router
 
 api_router = APIRouter()
@@ -52,6 +54,7 @@ api_router.include_router(
     prefix='/mobile',
     tags=['mobile-payments'],
 )
+api_router.include_router(mobile_loyalty_router, prefix='/mobile', tags=['mobile-loyalty'])
 api_router.include_router(
     public_payments_router,
     prefix='/public',
@@ -69,3 +72,4 @@ api_router.include_router(admin_news_router, prefix='/admin', tags=['admin-news'
 api_router.include_router(admin_content_router, prefix='/admin', tags=['admin-content'])
 api_router.include_router(admin_leads_router, prefix='/admin', tags=['admin-leads'])
 api_router.include_router(admin_tickets_router, prefix='/admin', tags=['admin-tickets'])
+api_router.include_router(admin_loyalty_router, prefix='/admin', tags=['admin-loyalty'])

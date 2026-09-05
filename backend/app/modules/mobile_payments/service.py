@@ -53,6 +53,7 @@ from .signing import (
 )
 from .ticket_qr_service import TicketQrService
 from .visit_lifecycle import should_complete_visit
+from ..loyalty.service import LoyaltyService
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,7 @@ class MobilePaymentService:
         issued_ticket_service: IssuedTicketService,
         ticket_qr_service: TicketQrService,
         visit_repository: VisitRepository,
+        loyalty_service: LoyaltyService,
     ) -> None:
         self._settings = settings
         self._payment_repository = payment_repository
@@ -83,6 +85,7 @@ class MobilePaymentService:
         self._issued_ticket_service = issued_ticket_service
         self._ticket_qr_service = ticket_qr_service
         self._visit_repository = visit_repository
+        self._loyalty_service = loyalty_service
 
     def init_freedom_ticket_payment(
         self,
@@ -480,6 +483,18 @@ class MobilePaymentService:
             )
             if processed_payment is not None and processed_payment.status == PAYMENT_STATUS_PAID:
                 self._issued_ticket_service.issue_tickets_for_paid_payment(processed_payment)
+                # The same DB transaction covers payment, ticket issuance and
+                # loyalty earning. A provider retry is harmless because the
+                # loyalty idempotency key is derived from the payment.
+                self._loyalty_service.apply_event(
+                    user_id=processed_payment.mobile_user_id,
+                    event_type='ticket_purchase',
+                    source_type='mobile_payment',
+                    source_id=processed_payment.id,
+                    cash_amount_kzt=processed_payment.amount_tenge,
+                    idempotency_key=f'ticket_purchase:{processed_payment.id}',
+                    metadata={'paymentId': processed_payment.id},
+                )
             self._payment_repository.db.commit()
         except Exception:
             self._payment_repository.db.rollback()

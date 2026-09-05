@@ -21,6 +21,7 @@ import PromotionsPage from '@/pages/promotions/PromotionsPage.vue';
 import PushCampaignsPage from '@/pages/push-campaigns/PushCampaignsPage.vue';
 import TicketsPage from '@/pages/tickets/TicketsPage.vue';
 import TicketScannerPage from '@/pages/ticket-scanner/TicketScannerPage.vue';
+import LoyaltyRulesPage from '@/pages/loyalty/LoyaltyRulesPage.vue';
 import { useSessionStore } from '@/features/auth/stores/useSessionStore';
 
 const routes: RouteRecordRaw[] = [
@@ -83,6 +84,7 @@ const routes: RouteRecordRaw[] = [
           allowedRoles: ['super_admin', 'operator'],
         },
       },
+      { path: 'loyalty', name: 'loyalty', component: LoyaltyRulesPage, meta: { allowedRoles: ['super_admin'] } },
       ...buildAdminCrudRouteGroup({
         path: 'promotions',
         name: adminCrudRouteNames.promotions.list,

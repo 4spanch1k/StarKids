@@ -31,6 +31,7 @@ export const secondaryNavigationItems: NavigationItem[] = [
   { name: 'customers', label: 'Клиенты', to: '/customers' },
   { name: 'push-campaigns', label: 'Пуш-кампании', to: '/push-campaigns' },
   { name: 'audit-logs', label: 'Журнал аудита', to: '/audit-logs' },
+  { name: 'loyalty', label: 'Лояльность', to: '/loyalty', allowedRoles: ['super_admin'] },
 ];
 
 export const navigationItems: NavigationItem[] = [
