@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Boom Bala mobile payment expiration cleanup
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+Persistent=true
+Unit=boom-bala-expire-mobile-payments.service
+
+[Install]
+WantedBy=timers.target

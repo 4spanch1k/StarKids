@@ -3,7 +3,8 @@
 Run this script from the backend directory on a small periodic schedule. The
 mobile status/init endpoints also reconcile lazily, but the scheduled pass
 prevents abandoned reservations from remaining locked when a customer never
-opens the app again.
+opens the app again and retries paid loyalty settlement after a transient
+loyalty failure.
 """
 
 from app.core.config.settings import get_settings
@@ -37,6 +38,7 @@ def main() -> None:
             loyalty_service=LoyaltyService(LoyaltyRepository(session)),
         )
         print(f'expired mobile payments: {service.expire_stale_payments()}')
+        print(f'settled paid loyalty payments: {service.settle_paid_loyalty()}')
     finally:
         session.close()
 

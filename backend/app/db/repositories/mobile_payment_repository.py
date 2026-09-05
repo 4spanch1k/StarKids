@@ -346,6 +346,18 @@ class MobilePaymentRepository(Repository):
         )
         return list(self.db.execute(statement).all())
 
+    def list_paid_ticket_payments(self) -> list[MobilePayment]:
+        statement = (
+            select(MobilePayment)
+            .where(
+                MobilePayment.payable_entity_type == 'branch_ticket_order',
+                MobilePayment.status == 'paid',
+                MobilePayment.loyalty_settlement_required.is_(True),
+            )
+            .order_by(MobilePayment.paid_at.asc(), MobilePayment.created_at.asc())
+        )
+        return list(self.db.scalars(statement).all())
+
 
 def _callback_fingerprint(payload: dict[str, object]) -> str:
     canonical_payload = json.dumps(

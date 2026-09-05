@@ -35,6 +35,7 @@ from app.modules.mobile_payments.freedompay_client import (
 )
 from app.modules.mobile_payments.issued_ticket_service import IssuedTicketService
 from app.modules.mobile_payments.signing import build_freedompay_signature
+from app.modules.loyalty.service import LoyaltyService
 
 
 class FakeFreedomPayClient:
@@ -726,6 +727,28 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
         )
         self.assertEqual(payment_status.json()['status'], 'pending')
         self.assertEqual(self.client.get('/api/v1/mobile/tickets', headers=headers).json()['total'], 0)
+
+    def test_loyalty_failure_does_not_remove_paid_ticket_delivery(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        payment = self._init_payment(headers, 'checkout-loyalty-outage')
+        with patch.object(
+            LoyaltyService,
+            'apply_event',
+            side_effect=RuntimeError('loyalty unavailable'),
+        ):
+            response = self._post_callback(payment, amount='2700', result='1')
+
+        self.assertIn('<pg_status>ok</pg_status>', response.text)
+        status = self.client.get(
+            f"/api/v1/mobile/payments/{payment['paymentId']}",
+            headers=headers,
+        )
+        self.assertEqual(status.json()['status'], 'paid')
+        self.assertEqual(
+            self.client.get('/api/v1/mobile/tickets', headers=headers).json()['total'],
+            1,
+        )
 
     def test_freedompay_callback_rejects_invalid_signature(self) -> None:
         auth = self._authenticate_mobile_user('+77071234567')

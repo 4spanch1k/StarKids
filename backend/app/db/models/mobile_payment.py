@@ -5,6 +5,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Boolean,
     Integer,
     JSON,
     String,
@@ -74,4 +75,11 @@ class MobilePayment(Base):
     issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     loyalty_reservation_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    loyalty_settlement_required: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default='false',
+        index=True,
+    )
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
