@@ -22,12 +22,8 @@ class ChildDto {
     );
   }
 
-  Child toDomain() => Child(
-        id: id,
-        name: name,
-        birthDate: birthDate,
-        gender: gender,
-      );
+  Child toDomain() =>
+      Child(id: id, name: name, birthDate: birthDate, gender: gender);
 
   static DateTime _parseDate(String? value) {
     if (value == null || value.isEmpty) return DateTime(2000);
@@ -35,7 +31,11 @@ class ChildDto {
   }
 
   static ChildGender _parseGender(String? value) {
-    return value == 'female' ? ChildGender.female : ChildGender.male;
+    return switch (value) {
+      'female' => ChildGender.female,
+      'unspecified' => ChildGender.unspecified,
+      _ => ChildGender.male,
+    };
   }
 }
 

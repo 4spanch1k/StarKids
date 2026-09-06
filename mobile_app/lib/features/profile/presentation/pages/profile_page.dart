@@ -1180,9 +1180,11 @@ class _ChildCard extends StatelessWidget {
             padding: const EdgeInsets.all(SKSpacing.x3),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final genderLabel = child.gender == ChildGender.female
-                    ? l.genderGirl
-                    : l.genderBoy;
+                final genderLabel = switch (child.gender) {
+                  ChildGender.female => l.genderGirl,
+                  ChildGender.male => l.genderBoy,
+                  ChildGender.unspecified => 'Не указано',
+                };
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1228,9 +1230,11 @@ class _ChildCard extends StatelessWidget {
                       runSpacing: SKSpacing.x2,
                       children: [
                         _SoftMetaChip(
-                          icon: child.gender == ChildGender.female
-                              ? Icons.girl_rounded
-                              : Icons.boy_rounded,
+                          icon: switch (child.gender) {
+                            ChildGender.female => Icons.girl_rounded,
+                            ChildGender.male => Icons.boy_rounded,
+                            ChildGender.unspecified => Icons.person_outline,
+                          },
                           label: genderLabel,
                         ),
                       ],
@@ -1501,7 +1505,7 @@ class _ChildFormSheetState extends State<_ChildFormSheet> {
     final child = widget.childToEdit;
     _nameController = TextEditingController(text: child?.name ?? '');
     _birthDate = child?.birthDate;
-    _gender = child?.gender;
+    _gender = child?.gender ?? ChildGender.unspecified;
   }
 
   @override
@@ -1536,12 +1540,8 @@ class _ChildFormSheetState extends State<_ChildFormSheet> {
       }
     }
 
-    if (_gender == null) {
-      _genderError = l.childGenderRequired;
-      ok = false;
-    } else {
-      _genderError = null;
-    }
+    // Gender is optional; unspecified is a valid persisted value.
+    _genderError = null;
 
     setState(() {});
     return ok;
@@ -1577,8 +1577,8 @@ class _ChildFormSheetState extends State<_ChildFormSheet> {
     final picked = await showDatePicker(
       context: context,
       initialDate: initial,
-      firstDate: DateTime(now.year - 18),
-      lastDate: now,
+      firstDate: DateTime(1900),
+      lastDate: DateUtils.dateOnly(now),
       helpText: l.datePickerHelpText,
       cancelText: l.datePickerCancel,
       confirmText: l.datePickerConfirm,

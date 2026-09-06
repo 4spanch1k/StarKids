@@ -28,6 +28,7 @@ from .loyalty_rule import LoyaltyRule
 from .loyalty_transaction import LoyaltyTransaction
 from .loyalty_settings import LoyaltySettings
 from .mobile_user import MobileUser
+from .mobile_child import MobileChild
 from .news import News
 from .news_event import NewsEvent
 from .promotion import Promotion
@@ -54,6 +55,7 @@ __all__ = [
     'FAQEntry',
     'ContentBlock',
     'MobileUser',
+    'MobileChild',
     'MobileSession',
     'MobileNotificationDevice',
     'MobileNotification',
