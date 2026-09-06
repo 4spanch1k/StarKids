@@ -3,6 +3,7 @@ plugins {
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
 }
 
 val releaseTaskRequested = gradle.startParameter.taskNames.any { taskName ->
@@ -17,10 +18,11 @@ fun configuredValue(propertyName: String, environmentName: String): String? =
         ?.trim()
         ?.takeIf { it.isNotEmpty() }
 
-val productionApplicationId = configuredValue(
+val configuredProductionApplicationId = configuredValue(
     propertyName = "ANDROID_APPLICATION_ID",
     environmentName = "ANDROID_APPLICATION_ID",
 )
+val productionApplicationId = configuredProductionApplicationId ?: "kz.boombala.app"
 val releaseStoreFile = configuredValue("RELEASE_STORE_FILE", "ANDROID_KEYSTORE_PATH")
 val releaseStorePassword = configuredValue("RELEASE_STORE_PASSWORD", "ANDROID_KEYSTORE_PASSWORD")
 val releaseKeyAlias = configuredValue("RELEASE_KEY_ALIAS", "ANDROID_KEY_ALIAS")
@@ -33,12 +35,10 @@ val releaseSigningConfigured = listOf(
 ).all { it != null }
 
 if (
-    releaseTaskRequested &&
-    (productionApplicationId == null || productionApplicationId.startsWith("com.example."))
+    productionApplicationId != "kz.boombala.app"
 ) {
     throw GradleException(
-        "Production Android applicationId is not configured. " +
-            "Set -PANDROID_APPLICATION_ID or ANDROID_APPLICATION_ID before a release build.",
+        "Android applicationId must be kz.boombala.app for the configured Firebase project.",
     )
 }
 
@@ -65,10 +65,9 @@ android {
     }
 
     defaultConfig {
-        // Debug keeps the legacy package until the deployment owner supplies the
-        // authoritative production application id. Release builds fail above
-        // when that value is not explicitly configured.
-        applicationId = productionApplicationId ?: "com.example.star_kids_mobile"
+        // All variants use the approved Firebase Android app id. The Kotlin
+        // namespace remains unchanged and is independent from applicationId.
+        applicationId = productionApplicationId
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

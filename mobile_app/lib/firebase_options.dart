@@ -1,15 +1,6 @@
-// IMPORTANT: This file is a placeholder.
-//
-// To enable real Firebase push notifications, run:
-//   flutterfire configure --project=YOUR_FIREBASE_PROJECT_ID
-//
-// That command will overwrite this file with real Firebase configuration and
-// will also generate:
-//   - android/app/google-services.json
-//   - ios/Runner/GoogleService-Info.plist (when iOS target is added)
-//
-// Until then, Firebase.initializeApp() will throw and the app will start
-// without push notification capability. All other features remain unaffected.
+// Firebase client options for the approved Boom Bala production project.
+// Native Android/iOS resources are kept alongside this file so the platform
+// Firebase SDKs and FlutterFire use the same project and application ids.
 
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
@@ -18,7 +9,11 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   /// Placeholder values must never be mistaken for a live Firebase project.
   static bool get isConfigured {
-    final options = currentPlatform;
+    return isConfiguredFor(currentPlatform);
+  }
+
+  /// Allows platform-independent tests to verify real and placeholder configs.
+  static bool isConfiguredFor(FirebaseOptions options) {
     final requiredValues = <String?>[
       options.apiKey,
       options.appId,
@@ -41,35 +36,38 @@ class DefaultFirebaseOptions {
       TargetPlatform.macOS => _macos,
       _ => throw UnsupportedError(
           'DefaultFirebaseOptions are not supported for this platform.\n'
-          'Run: flutterfire configure --project=YOUR_FIREBASE_PROJECT_ID',
+          'Configure a client app for this platform before enabling Firebase.',
         ),
     };
   }
 
   static bool _isPlaceholder(String? value) {
-    final normalized = value?.trim() ?? '';
-    return normalized.isEmpty || normalized.startsWith('PLACEHOLDER_');
+    final normalized = value?.trim().toLowerCase() ?? '';
+    return normalized.isEmpty ||
+        normalized.startsWith('placeholder_') ||
+        normalized.contains('placeholder') ||
+        normalized.startsWith('com.example.');
   }
 
-  // ---------------------------------------------------------------------------
-  // Placeholder values — replace by running: flutterfire configure
-  // ---------------------------------------------------------------------------
-
   static const FirebaseOptions _android = FirebaseOptions(
-    apiKey: 'PLACEHOLDER_API_KEY',
-    appId: 'PLACEHOLDER_APP_ID',
-    messagingSenderId: 'PLACEHOLDER_SENDER_ID',
-    projectId: 'PLACEHOLDER_PROJECT_ID',
+    apiKey: 'AIzaSyALN2bMszVgoLffhPEDvMQYgdEQmJvDay8',
+    appId: '1:491968637725:android:bb1edec8d77d1dfad04ff4',
+    messagingSenderId: '491968637725',
+    projectId: 'boom-bala-production',
+    storageBucket: 'boom-bala-production.firebasestorage.app',
   );
 
   static const FirebaseOptions _ios = FirebaseOptions(
-    apiKey: 'PLACEHOLDER_API_KEY',
-    appId: 'PLACEHOLDER_APP_ID',
-    messagingSenderId: 'PLACEHOLDER_SENDER_ID',
-    projectId: 'PLACEHOLDER_PROJECT_ID',
-    iosBundleId: 'com.example.starKidsMobile',
+    apiKey: 'AIzaSyBloZeoUnUWG_cafGddf3E4RjGVVezTS7U',
+    appId: '1:491968637725:ios:35a724b2826b1a40d04ff4',
+    messagingSenderId: '491968637725',
+    projectId: 'boom-bala-production',
+    storageBucket: 'boom-bala-production.firebasestorage.app',
+    iosBundleId: 'kz.boombala.app',
   );
 
+  // Desktop/web Firebase apps were not included in the supplied production
+  // client configs; those targets remain safely disabled until configured.
   static const FirebaseOptions _macos = FirebaseOptions(
     apiKey: 'PLACEHOLDER_API_KEY',
     appId: 'PLACEHOLDER_APP_ID',

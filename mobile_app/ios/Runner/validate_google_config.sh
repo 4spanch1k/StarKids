@@ -5,7 +5,9 @@
 # possible without deployment credentials.
 if { [ "$CONFIGURATION" = "Release" ] || [ "$CONFIGURATION" = "Profile" ]; }; then
   case "${PRODUCT_BUNDLE_IDENTIFIER:-}" in
-    ""|com.example.*|*IOS_BUNDLE_IDENTIFIER*)
+    kz.boombala.app)
+      ;;
+    *)
       echo "error: Set IOS_BUNDLE_IDENTIFIER to the approved production bundle id." >&2
       exit 1
       ;;
