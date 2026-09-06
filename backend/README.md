@@ -17,10 +17,10 @@ FastAPI backend for mobile and admin products.
 `scripts/expire_mobile_payments.py` is the idempotent reconciliation pass for
 abandoned FreedomPay initializations. It marks only expired `created`/`pending`
 payments as `expired` and releases their still-reserved loyalty bonuses. It
-also retries loyalty settlement for already-`paid` payments whose ticket
-delivery succeeded before a transient loyalty failure. Both passes are
-idempotent and safe to run concurrently: terminal payments and already
-settled/released reservations are ignored.
+also reconciles already-`paid` payments whose ticket issuance or loyalty
+settlement was interrupted by a transient failure. Both passes are idempotent
+and safe to run concurrently: terminal payments and already settled/released
+reservations are ignored.
 
 For the production systemd deployment, install the checked-in unit and timer,
 then adjust the deployment paths/user if the application is not installed at

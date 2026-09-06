@@ -364,24 +364,26 @@ class MobilePaymentService:
         return expired
 
     def settle_paid_loyalty(self) -> int:
-        """Retry loyalty settlement for paid payments without blocking admission.
+        """Reconcile paid payments without blocking admission.
 
-        Ticket delivery is the critical payment outcome. A transient loyalty
-        failure therefore leaves the payment and issued tickets committed, and
-        this reconciliation pass retries capture/cashback idempotently.
+        Ticket delivery is the critical payment outcome. A transient ticket or
+        loyalty failure therefore leaves the payment committed and marks the
+        missing step for this idempotent reconciliation pass.
         """
-        settled = 0
+        reconciled = 0
         for payment in self._payment_repository.list_paid_ticket_payments():
             try:
-                if self._settle_paid_payment_loyalty(payment.id):
-                    settled += 1
+                delivered = self._issue_paid_payment_tickets(payment.id)
+                settled = self._settle_paid_payment_loyalty(payment.id)
+                if delivered or settled:
+                    reconciled += 1
             except Exception:
                 self._payment_repository.db.rollback()
                 logger.exception(
-                    'Paid payment loyalty settlement failed payment_id=%s',
+                    'Paid payment reconciliation failed payment_id=%s',
                     payment.id,
                 )
-        return settled
+        return reconciled
 
     def list_paid_tickets(self, mobile_user_id: str) -> PurchasedTicketsResponse:
         records = self._payment_repository.list_paid_ticket_payments_for_user(mobile_user_id)
@@ -626,18 +628,19 @@ class MobilePaymentService:
                 failure_reason=None,
                 commit=False,
             )
-            should_settle_loyalty = (
+            should_reconcile_paid_payment = (
                 processed_payment is not None
                 and processed_payment.status == PAYMENT_STATUS_PAID
                 and (
                     status_before_callback != PAYMENT_STATUS_PAID
+                    or processed_payment.ticket_issuance_required
                     or processed_payment.loyalty_settlement_required
                 )
             )
-            if should_settle_loyalty:
+            if should_reconcile_paid_payment:
                 processed_payment.loyalty_settlement_required = True
+                processed_payment.ticket_issuance_required = True
                 self._payment_repository.db.add(processed_payment)
-                self._issued_ticket_service.issue_tickets_for_paid_payment(processed_payment)
             else:
                 # Keep the callback audit transaction durable even when this
                 # is a duplicate/terminal callback.
@@ -648,17 +651,29 @@ class MobilePaymentService:
             self._payment_repository.db.rollback()
             raise
 
-        # Admission must not be rolled back by a loyalty outage. Settlement
-        # has its own idempotent transaction and is retried by the cleanup
-        # scheduler (or by a provider callback replay).
+        ticket_delivery_ready = False
         try:
-            self._settle_paid_payment_loyalty(processed_payment.id)
+            self._issue_paid_payment_tickets(processed_payment.id)
+            ticket_delivery_ready = True
         except Exception:
             self._payment_repository.db.rollback()
             logger.exception(
-                'Payment paid and tickets issued, loyalty settlement pending payment_id=%s',
+                'Payment paid but ticket issuance is pending payment_id=%s',
                 processed_payment.id,
             )
+
+        # Admission must not be rolled back by a loyalty outage. Settlement
+        # has its own idempotent transaction and is retried by the cleanup
+        # scheduler (or by a provider callback replay).
+        if ticket_delivery_ready:
+            try:
+                self._settle_paid_payment_loyalty(processed_payment.id)
+            except Exception:
+                self._payment_repository.db.rollback()
+                logger.exception(
+                    'Payment paid and tickets issued, loyalty settlement pending payment_id=%s',
+                    processed_payment.id,
+                )
 
     def _process_failed_callback_atomically(
         self,
@@ -699,21 +714,48 @@ class MobilePaymentService:
             payment.paid_at = datetime.now(UTC)
             payment.failure_reason = None
             payment.loyalty_settlement_required = True
+            payment.ticket_issuance_required = True
             self._payment_repository.db.add(payment)
-            self._issued_ticket_service.issue_tickets_for_paid_payment(payment)
             self._payment_repository.db.commit()
         except Exception:
             self._payment_repository.db.rollback()
             raise
+        ticket_delivery_ready = False
         try:
-            self._settle_paid_payment_loyalty(payment.id)
+            self._issue_paid_payment_tickets(payment.id)
+            ticket_delivery_ready = True
         except Exception:
             self._payment_repository.db.rollback()
             logger.exception(
-                'Zero-cash payment paid and tickets issued, loyalty settlement pending payment_id=%s',
+                'Zero-cash payment paid but ticket issuance is pending payment_id=%s',
                 payment.id,
             )
+        if ticket_delivery_ready:
+            try:
+                self._settle_paid_payment_loyalty(payment.id)
+            except Exception:
+                self._payment_repository.db.rollback()
+                logger.exception(
+                    'Zero-cash payment paid and tickets issued, loyalty settlement pending payment_id=%s',
+                    payment.id,
+                )
         return _payment_init_response(payment, payment_url='')
+
+    def _issue_paid_payment_tickets(self, payment_id: str) -> bool:
+        payment = self._payment_repository.get_by_id_for_update(payment_id)
+        if payment is None or payment.status != PAYMENT_STATUS_PAID:
+            return False
+        if not payment.ticket_issuance_required:
+            return True
+        try:
+            self._issued_ticket_service.issue_tickets_for_paid_payment(payment)
+            payment.ticket_issuance_required = False
+            self._payment_repository.db.add(payment)
+            self._payment_repository.db.commit()
+            return True
+        except Exception:
+            self._payment_repository.db.rollback()
+            raise
 
     def _settle_paid_payment_loyalty(self, payment_id: str) -> bool:
         payment = self._payment_repository.get_by_id_for_update(payment_id)

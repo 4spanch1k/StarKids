@@ -82,4 +82,11 @@ class MobilePayment(Base):
         server_default='false',
         index=True,
     )
+    ticket_issuance_required: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default='false',
+        index=True,
+    )
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)

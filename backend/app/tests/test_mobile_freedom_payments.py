@@ -711,7 +711,7 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
             404,
         )
 
-    def test_issuance_failure_rolls_back_payment_and_all_tickets(self) -> None:
+    def test_issuance_failure_keeps_paid_payment_and_reconciles_tickets(self) -> None:
         auth = self._authenticate_mobile_user('+77071234567')
         headers = {'Authorization': f"Bearer {auth['access_token']}"}
         payment = self._init_payment(headers, 'checkout-issuance-rollback', quantity=2)
@@ -720,13 +720,23 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
             '_new_ticket_number',
             side_effect=['BB-PARTIAL', ValueError('ticket issuance failed')],
         ):
-            with self.assertRaises(ValueError):
-                self._post_callback(payment, amount='5400', result='1')
+            response = self._post_callback(payment, amount='5400', result='1')
+        self.assertIn('<pg_status>ok</pg_status>', response.text)
         payment_status = self.client.get(
             f"/api/v1/mobile/payments/{payment['paymentId']}", headers=headers
         )
-        self.assertEqual(payment_status.json()['status'], 'pending')
+        self.assertEqual(payment_status.json()['status'], 'paid')
         self.assertEqual(self.client.get('/api/v1/mobile/tickets', headers=headers).json()['total'], 0)
+        with self.SessionLocal() as session:
+            stored = session.get(MobilePayment, payment['paymentId'])
+            self.assertTrue(stored.ticket_issuance_required)
+
+        retry = self._post_callback(payment, amount='5400', result='1')
+        self.assertIn('<pg_status>ok</pg_status>', retry.text)
+        self.assertEqual(self.client.get('/api/v1/mobile/tickets', headers=headers).json()['total'], 2)
+        with self.SessionLocal() as session:
+            stored = session.get(MobilePayment, payment['paymentId'])
+            self.assertFalse(stored.ticket_issuance_required)
 
     def test_loyalty_failure_does_not_remove_paid_ticket_delivery(self) -> None:
         auth = self._authenticate_mobile_user('+77071234567')

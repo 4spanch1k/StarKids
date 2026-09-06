@@ -2,7 +2,7 @@ from datetime import UTC, date, datetime
 import hashlib
 import json
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from ..models.branch import Branch
 from ..models.mobile_payment import MobilePayment
@@ -352,7 +352,10 @@ class MobilePaymentRepository(Repository):
             .where(
                 MobilePayment.payable_entity_type == 'branch_ticket_order',
                 MobilePayment.status == 'paid',
-                MobilePayment.loyalty_settlement_required.is_(True),
+                or_(
+                    MobilePayment.ticket_issuance_required.is_(True),
+                    MobilePayment.loyalty_settlement_required.is_(True),
+                ),
             )
             .order_by(MobilePayment.paid_at.asc(), MobilePayment.created_at.asc())
         )
