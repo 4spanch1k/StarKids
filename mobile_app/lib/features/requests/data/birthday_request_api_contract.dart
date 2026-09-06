@@ -41,6 +41,8 @@ abstract final class BirthdayRequestApiContract {
   static const preferredDate = 'preferredDate';
   static const guestCount = 'guestCount';
   static const comment = 'comment';
+  static const childId = 'childId';
+  static const idempotencyKey = 'idempotencyKey';
 
   static const requestId = 'requestId';
   static const submittedAt = 'submittedAt';

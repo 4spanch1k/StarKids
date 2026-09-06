@@ -20,6 +20,7 @@ type FetchLeadListRequest = AuthorizedRequest & {
 type UpdateLeadStatusRequest = AuthorizedRequest & {
   leadId: string;
   status: LeadStatus;
+  adminNote?: string;
 };
 
 type BranchSummaryResponse = {
@@ -74,16 +75,58 @@ export function fetchAdminLeadDetail({
   });
 }
 
+type BirthdayLeadDetailResponse = LeadDetail & {
+  childId?: string | null;
+  childName?: string | null;
+  childBirthDate?: string | null;
+  packageNameSnapshot?: string | null;
+  packagePriceSnapshot?: number | null;
+  comment?: string | null;
+  contactMethod?: string;
+  adminNote?: string | null;
+  updatedAt?: string | null;
+  contactedAt?: string | null;
+  closedAt?: string | null;
+};
+
+export async function fetchAdminBirthdayLeadDetail({
+  accessToken,
+  leadId,
+}: AuthorizedRequest & { leadId: string }): Promise<LeadDetail> {
+  const response = await httpClient<BirthdayLeadDetailResponse>({
+    path: `${ADMIN_LEADS_BASE_PATH}/${leadId}/birthday`,
+    method: 'GET',
+    headers: buildAuthorizedHeaders(accessToken),
+  });
+
+  return {
+    ...response,
+    email: response.email ?? null,
+    notes: response.comment ?? null,
+    contactMethod: response.contactMethod ?? 'phone',
+    childId: response.childId ?? null,
+    childName: response.childName ?? null,
+    childBirthDate: response.childBirthDate ?? null,
+    packageNameSnapshot: response.packageNameSnapshot ?? null,
+    packagePriceSnapshot: response.packagePriceSnapshot ?? null,
+    adminNote: response.adminNote ?? null,
+    updatedAt: response.updatedAt ?? null,
+    contactedAt: response.contactedAt ?? null,
+    closedAt: response.closedAt ?? null,
+  };
+}
+
 export function updateAdminLeadStatus({
   accessToken,
   leadId,
   status,
+  adminNote,
 }: UpdateLeadStatusRequest): Promise<LeadDetail> {
   return httpClient<LeadDetail>({
     path: `${ADMIN_LEADS_BASE_PATH}/${leadId}/status`,
     method: 'PATCH',
     headers: buildAuthorizedHeaders(accessToken),
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, ...(adminNote ? { adminNote } : {}) }),
   });
 }
 

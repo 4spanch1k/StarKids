@@ -132,7 +132,7 @@ class BirthdaysPage extends StatelessWidget {
                             _IncludedRow(
                               icon: Icons.send_rounded,
                               title: 'Заявка без переписок',
-                              subtitle: 'Менеджер свяжется в течение 30 мин',
+                              subtitle: 'Менеджер свяжется после заявки',
                             ),
                           ],
                         ),

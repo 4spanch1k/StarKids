@@ -256,6 +256,7 @@
             :status-success-message="leadInbox.statusSuccessMessage"
             :status-error-message="leadInbox.statusErrorMessage"
             @update-status="leadInbox.updateLeadStatus"
+            @save-note="leadInbox.updateLeadNote"
           />
         </template>
       </aside>
@@ -301,6 +302,7 @@
         :status-success-message="leadInbox.statusSuccessMessage"
         :status-error-message="leadInbox.statusErrorMessage"
         @update-status="leadInbox.updateLeadStatus"
+        @save-note="leadInbox.updateLeadNote"
       />
     </AdminRoutePanel>
   </PageShell>

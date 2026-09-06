@@ -1,7 +1,7 @@
 from typing import Final, Literal
 
 LeadType = Literal['birthday_request', 'contact']
-LeadStatus = Literal['new', 'in_progress', 'closed']
+LeadStatus = Literal['new', 'in_progress', 'closed', 'contacted', 'confirmed', 'cancelled', 'lost']
 
 LEAD_TYPE_BIRTHDAY_REQUEST: Final[LeadType] = 'birthday_request'
 LEAD_TYPE_CONTACT: Final[LeadType] = 'contact'

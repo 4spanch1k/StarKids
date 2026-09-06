@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from uuid import uuid4
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
@@ -9,6 +9,9 @@ from .base import Base
 
 class BirthdayRequest(Base):
     __tablename__ = 'birthday_requests'
+    __table_args__ = (
+        UniqueConstraint('mobile_user_id', 'idempotency_key', name='uq_birthday_requests_user_idempotency'),
+    )
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid4().hex)
     mobile_user_id: Mapped[str | None] = mapped_column(
@@ -28,6 +31,9 @@ class BirthdayRequest(Base):
         nullable=True,
         index=True,
     )
+    child_id: Mapped[str | None] = mapped_column(
+        String(32), ForeignKey('mobile_children.id', ondelete='SET NULL'), nullable=True, index=True
+    )
     customer_name: Mapped[str] = mapped_column(String(120))
     phone: Mapped[str] = mapped_column(String(32))
     child_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
@@ -38,6 +44,15 @@ class BirthdayRequest(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     source: Mapped[str] = mapped_column(String(64), default='mobile_app')
     status: Mapped[str] = mapped_column(String(32), default='new')
+    idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    child_name_snapshot: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    child_birth_date_snapshot: Mapped[date | None] = mapped_column(Date, nullable=True)
+    package_name_snapshot: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    package_price_snapshot: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    admin_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    contacted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

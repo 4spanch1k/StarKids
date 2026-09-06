@@ -11,6 +11,8 @@ class BirthdayRequestBodyDto {
     required this.preferredDate,
     required this.guestCount,
     required this.comment,
+    this.childId,
+    this.idempotencyKey,
   });
 
   final String branchId;
@@ -20,6 +22,8 @@ class BirthdayRequestBodyDto {
   final String preferredDate;
   final int guestCount;
   final String? comment;
+  final String? childId;
+  final String? idempotencyKey;
 
   factory BirthdayRequestBodyDto.fromDomain(BirthdayRequestPayload payload) {
     return BirthdayRequestBodyDto(
@@ -30,6 +34,8 @@ class BirthdayRequestBodyDto {
       preferredDate: _formatDate(payload.preferredDate),
       guestCount: payload.guestCount,
       comment: payload.comment,
+      childId: payload.childId,
+      idempotencyKey: payload.idempotencyKey,
     );
   }
 
@@ -42,6 +48,9 @@ class BirthdayRequestBodyDto {
       BirthdayRequestApiContract.preferredDate: preferredDate,
       BirthdayRequestApiContract.guestCount: guestCount,
       BirthdayRequestApiContract.comment: comment,
+      if (childId != null) BirthdayRequestApiContract.childId: childId,
+      if (idempotencyKey != null)
+        BirthdayRequestApiContract.idempotencyKey: idempotencyKey,
     };
   }
 
@@ -112,7 +121,8 @@ class BirthdayRequestApiError {
     }
 
     return BirthdayRequestApiError(
-      message: (json[BirthdayRequestApiContract.message] as String?) ??
+      message:
+          (json[BirthdayRequestApiContract.message] as String?) ??
           'Не удалось отправить заявку. Попробуйте еще раз.',
       fieldErrors: fieldErrors,
     );

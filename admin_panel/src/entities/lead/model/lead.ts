@@ -1,4 +1,12 @@
-export const leadStatuses = ['new', 'in_progress', 'closed'] as const;
+export const leadStatuses = [
+  'new',
+  'in_progress',
+  'contacted',
+  'confirmed',
+  'cancelled',
+  'lost',
+  'closed',
+] as const;
 
 export type LeadStatus = (typeof leadStatuses)[number];
 export type LeadType = 'birthday_request' | 'contact';
@@ -7,11 +15,19 @@ export const leadStatusLabels: Record<LeadStatus, string> = {
   new: 'Новая',
   in_progress: 'В работе',
   closed: 'Закрыта',
+  contacted: 'Менеджер связался',
+  confirmed: 'Праздник подтверждён',
+  cancelled: 'Отменено',
+  lost: 'Не состоялось',
 };
 
 export const leadStatusTransitions: Record<LeadStatus, LeadStatus[]> = {
-  new: ['new', 'in_progress', 'closed'],
+  new: ['new', 'in_progress', 'contacted', 'confirmed', 'cancelled', 'closed'],
   in_progress: ['in_progress', 'closed'],
+  contacted: ['contacted', 'confirmed', 'cancelled', 'lost'],
+  confirmed: ['confirmed'],
+  cancelled: ['cancelled'],
+  lost: ['lost'],
   closed: ['closed'],
 };
 
@@ -62,6 +78,15 @@ export type LeadDetail = LeadListItem & {
   email: string | null;
   notes: string | null;
   contactMethod: string;
+  childId?: string | null;
+  childName?: string | null;
+  childBirthDate?: string | null;
+  packageNameSnapshot?: string | null;
+  packagePriceSnapshot?: number | null;
+  adminNote?: string | null;
+  updatedAt?: string | null;
+  contactedAt?: string | null;
+  closedAt?: string | null;
 };
 
 export function formatLeadStatus(status: LeadStatus): string {
@@ -86,6 +111,18 @@ export function describeLeadStatusFlow(status: LeadStatus): string {
 
   if (status === 'in_progress') {
     return 'Заявка уже в работе: доступно только закрытие, возврат в "Новая" не поддерживается.';
+  }
+
+  if (status === 'contacted') {
+    return 'Менеджер связался с родителем: можно подтвердить или отменить заявку.';
+  }
+
+  if (status === 'confirmed') {
+    return 'Праздник подтверждён: заявка доступна только для просмотра.';
+  }
+
+  if (status === 'cancelled' || status === 'lost' || status === 'closed') {
+    return 'Заявка завершена: обратные переходы не поддерживаются.';
   }
 
   return 'Заявка закрыта: статус остается только для просмотра, обратные переходы не поддерживаются.';

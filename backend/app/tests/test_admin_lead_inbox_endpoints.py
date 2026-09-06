@@ -264,6 +264,33 @@ class AdminLeadInboxEndpointTests(unittest.TestCase):
             },
         )
 
+    def test_get_birthday_lead_detail_and_update_status_note(self) -> None:
+        response = self.client.get(
+            '/api/v1/admin/leads/lead-new/birthday',
+            headers=self._auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['contactMethod'], 'phone')
+        self.assertEqual(response.json()['packageNameSnapshot'], 'Spark Party')
+        self.assertEqual(response.json()['comment'], 'Позвонить после 15:00')
+
+        update = self.client.patch(
+            '/api/v1/admin/leads/lead-new/status',
+            headers=self._auth_headers(),
+            json={'status': 'contacted', 'adminNote': 'Позвонили родителю.'},
+        )
+        self.assertEqual(update.status_code, 200)
+
+        detail = self.client.get(
+            '/api/v1/admin/leads/lead-new/birthday',
+            headers=self._auth_headers(),
+        )
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail.json()['status'], 'contacted')
+        self.assertEqual(detail.json()['adminNote'], 'Позвонили родителю.')
+        self.assertIsNotNone(detail.json()['contactedAt'])
+
     def test_patch_admin_lead_status_updates_allowed_transition(self) -> None:
         response = self.client.patch(
             '/api/v1/admin/leads/lead-new/status',
