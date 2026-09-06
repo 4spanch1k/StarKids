@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../auth/domain/mobile_auth_session.dart';
 import '../../../auth/presentation/controllers/mobile_auth_controller.dart';
 import '../../data/fcm_token_gateway.dart';
 import '../../domain/notification_permission_status.dart';
@@ -38,6 +39,7 @@ class PushTokenController extends ChangeNotifier {
   String? _registeredToken;
   StreamSubscription<String>? _tokenRefreshSubscription;
   bool _bootstrapped = false;
+  bool _logoutInProgress = false;
 
   PushRegistrationStatus get status => _status;
 
@@ -67,6 +69,31 @@ class PushTokenController extends ChangeNotifier {
     await _tryRegisterIfReady();
   }
 
+  /// Deactivates the current device while the auth session is still valid.
+  /// The auth controller calls this before revoking and clearing the session.
+  Future<void> prepareForLogout(MobileAuthSession session) async {
+    if (_logoutInProgress) return;
+    _logoutInProgress = true;
+    final token = _registeredToken;
+    _registeredToken = null;
+    if (token == null) return;
+
+    try {
+      await _pushTokenRepository.removeToken(accessToken: session.accessToken);
+    } catch (_) {
+      // A subsequent authenticated registration atomically rebinds this token
+      // to the next user. Logout must remain usable during network failures.
+    }
+  }
+
+  /// Re-enables registration if the auth logout request itself failed.
+  void cancelPendingLogout() {
+    _logoutInProgress = false;
+    if (_authController.isAuthenticated) {
+      unawaited(_tryRegisterIfReady());
+    }
+  }
+
   @override
   void dispose() {
     _authController.removeListener(_onAuthStateChanged);
@@ -94,6 +121,13 @@ class PushTokenController extends ChangeNotifier {
   }
 
   Future<void> _handleLogout() async {
+    if (_logoutInProgress) {
+      _logoutInProgress = false;
+      _registeredToken = null;
+      _setStatus(PushRegistrationStatus.unauthenticated);
+      return;
+    }
+
     final token = _registeredToken;
     _registeredToken = null;
 
@@ -153,10 +187,10 @@ class PushTokenController extends ChangeNotifier {
     await _registerToken(token, accessToken: session.accessToken);
   }
 
-  Future<void> _registerToken(
-    String token, {
-    String? accessToken,
-  }) async {
+  Future<void> _registerToken(String token, {String? accessToken}) async {
+    if (_logoutInProgress) {
+      return;
+    }
     final resolvedToken = accessToken ?? _authController.session?.accessToken;
     if (resolvedToken == null) {
       _setStatus(PushRegistrationStatus.unauthenticated);

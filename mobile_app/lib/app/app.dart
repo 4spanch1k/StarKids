@@ -25,6 +25,7 @@ class StarKidsApp extends StatelessWidget {
   const StarKidsApp({super.key});
 
   static final navigatorKey = GlobalKey<NavigatorState>();
+  static final scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
   @override
   Widget build(BuildContext context) {
@@ -62,6 +63,7 @@ class StarKidsApp extends StatelessWidget {
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),
           themeMode: settings.themeMode,
+          scaffoldMessengerKey: scaffoldMessengerKey,
           builder: (ctx, child) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               final navigator = navigatorKey.currentState;
@@ -69,6 +71,7 @@ class StarKidsApp extends StatelessWidget {
                 NotificationNavigationCoordinator.instance.attach(
                   navigator: navigator,
                   authenticated: isAuthenticated && onboarding.isComplete,
+                  scaffoldMessenger: scaffoldMessengerKey.currentState,
                 );
               }
             });

@@ -27,43 +27,40 @@ Future<void> main() async {
   await _initFirebaseSafely();
   debugPrint('[BOOT] Firebase init completed or skipped');
 
-  runApp(
-    const StarKidsBootstrapApp(
-      initialize: ServiceRegistry.bootstrap,
-    ),
-  );
+  runApp(const StarKidsBootstrapApp(initialize: ServiceRegistry.bootstrap));
 }
 
 Future<void> _initFirebaseSafely() async {
   try {
     final options = DefaultFirebaseOptions.currentPlatform;
-    if (options.appId == 'PLACEHOLDER_APP_ID' ||
-        options.projectId == 'PLACEHOLDER_PROJECT_ID') {
+    if (!DefaultFirebaseOptions.isConfigured) {
       debugPrint('[BOOT] Firebase init skipped: placeholder configuration');
       return;
     }
 
-    await Firebase.initializeApp(
-      options: options,
-    );
+    await Firebase.initializeApp(options: options);
 
     // Background message handler (app terminated / in background).
     FirebaseMessaging.onBackgroundMessage(_onBackgroundMessage);
 
-    // Foreground message listener (app is open and running).
-    // Extend this to show a local notification via flutter_local_notifications.
+    // Firebase does not present a system notification consistently while the
+    // app is open, so show a visible in-app notification and route its action
+    // through the same semantic coordinator as background taps.
     FirebaseMessaging.onMessage.listen((message) {
       debugPrint(
         '[FCM] Foreground message: ${message.notification?.title} '
         '— ${message.notification?.body}',
       );
+      NotificationNavigationCoordinator.instance.showForegroundMessage(
+        title: message.notification?.title,
+        body: message.notification?.body,
+        payload: message.data,
+      );
     });
 
     // Tap on notification while app is in the background (not terminated).
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      debugPrint(
-        '[FCM] Opened via notification tap: ${message.data}',
-      );
+      debugPrint('[FCM] Opened via notification tap: ${message.data}');
       NotificationNavigationCoordinator.instance.handlePayload(message.data);
     });
 
@@ -73,7 +70,9 @@ Future<void> _initFirebaseSafely() async {
       debugPrint(
         '[FCM] App launched from terminated notification: ${initialMessage.data}',
       );
-      NotificationNavigationCoordinator.instance.handlePayload(initialMessage.data);
+      NotificationNavigationCoordinator.instance.handlePayload(
+        initialMessage.data,
+      );
     }
   } catch (_) {
     debugPrint('[BOOT] Firebase init skipped');
