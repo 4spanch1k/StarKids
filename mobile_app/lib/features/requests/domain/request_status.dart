@@ -15,6 +15,18 @@ enum RequestStatus {
   final String apiValue;
   final String label;
 
+  /// Copy for compact parent-facing surfaces. The persisted enum and the
+  /// existing history labels remain unchanged.
+  String get userFacingLabel => switch (this) {
+        RequestStatus.newRequest => 'Заявка отправлена',
+        RequestStatus.inProgress => 'Заявка в работе',
+        RequestStatus.contacted => 'Менеджер связался',
+        RequestStatus.confirmed => 'Праздник подтверждён',
+        RequestStatus.cancelled => 'Отменено',
+        RequestStatus.lost => 'Не состоялось',
+        RequestStatus.closed => 'Закрыта',
+      };
+
   factory RequestStatus.fromApi(String value) {
     switch (value) {
       case 'new':

@@ -12,6 +12,11 @@ import 'package:star_kids_mobile/features/home/presentation/pages/home_page.dart
 import 'package:star_kids_mobile/features/news/domain/news_item.dart';
 import 'package:star_kids_mobile/features/news/domain/news_repository.dart';
 import 'package:star_kids_mobile/features/news/presentation/controllers/news_feed_controller.dart';
+import 'package:star_kids_mobile/features/request_history/domain/request_history_item.dart';
+import 'package:star_kids_mobile/features/request_history/domain/request_history_repository.dart';
+import 'package:star_kids_mobile/features/request_history/presentation/controllers/request_history_controller.dart';
+import 'package:star_kids_mobile/features/requests/domain/request_status.dart';
+import 'package:star_kids_mobile/features/requests/domain/request_type.dart';
 import 'package:star_kids_mobile/features/tickets/domain/issued_ticket.dart';
 import 'package:star_kids_mobile/features/tickets/domain/issued_ticket_repository.dart';
 
@@ -29,19 +34,18 @@ void main() {
     );
   });
 
-  testWidgets('real upcoming ticket is the first operational block',
-      (tester) async {
+  testWidgets('real upcoming ticket is the first operational block', (
+    tester,
+  ) async {
     final ticket = _ticket(id: 'ticket-1');
-    final children = _childrenController(
-      [
-        Child(
-          id: 'child-1',
-          name: 'Алиса',
-          birthDate: DateTime(2020, 1, 1),
-          gender: ChildGender.female,
-        ),
-      ],
-    );
+    final children = _childrenController([
+      Child(
+        id: 'child-1',
+        name: 'Алиса',
+        birthDate: DateTime(2020, 1, 1),
+        gender: ChildGender.female,
+      ),
+    ]);
 
     await _pumpHome(tester, tickets: [ticket], childrenController: children);
     await tester.pumpAndSettle();
@@ -57,8 +61,9 @@ void main() {
     children.dispose();
   });
 
-  testWidgets('used tickets are excluded and purchase CTA remains',
-      (tester) async {
+  testWidgets('used tickets are excluded and purchase CTA remains', (
+    tester,
+  ) async {
     final used = _ticket(id: 'ticket-used', status: 'used');
     final children = _childrenController(const []);
 
@@ -73,8 +78,9 @@ void main() {
     children.dispose();
   });
 
-  testWidgets('past issued ticket is skipped in favor of future ticket',
-      (tester) async {
+  testWidgets('past issued ticket is skipped in favor of future ticket', (
+    tester,
+  ) async {
     final children = _childrenController(const []);
     await _pumpHome(
       tester,
@@ -92,14 +98,13 @@ void main() {
     children.dispose();
   });
 
-  testWidgets('only past issued tickets show the purchase empty state',
-      (tester) async {
+  testWidgets('only past issued tickets show the purchase empty state', (
+    tester,
+  ) async {
     final children = _childrenController(const []);
     await _pumpHome(
       tester,
-      tickets: [
-        _ticket(id: 'ticket-past', visitDate: DateTime(2026, 8, 31)),
-      ],
+      tickets: [_ticket(id: 'ticket-past', visitDate: DateTime(2026, 8, 31))],
       childrenController: children,
     );
     await tester.pumpAndSettle();
@@ -113,9 +118,7 @@ void main() {
     final children = _childrenController(const []);
     await _pumpHome(
       tester,
-      tickets: [
-        _ticket(id: 'ticket-today', visitDate: DateTime(2026, 9, 1)),
-      ],
+      tickets: [_ticket(id: 'ticket-today', visitDate: DateTime(2026, 9, 1))],
       childrenController: children,
     );
     await tester.pumpAndSettle();
@@ -124,14 +127,13 @@ void main() {
     children.dispose();
   });
 
-  testWidgets('issued ticket without visit date is not upcoming',
-      (tester) async {
+  testWidgets('issued ticket without visit date is not upcoming', (
+    tester,
+  ) async {
     final children = _childrenController(const []);
     await _pumpHome(
       tester,
-      tickets: [
-        _ticket(id: 'ticket-open', noVisitDate: true),
-      ],
+      tickets: [_ticket(id: 'ticket-open', noVisitDate: true)],
       childrenController: children,
     );
     await tester.pumpAndSettle();
@@ -141,8 +143,9 @@ void main() {
     children.dispose();
   });
 
-  testWidgets('same-date tickets are represented without losing quantity',
-      (tester) async {
+  testWidgets('same-date tickets are represented without losing quantity', (
+    tester,
+  ) async {
     final tickets = [
       _ticket(id: 'ticket-1'),
       _ticket(id: 'ticket-2', number: 'BB-0000000002'),
@@ -159,8 +162,9 @@ void main() {
     children.dispose();
   });
 
-  testWidgets('children failure does not hide ticket and birthday blocks',
-      (tester) async {
+  testWidgets('children failure does not hide ticket and birthday blocks', (
+    tester,
+  ) async {
     final children = _childrenControllerFailure();
 
     await _pumpHome(
@@ -192,6 +196,180 @@ void main() {
 
     children.dispose();
   });
+
+  testWidgets('active birthday lead is shown with parent-facing status', (
+    tester,
+  ) async {
+    final children = _childrenController(const []);
+    await _pumpHome(
+      tester,
+      tickets: const [],
+      childrenController: children,
+      requests: [
+        _request(
+          status: RequestStatus.newRequest,
+          requestedDate: DateTime(2026, 9, 20),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('home-active-birthday-lead')),
+      findsOneWidget,
+    );
+    expect(find.text('Заявка на праздник'), findsOneWidget);
+    expect(find.text('Заявка отправлена'), findsOneWidget);
+    expect(find.text('Алина • 20 сентября'), findsOneWidget);
+
+    children.dispose();
+  });
+
+  testWidgets('terminal birthday leads are hidden', (tester) async {
+    final children = _childrenController(const []);
+    await _pumpHome(
+      tester,
+      tickets: const [],
+      childrenController: children,
+      requests: [_request(status: RequestStatus.cancelled)],
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('home-active-birthday-lead')),
+      findsNothing,
+    );
+    children.dispose();
+  });
+
+  testWidgets('contacted lead uses active status copy', (tester) async {
+    final children = _childrenController(const []);
+    await _pumpHome(
+      tester,
+      tickets: const [],
+      childrenController: children,
+      requests: [
+        _request(
+          status: RequestStatus.contacted,
+          requestedDate: DateTime(2026, 9, 20),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Менеджер связался'), findsOneWidget);
+    children.dispose();
+  });
+
+  testWidgets('confirmed lead remains visible with confirmation copy',
+      (tester) async {
+    final children = _childrenController(const []);
+    await tester.pumpWidget(
+      buildTestApp(
+        child: HomePage(
+          issuedTicketRepository: _FakeIssuedTicketRepository(const []),
+          childrenController: children,
+          newsController: NewsFeedController(
+            repository: const _EmptyNewsRepository(),
+          ),
+          nowProvider: _fixedToday,
+          requestHistoryController: _requestHistoryController([
+            _request(
+              status: RequestStatus.confirmed,
+              requestedDate: DateTime(2026, 9, 20),
+            ),
+          ]),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Праздник подтверждён'), findsOneWidget);
+    children.dispose();
+  });
+
+  testWidgets('request history failure does not block Home', (tester) async {
+    final children = _childrenController(const []);
+    await _pumpHome(
+      tester,
+      tickets: const [],
+      childrenController: children,
+      requestHistoryController: RequestHistoryController(
+        repository: _FakeRequestHistoryRepository.failure(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Планируете посещение?'), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('home-active-birthday-lead')), findsNothing);
+    children.dispose();
+  });
+
+  testWidgets('nearest active birthday lead wins deterministically', (
+    tester,
+  ) async {
+    final children = _childrenController(const []);
+    await _pumpHome(
+      tester,
+      tickets: const [],
+      childrenController: children,
+      requests: [
+        _request(
+          id: 'later',
+          childName: 'Позже',
+          requestedDate: DateTime(2026, 10, 1),
+        ),
+        _request(
+          id: 'nearest',
+          childName: 'Алина',
+          requestedDate: DateTime(2026, 9, 20),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Алина • 20 сентября'), findsOneWidget);
+    expect(find.text('Позже • 1 октября'), findsNothing);
+    children.dispose();
+  });
+
+  testWidgets('legacy nullable birthday lead does not crash Home', (
+    tester,
+  ) async {
+    final children = _childrenController(const []);
+    await _pumpHome(
+      tester,
+      tickets: const [],
+      childrenController: children,
+      requests: [_request(requestedDate: null, childName: null, package: null)],
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('home-active-birthday-lead')),
+      findsOneWidget,
+    );
+    expect(find.text('Заявка на праздник'), findsOneWidget);
+    expect(find.text('null'), findsNothing);
+    children.dispose();
+  });
+
+  testWidgets('lead CTA opens the existing request history route', (
+    tester,
+  ) async {
+    final children = _childrenController(const []);
+    await _pumpHome(
+      tester,
+      tickets: const [],
+      childrenController: children,
+      requests: [_request()],
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Открыть заявку'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Мои заявки'), findsOneWidget);
+    children.dispose();
+  });
 }
 
 Future<void> _pumpHome(
@@ -199,6 +377,8 @@ Future<void> _pumpHome(
   required List<IssuedTicket> tickets,
   required ChildrenController childrenController,
   DateTime Function()? nowProvider,
+  List<RequestHistoryItem> requests = const [],
+  RequestHistoryController? requestHistoryController,
 }) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
@@ -213,10 +393,41 @@ Future<void> _pumpHome(
           repository: const _EmptyNewsRepository(),
         ),
         nowProvider: nowProvider ?? _fixedToday,
+        requestHistoryController:
+            requestHistoryController ?? _requestHistoryController(requests),
       ),
     ),
   );
   await tester.pump();
+}
+
+RequestHistoryController _requestHistoryController(
+  List<RequestHistoryItem> items,
+) {
+  return RequestHistoryController(
+    repository: _FakeRequestHistoryRepository(items),
+  );
+}
+
+RequestHistoryItem _request({
+  String id = 'request-1',
+  RequestStatus status = RequestStatus.newRequest,
+  String? childName = 'Алина',
+  DateTime? requestedDate,
+  RequestHistoryPackageSummary? package = const RequestHistoryPackageSummary(
+    id: 'package-1',
+    name: 'Праздник Spark',
+  ),
+}) {
+  return RequestHistoryItem(
+    id: id,
+    type: RequestType.birthdayRequest,
+    status: status,
+    createdAt: DateTime(2026, 9, 1, 10),
+    requestedDate: requestedDate,
+    childName: childName,
+    package: package,
+  );
 }
 
 IssuedTicket _ticket({
@@ -244,7 +455,8 @@ DateTime _fixedToday() => DateTime(2026, 9, 1, 12);
 
 ChildrenController _childrenController(List<Child> children) {
   return ChildrenController(
-      repository: _FakeChildrenRepository(Success(children)));
+    repository: _FakeChildrenRepository(Success(children)),
+  );
 }
 
 ChildrenController _childrenControllerFailure() {
@@ -300,6 +512,25 @@ class _FakeChildrenRepository implements ChildrenRepository {
   @override
   Future<Result<void>> deleteChild(String childId) async =>
       const Failure<void>('Not used in Home tests.');
+}
+
+class _FakeRequestHistoryRepository implements RequestHistoryRepository {
+  _FakeRequestHistoryRepository(this.items) : _failure = false;
+
+  _FakeRequestHistoryRepository.failure()
+      : items = const [],
+        _failure = true;
+
+  final List<RequestHistoryItem> items;
+  final bool _failure;
+
+  @override
+  Future<RequestHistoryFetchResult> fetchMyRequests() async {
+    if (_failure) {
+      return const RequestHistoryFetchFailure('Не удалось загрузить заявки.');
+    }
+    return RequestHistoryFetchSuccess(items: items, total: items.length);
+  }
 }
 
 class _EmptyNewsRepository implements NewsRepository {

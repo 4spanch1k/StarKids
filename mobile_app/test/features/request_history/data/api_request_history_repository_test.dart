@@ -84,6 +84,7 @@ void main() {
                     'requestedDate': '2026-04-11',
                     'guestCount': 12,
                     'notes': 'Нужен аниматор',
+                    'childName': 'Алина',
                     'branch': {
                       'id': 'branch-main',
                       'name': 'Star Kids Main',
@@ -115,6 +116,7 @@ void main() {
       expect(success.total, 1);
       expect(success.items.single.type, RequestType.birthdayRequest);
       expect(success.items.single.status, RequestStatus.newRequest);
+      expect(success.items.single.childName, 'Алина');
       expect(requestCount, 2);
     });
   });

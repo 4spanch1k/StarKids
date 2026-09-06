@@ -3,10 +3,7 @@ import '../../requests/domain/request_status.dart';
 import '../../requests/domain/request_type.dart';
 
 class RequestHistoryListDto {
-  const RequestHistoryListDto({
-    required this.items,
-    required this.total,
-  });
+  const RequestHistoryListDto({required this.items, required this.total});
 
   final List<RequestHistoryItemDto> items;
   final int total;
@@ -33,6 +30,7 @@ class RequestHistoryItemDto {
     required this.notes,
     required this.branch,
     required this.package,
+    required this.childName,
   });
 
   final String id;
@@ -44,6 +42,7 @@ class RequestHistoryItemDto {
   final String? notes;
   final RequestHistoryBranchSummaryDto? branch;
   final RequestHistoryPackageSummaryDto? package;
+  final String? childName;
 
   factory RequestHistoryItemDto.fromJson(Map<String, dynamic> json) {
     return RequestHistoryItemDto(
@@ -57,6 +56,7 @@ class RequestHistoryItemDto {
       notes: json['notes'] as String?,
       branch: _parseBranch(json['branch']),
       package: _parsePackage(json['package']),
+      childName: _parseChildName(json['childName']),
     );
   }
 
@@ -71,6 +71,7 @@ class RequestHistoryItemDto {
       notes: notes,
       branch: branch?.toDomain(),
       package: package?.toDomain(),
+      childName: childName,
     );
   }
 
@@ -96,6 +97,11 @@ class RequestHistoryItemDto {
     }
 
     return RequestHistoryPackageSummaryDto.fromJson(value);
+  }
+
+  static String? _parseChildName(Object? value) {
+    final name = (value as String?)?.trim();
+    return name == null || name.isEmpty ? null : name;
   }
 }
 
@@ -128,10 +134,7 @@ class RequestHistoryBranchSummaryDto {
 }
 
 class RequestHistoryPackageSummaryDto {
-  const RequestHistoryPackageSummaryDto({
-    required this.id,
-    required this.name,
-  });
+  const RequestHistoryPackageSummaryDto({required this.id, required this.name});
 
   final String id;
   final String name;
@@ -144,9 +147,6 @@ class RequestHistoryPackageSummaryDto {
   }
 
   RequestHistoryPackageSummary toDomain() {
-    return RequestHistoryPackageSummary(
-      id: id,
-      name: name,
-    );
+    return RequestHistoryPackageSummary(id: id, name: name);
   }
 }
