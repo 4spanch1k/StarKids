@@ -206,6 +206,73 @@ class BirthdayReminderServiceTests(unittest.TestCase):
             self.assertEqual(reminder.skip_reason, 'active_lead')
             self.assertEqual(len(delivery.tokens), 0)
 
+    def test_cancelled_lead_allows_but_confirmed_lead_suppresses(self) -> None:
+        delivery = FakeDelivery()
+        with self.SessionLocal() as session:
+            user, child = self._user(session, birth_date=date(2020, 9, 20))
+            session.add(BirthdayRequest(
+                id=uuid4().hex,
+                mobile_user_id=user.id,
+                branch_id='branch-1',
+                customer_name='Parent',
+                phone='+77000000000',
+                child_id=child.id,
+                status='cancelled',
+            ))
+            session.commit()
+            service = self._service(session, delivery)
+            with patch('app.modules.birthday_reminders.service.get_settings', return_value=self._settings(windows='14')), \
+                 patch.object(PushCampaignService, 'provider_configured', new_callable=PropertyMock, return_value=True):
+                service.process(now=datetime(2026, 9, 6, 12, tzinfo=UTC))
+            self.assertEqual(session.query(BirthdayReminder).one().status, 'sent')
+            self.assertEqual(len(delivery.tokens), 1)
+
+        with self.SessionLocal() as session:
+            user, child = self._user(session, birth_date=date(2020, 9, 20))
+            session.add(BirthdayRequest(
+                id=uuid4().hex,
+                mobile_user_id=user.id,
+                branch_id='branch-1',
+                customer_name='Parent',
+                phone='+77000000000',
+                child_id=child.id,
+                status='confirmed',
+            ))
+            session.commit()
+            service = self._service(session, delivery)
+            with patch('app.modules.birthday_reminders.service.get_settings', return_value=self._settings(windows='14')), \
+                 patch.object(PushCampaignService, 'provider_configured', new_callable=PropertyMock, return_value=True):
+                service.process(now=datetime(2026, 9, 6, 12, tzinfo=UTC))
+            self.assertEqual(
+                session.query(BirthdayReminder).filter_by(child_id=child.id).one().skip_reason,
+                'active_lead',
+            )
+
+    def test_lead_created_after_fourteen_day_reminder_suppresses_seven_day_window(self) -> None:
+        delivery = FakeDelivery()
+        with self.SessionLocal() as session:
+            user, child = self._user(session, birth_date=date(2020, 9, 20))
+            service = self._service(session, delivery)
+            with patch('app.modules.birthday_reminders.service.get_settings', return_value=self._settings(windows='14')), \
+                 patch.object(PushCampaignService, 'provider_configured', new_callable=PropertyMock, return_value=True):
+                service.process(now=datetime(2026, 9, 6, 12, tzinfo=UTC))
+            session.add(BirthdayRequest(
+                id=uuid4().hex,
+                mobile_user_id=user.id,
+                branch_id='branch-1',
+                customer_name='Parent',
+                phone='+77000000000',
+                child_id=child.id,
+                status='new',
+            ))
+            session.commit()
+            with patch('app.modules.birthday_reminders.service.get_settings', return_value=self._settings(windows='7')), \
+                 patch.object(PushCampaignService, 'provider_configured', new_callable=PropertyMock, return_value=True):
+                service.process(now=datetime(2026, 9, 13, 12, tzinfo=UTC))
+            seven_day = session.query(BirthdayReminder).filter_by(days_before=7).one()
+            self.assertEqual(seven_day.skip_reason, 'active_lead')
+            self.assertEqual(len(delivery.tokens), 1)
+
     def test_feature_off_is_noop_and_no_campaign(self) -> None:
         delivery = FakeDelivery()
         with self.SessionLocal() as session:
