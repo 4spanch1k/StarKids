@@ -100,9 +100,9 @@ class FcmPushDeliveryService(PushDeliveryPort):
             ),
         )
         try:
-            messaging.send(message, app=self._app)
+            provider_message_id = messaging.send(message, app=self._app)
             logger.info('FCM push sent to token=%s...', device_token[:8])
-            return PushDeliveryResult.ok(device_token)
+            return PushDeliveryResult.ok(device_token, provider_message_id=provider_message_id)
         except messaging.UnregisteredError:
             logger.warning('FCM token unregistered: %s...', device_token[:8])
             return PushDeliveryResult.failed(

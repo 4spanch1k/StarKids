@@ -26,10 +26,12 @@ void main() {
     expect(promotion?.routeName, AppRoutes.promotionDetail);
   });
 
-  test('ignores unsupported event destination until Event domain exists', () {
-    expect(
-        NotificationDestination.fromPayload(
-            {'destination_type': 'event_detail'}),
-        isNull);
+  test('falls back to home for an unknown campaign destination', () {
+    final destination = NotificationDestination.fromPayload({
+      'type': 'campaign',
+      'destination': 'future_event',
+    });
+    expect(destination?.type, NotificationDestinationType.home);
+    expect(destination?.routeName, AppRoutes.home);
   });
 }

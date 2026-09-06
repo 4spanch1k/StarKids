@@ -68,7 +68,7 @@ class StarKidsApp extends StatelessWidget {
               if (navigator != null) {
                 NotificationNavigationCoordinator.instance.attach(
                   navigator: navigator,
-                  authenticated: isAuthenticated,
+                  authenticated: isAuthenticated && onboarding.isComplete,
                 );
               }
             });
