@@ -20,10 +20,9 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   debugPrint('[BOOT] main started');
 
-  // Attempt Firebase initialization.  This will fail until the project is
-  // configured with real credentials (run: flutterfire configure).
-  // The app starts normally even when Firebase is unavailable — push
-  // notifications are silently disabled in that case.
+  // Firebase is configured for the approved Android/iOS production app ids.
+  // Runtime initialization remains best-effort so core app flows still start
+  // if a device or deployment has no usable Firebase runtime configuration.
   await _initFirebaseSafely();
   debugPrint('[BOOT] Firebase init completed or skipped');
 
@@ -34,7 +33,7 @@ Future<void> _initFirebaseSafely() async {
   try {
     final options = DefaultFirebaseOptions.currentPlatform;
     if (!DefaultFirebaseOptions.isConfigured) {
-      debugPrint('[BOOT] Firebase init skipped: placeholder configuration');
+      debugPrint('[BOOT] Firebase init skipped: no configuration for this target');
       return;
     }
 
@@ -76,6 +75,6 @@ Future<void> _initFirebaseSafely() async {
     }
   } catch (_) {
     debugPrint('[BOOT] Firebase init skipped');
-    // Firebase not configured — see lib/firebase_options.dart for instructions.
+    // Firebase unavailable for this target; core app flows remain usable.
   }
 }
