@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
-import '../../../../app/router/app_routes.dart';
 import '../../../../app/router/nested_navigation.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
@@ -15,6 +14,7 @@ import '../../../news/domain/news_repository.dart';
 import '../../../news/presentation/models/news_details_page_args.dart';
 import '../../../news/presentation/widgets/news_image_resolver.dart';
 import '../../domain/app_notification.dart';
+import '../../domain/notification_destination.dart';
 import '../controllers/notification_history_controller.dart';
 
 class NotificationsPage extends StatefulWidget {
@@ -137,7 +137,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     final item = items[itemIndex];
                     return _NewsListCard(
                       item: item,
-                      onTap: item.opensNewsDetails
+                      onTap: item.destination != null
                           ? () => _openNotification(item)
                           : null,
                     );
@@ -177,29 +177,33 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   void _openNotification(AppNotification item) {
-    final newsId = item.newsId?.trim() ?? '';
-    if (newsId.isEmpty) {
+    final destination = item.destination;
+    if (destination == null) {
       return;
     }
-
-    unawaited(
-      ServiceRegistry.newsRepository.trackNewsEvent(
-        newsId: newsId,
+    final newsId = item.newsId?.trim() ?? '';
+    final destinationId = destination.entityId?.trim() ?? newsId;
+    if (destination.type == NotificationDestinationType.newsDetail &&
+        destinationId.isNotEmpty) {
+      unawaited(ServiceRegistry.newsRepository.trackNewsEvent(
+        newsId: destinationId,
         eventType: NewsEventType.click,
-      ),
-    );
+      ));
+    }
     Navigator.of(context).pushNamed(
-      AppRoutes.newsDetails,
-      arguments: NewsDetailsPageArgs(
-        newsId: newsId,
-        initialItem: NewsItem(
-          id: newsId,
-          title: item.title,
-          imageUrl: item.imageUrl ?? '',
-          description: item.description,
-          createdAt: item.createdAt,
-        ),
-      ),
+      destination.routeName,
+      arguments: destination.type == NotificationDestinationType.newsDetail
+          ? NewsDetailsPageArgs(
+              newsId: destinationId,
+              initialItem: NewsItem(
+                id: destinationId,
+                title: item.title,
+                imageUrl: item.imageUrl ?? '',
+                description: item.description,
+                createdAt: item.createdAt,
+              ),
+            )
+          : destination.arguments,
     );
   }
 }

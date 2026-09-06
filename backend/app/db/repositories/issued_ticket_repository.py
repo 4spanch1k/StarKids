@@ -3,10 +3,33 @@ from sqlalchemy import select
 from ..models.branch import Branch
 from ..models.issued_ticket import IssuedTicket
 from ..models.mobile_payment import MobilePayment
+from ..models.mobile_user import MobileUser
+from ..models.ticket_redemption import TicketRedemption
 from .base import Repository
 
 
 class IssuedTicketRepository(Repository):
+    def lookup_orders(self, query: str) -> list[tuple[MobilePayment, MobileUser, Branch | None, list[tuple[IssuedTicket, TicketRedemption | None]]]]:
+        normalized = query.strip()
+        statement = (
+            select(MobilePayment, MobileUser, Branch, IssuedTicket, TicketRedemption)
+            .join(MobileUser, MobileUser.id == MobilePayment.mobile_user_id)
+            .outerjoin(Branch, Branch.id == MobilePayment.branch_id)
+            .outerjoin(IssuedTicket, IssuedTicket.mobile_payment_id == MobilePayment.id)
+            .outerjoin(TicketRedemption, TicketRedemption.issued_ticket_id == IssuedTicket.id)
+            .where(
+                MobilePayment.status == 'paid',
+                (MobilePayment.local_order_id == normalized) | (MobileUser.phone == normalized),
+            )
+            .order_by(MobilePayment.created_at.desc(), IssuedTicket.line_index.asc())
+        )
+        grouped: dict[str, tuple[MobilePayment, MobileUser, Branch | None, list[tuple[IssuedTicket, TicketRedemption | None]]]] = {}
+        for payment, user, branch, ticket, redemption in self.db.execute(statement).all():
+            current = grouped.setdefault(payment.id, (payment, user, branch, []))
+            if ticket is not None:
+                current[3].append((ticket, redemption))
+        return list(grouped.values())
+
     def list_for_payment(self, payment_id: str) -> list[IssuedTicket]:
         statement = (
             select(IssuedTicket)

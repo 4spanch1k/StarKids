@@ -13,6 +13,7 @@ class TicketRedemption(Base):
         UniqueConstraint('issued_ticket_id', name='uq_ticket_redemptions_issued_ticket'),
         Index('ix_ticket_redemptions_branch_id', 'branch_id'),
         Index('ix_ticket_redemptions_admin_user_id', 'redeemed_by_admin_user_id'),
+        Index('ix_ticket_redemptions_visit_id', 'visit_id'),
     )
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid4().hex)
@@ -20,6 +21,11 @@ class TicketRedemption(Base):
         String(32),
         ForeignKey('issued_tickets.id', ondelete='CASCADE'),
         nullable=False,
+    )
+    visit_id: Mapped[str | None] = mapped_column(
+        String(32),
+        ForeignKey('visits.id', ondelete='RESTRICT'),
+        nullable=True,
     )
     branch_id: Mapped[str] = mapped_column(
         String(32),
@@ -41,3 +47,5 @@ class TicketRedemption(Base):
         nullable=False,
         server_default=func.now(),
     )
+    source: Mapped[str] = mapped_column(String(16), nullable=False, default='scan')
+    reason: Mapped[str | None] = mapped_column(String(64), nullable=True)

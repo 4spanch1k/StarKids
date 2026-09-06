@@ -17,6 +17,17 @@ void main() {
     expect(result.state, HomePrimaryState.activeTicket);
   });
 
+  test('active visit is the highest priority state', () {
+    final result = resolveHomePrimaryState(
+      tickets: const [],
+      children: const [],
+      now: today,
+      hasCheckedInVisit: true,
+    );
+
+    expect(result.state, HomePrimaryState.checkedIn);
+  });
+
   test('birthday is selected when there is no upcoming ticket', () {
     final result = resolveHomePrimaryState(
       tickets: const [],

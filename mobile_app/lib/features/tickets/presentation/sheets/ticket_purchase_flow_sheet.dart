@@ -1,5 +1,6 @@
 // ignore_for_file: unused_element
 
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -62,8 +63,13 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
   BranchTicketConfig? _ticketConfig;
   String? _configErrorMessage;
   String? _paymentMessage;
+  String? _quoteErrorMessage;
   String? _checkoutIdempotencyKey;
   TicketPaymentStart? _activePayment;
+  TicketCheckoutQuote? _quote;
+  var _isQuoteLoading = false;
+  var _useBonuses = false;
+  var _quoteRequestVersion = 0;
   Map<String, int> _ticketCounts = <String, int>{};
 
   List<TicketConfigItem> get _ticketItems => _ticketConfig?.items ?? const [];
@@ -180,6 +186,7 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
       _currentStep = _TicketPurchaseStep.chooseTickets;
       _resetPaymentState();
     });
+    unawaited(_refreshQuote());
   }
 
   void _goBackToSelection() {
@@ -203,10 +210,64 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
       _ticketCounts[ticketTypeId] = nextCount;
       _resetPaymentState();
     });
+    if (_currentStep == _TicketPurchaseStep.chooseTickets) {
+      unawaited(_refreshQuote());
+    }
+  }
+
+  Future<void> _refreshQuote() async {
+    final requestVersion = ++_quoteRequestVersion;
+    if (_selectedDate == null || _selectedPaymentItems.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _quote = null;
+          _quoteErrorMessage = null;
+          _isQuoteLoading = false;
+        });
+      }
+      return;
+    }
+    final requested = _useBonuses ? (_quote?.maxRedeemableBonus ?? 0) : 0;
+    setState(() {
+      _isQuoteLoading = true;
+      _quoteErrorMessage = null;
+    });
+    final result =
+        await ServiceRegistry.ticketPurchaseRepository.getCheckoutQuote(
+      items: _selectedPaymentItems,
+      visitDate: _selectedDate!,
+      requestedBonusAmount: requested,
+    );
+    if (!mounted) return;
+    if (requestVersion != _quoteRequestVersion) return;
+    if (result is Failure<TicketCheckoutQuote>) {
+      setState(() {
+        _isQuoteLoading = false;
+        _quoteErrorMessage = result.message;
+        _quote = null;
+      });
+      return;
+    }
+    setState(() {
+      _isQuoteLoading = false;
+      _quoteErrorMessage = null;
+      _quote = (result as Success<TicketCheckoutQuote>).data;
+    });
+  }
+
+  Future<void> _toggleBonuses(bool enabled) async {
+    setState(() {
+      _useBonuses = enabled;
+    });
+    await _refreshQuote();
   }
 
   Future<void> _startPayment() async {
-    if (_totalAmount <= 0) {
+    final quote = _quote;
+    if (_totalAmount <= 0 ||
+        quote == null ||
+        _isQuoteLoading ||
+        _quoteErrorMessage != null) {
       return;
     }
     if (_isPaymentBusy) {
@@ -226,12 +287,13 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
       _activePayment = null;
     });
 
-    final result = await ServiceRegistry.ticketPurchaseRepository
-        .startFreedomPayment(
-          items: _selectedPaymentItems,
-          visitDate: visitDate,
-          idempotencyKey: _checkoutIdempotencyKey ??= _newIdempotencyKey(),
-        );
+    final result =
+        await ServiceRegistry.ticketPurchaseRepository.startFreedomPayment(
+      items: _selectedPaymentItems,
+      visitDate: visitDate,
+      idempotencyKey: _checkoutIdempotencyKey ??= _newIdempotencyKey(),
+      requestedBonusAmount: quote.requestedBonusAmount,
+    );
 
     if (!mounted) {
       return;
@@ -246,6 +308,16 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
     }
 
     final payment = (result as Success<TicketPaymentStart>).data;
+    if (payment.status == TicketPaymentStatusValue.paid) {
+      setState(() {
+        _paymentPhase = _TicketPaymentPhase.paid;
+        _paymentMessage =
+            'Оплата подтверждена сервером. Билет добавлен в «Мои билеты».';
+        _activePayment = payment;
+      });
+      Navigator.of(context).pop(true);
+      return;
+    }
     final didOpenPayment = await ServiceRegistry.paymentUrlLauncher(
       payment.paymentUrl,
     );
@@ -309,8 +381,7 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
         case TicketPaymentStatusValue.canceled:
         case TicketPaymentStatusValue.expired:
           _paymentPhase = _TicketPaymentPhase.failed;
-          _paymentMessage =
-              paymentStatus.failureReason ??
+          _paymentMessage = paymentStatus.failureReason ??
               'Оплата не прошла. Можно попробовать еще раз.';
           break;
         case TicketPaymentStatusValue.created:
@@ -367,6 +438,10 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
   void _resetPaymentState() {
     _paymentPhase = _TicketPaymentPhase.idle;
     _paymentMessage = null;
+    _quoteErrorMessage = null;
+    _quote = null;
+    _isQuoteLoading = false;
+    _useBonuses = false;
     _activePayment = null;
     _checkoutIdempotencyKey = null;
   }
@@ -507,7 +582,8 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                             Text('Итого', style: textTheme.titleMedium),
                             const Spacer(),
                             Text(
-                              _formatTenge(_totalAmount),
+                              _formatTenge(
+                                  _quote?.payableTenge ?? _totalAmount),
                               style: TextStyle(
                                 fontFamily: SKTypography.display,
                                 fontSize: 24,
@@ -527,23 +603,87 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                             color: c.textSecondary,
                           ),
                         ),
+                        if (_quote case final quote?) ...[
+                          if (quote.bonusSpendingEnabled) ...[
+                            const SizedBox(height: SKSpacing.x2),
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: c.raised,
+                                borderRadius:
+                                    BorderRadius.circular(SKRadius.md),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: SKSpacing.x3,
+                                  vertical: SKSpacing.x2,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text('Использовать бонусы',
+                                              style: textTheme.titleSmall),
+                                          Text(
+                                            'Доступно ${_formatTenge(quote.availableBonusBalance)} · можно списать ${_formatTenge(quote.maxRedeemableBonus)}',
+                                            style: textTheme.bodySmall
+                                                ?.copyWith(
+                                                    color: c.textSecondary),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Switch(
+                                        value: _useBonuses,
+                                        onChanged: _isQuoteLoading
+                                            ? null
+                                            : _toggleBonuses),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                          if (quote.requestedBonusAmount > 0) ...[
+                            const SizedBox(height: SKSpacing.x1),
+                            Text(
+                              'Бонусами −${_formatTenge(quote.requestedBonusAmount)} · к оплате ${_formatTenge(quote.payableTenge)}',
+                              style: textTheme.bodySmall
+                                  ?.copyWith(color: c.textSecondary),
+                            ),
+                          ],
+                        ],
+                        if (_isQuoteLoading) ...[
+                          const SizedBox(height: SKSpacing.x2),
+                          const LinearProgressIndicator(minHeight: 2),
+                        ],
+                        if (_quoteErrorMessage != null) ...[
+                          const SizedBox(height: SKSpacing.x2),
+                          Text(_quoteErrorMessage!,
+                              style: textTheme.bodySmall
+                                  ?.copyWith(color: c.danger)),
+                        ],
                         const SizedBox(height: SKSpacing.x3),
                       ],
                       PrimaryButton(
                         label: _primaryActionLabel,
-                        onPressed:
-                            _currentStep == _TicketPurchaseStep.selectEntry
+                        onPressed: _currentStep ==
+                                _TicketPurchaseStep.selectEntry
                             ? (_selectedDate == null ||
-                                      _isConfigLoading ||
-                                      _configErrorMessage != null ||
-                                      !_hasAvailableTickets
-                                  ? null
-                                  : _goToNextStep)
+                                    _isConfigLoading ||
+                                    _configErrorMessage != null ||
+                                    !_hasAvailableTickets
+                                ? null
+                                : _goToNextStep)
                             : (_totalAmount == 0 ||
-                                      _isPaymentBusy ||
-                                      _paymentPhase == _TicketPaymentPhase.paid
-                                  ? null
-                                  : _startPayment),
+                                    _quote == null ||
+                                    _isQuoteLoading ||
+                                    _quoteErrorMessage != null ||
+                                    _isPaymentBusy ||
+                                    _paymentPhase == _TicketPaymentPhase.paid
+                                ? null
+                                : _startPayment),
                       ),
                       if (_currentStep == _TicketPurchaseStep.chooseTickets &&
                           _activePayment != null &&
@@ -553,9 +693,8 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                           label: _paymentPhase == _TicketPaymentPhase.checking
                               ? 'Проверяем статус'
                               : 'Проверить оплату',
-                          onPressed: _isPaymentBusy
-                              ? null
-                              : _checkPaymentStatus,
+                          onPressed:
+                              _isPaymentBusy ? null : _checkPaymentStatus,
                         ),
                       ],
                       if (_currentStep == _TicketPurchaseStep.chooseTickets &&
@@ -585,10 +724,13 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
     if (_currentStep == _TicketPurchaseStep.selectEntry) {
       return 'Продолжить';
     }
+    if (_quote == null || _isQuoteLoading) {
+      return 'Пересчитываем сумму';
+    }
     return switch (_paymentPhase) {
       _TicketPaymentPhase.starting => 'Готовим оплату',
       _TicketPaymentPhase.paid => 'Оплата подтверждена',
-      _ => 'Оплатить через Freedom Pay',
+      _ => 'Оплатить ${_formatTenge(_quote!.payableTenge)}',
     };
   }
 
@@ -655,9 +797,8 @@ class _StepSelectionView extends StatelessWidget {
           StarKidsSelectField(
             key: const ValueKey('ticket-day-select'),
             label: 'День',
-            value: selectedDate == null
-                ? null
-                : _formatTicketDate(selectedDate!),
+            value:
+                selectedDate == null ? null : _formatTicketDate(selectedDate!),
             helperText: 'Выберите дату посещения заранее.',
             leadingIcon: Icons.calendar_today_rounded,
             placeholderText: 'Выберите день посещения',
@@ -786,11 +927,9 @@ class _StepTicketsView extends StatelessWidget {
                 children: [
                   Text('Важно знать', style: textTheme.titleMedium),
                   const SizedBox(height: SKSpacing.x3),
-                  for (
-                    var index = 0;
-                    index < ticketConfig!.notes.length;
-                    index++
-                  ) ...[
+                  for (var index = 0;
+                      index < ticketConfig!.notes.length;
+                      index++) ...[
                     _BenefitLine(label: ticketConfig!.notes[index]),
                     if (index < ticketConfig!.notes.length - 1)
                       const SizedBox(height: SKSpacing.x2),
@@ -1141,8 +1280,8 @@ class _MyTicketsBodyState extends State<_MyTicketsBody> {
       _errorMessage = null;
     });
 
-    final result = await ServiceRegistry.ticketPurchaseRepository
-        .listPurchasedTickets();
+    final result =
+        await ServiceRegistry.ticketPurchaseRepository.listPurchasedTickets();
     if (!mounted) {
       return;
     }

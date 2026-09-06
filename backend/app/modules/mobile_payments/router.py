@@ -9,16 +9,32 @@ from .dependencies import get_mobile_payment_service
 from .schemas import (
     FreedomPaymentInitRequest,
     FreedomPaymentInitResponse,
+    FreedomPaymentQuoteRequest,
+    FreedomPaymentQuoteResponse,
     IssuedTicketResponse,
     IssuedTicketsResponse,
     IssuedTicketQrResponse,
     MobilePaymentStatusResponse,
     PurchasedTicketsResponse,
+    CurrentVisitResponse,
 )
 from .service import MobilePaymentService
 
 mobile_router = APIRouter()
 public_router = APIRouter()
+
+
+@mobile_router.post(
+    '/payments/freedom/quote',
+    response_model=FreedomPaymentQuoteResponse,
+    responses={401: {'model': ErrorResponse}, 404: {'model': ErrorResponse}, 422: {'model': ErrorResponse}},
+)
+def quote_freedom_payment(
+    payload: FreedomPaymentQuoteRequest,
+    auth_context: AuthenticatedMobileContext = Depends(get_current_mobile_auth_context),
+    service: MobilePaymentService = Depends(get_mobile_payment_service),
+) -> FreedomPaymentQuoteResponse:
+    return service.quote_ticket_payment(user=auth_context.user, payload=payload)
 
 
 @mobile_router.post(
@@ -84,6 +100,18 @@ def list_issued_tickets(
     service: MobilePaymentService = Depends(get_mobile_payment_service),
 ) -> IssuedTicketsResponse:
     return service.list_issued_tickets(auth_context.user.id)
+
+
+@mobile_router.get(
+    '/visits/current',
+    response_model=CurrentVisitResponse | None,
+    responses={401: {'model': ErrorResponse}},
+)
+def get_current_visit(
+    auth_context: AuthenticatedMobileContext = Depends(get_current_mobile_auth_context),
+    service: MobilePaymentService = Depends(get_mobile_payment_service),
+) -> CurrentVisitResponse | None:
+    return service.get_current_visit(auth_context.user.id)
 
 
 @mobile_router.get(

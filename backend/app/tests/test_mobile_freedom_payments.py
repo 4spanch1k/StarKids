@@ -21,6 +21,10 @@ from app.db.models.mobile_payment import MobilePayment
 from app.db.models.mobile_payment_callback import MobilePaymentCallback
 from app.db.models.mobile_session import MobileSession
 from app.db.models.mobile_user import MobileUser
+from app.db.models.loyalty_account import LoyaltyAccount
+from app.db.models.loyalty_rule import LoyaltyRule
+from app.db.models.loyalty_settings import LoyaltySettings
+from app.db.models.loyalty_transaction import LoyaltyTransaction
 from app.db.repositories.issued_ticket_repository import IssuedTicketRepository
 from app.db.repositories.mobile_payment_repository import MobilePaymentRepository
 from app.main import app
@@ -31,6 +35,7 @@ from app.modules.mobile_payments.freedompay_client import (
 )
 from app.modules.mobile_payments.issued_ticket_service import IssuedTicketService
 from app.modules.mobile_payments.signing import build_freedompay_signature
+from app.modules.loyalty.service import LoyaltyService
 
 
 class FakeFreedomPayClient:
@@ -191,6 +196,10 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
             session.query(IssuedTicket).delete()
             session.query(MobilePaymentCallback).delete()
             session.query(MobilePayment).delete()
+            session.query(LoyaltyTransaction).delete()
+            session.query(LoyaltyAccount).delete()
+            session.query(LoyaltyRule).delete()
+            session.query(LoyaltySettings).delete()
             session.query(BranchTicketItem).delete()
             session.query(MobileSession).delete()
             session.query(MobileUser).delete()
@@ -238,6 +247,154 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
                     is_active=True,
                 )
             )
+            session.add(
+                BranchTicketItem(
+                    id='ticket-premium',
+                    branch_id='branch-main',
+                    title='Премиум билет',
+                    description='Полный день посещения',
+                    price_tenge=12000,
+                    badge_labels=[],
+                    display_order=3,
+                    is_active=True,
+                )
+            )
+            session.add(
+                BranchTicketItem(
+                    id='ticket-rounding',
+                    branch_id='branch-main',
+                    title='Билет для проверки округления',
+                    description='Тестовый тариф',
+                    price_tenge=9999,
+                    badge_labels=[],
+                    display_order=4,
+                    is_active=True,
+                )
+            )
+            session.commit()
+
+    def test_bonus_spending_reserves_captures_and_cashback_uses_cash_amount(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        self._configure_loyalty(balance=5000, max_percent='30', cashback_percent='5')
+
+        payment = self._init_payment(
+            headers,
+            'checkout-bonus-spend',
+            items=[{'ticketItemId': 'ticket-premium', 'quantity': 1}],
+            requested_bonus_amount=3600,
+        )
+        self.assertEqual(payment['grossAmountTenge'], 12000)
+        self.assertEqual(payment['bonusAmount'], 3600)
+        self.assertEqual(payment['cashAmountTenge'], 8400)
+        self.assertEqual(payment['status'], 'pending')
+        with self.SessionLocal() as session:
+            account = session.scalar(select(LoyaltyAccount))
+            self.assertEqual(account.balance, 5000)
+            self.assertEqual(account.reserved_balance, 3600)
+
+        self._post_success_callback(payment, amount='8400')
+        with self.SessionLocal() as session:
+            account = session.scalar(select(LoyaltyAccount))
+            self.assertEqual(account.balance, 1820)  # 5000 - 3600 + 420 cashback
+            self.assertEqual(account.reserved_balance, 0)
+            captures = session.scalars(
+                select(LoyaltyTransaction).where(LoyaltyTransaction.type == 'capture')
+            ).all()
+            cashback = session.scalars(
+                select(LoyaltyTransaction).where(LoyaltyTransaction.type == 'earn')
+            ).all()
+            self.assertEqual(len(captures), 1)
+            self.assertEqual(len(cashback), 1)
+            self.assertEqual(cashback[0].amount, 420)
+
+        # A provider retry cannot capture or award cashback a second time.
+        self._post_success_callback(payment, amount='8400')
+        with self.SessionLocal() as session:
+            self.assertEqual(session.query(LoyaltyTransaction).filter_by(type='capture').count(), 1)
+            self.assertEqual(session.query(LoyaltyTransaction).filter_by(type='earn').count(), 1)
+
+    def test_bonus_spending_disabled_rejects_requested_amount(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        self._configure_loyalty(balance=5000, max_percent='0')
+        response = self.client.post(
+            '/api/v1/mobile/payments/freedom/quote',
+            headers=headers,
+            json={
+                'ticketItems': [{'ticketItemId': 'ticket-kids', 'quantity': 1}],
+                'visitDate': str(date.today()),
+                'requestedBonusAmount': 1,
+            },
+        )
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()['error']['code'], 'loyalty_spending_disabled')
+
+    def test_bonus_quote_uses_floor_rounding(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        self._configure_loyalty(balance=5000, max_percent='30')
+        response = self.client.post(
+            '/api/v1/mobile/payments/freedom/quote',
+            headers=headers,
+            json={
+                'ticketItems': [{'ticketItemId': 'ticket-rounding', 'quantity': 1}],
+                'visitDate': str(date.today()),
+                'requestedBonusAmount': 0,
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['maxRedeemableBonus'], 2999)
+
+    def test_failed_payment_releases_bonus_reservation(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        self._configure_loyalty(balance=5000, max_percent='30')
+        payment = self._init_payment(headers, 'checkout-bonus-failed', requested_bonus_amount=800)
+        self._post_failure_callback(payment, amount='1900')
+        with self.SessionLocal() as session:
+            account = session.scalar(select(LoyaltyAccount))
+            self.assertEqual(account.balance, 5000)
+            self.assertEqual(account.reserved_balance, 0)
+            self.assertEqual(session.query(LoyaltyTransaction).filter_by(type='release').count(), 1)
+
+    def test_expired_payment_releases_abandoned_reservation(self) -> None:
+        from datetime import UTC, datetime, timedelta
+
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        self._configure_loyalty(balance=5000, max_percent='30')
+        payment = self._init_payment(headers, 'checkout-bonus-expired', requested_bonus_amount=800)
+        with self.SessionLocal() as session:
+            stored = session.get(MobilePayment, payment['paymentId'])
+            stored.expires_at = datetime.now(UTC) - timedelta(minutes=1)
+            session.commit()
+        response = self.client.get(f"/api/v1/mobile/payments/{payment['paymentId']}", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'expired')
+        with self.SessionLocal() as session:
+            account = session.scalar(select(LoyaltyAccount))
+            self.assertEqual(account.balance, 5000)
+            self.assertEqual(account.reserved_balance, 0)
+
+    def test_full_bonus_payment_skips_gateway_and_issues_ticket(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        self._configure_loyalty(balance=5000, max_percent='100')
+        payment = self._init_payment(headers, 'checkout-zero-cash', requested_bonus_amount=2700)
+        self.assertEqual(payment['status'], 'paid')
+        self.assertEqual(payment['cashAmountTenge'], 0)
+        self.assertEqual(payment['paymentUrl'], '')
+        self.assertEqual(self.client.get('/api/v1/mobile/tickets', headers=headers).json()['total'], 1)
+
+    def _configure_loyalty(self, *, balance: int, max_percent: str, cashback_percent: str | None = None) -> None:
+        with self.SessionLocal() as session:
+            user = session.scalar(select(MobileUser).where(MobileUser.phone == '+77071234567'))
+            account = LoyaltyAccount(mobile_user_id=user.id, balance=balance)
+            session.add(account)
+            session.add(LoyaltySettings(id=1, max_redemption_percent=max_percent))
+            if cashback_percent is not None:
+                session.add(LoyaltyRule(event_type='ticket_purchase', reward_type='percent', value=cashback_percent, is_active=True))
             session.commit()
 
     def test_freedompay_ticket_payment_flow_is_backend_confirmed_and_idempotent(self) -> None:
@@ -554,7 +711,7 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
             404,
         )
 
-    def test_issuance_failure_rolls_back_payment_and_all_tickets(self) -> None:
+    def test_issuance_failure_keeps_paid_payment_and_reconciles_tickets(self) -> None:
         auth = self._authenticate_mobile_user('+77071234567')
         headers = {'Authorization': f"Bearer {auth['access_token']}"}
         payment = self._init_payment(headers, 'checkout-issuance-rollback', quantity=2)
@@ -563,13 +720,45 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
             '_new_ticket_number',
             side_effect=['BB-PARTIAL', ValueError('ticket issuance failed')],
         ):
-            with self.assertRaises(ValueError):
-                self._post_callback(payment, amount='5400', result='1')
+            response = self._post_callback(payment, amount='5400', result='1')
+        self.assertIn('<pg_status>ok</pg_status>', response.text)
         payment_status = self.client.get(
             f"/api/v1/mobile/payments/{payment['paymentId']}", headers=headers
         )
-        self.assertEqual(payment_status.json()['status'], 'pending')
+        self.assertEqual(payment_status.json()['status'], 'paid')
         self.assertEqual(self.client.get('/api/v1/mobile/tickets', headers=headers).json()['total'], 0)
+        with self.SessionLocal() as session:
+            stored = session.get(MobilePayment, payment['paymentId'])
+            self.assertTrue(stored.ticket_issuance_required)
+
+        retry = self._post_callback(payment, amount='5400', result='1')
+        self.assertIn('<pg_status>ok</pg_status>', retry.text)
+        self.assertEqual(self.client.get('/api/v1/mobile/tickets', headers=headers).json()['total'], 2)
+        with self.SessionLocal() as session:
+            stored = session.get(MobilePayment, payment['paymentId'])
+            self.assertFalse(stored.ticket_issuance_required)
+
+    def test_loyalty_failure_does_not_remove_paid_ticket_delivery(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        payment = self._init_payment(headers, 'checkout-loyalty-outage')
+        with patch.object(
+            LoyaltyService,
+            'apply_event',
+            side_effect=RuntimeError('loyalty unavailable'),
+        ):
+            response = self._post_callback(payment, amount='2700', result='1')
+
+        self.assertIn('<pg_status>ok</pg_status>', response.text)
+        status = self.client.get(
+            f"/api/v1/mobile/payments/{payment['paymentId']}",
+            headers=headers,
+        )
+        self.assertEqual(status.json()['status'], 'paid')
+        self.assertEqual(
+            self.client.get('/api/v1/mobile/tickets', headers=headers).json()['total'],
+            1,
+        )
 
     def test_freedompay_callback_rejects_invalid_signature(self) -> None:
         auth = self._authenticate_mobile_user('+77071234567')
@@ -843,6 +1032,7 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
         *,
         quantity: int = 1,
         items: list[dict[str, object]] | None = None,
+        requested_bonus_amount: int = 0,
     ) -> dict[str, object]:
         selected_items = items or [{'ticketItemId': 'ticket-kids', 'quantity': quantity}]
         response = self.client.post(
@@ -852,6 +1042,7 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
                 'idempotencyKey': idempotency_key,
                 'ticketItems': selected_items,
                 'visitDate': str(date.today()),
+                'requestedBonusAmount': requested_bonus_amount,
             },
         )
         self.assertEqual(response.status_code, 200)

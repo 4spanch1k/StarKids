@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'app/bootstrap/star_kids_bootstrap_app.dart';
 import 'app/di/service_registry.dart';
+import 'app/router/notification_navigation_coordinator.dart';
 import 'firebase_options.dart';
 
 /// FCM background message handler.  Must be a top-level function.
@@ -63,7 +64,7 @@ Future<void> _initFirebaseSafely() async {
       debugPrint(
         '[FCM] Opened via notification tap: ${message.data}',
       );
-      // TODO: Navigate to the relevant screen based on message.data['event'].
+      NotificationNavigationCoordinator.instance.handlePayload(message.data);
     });
 
     // Check if the app was launched from a terminated state via notification tap.
@@ -72,7 +73,7 @@ Future<void> _initFirebaseSafely() async {
       debugPrint(
         '[FCM] App launched from terminated notification: ${initialMessage.data}',
       );
-      // TODO: Navigate to the relevant screen based on initialMessage.data['event'].
+      NotificationNavigationCoordinator.instance.handlePayload(initialMessage.data);
     }
   } catch (_) {
     debugPrint('[BOOT] Firebase init skipped');

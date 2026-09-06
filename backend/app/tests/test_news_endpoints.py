@@ -239,6 +239,8 @@ class NewsEndpointTests(unittest.TestCase):
         self.assertEqual(len(body), 1)
         self.assertEqual(body[0]['id'], newer_id)
         self.assertEqual(body[0]['news_id'], newer_id)
+        self.assertEqual(body[0]['destination_type'], 'news_detail')
+        self.assertEqual(body[0]['destination_id'], newer_id)
         self.assertEqual(body[0]['type'], 'news')
         self.assertEqual(body[0]['title'], 'History newer')
         self.assertIn('created_at', body[0])

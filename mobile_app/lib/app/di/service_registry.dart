@@ -38,6 +38,8 @@ import '../../features/notifications/domain/notification_settings_repository.dar
 import '../../features/notifications/domain/push_token_repository.dart';
 import '../../features/notifications/presentation/controllers/mobile_notifications_controller.dart';
 import '../../features/notifications/presentation/controllers/push_token_controller.dart';
+import '../../features/loyalty/data/api_loyalty_repository.dart';
+import '../../features/loyalty/presentation/controllers/loyalty_controller.dart';
 import '../../features/promotions/data/api_promotion_repository.dart';
 import '../../features/promotions/domain/promotion_repository.dart';
 import '../../features/profile/data/api_profile_repository.dart';
@@ -55,6 +57,8 @@ import '../../features/tickets/data/api_issued_ticket_repository.dart';
 import '../../features/tickets/domain/ticket_config_repository.dart';
 import '../../features/tickets/domain/issued_ticket_repository.dart';
 import '../../features/tickets/domain/ticket_purchase_repository.dart';
+import '../../features/visits/data/api_current_visit_repository.dart';
+import '../../features/visits/domain/current_visit_repository.dart';
 import '../config/app_environment.dart';
 
 typedef PaymentUrlLauncher = Future<bool> Function(String url);
@@ -105,6 +109,11 @@ abstract final class ServiceRegistry {
     apiClient: apiClient,
     sessionStorage: mobileAuthSessionStorage,
   );
+  static CurrentVisitRepository currentVisitRepository =
+      ApiCurrentVisitRepository(
+    apiClient: apiClient,
+    sessionStorage: mobileAuthSessionStorage,
+  );
   static PaymentUrlLauncher paymentUrlLauncher = ExternalLinkService.openUrl;
   static final ContactLinksRepository contactLinksRepository =
       ApiContactLinksRepository(apiClient: apiClient);
@@ -145,6 +154,11 @@ abstract final class ServiceRegistry {
     profileRepository: profileRepository,
     requestHistoryRepository: requestHistoryRepository,
   );
+  static final loyaltyRepository = ApiLoyaltyRepository(
+    apiClient: apiClient,
+    sessionStorage: mobileAuthSessionStorage,
+  );
+  static final loyaltyController = LoyaltyController(repository: loyaltyRepository);
   static final ChildrenRepository childrenRepository = ApiChildrenRepository(
     apiClient: apiClient,
     sessionStorage: mobileAuthSessionStorage,

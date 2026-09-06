@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
-from decimal import Decimal, InvalidOperation
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal, InvalidOperation, ROUND_DOWN
 import logging
 from secrets import token_hex
 from xml.etree import ElementTree
@@ -20,14 +20,17 @@ from ...db.models.mobile_user import MobileUser
 from ...db.repositories.branch_repository import BranchRepository
 from ...db.repositories.branch_ticket_repository import BranchTicketRepository
 from ...db.repositories.mobile_payment_repository import MobilePaymentRepository
+from ...db.repositories.visit_repository import VisitRepository
 from .issued_ticket_service import IssuedTicketService
 from .constants import (
     PAYABLE_BRANCH_TICKET_ORDER,
     PAYMENT_CURRENCY_KZT,
     PAYMENT_GATEWAY_FREEDOMPAY,
     PAYMENT_STATUS_CANCELED,
+    PAYMENT_STATUS_EXPIRED,
     PAYMENT_STATUS_FAILED,
     PAYMENT_STATUS_PAID,
+    PAYMENT_RESERVATION_TTL_MINUTES,
 )
 from .freedompay_client import (
     FreedomPayClientProtocol,
@@ -36,6 +39,8 @@ from .freedompay_client import (
 from .schemas import (
     FreedomPaymentInitRequest,
     FreedomPaymentInitResponse,
+    FreedomPaymentQuoteRequest,
+    FreedomPaymentQuoteResponse,
     MobilePaymentStatusResponse,
     PurchasedTicketLineItemResponse,
     PurchasedTicketResponse,
@@ -43,6 +48,7 @@ from .schemas import (
     IssuedTicketResponse,
     IssuedTicketsResponse,
     IssuedTicketQrResponse,
+    CurrentVisitResponse,
 )
 from .signing import (
     build_freedompay_signature,
@@ -50,6 +56,8 @@ from .signing import (
     verify_freedompay_signature,
 )
 from .ticket_qr_service import TicketQrService
+from .visit_lifecycle import should_complete_visit
+from ..loyalty.service import LoyaltyService
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +65,21 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class FreedomPayCallbackResult:
     xml: str
+
+
+@dataclass(frozen=True)
+class TicketPaymentQuote:
+    subtotal_tenge: int
+    bonus_balance: int
+    available_bonus_balance: int
+    max_redemption_percent: Decimal
+    max_redeemable_bonus: int
+    requested_bonus_amount: int
+    payable_tenge: int
+
+    @property
+    def bonus_spending_enabled(self) -> bool:
+        return self.max_redeemable_bonus > 0
 
 
 class MobilePaymentService:
@@ -70,6 +93,8 @@ class MobilePaymentService:
         freedompay_client: FreedomPayClientProtocol,
         issued_ticket_service: IssuedTicketService,
         ticket_qr_service: TicketQrService,
+        visit_repository: VisitRepository,
+        loyalty_service: LoyaltyService,
     ) -> None:
         self._settings = settings
         self._payment_repository = payment_repository
@@ -78,6 +103,8 @@ class MobilePaymentService:
         self._freedompay_client = freedompay_client
         self._issued_ticket_service = issued_ticket_service
         self._ticket_qr_service = ticket_qr_service
+        self._visit_repository = visit_repository
+        self._loyalty_service = loyalty_service
 
     def init_freedom_ticket_payment(
         self,
@@ -85,6 +112,7 @@ class MobilePaymentService:
         user: MobileUser,
         payload: FreedomPaymentInitRequest,
     ) -> FreedomPaymentInitResponse:
+        self.expire_stale_payments()
         if self._settings.is_production and self._settings.freedompay_mock_mode:
             raise DomainHTTPException(
                 code='freedompay_mock_disabled',
@@ -102,15 +130,6 @@ class MobilePaymentService:
             raise DomainHTTPException(
                 code='invalid_visit_date',
                 message='Visit date must be today or later.',
-            )
-
-        branch, ticket_items = self._resolve_ticket_items(payload)
-        amount_tenge = sum(item['priceTenge'] * item['quantity'] for item in ticket_items)
-        quantity = sum(item['quantity'] for item in ticket_items)
-        if amount_tenge <= 0:
-            raise DomainHTTPException(
-                code='invalid_payment_amount',
-                message='Payment amount must be greater than zero.',
             )
 
         existing_payment = self._payment_repository.get_by_idempotency_key_for_user(
@@ -133,50 +152,93 @@ class MobilePaymentService:
                 )
             if payment.status != 'created' or payment.payment_url:
                 return _payment_init_response(payment)
+
+        branch, ticket_items = self._resolve_ticket_items(payload)
+        quote = self._calculate_quote(
+            user=user,
+            gross_amount_tenge=sum(item['priceTenge'] * item['quantity'] for item in ticket_items),
+            requested_bonus_amount=payload.requestedBonusAmount,
+        )
+        quantity = sum(item['quantity'] for item in ticket_items)
+        if quote.subtotal_tenge <= 0:
+            raise DomainHTTPException(
+                code='invalid_payment_amount',
+                message='Payment amount must be greater than zero.',
+            )
+        local_order_id = f'sk-{token_hex(12)}'
+        initial_audit_payload = {
+            'ticketItems': ticket_items,
+            'gateway': PAYMENT_GATEWAY_FREEDOMPAY,
+        }
+        try:
+            payment = self._payment_repository.create_ticket_payment(
+                mobile_user_id=user.id,
+                branch_id=branch.id,
+                payable_entity_type=PAYABLE_BRANCH_TICKET_ORDER,
+                payable_entity_id=branch.id,
+                local_order_id=local_order_id,
+                idempotency_key=payload.idempotencyKey,
+                amount_tenge=quote.payable_tenge,
+                currency=PAYMENT_CURRENCY_KZT,
+                quantity=quantity,
+                visit_date=payload.visitDate,
+                ticket_items=ticket_items,
+                init_payload=initial_audit_payload,
+                gross_amount_tenge=quote.subtotal_tenge,
+                bonus_amount=quote.requested_bonus_amount,
+                cash_amount_tenge=quote.payable_tenge,
+                expires_at=datetime.now(UTC)
+                + timedelta(minutes=PAYMENT_RESERVATION_TTL_MINUTES),
+            )
+        except IntegrityError:
+            self._payment_repository.db.rollback()
+            payment = self._payment_repository.get_by_idempotency_key_for_user(
+                mobile_user_id=user.id,
+                idempotency_key=payload.idempotencyKey,
+                for_update=True,
+            )
+            if payment is None:
+                raise
+            if payment.status != 'created' or payment.payment_url:
+                return _payment_init_response(payment)
         else:
-            local_order_id = f'sk-{token_hex(12)}'
-            initial_audit_payload = {
-                'ticketItems': ticket_items,
-                'gateway': PAYMENT_GATEWAY_FREEDOMPAY,
-            }
+            payment = self._payment_repository.get_by_idempotency_key_for_user(
+                mobile_user_id=user.id,
+                idempotency_key=payload.idempotencyKey,
+                for_update=True,
+            )
+            if payment is None:
+                raise DomainHTTPException(
+                    code='payment_init_race',
+                    message='Payment initialization could not be locked safely.',
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
+
+        payment = self._ensure_payment_snapshot(payment, quote)
+        if payment.bonus_amount > 0:
             try:
-                payment = self._payment_repository.create_ticket_payment(
-                    mobile_user_id=user.id,
-                    branch_id=branch.id,
-                    payable_entity_type=PAYABLE_BRANCH_TICKET_ORDER,
-                    payable_entity_id=branch.id,
-                    local_order_id=local_order_id,
-                    idempotency_key=payload.idempotencyKey,
-                    amount_tenge=amount_tenge,
-                    currency=PAYMENT_CURRENCY_KZT,
-                    quantity=quantity,
-                    visit_date=payload.visitDate,
-                    ticket_items=ticket_items,
-                    init_payload=initial_audit_payload,
+                reservation = self._loyalty_service.reserve(
+                    user_id=payment.mobile_user_id,
+                    amount=payment.bonus_amount,
+                    source_type='mobile_payment',
+                    source_id=payment.id,
+                    order_amount_kzt=payment.gross_amount_tenge,
+                    idempotency_key=f'ticket_payment_reserve:{payment.id}',
+                    description='Резерв бонусов для покупки билетов',
                 )
-            except IntegrityError:
-                self._payment_repository.db.rollback()
-                payment = self._payment_repository.get_by_idempotency_key_for_user(
-                    mobile_user_id=user.id,
-                    idempotency_key=payload.idempotencyKey,
-                    for_update=True,
+                payment.loyalty_reservation_id = reservation.id
+                self._payment_repository.db.flush()
+            except Exception:
+                self._payment_repository.mark_failed(
+                    payment,
+                    status=PAYMENT_STATUS_FAILED,
+                    callback_payload={},
+                    failure_reason='Bonus reservation failed.',
                 )
-                if payment is None:
-                    raise
-                if payment.status != 'created' or payment.payment_url:
-                    return _payment_init_response(payment)
-            else:
-                payment = self._payment_repository.get_by_idempotency_key_for_user(
-                    mobile_user_id=user.id,
-                    idempotency_key=payload.idempotencyKey,
-                    for_update=True,
-                )
-                if payment is None:
-                    raise DomainHTTPException(
-                        code='payment_init_race',
-                        message='Payment initialization could not be locked safely.',
-                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    )
+                raise
+
+        if payment.cash_amount_tenge == 0:
+            return self._complete_zero_cash_payment(payment)
 
         gateway_request = self._build_freedompay_init_request(
             payment=payment,
@@ -187,6 +249,7 @@ class MobilePaymentService:
         try:
             gateway_result = self._freedompay_client.init_payment(gateway_request)
         except FreedomPayGatewayError as exc:
+            self._release_payment_reservation(payment)
             self._payment_repository.mark_failed(
                 payment,
                 status=PAYMENT_STATUS_FAILED,
@@ -212,12 +275,68 @@ class MobilePaymentService:
 
         return _payment_init_response(payment, payment_url=gateway_result.payment_url)
 
+    def quote_ticket_payment(
+        self,
+        *,
+        user: MobileUser,
+        payload: FreedomPaymentQuoteRequest,
+    ) -> FreedomPaymentQuoteResponse:
+        if payload.visitDate < business_today():
+            raise DomainHTTPException(code='invalid_visit_date', message='Visit date must be today or later.')
+        _, ticket_items = self._resolve_ticket_items(payload)
+        quote = self._calculate_quote(
+            user=user,
+            gross_amount_tenge=sum(item['priceTenge'] * item['quantity'] for item in ticket_items),
+            requested_bonus_amount=payload.requestedBonusAmount,
+        )
+        return _quote_response(quote)
+
+    def _calculate_quote(self, *, user: MobileUser, gross_amount_tenge: int, requested_bonus_amount: int) -> TicketPaymentQuote:
+        if gross_amount_tenge <= 0:
+            raise DomainHTTPException(code='invalid_payment_amount', message='Payment amount must be greater than zero.')
+        if requested_bonus_amount < 0:
+            raise DomainHTTPException(code='loyalty_invalid_amount', message='Количество бонусов не может быть отрицательным.', status_code=422)
+        settings = self._loyalty_service.get_settings()
+        account = self._loyalty_service.account_response(user.id)
+        available = account['availableBalance']
+        if settings.max_redemption_percent <= 0 and requested_bonus_amount > 0:
+            raise DomainHTTPException(
+                code='loyalty_spending_disabled',
+                message='Списание бонусов пока недоступно.',
+                status_code=409,
+            )
+        max_by_percent = int((Decimal(gross_amount_tenge) * settings.max_redemption_percent / Decimal('100')).to_integral_value(rounding=ROUND_DOWN))
+        max_redeemable = min(available, max_by_percent)
+        if requested_bonus_amount > max_by_percent:
+            raise DomainHTTPException(code='loyalty_redemption_limit_exceeded', message='Сумма бонусов превышает допустимый лимит для заказа.', status_code=422)
+        if requested_bonus_amount > available:
+            raise DomainHTTPException(code='loyalty_insufficient_balance', message='Недостаточно доступных бонусов.', status_code=409)
+        return TicketPaymentQuote(
+            subtotal_tenge=gross_amount_tenge,
+            bonus_balance=account['balance'],
+            available_bonus_balance=available,
+            max_redemption_percent=settings.max_redemption_percent,
+            max_redeemable_bonus=max_redeemable,
+            requested_bonus_amount=requested_bonus_amount,
+            payable_tenge=gross_amount_tenge - requested_bonus_amount,
+        )
+
+    def _ensure_payment_snapshot(self, payment: MobilePayment, quote: TicketPaymentQuote) -> MobilePayment:
+        if payment.gross_amount_tenge == 0:
+            payment.gross_amount_tenge = quote.subtotal_tenge
+            payment.bonus_amount = quote.requested_bonus_amount
+            payment.cash_amount_tenge = quote.payable_tenge
+            payment.amount_tenge = quote.payable_tenge
+            self._payment_repository.db.flush()
+        return payment
+
     def get_payment_status(
         self,
         *,
         payment_id: str,
         mobile_user_id: str,
     ) -> MobilePaymentStatusResponse:
+        self.expire_stale_payments()
         payment = self._payment_repository.get_by_id_for_user(
             payment_id=payment_id,
             mobile_user_id=mobile_user_id,
@@ -228,6 +347,43 @@ class MobilePaymentService:
                 message='Payment was not found.',
             )
         return _payment_status_response(payment)
+
+    def expire_stale_payments(self, *, now: datetime | None = None) -> int:
+        now = now or datetime.now(UTC)
+        expired = 0
+        for payment in self._payment_repository.list_expired_pending(now=now):
+            if payment.status not in {'created', 'pending'}:
+                continue
+            payment.status = PAYMENT_STATUS_EXPIRED
+            payment.failure_reason = 'Payment reservation expired.'
+            self._release_payment_reservation(payment)
+            self._payment_repository.db.add(payment)
+            expired += 1
+        if expired:
+            self._payment_repository.db.commit()
+        return expired
+
+    def settle_paid_loyalty(self) -> int:
+        """Reconcile paid payments without blocking admission.
+
+        Ticket delivery is the critical payment outcome. A transient ticket or
+        loyalty failure therefore leaves the payment committed and marks the
+        missing step for this idempotent reconciliation pass.
+        """
+        reconciled = 0
+        for payment in self._payment_repository.list_paid_ticket_payments():
+            try:
+                delivered = self._issue_paid_payment_tickets(payment.id)
+                settled = self._settle_paid_payment_loyalty(payment.id)
+                if delivered or settled:
+                    reconciled += 1
+            except Exception:
+                self._payment_repository.db.rollback()
+                logger.exception(
+                    'Paid payment reconciliation failed payment_id=%s',
+                    payment.id,
+                )
+        return reconciled
 
     def list_paid_tickets(self, mobile_user_id: str) -> PurchasedTicketsResponse:
         records = self._payment_repository.list_paid_ticket_payments_for_user(mobile_user_id)
@@ -244,6 +400,45 @@ class MobilePaymentService:
             for ticket, branch in records
         ]
         return IssuedTicketsResponse(items=items, total=len(items))
+
+    def get_current_visit(self, mobile_user_id: str) -> CurrentVisitResponse | None:
+        visit = self._visit_repository.get_active_for_user(mobile_user_id)
+        if visit is None:
+            return None
+        payment = self._payment_repository.get_by_id(visit.mobile_payment_id)
+        branch = self._branch_repository.get_by_id(visit.branch_id)
+        now = datetime.now(UTC)
+        if should_complete_visit(
+            visit=visit,
+            payment_visit_date=payment.visit_date if payment is not None else None,
+            branch=branch,
+            now=now,
+        ):
+            # Re-read under a row lock before completing so a concurrent
+            # redemption/current-visit request cannot overwrite the state.
+            locked = self._visit_repository.get_for_payment(
+                visit.mobile_payment_id,
+                for_update=True,
+            )
+            if locked is not None and locked.status == 'active':
+                locked.status = 'completed'
+                locked.ended_at = now
+                locked.completion_reason = 'validity_cutoff'
+                self._visit_repository.db.add(locked)
+                self._visit_repository.db.commit()
+                logger.info(
+                    'Visit completed by validity cutoff visit_id=%s payment_id=%s',
+                    locked.id,
+                    locked.mobile_payment_id,
+                )
+            return None
+        return CurrentVisitResponse(
+            visitId=visit.id,
+            branchId=visit.branch_id,
+            branchName=branch.name if branch is not None else 'Boom Bala',
+            status=visit.status,
+            startedAt=visit.started_at,
+        )
 
     def get_issued_ticket(
         self,
@@ -398,13 +593,11 @@ class MobilePaymentService:
             or payload.get('pg_failure_description')
             or 'Payment was not completed.'
         )
-        self._payment_repository.process_verified_callback(
+        self._process_failed_callback_atomically(
             payment_id=payment.id,
             local_order_id=payment.local_order_id,
             payload=callback_payload,
-            success=False,
             external_payment_id=external_payment_id,
-            paid_at=None,
             failure_status=_failure_status_from_payload(payload),
             failure_reason=failure_reason,
         )
@@ -423,6 +616,7 @@ class MobilePaymentService:
         paid_at: datetime | None,
     ) -> None:
         try:
+            status_before_callback = payment.status
             processed_payment = self._payment_repository.process_verified_callback(
                 payment_id=payment.id,
                 local_order_id=payment.local_order_id,
@@ -434,12 +628,187 @@ class MobilePaymentService:
                 failure_reason=None,
                 commit=False,
             )
-            if processed_payment is not None and processed_payment.status == PAYMENT_STATUS_PAID:
-                self._issued_ticket_service.issue_tickets_for_paid_payment(processed_payment)
+            should_reconcile_paid_payment = (
+                processed_payment is not None
+                and processed_payment.status == PAYMENT_STATUS_PAID
+                and (
+                    status_before_callback != PAYMENT_STATUS_PAID
+                    or processed_payment.ticket_issuance_required
+                    or processed_payment.loyalty_settlement_required
+                )
+            )
+            if should_reconcile_paid_payment:
+                processed_payment.loyalty_settlement_required = True
+                processed_payment.ticket_issuance_required = True
+                self._payment_repository.db.add(processed_payment)
+            else:
+                # Keep the callback audit transaction durable even when this
+                # is a duplicate/terminal callback.
+                self._payment_repository.db.commit()
+                return
             self._payment_repository.db.commit()
         except Exception:
             self._payment_repository.db.rollback()
             raise
+
+        ticket_delivery_ready = False
+        try:
+            self._issue_paid_payment_tickets(processed_payment.id)
+            ticket_delivery_ready = True
+        except Exception:
+            self._payment_repository.db.rollback()
+            logger.exception(
+                'Payment paid but ticket issuance is pending payment_id=%s',
+                processed_payment.id,
+            )
+
+        # Admission must not be rolled back by a loyalty outage. Settlement
+        # has its own idempotent transaction and is retried by the cleanup
+        # scheduler (or by a provider callback replay).
+        if ticket_delivery_ready:
+            try:
+                self._settle_paid_payment_loyalty(processed_payment.id)
+            except Exception:
+                self._payment_repository.db.rollback()
+                logger.exception(
+                    'Payment paid and tickets issued, loyalty settlement pending payment_id=%s',
+                    processed_payment.id,
+                )
+
+    def _process_failed_callback_atomically(
+        self,
+        *,
+        payment_id: str,
+        local_order_id: str,
+        payload: dict[str, object],
+        external_payment_id: str | None,
+        failure_status: str,
+        failure_reason: str,
+    ) -> None:
+        try:
+            processed_payment = self._payment_repository.process_verified_callback(
+                payment_id=payment_id,
+                local_order_id=local_order_id,
+                payload=payload,
+                success=False,
+                external_payment_id=external_payment_id,
+                paid_at=None,
+                failure_status=failure_status,
+                failure_reason=failure_reason,
+                commit=False,
+            )
+            if processed_payment is not None and processed_payment.status in {
+                PAYMENT_STATUS_FAILED,
+                PAYMENT_STATUS_CANCELED,
+                PAYMENT_STATUS_EXPIRED,
+            }:
+                self._release_payment_reservation(processed_payment)
+            self._payment_repository.db.commit()
+        except Exception:
+            self._payment_repository.db.rollback()
+            raise
+
+    def _complete_zero_cash_payment(self, payment: MobilePayment) -> FreedomPaymentInitResponse:
+        try:
+            payment.status = PAYMENT_STATUS_PAID
+            payment.paid_at = datetime.now(UTC)
+            payment.failure_reason = None
+            payment.loyalty_settlement_required = True
+            payment.ticket_issuance_required = True
+            self._payment_repository.db.add(payment)
+            self._payment_repository.db.commit()
+        except Exception:
+            self._payment_repository.db.rollback()
+            raise
+        ticket_delivery_ready = False
+        try:
+            self._issue_paid_payment_tickets(payment.id)
+            ticket_delivery_ready = True
+        except Exception:
+            self._payment_repository.db.rollback()
+            logger.exception(
+                'Zero-cash payment paid but ticket issuance is pending payment_id=%s',
+                payment.id,
+            )
+        if ticket_delivery_ready:
+            try:
+                self._settle_paid_payment_loyalty(payment.id)
+            except Exception:
+                self._payment_repository.db.rollback()
+                logger.exception(
+                    'Zero-cash payment paid and tickets issued, loyalty settlement pending payment_id=%s',
+                    payment.id,
+                )
+        return _payment_init_response(payment, payment_url='')
+
+    def _issue_paid_payment_tickets(self, payment_id: str) -> bool:
+        payment = self._payment_repository.get_by_id_for_update(payment_id)
+        if payment is None or payment.status != PAYMENT_STATUS_PAID:
+            return False
+        if not payment.ticket_issuance_required:
+            return True
+        try:
+            self._issued_ticket_service.issue_tickets_for_paid_payment(payment)
+            payment.ticket_issuance_required = False
+            self._payment_repository.db.add(payment)
+            self._payment_repository.db.commit()
+            return True
+        except Exception:
+            self._payment_repository.db.rollback()
+            raise
+
+    def _settle_paid_payment_loyalty(self, payment_id: str) -> bool:
+        payment = self._payment_repository.get_by_id_for_update(payment_id)
+        if payment is None or payment.status != PAYMENT_STATUS_PAID:
+            return False
+        self._capture_payment_reservation(payment)
+        self._loyalty_service.apply_event(
+            user_id=payment.mobile_user_id,
+            event_type='ticket_purchase',
+            source_type='mobile_payment',
+            source_id=payment.id,
+            cash_amount_kzt=payment.cash_amount_tenge or payment.amount_tenge,
+            idempotency_key=f'ticket_purchase:{payment.id}',
+            metadata={'paymentId': payment.id},
+        )
+        payment.loyalty_settlement_required = False
+        self._payment_repository.db.add(payment)
+        self._payment_repository.db.commit()
+        return True
+
+    def _capture_payment_reservation(self, payment: MobilePayment) -> None:
+        if payment.bonus_amount <= 0:
+            return
+        reservation = self._loyalty_service.reservation_for_source(
+            source_type='mobile_payment',
+            source_id=payment.id,
+        )
+        if reservation is None or reservation.status != 'reserved':
+            if reservation is not None and reservation.status in {'captured', 'released'}:
+                return
+            raise DomainHTTPException(code='loyalty_reservation_not_found', message='Резерв бонусов для платежа не найден.', status_code=409)
+        captured = self._loyalty_service.capture(
+            user_id=payment.mobile_user_id,
+            reservation_id=reservation.id,
+            idempotency_key=f'ticket_payment_capture:{payment.id}',
+        )
+        payment.loyalty_reservation_id = captured.source_id
+
+    def _release_payment_reservation(self, payment: MobilePayment) -> None:
+        if payment.bonus_amount <= 0:
+            return
+        reservation = self._loyalty_service.reservation_for_source(
+            source_type='mobile_payment',
+            source_id=payment.id,
+        )
+        if reservation is None or reservation.status != 'reserved':
+            return
+        released = self._loyalty_service.release(
+            user_id=payment.mobile_user_id,
+            reservation_id=reservation.id,
+            idempotency_key=f'ticket_payment_release:{payment.id}',
+        )
+        payment.loyalty_reservation_id = released.source_id
 
     def _resolve_ticket_items(
         self,
@@ -552,6 +921,9 @@ def _payment_status_response(payment: MobilePayment) -> MobilePaymentStatusRespo
         localOrderId=payment.local_order_id,
         externalPaymentId=payment.external_payment_id,
         amountTenge=payment.amount_tenge,
+        grossAmountTenge=payment.gross_amount_tenge or payment.amount_tenge,
+        bonusAmount=payment.bonus_amount,
+        cashAmountTenge=payment.cash_amount_tenge or payment.amount_tenge,
         currency=payment.currency,
         status=payment.status,
         failureReason=payment.failure_reason,
@@ -570,6 +942,22 @@ def _payment_init_response(
         externalPaymentId=payment.external_payment_id,
         paymentUrl=payment_url or payment.payment_url or '',
         status=payment.status,
+        grossAmountTenge=payment.gross_amount_tenge or payment.amount_tenge,
+        bonusAmount=payment.bonus_amount,
+        cashAmountTenge=payment.cash_amount_tenge or payment.amount_tenge,
+    )
+
+
+def _quote_response(quote: TicketPaymentQuote) -> FreedomPaymentQuoteResponse:
+    return FreedomPaymentQuoteResponse(
+        subtotalTenge=quote.subtotal_tenge,
+        bonusBalance=quote.bonus_balance,
+        availableBonusBalance=quote.available_bonus_balance,
+        maxRedemptionPercent=str(quote.max_redemption_percent),
+        maxRedeemableBonus=quote.max_redeemable_bonus,
+        requestedBonusAmount=quote.requested_bonus_amount,
+        payableTenge=quote.payable_tenge,
+        bonusSpendingEnabled=quote.bonus_spending_enabled,
     )
 
 

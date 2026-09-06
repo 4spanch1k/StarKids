@@ -129,7 +129,8 @@ void main() {
     );
     expect(kidsFourToFifteenCounter.data, '0');
 
-    await tester.tap(find.text('Оплатить через Freedom Pay'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Оплатить 2 700 тг'));
     await tester.pumpAndSettle();
 
     expect(
@@ -205,10 +206,31 @@ class _FakeTicketPurchaseRepository implements TicketPurchaseRepository {
   const _FakeTicketPurchaseRepository();
 
   @override
+  Future<Result<TicketCheckoutQuote>> getCheckoutQuote({
+    required List<TicketPaymentLineItemPayload> items,
+    required DateTime visitDate,
+    required int requestedBonusAmount,
+  }) async {
+    return const Success<TicketCheckoutQuote>(
+      TicketCheckoutQuote(
+        subtotalTenge: 2700,
+        bonusBalance: 0,
+        availableBonusBalance: 0,
+        maxRedemptionPercent: 0,
+        maxRedeemableBonus: 0,
+        requestedBonusAmount: 0,
+        payableTenge: 2700,
+        bonusSpendingEnabled: false,
+      ),
+    );
+  }
+
+  @override
   Future<Result<TicketPaymentStart>> startFreedomPayment({
     required List<TicketPaymentLineItemPayload> items,
     required DateTime visitDate,
     required String idempotencyKey,
+    required int requestedBonusAmount,
   }) async {
     return const Success<TicketPaymentStart>(
       TicketPaymentStart(

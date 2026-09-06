@@ -10,6 +10,8 @@ class AppNotificationDto {
     this.newsId,
     this.description,
     this.imageUrl,
+    this.destinationType,
+    this.destinationId,
   });
 
   final String id;
@@ -20,11 +22,15 @@ class AppNotificationDto {
   final String? imageUrl;
   final DateTime createdAt;
   final bool isRead;
+  final String? destinationType;
+  final String? destinationId;
 
   factory AppNotificationDto.fromJson(Map<String, dynamic> json) {
     return AppNotificationDto(
       id: json['id'] as String? ?? '',
       newsId: json['news_id'] as String?,
+      destinationType: json['destination_type'] as String?,
+      destinationId: json['destination_id'] as String?,
       type: NotificationType.fromWireValue(json['type'] as String? ?? 'news'),
       title: json['title'] as String? ?? '',
       description: json['description'] as String?,
@@ -45,6 +51,8 @@ class AppNotificationDto {
       imageUrl: imageUrl,
       createdAt: createdAt,
       isRead: isRead,
+      destinationType: destinationType,
+      destinationId: destinationId,
     );
   }
 }

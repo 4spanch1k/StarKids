@@ -52,6 +52,7 @@ from .schemas import (
     OTPRequestResponse,
     OTPVerifyRequest,
 )
+from ..loyalty.service import LoyaltyService
 
 MOBILE_AUTH_ROLE = 'mobile_user'
 PHONE_PATTERN = re.compile(r'^\+7\d{10}$')
@@ -66,11 +67,13 @@ class MobileAuthService:
         session_repository: MobileSessionRepository | None = None,
         auth_protection_service: AuthProtectionService | None = None,
         settings: Settings | None = None,
+        loyalty_service: LoyaltyService | None = None,
     ) -> None:
         self.user_repository = user_repository or MobileUserRepository()
         self.session_repository = session_repository or MobileSessionRepository()
         self.settings = settings or get_settings()
         self.auth_protection_service = auth_protection_service
+        self.loyalty_service = loyalty_service
 
     def request_otp(self, payload: OTPRequest) -> OTPRequestResponse:
         self._normalize_phone(payload.phone)
@@ -116,6 +119,7 @@ class MobileAuthService:
             )
             raise self.account_already_exists_exception() from exc
 
+        self._apply_registration_reward(user)
         self.user_repository.record_successful_login(user)
         token_pair = self._create_session_for_user(user)
         return self._build_auth_response(user, token_pair)
@@ -406,7 +410,9 @@ class MobileAuthService:
     def _get_or_create_active_user(self, phone: str) -> MobileUser:
         user = self.user_repository.find_by_phone(phone)
         if user is None:
-            return self.user_repository.create(phone=phone)
+            user = self.user_repository.create(phone=phone)
+            self._apply_registration_reward(user)
+            return user
         if not user.is_active:
             raise self.authentication_required_exception()
         return user
@@ -443,13 +449,15 @@ class MobileAuthService:
                 raise self.account_already_linked_exception() from exc
 
         try:
-            return self.user_repository.create(
+            user = self.user_repository.create(
                 email=email,
                 clerk_user_id=identity.clerk_user_id,
                 first_name=identity.first_name,
                 last_name=identity.last_name,
                 avatar_url=identity.avatar_url,
             )
+            self._apply_registration_reward(user)
+            return user
         except IntegrityError as exc:
             self.user_repository.db.rollback()
             logger.warning(
@@ -458,6 +466,23 @@ class MobileAuthService:
                 email,
             )
             raise self.account_already_linked_exception() from exc
+
+    def _apply_registration_reward(self, user: MobileUser) -> None:
+        if self.loyalty_service is None:
+            return
+        try:
+            self.loyalty_service.apply_event(
+                user_id=user.id,
+                event_type='registration',
+                source_type='mobile_user',
+                source_id=user.id,
+                cash_amount_kzt=None,
+                idempotency_key=f'registration:{user.id}',
+            )
+            self.user_repository.db.commit()
+        except Exception:
+            self.user_repository.db.rollback()
+            logger.exception('Registration loyalty reward failed user_id=%s', user.id)
 
     def _create_session_for_user(self, user: MobileUser) -> TokenPair:
         session_id = uuid4().hex

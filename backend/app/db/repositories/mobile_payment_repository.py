@@ -2,7 +2,7 @@ from datetime import UTC, date, datetime
 import hashlib
 import json
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from ..models.branch import Branch
 from ..models.mobile_payment import MobilePayment
@@ -27,7 +27,13 @@ class MobilePaymentRepository(Repository):
         visit_date: date | None,
         ticket_items: list[dict[str, object]],
         init_payload: dict[str, object],
+        gross_amount_tenge: int | None = None,
+        bonus_amount: int = 0,
+        cash_amount_tenge: int | None = None,
+        expires_at: datetime | None = None,
     ) -> MobilePayment:
+        cash_amount_tenge = amount_tenge if cash_amount_tenge is None else cash_amount_tenge
+        gross_amount_tenge = cash_amount_tenge + bonus_amount if gross_amount_tenge is None else gross_amount_tenge
         payment = MobilePayment(
             mobile_user_id=mobile_user_id,
             branch_id=branch_id,
@@ -36,17 +42,33 @@ class MobilePaymentRepository(Repository):
             local_order_id=local_order_id,
             idempotency_key=idempotency_key,
             amount_tenge=amount_tenge,
+            gross_amount_tenge=gross_amount_tenge,
+            bonus_amount=bonus_amount,
+            cash_amount_tenge=cash_amount_tenge,
             currency=currency,
             quantity=quantity,
             visit_date=visit_date,
             ticket_items=ticket_items,
             status='created',
             init_payload=init_payload,
+            expires_at=expires_at,
         )
         self.db.add(payment)
         self.db.commit()
         self.db.refresh(payment)
         return payment
+
+    def list_expired_pending(self, *, now: datetime) -> list[MobilePayment]:
+        statement = (
+            select(MobilePayment)
+            .where(
+                MobilePayment.status.in_({'created', 'pending'}),
+                MobilePayment.expires_at.is_not(None),
+                MobilePayment.expires_at <= now,
+            )
+            .with_for_update()
+        )
+        return list(self.db.scalars(statement))
 
     def get_by_idempotency_key_for_user(
         self,
@@ -65,6 +87,11 @@ class MobilePaymentRepository(Repository):
 
     def get_by_id(self, payment_id: str) -> MobilePayment | None:
         return self.db.scalar(select(MobilePayment).where(MobilePayment.id == payment_id))
+
+    def get_by_id_for_update(self, payment_id: str) -> MobilePayment | None:
+        return self.db.scalar(
+            select(MobilePayment).where(MobilePayment.id == payment_id).with_for_update()
+        )
 
     def get_by_id_for_user(
         self,
@@ -109,6 +136,7 @@ class MobilePaymentRepository(Repository):
         status: str,
         callback_payload: dict[str, object],
         failure_reason: str,
+        commit: bool = True,
     ) -> MobilePayment:
         if payment.status in TERMINAL_PAYMENT_STATUSES:
             return payment
@@ -116,8 +144,11 @@ class MobilePaymentRepository(Repository):
         payment.callback_payload = callback_payload
         payment.failure_reason = failure_reason
         self.db.add(payment)
-        self.db.commit()
-        self.db.refresh(payment)
+        if commit:
+            self.db.commit()
+            self.db.refresh(payment)
+        else:
+            self.db.flush()
         return payment
 
     def record_rejected_callback(
@@ -314,6 +345,21 @@ class MobilePaymentRepository(Repository):
             .order_by(MobilePayment.paid_at.desc(), MobilePayment.created_at.desc())
         )
         return list(self.db.execute(statement).all())
+
+    def list_paid_ticket_payments(self) -> list[MobilePayment]:
+        statement = (
+            select(MobilePayment)
+            .where(
+                MobilePayment.payable_entity_type == 'branch_ticket_order',
+                MobilePayment.status == 'paid',
+                or_(
+                    MobilePayment.ticket_issuance_required.is_(True),
+                    MobilePayment.loyalty_settlement_required.is_(True),
+                ),
+            )
+            .order_by(MobilePayment.paid_at.asc(), MobilePayment.created_at.asc())
+        )
+        return list(self.db.scalars(statement).all())
 
 
 def _callback_fingerprint(payload: dict[str, object]) -> str:

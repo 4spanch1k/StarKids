@@ -34,6 +34,28 @@ class TicketPaymentStart {
   final TicketPaymentStatusValue status;
 }
 
+class TicketCheckoutQuote {
+  const TicketCheckoutQuote({
+    required this.subtotalTenge,
+    required this.bonusBalance,
+    required this.availableBonusBalance,
+    required this.maxRedemptionPercent,
+    required this.maxRedeemableBonus,
+    required this.requestedBonusAmount,
+    required this.payableTenge,
+    required this.bonusSpendingEnabled,
+  });
+
+  final int subtotalTenge;
+  final int bonusBalance;
+  final int availableBonusBalance;
+  final double maxRedemptionPercent;
+  final int maxRedeemableBonus;
+  final int requestedBonusAmount;
+  final int payableTenge;
+  final bool bonusSpendingEnabled;
+}
+
 class TicketPaymentStatus {
   const TicketPaymentStatus({
     required this.paymentId,
