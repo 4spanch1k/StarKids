@@ -17,7 +17,13 @@ logger = logging.getLogger(__name__)
 def main() -> None:
     session = SessionLocal()
     try:
-        processed = PushCampaignService(session, get_push_delivery()).process_due()
+        delivery = get_push_delivery()
+        service = PushCampaignService(session, delivery)
+        if not service.provider_configured:
+            raise RuntimeError(
+                'Push provider is not configured; scheduled campaigns were not processed.'
+            )
+        processed = service.process_due()
         logger.info('processed push campaigns=%s', processed)
     finally:
         session.close()

@@ -29,6 +29,20 @@ MAX_ATTEMPTS = 3
 STALE_SENDING_AFTER = timedelta(minutes=5)
 
 
+def birthday_target_date(now: datetime, days_before_birthday: int) -> date:
+    """Resolve campaign dates in the branch timezone, not server/UTC time."""
+    return now.astimezone(BUSINESS_TZ).date() + timedelta(days=days_before_birthday)
+
+
+def birthday_matches_target(birth_date: date, target: date) -> bool:
+    """Match month/day birthdays with the explicit Feb-29 policy."""
+    if birth_date.month != target.month:
+        return False
+    if target.month == 2 and target.day == 28 and birth_date.day in {28, 29}:
+        return True
+    return birth_date.day == target.day
+
+
 class PushCampaignService:
     def __init__(self, session: Session, delivery: PushDeliveryPort) -> None:
         self.session = session
@@ -36,7 +50,11 @@ class PushCampaignService:
 
     @property
     def provider_configured(self) -> bool:
-        return get_settings().fcm_is_configured and self.delivery.__class__.__name__ != 'DevNullPushDeliveryService'
+        settings = get_settings()
+        return settings.push_notifications_enabled and settings.fcm_is_configured and self.delivery.__class__.__name__ not in {
+            'DevNullPushDeliveryService',
+            'UnavailablePushDeliveryService',
+        }
 
     def list(self) -> list[PushCampaignResponse]:
         return [self.serialize(c) for c in self.session.scalars(select(PushCampaign).order_by(PushCampaign.created_at.desc())).all()]
@@ -207,7 +225,7 @@ class PushCampaignService:
             MobileNotificationDevice.permission_status.not_in(['denied', 'unavailable']),
         )
         if audience.type == 'birthday_in_days':
-            target = datetime.now(BUSINESS_TZ).date() + timedelta(days=audience.days_before_birthday or 0)
+            target = birthday_target_date(datetime.now(UTC), audience.days_before_birthday or 0)
             month_match = extract('month', MobileChild.birth_date) == target.month
             day_match = extract('day', MobileChild.birth_date) == target.day
             if target.month == 2 and target.day == 28:
