@@ -50,7 +50,11 @@ class ApiChildrenRepository implements ChildrenRepository {
     final body = <String, dynamic>{
       'name': name,
       'birthDate': _formatDate(birthDate),
-      'gender': gender == ChildGender.female ? 'female' : 'male',
+      'gender': switch (gender) {
+        ChildGender.female => 'female',
+        ChildGender.unspecified => 'unspecified',
+        ChildGender.male => 'male',
+      },
     };
     return _authorized(
       perform: (s) => _apiClient.postJson(
@@ -74,7 +78,11 @@ class ApiChildrenRepository implements ChildrenRepository {
     if (name != null) body['name'] = name;
     if (birthDate != null) body['birthDate'] = _formatDate(birthDate);
     if (gender != null) {
-      body['gender'] = gender == ChildGender.female ? 'female' : 'male';
+      body['gender'] = switch (gender) {
+        ChildGender.female => 'female',
+        ChildGender.unspecified => 'unspecified',
+        ChildGender.male => 'male',
+      };
     }
     return _authorized(
       perform: (s) => _apiClient.patchJson(

@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 class ChildGender(str, Enum):
     male = 'male'
     female = 'female'
+    unspecified = 'unspecified'
 
 
 class ChildResponse(BaseModel):
@@ -54,9 +55,8 @@ class ChildCreateRequest(BaseModel):
         today = date.today()
         if v > today:
             raise ValueError('Birth date must not be in the future.')
-        eighteen_years_ago = today.replace(year=today.year - 18)
-        if v < eighteen_years_ago:
-            raise ValueError('Birth date must be within the last 18 years.')
+        if v.year < 1900:
+            raise ValueError('Birth date is not valid.')
         return v
 
 
@@ -85,7 +85,6 @@ class ChildUpdateRequest(BaseModel):
         today = date.today()
         if v > today:
             raise ValueError('Birth date must not be in the future.')
-        eighteen_years_ago = today.replace(year=today.year - 18)
-        if v < eighteen_years_ago:
-            raise ValueError('Birth date must be within the last 18 years.')
+        if v.year < 1900:
+            raise ValueError('Birth date is not valid.')
         return v

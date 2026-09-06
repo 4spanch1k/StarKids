@@ -9,6 +9,10 @@ class UserProfileDto {
     this.avatarUrl,
     this.email,
     this.childBirthDate,
+    this.onboardingCompleted = false,
+    this.onboardingCompletedAt,
+    this.privacyConsentAt,
+    this.privacyConsentVersion,
   });
 
   final String id;
@@ -18,6 +22,10 @@ class UserProfileDto {
   final String? avatarUrl;
   final String? email;
   final DateTime? childBirthDate;
+  final bool onboardingCompleted;
+  final DateTime? onboardingCompletedAt;
+  final DateTime? privacyConsentAt;
+  final String? privacyConsentVersion;
 
   factory UserProfileDto.fromJson(Map<String, dynamic> json) {
     return UserProfileDto(
@@ -28,6 +36,12 @@ class UserProfileDto {
       avatarUrl: json['avatarUrl'] as String?,
       email: json['email'] as String?,
       childBirthDate: _parseDate(json['childBirthDate'] as String?),
+      onboardingCompleted: json['onboardingCompleted'] as bool? ?? false,
+      onboardingCompletedAt: _parseDate(
+        json['onboardingCompletedAt'] as String?,
+      ),
+      privacyConsentAt: _parseDate(json['privacyConsentAt'] as String?),
+      privacyConsentVersion: json['privacyConsentVersion'] as String?,
     );
   }
 
@@ -40,6 +54,10 @@ class UserProfileDto {
       avatarUrl: avatarUrl,
       email: email,
       childBirthDate: childBirthDate,
+      onboardingCompleted: onboardingCompleted,
+      onboardingCompletedAt: onboardingCompletedAt,
+      privacyConsentAt: privacyConsentAt,
+      privacyConsentVersion: privacyConsentVersion,
     );
   }
 

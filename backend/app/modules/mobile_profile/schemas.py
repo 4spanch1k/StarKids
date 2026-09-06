@@ -21,6 +21,10 @@ class MobileProfileResponse(BaseModel):
     lastName: str | None = None
     avatarUrl: str | None = None
     childBirthDate: date | None = None
+    onboardingCompleted: bool = False
+    onboardingCompletedAt: datetime | None = None
+    privacyConsentAt: datetime | None = None
+    privacyConsentVersion: str | None = None
 
     @classmethod
     def from_user(cls, user) -> 'MobileProfileResponse':
@@ -32,6 +36,10 @@ class MobileProfileResponse(BaseModel):
             lastName=user.last_name,
             avatarUrl=user.avatar_url,
             childBirthDate=user.child_birth_date,
+            onboardingCompleted=user.onboarding_completed_at is not None,
+            onboardingCompletedAt=user.onboarding_completed_at,
+            privacyConsentAt=user.privacy_consent_at,
+            privacyConsentVersion=user.privacy_consent_version,
         )
 
 

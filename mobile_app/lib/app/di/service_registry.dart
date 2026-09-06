@@ -38,6 +38,9 @@ import '../../features/notifications/domain/notification_settings_repository.dar
 import '../../features/notifications/domain/push_token_repository.dart';
 import '../../features/notifications/presentation/controllers/mobile_notifications_controller.dart';
 import '../../features/notifications/presentation/controllers/push_token_controller.dart';
+import '../../features/onboarding/data/api_onboarding_repository.dart';
+import '../../features/onboarding/domain/onboarding_repository.dart';
+import '../../features/onboarding/presentation/controllers/onboarding_controller.dart';
 import '../../features/loyalty/data/api_loyalty_repository.dart';
 import '../../features/loyalty/presentation/controllers/loyalty_controller.dart';
 import '../../features/promotions/data/api_promotion_repository.dart';
@@ -153,6 +156,16 @@ abstract final class ServiceRegistry {
   static final profileController = ProfileController(
     profileRepository: profileRepository,
     requestHistoryRepository: requestHistoryRepository,
+  );
+  static final OnboardingRepository onboardingRepository =
+      ApiOnboardingRepository(
+    apiClient: apiClient,
+    sessionStorage: mobileAuthSessionStorage,
+    authRepository: mobileAuthRepository,
+  );
+  static final onboardingController = OnboardingController(
+    authController: mobileAuthController,
+    repository: onboardingRepository,
   );
   static final loyaltyRepository = ApiLoyaltyRepository(
     apiClient: apiClient,

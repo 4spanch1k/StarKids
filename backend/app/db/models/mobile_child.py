@@ -19,8 +19,14 @@ class MobileChild(Base):
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     birth_date: Mapped[date] = mapped_column(Date, nullable=False)
-    gender: Mapped[str] = mapped_column(String(10), nullable=False)  # 'male' | 'female'
+    # ``unspecified`` is a valid optional value (11 characters).
+    gender: Mapped[str] = mapped_column(String(16), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
     )

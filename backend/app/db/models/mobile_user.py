@@ -39,3 +39,15 @@ class MobileUser(Base):
     last_name: Mapped[str | None] = mapped_column(String(50), nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     child_birth_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    onboarding_completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    privacy_consent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    privacy_consent_version: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )

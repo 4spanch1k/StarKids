@@ -7,6 +7,10 @@ class UserProfile {
     this.avatarUrl,
     this.email,
     this.childBirthDate,
+    this.onboardingCompleted = false,
+    this.onboardingCompletedAt,
+    this.privacyConsentAt,
+    this.privacyConsentVersion,
   });
 
   final String id;
@@ -16,6 +20,10 @@ class UserProfile {
   final String? avatarUrl;
   final String? email;
   final DateTime? childBirthDate;
+  final bool onboardingCompleted;
+  final DateTime? onboardingCompletedAt;
+  final DateTime? privacyConsentAt;
+  final String? privacyConsentVersion;
 
   bool get hasAvatar => avatarUrl != null && avatarUrl!.isNotEmpty;
 
@@ -66,6 +74,10 @@ class UserProfile {
     bool clearEmail = false,
     DateTime? childBirthDate,
     bool clearChildBirthDate = false,
+    bool? onboardingCompleted,
+    DateTime? onboardingCompletedAt,
+    DateTime? privacyConsentAt,
+    String? privacyConsentVersion,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -76,6 +88,12 @@ class UserProfile {
       email: clearEmail ? null : email ?? this.email,
       childBirthDate:
           clearChildBirthDate ? null : childBirthDate ?? this.childBirthDate,
+      onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+      onboardingCompletedAt:
+          onboardingCompletedAt ?? this.onboardingCompletedAt,
+      privacyConsentAt: privacyConsentAt ?? this.privacyConsentAt,
+      privacyConsentVersion:
+          privacyConsentVersion ?? this.privacyConsentVersion,
     );
   }
 }

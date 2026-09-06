@@ -1,4 +1,4 @@
-enum ChildGender { male, female }
+enum ChildGender { male, female, unspecified }
 
 class Child {
   const Child({
