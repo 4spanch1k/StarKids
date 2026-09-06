@@ -11,8 +11,12 @@ class PushCampaign(Base):
     __tablename__ = 'push_campaigns'
     __table_args__ = (
         CheckConstraint(
-            "audience_type IN ('all_users', 'birthday_in_days')",
+            "audience_type IN ('all_users', 'birthday_in_days', 'user')",
             name='ck_push_campaigns_audience_type',
+        ),
+        CheckConstraint(
+            "origin IN ('manual', 'system_birthday')",
+            name='ck_push_campaigns_origin',
         ),
         CheckConstraint(
             "destination IN ('home', 'tickets', 'birthdays', 'promotions', 'profile')",
@@ -37,12 +41,13 @@ class PushCampaign(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_by_admin_id: Mapped[str] = mapped_column(
+    created_by_admin_id: Mapped[str | None] = mapped_column(
         String(32),
         ForeignKey('admin_users.id', ondelete='RESTRICT'),
-        nullable=False,
+        nullable=True,
         index=True,
     )
+    origin: Mapped[str] = mapped_column(String(32), nullable=False, default='manual', server_default='manual')
     targeted_users: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default='0')
     targeted_devices: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default='0')
     sent_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default='0')

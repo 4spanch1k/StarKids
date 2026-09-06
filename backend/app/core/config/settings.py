@@ -44,6 +44,14 @@ class Settings(BaseSettings):
     fcm_client_email: str | None = None
     fcm_private_key: str | None = None
     push_notifications_enabled: bool = True
+    birthday_reminders_enabled: bool = False
+    birthday_reminder_windows: str = '14,7,1'
+    birthday_reminder_14_title: str = 'Скоро день рождения 🎉'
+    birthday_reminder_14_body: str = 'Пора планировать праздник в Boom Bala'
+    birthday_reminder_7_title: str = 'До праздника всё ближе 🎈'
+    birthday_reminder_7_body: str = 'Посмотрите варианты праздника в Boom Bala'
+    birthday_reminder_1_title: str = 'Завтра особенный день 🎉'
+    birthday_reminder_1_body: str = 'Посмотрите, как можно отметить его в Boom Bala'
 
     clerk_secret_key: str | None = None
     clerk_issuer: str | None = None

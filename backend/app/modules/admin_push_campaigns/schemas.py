@@ -4,20 +4,25 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 
-AudienceType = Literal['all_users', 'birthday_in_days']
+AudienceType = Literal['all_users', 'birthday_in_days', 'user']
 Destination = Literal['home', 'tickets', 'birthdays', 'promotions', 'profile']
 
 
 class PushCampaignAudience(BaseModel):
     type: AudienceType
     days_before_birthday: int | None = Field(default=None, ge=1, le=365)
+    user_id: str | None = Field(default=None, min_length=1, max_length=32)
 
     @model_validator(mode='after')
     def validate_config(self) -> 'PushCampaignAudience':
         if self.type == 'birthday_in_days' and self.days_before_birthday is None:
             raise ValueError('days_before_birthday is required for birthday audience')
-        if self.type == 'all_users' and self.days_before_birthday is not None:
+        if self.type == 'user' and self.user_id is None:
+            raise ValueError('user_id is required for user audience')
+        if self.type != 'birthday_in_days' and self.days_before_birthday is not None:
             raise ValueError('days_before_birthday is only valid for birthday audience')
+        if self.type != 'user' and self.user_id is not None:
+            raise ValueError('user_id is only valid for user audience')
         return self
 
 
@@ -52,6 +57,7 @@ class PushCampaignResponse(BaseModel):
     body: str
     audience: PushCampaignAudience
     destination: Destination
+    origin: Literal['manual', 'system_birthday']
     status: str
     scheduled_at: datetime | None
     started_at: datetime | None

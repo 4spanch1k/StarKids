@@ -1,0 +1,10 @@
+[Unit]
+Description=Boom Bala automatic birthday reminder processor
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/boom-bala/backend
+EnvironmentFile=/etc/boom-bala/backend.env
+ExecStart=/opt/boom-bala/backend/.venv/bin/python scripts/process_birthday_reminders.py
+User=boom-bala
