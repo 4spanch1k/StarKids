@@ -16,6 +16,21 @@ import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
 
 class DefaultFirebaseOptions {
+  /// Placeholder values must never be mistaken for a live Firebase project.
+  static bool get isConfigured {
+    final options = currentPlatform;
+    final requiredValues = <String?>[
+      options.apiKey,
+      options.appId,
+      options.messagingSenderId,
+      options.projectId,
+    ];
+    if (options.iosBundleId != null) {
+      requiredValues.add(options.iosBundleId);
+    }
+    return !requiredValues.any(_isPlaceholder);
+  }
+
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
       return _web;
@@ -29,6 +44,11 @@ class DefaultFirebaseOptions {
           'Run: flutterfire configure --project=YOUR_FIREBASE_PROJECT_ID',
         ),
     };
+  }
+
+  static bool _isPlaceholder(String? value) {
+    final normalized = value?.trim() ?? '';
+    return normalized.isEmpty || normalized.startsWith('PLACEHOLDER_');
   }
 
   // ---------------------------------------------------------------------------

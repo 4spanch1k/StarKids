@@ -31,6 +31,8 @@ class MobileAuthController extends ChangeNotifier {
   }) : _repository = repository;
 
   final MobileAuthRepository _repository;
+  Future<void> Function(MobileAuthSession session)? _beforeLogout;
+  void Function()? _onLogoutAborted;
   static const _bootstrapTimeout = Duration(seconds: 8);
 
   MobileAuthStatus _status = MobileAuthStatus.idle;
@@ -59,6 +61,16 @@ class MobileAuthController extends ChangeNotifier {
       _status == MobileAuthStatus.verifying ||
       _isRefreshingProfile ||
       _isLoggingOut;
+
+  /// Wires cross-cutting cleanup without creating a service-registry
+  /// initialization cycle. This is called before auth bootstrap completes.
+  void configureLogoutHooks({
+    required Future<void> Function(MobileAuthSession session) beforeLogout,
+    required void Function() onLogoutAborted,
+  }) {
+    _beforeLogout = beforeLogout;
+    _onLogoutAborted = onLogoutAborted;
+  }
 
   Future<void> registerWithEmail({
     required String email,
@@ -149,8 +161,9 @@ class MobileAuthController extends ChangeNotifier {
 
     try {
       debugPrint('[AUTH] session storage read started');
-      final restoredSession =
-          await _repository.restoreSession().timeout(_bootstrapTimeout);
+      final restoredSession = await _repository.restoreSession().timeout(
+            _bootstrapTimeout,
+          );
       debugPrint(
         '[AUTH] session storage result: hasSession=${restoredSession != null}',
       );
@@ -334,11 +347,19 @@ class MobileAuthController extends ChangeNotifier {
     notifyListeners();
 
     final session = _session;
+    if (session != null && _beforeLogout != null) {
+      try {
+        await _beforeLogout!(session);
+      } catch (_) {
+        // Push cleanup is best-effort and must never trap the user in the app.
+      }
+    }
     final result = session == null
         ? const Success<void>(null)
         : await _repository.logout(session);
 
     if (result is Failure<void>) {
+      _onLogoutAborted?.call();
       _errorMessage = result.message;
       _status = MobileAuthStatus.error;
       _isLoggingOut = false;

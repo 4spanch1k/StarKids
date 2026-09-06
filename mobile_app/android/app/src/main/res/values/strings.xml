@@ -1,0 +1,4 @@
+<resources>
+    <string name="boom_bala_notification_channel_id">boom_bala_general</string>
+    <string name="boom_bala_notification_channel_name">Boom Bala</string>
+</resources>

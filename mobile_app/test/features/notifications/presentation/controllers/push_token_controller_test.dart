@@ -166,6 +166,34 @@ void main() {
       expect(controller.registeredToken, isNull);
     });
 
+    test('prepareForLogout removes token before auth session is cleared',
+        () async {
+      final session = _buildSession('access-token-before-logout');
+      final authController = _buildAuthController(session: session);
+      final pushRepo = _RecordingPushTokenRepository(success: true);
+      final controller = PushTokenController(
+        authController: authController,
+        notificationSettingsRepository:
+            const _FakeNotificationSettingsRepository(
+          loadStatus: NotificationPermissionStatus.granted,
+        ),
+        fcmTokenGateway: _FakeFcmTokenGateway(token: 'logout-token'),
+        pushTokenRepository: pushRepo,
+      );
+
+      await controller.bootstrap();
+      await controller.prepareForLogout(session);
+
+      expect(pushRepo.removedAccessTokens, ['access-token-before-logout']);
+      expect(controller.registeredToken, isNull);
+
+      // The later auth notification must not issue a second unauthenticated
+      // DELETE after the session has already been cleared.
+      authController.setSessionForTest(null);
+      await Future<void>.delayed(Duration.zero);
+      expect(pushRepo.removedAccessTokens, ['access-token-before-logout']);
+    });
+
     test('retryRegistration re-attempts when in failed state', () async {
       final session = _buildSession('access-token-7');
       final authController = _buildAuthController(session: session);
@@ -336,6 +364,7 @@ class _RecordingPushTokenRepository implements PushTokenRepository {
 
   final bool success;
   final List<String> registeredTokens = [];
+  final List<String> removedAccessTokens = [];
 
   @override
   Future<bool> registerToken({
@@ -349,7 +378,9 @@ class _RecordingPushTokenRepository implements PushTokenRepository {
   }
 
   @override
-  Future<void> removeToken({required String accessToken}) async {}
+  Future<void> removeToken({required String accessToken}) async {
+    removedAccessTokens.add(accessToken);
+  }
 }
 
 class _CallbackPushTokenRepository implements PushTokenRepository {

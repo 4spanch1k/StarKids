@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 from sqlalchemy import or_, select
+from sqlalchemy.exc import IntegrityError
 
 from ..models.mobile_notification_device import MobileNotificationDevice
 from .base import Repository
@@ -31,6 +32,40 @@ class MobileNotificationDeviceRepository(Repository):
         )
 
     def upsert(
+        self,
+        *,
+        mobile_user_id: str,
+        mobile_session_id: str,
+        platform: str,
+        push_token: str,
+        permission_status: str,
+        notifications_enabled: bool,
+    ) -> MobileNotificationDevice:
+        try:
+            return self._upsert_once(
+                mobile_user_id=mobile_user_id,
+                mobile_session_id=mobile_session_id,
+                platform=platform,
+                push_token=push_token,
+                permission_status=permission_status,
+                notifications_enabled=notifications_enabled,
+            )
+        except IntegrityError:
+            # The unique push_token constraint is authoritative when two
+            # authenticated sessions bind the same physical token at once.
+            # Retry after the losing transaction rolls back and rebind the
+            # winner to the latest authenticated session.
+            self.db.rollback()
+            return self._upsert_once(
+                mobile_user_id=mobile_user_id,
+                mobile_session_id=mobile_session_id,
+                platform=platform,
+                push_token=push_token,
+                permission_status=permission_status,
+                notifications_enabled=notifications_enabled,
+            )
+
+    def _upsert_once(
         self,
         *,
         mobile_user_id: str,

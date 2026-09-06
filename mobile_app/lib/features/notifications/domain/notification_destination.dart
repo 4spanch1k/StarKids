@@ -64,6 +64,32 @@ class NotificationDestination {
     }
   }
 
+  /// Returns the minimal, allowlisted payload safe to keep in a local
+  /// notification action. Provider data such as phone numbers or child data
+  /// is intentionally discarded.
+  Map<String, String> toPayload() {
+    final payload = <String, String>{'destination_type': _canonicalType};
+    final id = entityId?.trim();
+    if (id != null && id.isNotEmpty) {
+      payload['destination_id'] = id;
+    }
+    return payload;
+  }
+
+  String get _canonicalType {
+    return switch (type) {
+      NotificationDestinationType.home => 'home',
+      NotificationDestinationType.tickets => 'tickets',
+      NotificationDestinationType.birthdays => 'birthdays',
+      NotificationDestinationType.promotions => 'promotions',
+      NotificationDestinationType.profile => 'profile',
+      NotificationDestinationType.ticketDetail => 'ticket_detail',
+      NotificationDestinationType.birthday => 'birthday',
+      NotificationDestinationType.promotionDetail => 'promotion_detail',
+      NotificationDestinationType.newsDetail => 'news_detail',
+    };
+  }
+
   static NotificationDestination? fromPayload(Map<String, dynamic> payload) {
     final rawType = (payload['destination_type'] ??
             payload['destinationType'] ??
@@ -81,16 +107,21 @@ class NotificationDestination {
         ?.toString();
     switch (rawType) {
       case 'home':
-        return const NotificationDestination(type: NotificationDestinationType.home);
+        return const NotificationDestination(
+            type: NotificationDestinationType.home);
       case 'tickets':
-        return const NotificationDestination(type: NotificationDestinationType.tickets);
+        return const NotificationDestination(
+            type: NotificationDestinationType.tickets);
       case 'birthdays':
       case 'birthday':
-        return const NotificationDestination(type: NotificationDestinationType.birthdays);
+        return const NotificationDestination(
+            type: NotificationDestinationType.birthdays);
       case 'promotions':
-        return const NotificationDestination(type: NotificationDestinationType.promotions);
+        return const NotificationDestination(
+            type: NotificationDestinationType.promotions);
       case 'profile':
-        return const NotificationDestination(type: NotificationDestinationType.profile);
+        return const NotificationDestination(
+            type: NotificationDestinationType.profile);
       case 'ticket_detail':
       case 'ticket':
         return id?.trim().isNotEmpty ?? false
@@ -114,7 +145,8 @@ class NotificationDestination {
                 type: NotificationDestinationType.newsDetail, entityId: id)
             : null;
       default:
-        return const NotificationDestination(type: NotificationDestinationType.home);
+        return const NotificationDestination(
+            type: NotificationDestinationType.home);
     }
   }
 }

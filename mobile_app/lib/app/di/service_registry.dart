@@ -77,7 +77,7 @@ abstract final class ServiceRegistry {
     apiClient: apiClient,
     sessionStorage: mobileAuthSessionStorage,
   );
-  static final mobileAuthController = MobileAuthController(
+  static final MobileAuthController mobileAuthController = MobileAuthController(
     repository: mobileAuthRepository,
   );
   static final BranchRepository branchRepository = ApiBranchRepository(
@@ -195,6 +195,10 @@ abstract final class ServiceRegistry {
 
   static Future<void> bootstrap() async {
     debugPrint('[BOOT] ServiceRegistry init started');
+    mobileAuthController.configureLogoutHooks(
+      beforeLogout: pushTokenController.prepareForLogout,
+      onLogoutAborted: pushTokenController.cancelPendingLogout,
+    );
     await _runStartupStep(
       '[BOOT] app settings load',
       appSettingsController.load,

@@ -34,4 +34,17 @@ void main() {
     expect(destination?.type, NotificationDestinationType.home);
     expect(destination?.routeName, AppRoutes.home);
   });
+
+  test('reduces foreground payload to an allowlisted destination', () {
+    final destination = NotificationDestination.fromPayload({
+      'destination_type': 'birthdays',
+      'campaignId': 'campaign-1',
+      'childName': 'private-name',
+      'birthDate': '2020-01-01',
+    });
+
+    expect(destination?.toPayload(), {
+      'destination_type': 'birthdays',
+    });
+  });
 }
