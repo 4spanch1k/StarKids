@@ -11,6 +11,7 @@ import {
   resolveAdminRequestError,
 } from '@/features/auth/lib/adminRequest';
 import {
+  fetchAdminBirthdayLeadDetail,
   fetchAdminLeadDetail,
   fetchAdminLeadList,
   fetchLeadInboxBranchOptions,
@@ -142,7 +143,10 @@ export function useLeadInbox() {
         });
       });
 
-      selectedLead.value = updatedLead;
+      selectedLead.value = {
+        ...selectedLead.value,
+        ...updatedLead,
+      };
       patchLeadInList(updatedLead);
 
       if (filters.status && filters.status !== updatedLead.status) {
@@ -159,6 +163,42 @@ export function useLeadInbox() {
       statusErrorMessage.value = resolveAdminRequestError(
         error,
         'Не удалось обновить статус заявки.',
+      );
+    } finally {
+      isStatusUpdating.value = false;
+    }
+  }
+
+  async function updateLeadNote(note: string) {
+    if (!selectedLead.value || selectedLead.value.type !== 'birthday_request') {
+      return;
+    }
+
+    isStatusUpdating.value = true;
+    statusErrorMessage.value = '';
+    statusSuccessMessage.value = '';
+    const leadId = selectedLead.value.id;
+    const currentStatus = selectedLead.value.status;
+
+    try {
+      const updatedLead = await executeAuthorizedAdminRequest((accessToken) => {
+        return updateAdminLeadStatus({
+          accessToken,
+          leadId,
+          status: currentStatus,
+          adminNote: note,
+        });
+      });
+      selectedLead.value = {
+        ...selectedLead.value,
+        ...updatedLead,
+        adminNote: note,
+      };
+      statusSuccessMessage.value = 'Внутренняя заметка сохранена.';
+    } catch (error) {
+      statusErrorMessage.value = resolveAdminRequestError(
+        error,
+        'Не удалось сохранить внутреннюю заметку.',
       );
     } finally {
       isStatusUpdating.value = false;
@@ -187,7 +227,10 @@ export function useLeadInbox() {
       patchLeadInList(updatedLead);
 
       if (selectedLeadId.value === leadId) {
-        selectedLead.value = updatedLead;
+        selectedLead.value = {
+          ...selectedLead.value,
+          ...updatedLead,
+        };
       }
 
       if (filters.status && filters.status !== updatedLead.status) {
@@ -217,9 +260,16 @@ export function useLeadInbox() {
     detailErrorMessage.value = '';
 
     try {
-      selectedLead.value = await executeAuthorizedAdminRequest((accessToken) => {
+      const baseLead = await executeAuthorizedAdminRequest((accessToken) => {
         return fetchAdminLeadDetail({ accessToken, leadId });
       });
+      if (baseLead.type === 'birthday_request') {
+        selectedLead.value = await executeAuthorizedAdminRequest((accessToken) => {
+          return fetchAdminBirthdayLeadDetail({ accessToken, leadId });
+        });
+      } else {
+        selectedLead.value = baseLead;
+      }
     } catch (error) {
       if (selectedLeadId.value === leadId) {
         detailErrorMessage.value = resolveAdminRequestError(
@@ -301,5 +351,6 @@ export function useLeadInbox() {
     total,
     quickUpdateLeadStatus,
     updateLeadStatus,
+    updateLeadNote,
   };
 }

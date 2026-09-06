@@ -1,21 +1,16 @@
 enum RequestStatus {
-  newRequest(
-    apiValue: 'new',
-    label: 'Новая',
-  ),
-  inProgress(
-    apiValue: 'in_progress',
-    label: 'В работе',
-  ),
-  closed(
-    apiValue: 'closed',
-    label: 'Закрыта',
-  );
+  newRequest(apiValue: 'new', label: 'Новая'),
+  inProgress(apiValue: 'in_progress', label: 'В работе'),
+  closed(apiValue: 'closed', label: 'Закрыта'),
 
-  const RequestStatus({
-    required this.apiValue,
-    required this.label,
-  });
+  // Birthday lead v2 statuses. Legacy in_progress/closed remain supported
+  // for older contact requests and historical records.
+  contacted(apiValue: 'contacted', label: 'Менеджер связался'),
+  confirmed(apiValue: 'confirmed', label: 'Праздник подтверждён'),
+  cancelled(apiValue: 'cancelled', label: 'Отменено'),
+  lost(apiValue: 'lost', label: 'Не состоялось');
+
+  const RequestStatus({required this.apiValue, required this.label});
 
   final String apiValue;
   final String label;
@@ -28,8 +23,15 @@ enum RequestStatus {
         return RequestStatus.inProgress;
       case 'closed':
         return RequestStatus.closed;
+      case 'contacted':
+        return RequestStatus.contacted;
+      case 'confirmed':
+        return RequestStatus.confirmed;
+      case 'cancelled':
+        return RequestStatus.cancelled;
+      case 'lost':
+        return RequestStatus.lost;
     }
-
-    throw FormatException('Unknown request status: $value');
+    return RequestStatus.newRequest;
   }
 }

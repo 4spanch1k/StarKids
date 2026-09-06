@@ -59,5 +59,30 @@ class AdminLeadDetailResponse(AdminLeadBaseResponse):
     contactMethod: str
 
 
+class AdminBirthdayLeadDetailResponse(BaseModel):
+    id: str
+    status: LeadInboxStatus
+    source: str
+    customerName: str
+    phone: str
+    contactMethod: str
+    childId: str | None = None
+    childName: str | None = None
+    childBirthDate: date | None = None
+    requestedDate: date | None = None
+    guestCount: int | None = None
+    branch: AdminLeadBranchSummary | None = None
+    package: AdminLeadPackageSummary | None = None
+    packageNameSnapshot: str | None = None
+    packagePriceSnapshot: int | None = None
+    comment: str | None = None
+    adminNote: str | None = None
+    createdAt: datetime
+    updatedAt: datetime
+    contactedAt: datetime | None = None
+    closedAt: datetime | None = None
+
+
 class AdminLeadStatusUpdateRequest(BaseModel):
     status: LeadInboxStatus
+    adminNote: str | None = Field(default=None, max_length=2000)

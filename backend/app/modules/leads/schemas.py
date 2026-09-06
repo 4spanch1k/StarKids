@@ -1,4 +1,5 @@
 from datetime import date, datetime, timezone
+from zoneinfo import ZoneInfo
 
 from pydantic import (
     BaseModel,
@@ -29,11 +30,13 @@ class BirthdayLeadCreate(BaseModel):
     guestCount: int | None = Field(default=None, ge=1, le=60)
     comment: str | None = Field(default=None, max_length=1000)
     packageId: str | None = Field(default=None, min_length=1, max_length=32)
+    childId: str | None = Field(default=None, min_length=1, max_length=32)
+    idempotencyKey: str | None = Field(default=None, min_length=8, max_length=128)
 
     @field_validator('preferredDate')
     @classmethod
     def validate_preferred_date(cls, value: date | None) -> date | None:
-        if value is not None and value < date.today():
+        if value is not None and value < datetime.now(ZoneInfo('Asia/Almaty')).date():
             raise ValueError('preferredDate must be today or later.')
         return value
 
@@ -55,6 +58,31 @@ class BirthdayLeadSubmittedResponse(BaseModel):
     def serialize_submitted_at(self, value: datetime) -> str:
         submitted_at = value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
         return submitted_at.astimezone(timezone.utc).isoformat().replace('+00:00', 'Z')
+
+
+class BirthdayLeadResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    status: LeadStatus
+    childId: str | None = None
+    childName: str | None = None
+    childBirthDate: date | None = None
+    branchId: str
+    packageId: str | None = None
+    packageName: str | None = None
+    requestedDate: date | None = None
+    guestCount: int | None = None
+    comment: str | None = None
+    createdAt: datetime
+    updatedAt: datetime
+    contactedAt: datetime | None = None
+    closedAt: datetime | None = None
+
+
+class BirthdayLeadListResponse(BaseModel):
+    items: list[BirthdayLeadResponse]
+    total: int
 
 
 class BirthdayLeadValidationErrorResponse(BaseModel):

@@ -9,6 +9,7 @@ from .schemas import (
     AdminLeadBaseResponse,
     AdminLeadBranchSummary,
     AdminLeadDetailResponse,
+    AdminBirthdayLeadDetailResponse,
     AdminLeadListQuery,
     AdminLeadListResponse,
     AdminLeadPackageSummary,
@@ -26,6 +27,17 @@ LEAD_INBOX_ALLOWED_ROLES = (
 LEAD_STATUS_TRANSITIONS: dict[LeadInboxStatus, set[LeadInboxStatus]] = {
     'new': {'new', 'in_progress', 'closed'},
     'in_progress': {'in_progress', 'closed'},
+    'closed': {'closed'},
+}
+
+BIRTHDAY_STATUS_TRANSITIONS: dict[LeadInboxStatus, set[LeadInboxStatus]] = {
+    'new': {'new', 'contacted', 'confirmed', 'cancelled', 'in_progress', 'closed'},
+    'contacted': {'contacted', 'confirmed', 'cancelled', 'lost'},
+    'confirmed': {'confirmed'},
+    'cancelled': {'cancelled'},
+    'lost': {'lost'},
+    # Legacy values remain readable and safely terminal/forward-compatible.
+    'in_progress': {'in_progress', 'contacted', 'confirmed', 'cancelled', 'lost', 'closed'},
     'closed': {'closed'},
 }
 
@@ -60,6 +72,42 @@ class AdminLeadInboxService:
             )
         return self._serialize_detail(record)
 
+    def get_birthday_lead_detail(self, lead_id: str) -> AdminBirthdayLeadDetailResponse:
+        record = self.repository.get_record(lead_id)
+        if record is None or record.type != LEAD_TYPE_BIRTHDAY_REQUEST:
+            raise NotFoundException(code='birthday_lead_not_found', message='Birthday request was not found.')
+        return AdminBirthdayLeadDetailResponse(
+            id=record.id,
+            status=record.status,
+            source=record.source,
+            customerName=record.customer_name,
+            phone=record.phone,
+            contactMethod=record.contact_method,
+            childId=record.child_id,
+            childName=record.child_name,
+            childBirthDate=record.child_birth_date,
+            requestedDate=record.requested_date,
+            guestCount=record.guest_count,
+            branch=self._serialize_branch(record),
+            package=self._serialize_package(record),
+            packageNameSnapshot=(
+                record.birthday_package_snapshot_name
+                if record.birthday_package_snapshot_name is not None
+                else record.birthday_package_name
+            ),
+            packagePriceSnapshot=(
+                record.birthday_package_snapshot_price
+                if record.birthday_package_snapshot_price is not None
+                else record.birthday_package_price
+            ),
+            comment=record.notes,
+            adminNote=record.admin_note,
+            createdAt=record.created_at,
+            updatedAt=record.updated_at,
+            contactedAt=record.contacted_at,
+            closedAt=record.closed_at,
+        )
+
     def update_lead_status(
         self,
         lead_id: str,
@@ -76,7 +124,8 @@ class AdminLeadInboxService:
             )
 
         current_status = birthday_request.status if birthday_request is not None else contact_lead.status
-        if current_status not in LEAD_STATUS_TRANSITIONS:
+        transitions = BIRTHDAY_STATUS_TRANSITIONS if birthday_request is not None else LEAD_STATUS_TRANSITIONS
+        if current_status not in transitions:
             raise DomainHTTPException(
                 code='unsupported_lead_status',
                 message='Lead status is not supported.',
@@ -89,7 +138,7 @@ class AdminLeadInboxService:
                 ],
             )
 
-        if payload.status not in LEAD_STATUS_TRANSITIONS[current_status]:
+        if payload.status not in transitions[current_status]:
             raise DomainHTTPException(
                 code='invalid_lead_status_transition',
                 message='Lead status transition is not allowed.',
@@ -116,6 +165,12 @@ class AdminLeadInboxService:
                     contact_lead,
                     status=payload.status,
                 )
+
+        if birthday_request is not None and payload.adminNote is not None:
+            self.repository.update_birthday_request_note(
+                birthday_request,
+                admin_note=payload.adminNote,
+            )
 
         return self.get_lead(lead_id)
 

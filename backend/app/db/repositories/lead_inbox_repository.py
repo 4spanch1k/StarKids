@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 from sqlalchemy import Select, func, select
 
@@ -32,6 +32,16 @@ class LeadInboxRecord:
     branch_short_label: str | None
     birthday_package_id: str | None
     birthday_package_name: str | None
+    birthday_package_price: int | None
+    birthday_package_snapshot_name: str | None
+    birthday_package_snapshot_price: int | None
+    child_id: str | None
+    child_name: str | None
+    child_birth_date: date | None
+    admin_note: str | None
+    updated_at: datetime
+    contacted_at: datetime | None
+    closed_at: datetime | None
 
 
 class LeadInboxRepository(Repository):
@@ -136,6 +146,22 @@ class LeadInboxRepository(Repository):
         status: str,
     ) -> BirthdayRequest:
         birthday_request.status = status
+        now = datetime.now(UTC)
+        birthday_request.updated_at = now
+        if status in {'contacted', 'in_progress'} and birthday_request.contacted_at is None:
+            birthday_request.contacted_at = now
+        if status in {'confirmed', 'cancelled', 'lost', 'closed'}:
+            birthday_request.closed_at = birthday_request.closed_at or now
+        self.db.add(birthday_request)
+        self.db.commit()
+        self.db.refresh(birthday_request)
+        return birthday_request
+
+    def update_birthday_request_note(
+        self, birthday_request: BirthdayRequest, *, admin_note: str | None
+    ) -> BirthdayRequest:
+        birthday_request.admin_note = admin_note.strip() if admin_note else None
+        birthday_request.updated_at = datetime.now(UTC)
         self.db.add(birthday_request)
         self.db.commit()
         self.db.refresh(birthday_request)
@@ -182,7 +208,17 @@ class LeadInboxRepository(Repository):
             branch_name=branch.name,
             branch_short_label=branch.short_label,
             birthday_package_id=package.id if package else None,
-            birthday_package_name=package.name if package else None,
+            birthday_package_name=(package.name if package else birthday_request.package_name_snapshot),
+            birthday_package_price=(package.price_from if package else birthday_request.package_price_snapshot),
+            birthday_package_snapshot_name=birthday_request.package_name_snapshot,
+            birthday_package_snapshot_price=birthday_request.package_price_snapshot,
+            child_id=birthday_request.child_id,
+            child_name=birthday_request.child_name_snapshot,
+            child_birth_date=birthday_request.child_birth_date_snapshot,
+            admin_note=birthday_request.admin_note,
+            updated_at=birthday_request.updated_at,
+            contacted_at=birthday_request.contacted_at,
+            closed_at=birthday_request.closed_at,
         )
 
     def _map_contact_record(self, lead: ContactLead) -> LeadInboxRecord:
@@ -204,4 +240,14 @@ class LeadInboxRepository(Repository):
             branch_short_label=None,
             birthday_package_id=None,
             birthday_package_name=None,
+            birthday_package_price=None,
+            birthday_package_snapshot_name=None,
+            birthday_package_snapshot_price=None,
+            child_id=None,
+            child_name=None,
+            child_birth_date=None,
+            admin_note=None,
+            updated_at=lead.created_at,
+            contacted_at=None,
+            closed_at=None,
         )

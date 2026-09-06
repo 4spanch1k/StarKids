@@ -118,6 +118,16 @@
             <dt>Пакет</dt>
             <dd>{{ formatPackageName(lead.package) }}</dd>
           </div>
+          <div v-if="lead.type === 'birthday_request' && lead.childName">
+            <dt>Ребёнок</dt>
+            <dd>
+              {{ lead.childName }}<span v-if="lead.childBirthDate">, {{ formatDate(lead.childBirthDate) }}</span>
+            </dd>
+          </div>
+          <div v-if="lead.type === 'birthday_request' && lead.packagePriceSnapshot !== null && lead.packagePriceSnapshot !== undefined">
+            <dt>Цена на момент заявки</dt>
+            <dd>{{ formatMoney(lead.packagePriceSnapshot) }}</dd>
+          </div>
           <div v-if="lead.type === 'birthday_request'">
             <dt>Гостей</dt>
             <dd>{{ formatGuestCount(lead.guestCount) }}</dd>
@@ -141,11 +151,35 @@
           {{ notesFallback(lead.type, lead.notes) }}
         </p>
       </article>
+
+      <article v-if="lead.type === 'birthday_request'" class="lead-detail-card lead-detail-card--full">
+        <div class="admin-section-heading">
+          <h3>Внутренняя заметка</h3>
+          <p>Видна только менеджерам.</p>
+        </div>
+        <textarea
+          v-model="adminNoteDraft"
+          class="lead-detail-card__note-input"
+          maxlength="2000"
+          rows="4"
+          placeholder="Например: позвонили, ждём подтверждение даты."
+          :disabled="isStatusUpdating"
+        />
+        <button
+          type="button"
+          class="admin-button admin-button--secondary lead-detail-card__note-button"
+          :disabled="isStatusUpdating"
+          @click="emit('save-note', adminNoteDraft.trim())"
+        >
+          Сохранить заметку
+        </button>
+      </article>
     </div>
   </template>
 </template>
 
 <script setup lang="ts">
+import { ref, watch } from 'vue';
 import {
   describeLeadStatusFlow,
   formatLeadStatus as formatStatus,
@@ -160,23 +194,33 @@ import {
 } from '@/entities/lead/model/lead';
 import StatusBadge from '@/shared/ui/StatusBadge.vue';
 
-defineProps<{
+const props = defineProps<{
   lead: LeadDetail;
   isStatusUpdating: boolean;
   statusSuccessMessage: string;
   statusErrorMessage: string;
 }>();
 
-defineEmits<{
+const emit = defineEmits<{
   'update-status': [status: LeadStatus];
+  'save-note': [note: string];
 }>();
+
+const adminNoteDraft = ref(props.lead.adminNote ?? '');
+
+watch(
+  () => props.lead.id,
+  () => {
+    adminNoteDraft.value = props.lead.adminNote ?? '';
+  },
+);
 
 function statusTone(status: LeadStatus): 'new' | 'in-progress' | 'closed' {
   if (status === 'new') {
     return 'new';
   }
 
-  if (status === 'in_progress') {
+  if (status === 'in_progress' || status === 'contacted') {
     return 'in-progress';
   }
 
@@ -215,6 +259,10 @@ function formatGuestCount(value: number | null): string {
   }
 
   return `${value} гостей`;
+}
+
+function formatMoney(value: number): string {
+  return new Intl.NumberFormat('ru-RU').format(value) + ' ₸';
 }
 
 function formatContactMethod(value: string): string {
@@ -460,6 +508,23 @@ function startOfDay(date: Date): Date {
 
 .lead-detail-card__link:hover {
   color: var(--color-accent);
+}
+
+.lead-detail-card__note-input {
+  width: 100%;
+  min-height: 92px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  line-height: 1.4;
+  resize: vertical;
+}
+
+.lead-detail-card__note-button {
+  justify-self: start;
 }
 
 .admin-info-grid {

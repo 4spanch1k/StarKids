@@ -8,6 +8,7 @@ from ...core.exceptions.schemas import ErrorResponse
 from ...db.repositories.lead_inbox_repository import LeadInboxRepository
 from ..admin_auth.dependencies import require_admin_roles
 from .schemas import (
+    AdminBirthdayLeadDetailResponse,
     AdminLeadDetailResponse,
     AdminLeadListQuery,
     AdminLeadListResponse,
@@ -58,6 +59,18 @@ def get_admin_lead(
     service: AdminLeadInboxService = Depends(get_admin_lead_inbox_service),
 ) -> AdminLeadDetailResponse:
     return service.get_lead(lead_id)
+
+
+@router.get(
+    '/leads/{lead_id}/birthday',
+    response_model=AdminBirthdayLeadDetailResponse,
+    responses={401: {'model': ErrorResponse}, 403: {'model': ErrorResponse}, 404: {'model': ErrorResponse}},
+)
+def get_admin_birthday_lead_detail(
+    lead_id: str,
+    service: AdminLeadInboxService = Depends(get_admin_lead_inbox_service),
+) -> AdminBirthdayLeadDetailResponse:
+    return service.get_birthday_lead_detail(lead_id)
 
 
 @router.patch(
