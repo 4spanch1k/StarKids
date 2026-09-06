@@ -78,6 +78,12 @@ class PushCampaignService:
 
     def update(self, campaign_id: str, payload: PushCampaignUpdateRequest) -> PushCampaignResponse:
         campaign = self._get(campaign_id)
+        if campaign.origin == 'system_birthday':
+            raise DomainHTTPException(
+                code='system_campaign_not_editable',
+                message='Системную birthday-кампанию нельзя редактировать.',
+                status_code=409,
+            )
         if campaign.status not in {'draft', 'scheduled'}:
             raise DomainHTTPException(code='campaign_not_editable', message='Кампания уже запущена или завершена.', status_code=409)
         changes = payload.model_dump(exclude_unset=True)
@@ -231,9 +237,47 @@ class PushCampaignService:
             if target.month == 2 and target.day == 28:
                 day_match = day_match | extract('day', MobileChild.birth_date) == 29
             query = query.join(MobileChild, MobileChild.user_id == MobileUser.id).where(month_match, day_match)
+        elif audience.type == 'user':
+            query = query.where(MobileUser.id == audience.user_id)
         rows = self.session.execute(query.distinct()).all()
         devices = [(row[0], row[1]) for row in rows]
         return sorted({u for u, _ in devices}), devices
+
+    def create_system_birthday_campaign(
+        self,
+        *,
+        user_id: str,
+        internal_name: str,
+        title: str,
+        body: str,
+    ) -> PushCampaign:
+        """Create an immutable user-scoped campaign in the caller transaction."""
+        campaign = PushCampaign(
+            internal_name=internal_name,
+            title=title,
+            body=body,
+            audience_type='user',
+            audience_config={'user_id': user_id},
+            destination='birthdays',
+            destination_payload={},
+            status='draft',
+            created_by_admin_id=None,
+            origin='system_birthday',
+        )
+        self.session.add(campaign)
+        self.session.flush()
+        return campaign
+
+    def process_existing(self, campaign_id: str) -> PushCampaignResponse:
+        """Resume a system campaign after a crash or partial execution."""
+        if not self.provider_configured:
+            return self.get(campaign_id)
+        campaign = self._get(campaign_id)
+        if campaign.status in {'sent', 'cancelled'}:
+            return self.serialize(campaign)
+        self._start_snapshot(campaign_id)
+        self._deliver_campaign(campaign_id)
+        return self.get(campaign_id)
 
     def _get(self, campaign_id: str) -> PushCampaign:
         item = self.session.get(PushCampaign, campaign_id)
@@ -253,7 +297,7 @@ class PushCampaignService:
         audience = PushCampaignAudience(type=campaign.audience_type, **campaign.audience_config)
         return PushCampaignResponse(
             id=campaign.id, internal_name=campaign.internal_name, title=campaign.title, body=campaign.body,
-            audience=audience, destination=campaign.destination, status=campaign.status,
+            audience=audience, destination=campaign.destination, origin=campaign.origin, status=campaign.status,
             scheduled_at=campaign.scheduled_at, started_at=campaign.started_at, sent_at=campaign.sent_at,
             cancelled_at=campaign.cancelled_at, targeted_users=campaign.targeted_users, targeted_devices=campaign.targeted_devices,
             sent_count=campaign.sent_count, failed_count=campaign.failed_count, push_provider_configured=self.provider_configured,
