@@ -38,7 +38,9 @@ import '../../../tickets/domain/issued_ticket_repository.dart';
 import '../../../tickets/presentation/pages/ticket_detail_page.dart';
 import '../../../visits/domain/current_visit.dart';
 import '../../../visits/domain/current_visit_repository.dart';
+import '../../../request_history/presentation/controllers/request_history_controller.dart';
 import '../models/home_primary_state.dart';
+import '../widgets/home_birthday_lead_card.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
@@ -48,6 +50,7 @@ class HomePage extends StatefulWidget {
     this.childrenController,
     this.nowProvider,
     this.currentVisitRepository,
+    this.requestHistoryController,
   });
 
   final NewsFeedController? newsController;
@@ -55,6 +58,7 @@ class HomePage extends StatefulWidget {
   final ChildrenController? childrenController;
   final DateTime Function()? nowProvider;
   final CurrentVisitRepository? currentVisitRepository;
+  final RequestHistoryController? requestHistoryController;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -68,6 +72,8 @@ class _HomePageState extends State<HomePage> {
   late final ChildrenController _childrenController;
   late final DateTime Function() _nowProvider;
   late final CurrentVisitRepository _currentVisitRepository;
+  late final RequestHistoryController _requestHistoryController;
+  late final bool _ownsRequestHistoryController;
   bool _isOpeningDestination = false;
   List<IssuedTicket> _issuedTickets = const [];
   bool _ticketsLoading = true;
@@ -92,8 +98,14 @@ class _HomePageState extends State<HomePage> {
     _nowProvider = widget.nowProvider ?? DateTime.now;
     _currentVisitRepository =
         widget.currentVisitRepository ?? ServiceRegistry.currentVisitRepository;
+    _ownsRequestHistoryController = widget.requestHistoryController == null;
+    _requestHistoryController = widget.requestHistoryController ??
+        RequestHistoryController(
+          repository: ServiceRegistry.requestHistoryRepository,
+        );
     unawaited(_loadIssuedTickets());
     unawaited(_loadCurrentVisit());
+    unawaited(_requestHistoryController.load());
     unawaited(_childrenController.load());
   }
 
@@ -134,6 +146,7 @@ class _HomePageState extends State<HomePage> {
       _childrenController.load(),
       _newsController.forceRefresh(),
       _loadCurrentVisit(),
+      _requestHistoryController.load(),
     ]);
     if (!mounted) return;
     setState(() => _secondaryRefreshVersion++);
@@ -154,6 +167,9 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     if (_ownsNewsController) {
       _newsController.dispose();
+    }
+    if (_ownsRequestHistoryController) {
+      _requestHistoryController.dispose();
     }
     super.dispose();
   }
@@ -245,6 +261,8 @@ class _HomePageState extends State<HomePage> {
                         delegate: SliverChildListDelegate([
                           _buildPrimarySection(context),
                           const SizedBox(height: SKSpacing.x5),
+                          _buildBirthdayLeadSection(context),
+                          const SizedBox(height: SKSpacing.x5),
                           _buildChildrenSection(context),
                           const SizedBox(height: SKSpacing.x4),
                           _buildSecondaryBirthdaySection(context),
@@ -311,10 +329,8 @@ class _HomePageState extends State<HomePage> {
           hasCheckedInVisit: _currentVisit != null,
         );
         final hasUpcomingTicket = _issuedTickets.any(
-          (ticket) => isUpcomingIssuedTicket(
-            ticket,
-            homeDateOnly(_nowProvider()),
-          ),
+          (ticket) =>
+              isUpcomingIssuedTicket(ticket, homeDateOnly(_nowProvider())),
         );
         if (_ticketsLoading && _issuedTickets.isEmpty) {
           return _buildTicketsSection(context);
@@ -434,6 +450,28 @@ class _HomePageState extends State<HomePage> {
           onPressed: _openTicketPurchase,
         ),
       ],
+    );
+  }
+
+  Widget _buildBirthdayLeadSection(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _requestHistoryController,
+      builder: (context, _) {
+        if (_requestHistoryController.status !=
+            RequestHistoryViewStatus.loaded) {
+          // Birthday requests are a secondary Home block. Loading or failing
+          // to fetch them must never hide tickets or the purchase CTA.
+          return const SizedBox.shrink();
+        }
+
+        final lead = selectActiveBirthdayLead(_requestHistoryController.items);
+        if (lead == null) return const SizedBox.shrink();
+
+        return HomeBirthdayLeadCard(
+          item: lead,
+          onOpen: () => _openNested(AppRoutes.myRequests),
+        );
+      },
     );
   }
 
@@ -683,8 +721,11 @@ class _BirthdayHero extends StatelessWidget {
 }
 
 class _CheckedInHero extends StatelessWidget {
-  const _CheckedInHero(
-      {super.key, required this.visit, required this.onOpenTickets});
+  const _CheckedInHero({
+    super.key,
+    required this.visit,
+    required this.onOpenTickets,
+  });
 
   final CurrentVisit visit;
   final VoidCallback onOpenTickets;
@@ -703,22 +744,26 @@ class _CheckedInHero extends StatelessWidget {
               const _HomeSectionIcon(icon: Icons.check_circle_outline_rounded),
               const SizedBox(width: SKSpacing.x3),
               Expanded(
-                child: Text('Вы в Boom Bala',
-                    style: Theme.of(context).textTheme.headlineSmall),
+                child: Text(
+                  'Вы в Boom Bala',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
               ),
             ],
           ),
           const SizedBox(height: SKSpacing.x2),
-          Text('$time · ${visit.branchName}',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyLarge
-                  ?.copyWith(color: c.textSecondary)),
+          Text(
+            '$time · ${visit.branchName}',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(color: c.textSecondary),
+          ),
           const SizedBox(height: SKSpacing.x4),
           PrimaryButton(
-              label: 'Открыть билеты',
-              icon: Icons.arrow_forward_rounded,
-              onPressed: onOpenTickets),
+            label: 'Открыть билеты',
+            icon: Icons.arrow_forward_rounded,
+            onPressed: onOpenTickets,
+          ),
         ],
       ),
     );
