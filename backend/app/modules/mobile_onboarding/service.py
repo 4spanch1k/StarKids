@@ -35,6 +35,7 @@ class MobileOnboardingService:
             select(MobileUser)
             .where(MobileUser.id == user.id)
             .with_for_update()
+            .execution_options(populate_existing=True)
         )
         if locked_user is None:
             raise DomainHTTPException(
@@ -52,26 +53,11 @@ class MobileOnboardingService:
             locked_user.privacy_consent_at = now
             locked_user.privacy_consent_version = payload.privacyConsentVersion
 
-            existing_children = list(
-                self._session.scalars(
-                    select(MobileChild)
-                    .where(MobileChild.user_id == locked_user.id)
-                    .order_by(MobileChild.created_at, MobileChild.id)
-                )
-            )
-            existing_keys = {
-                (child.name.strip().casefold(), child.birth_date, child.gender)
-                for child in existing_children
-            }
-            request_keys: set[tuple[str, object, str]] = set()
             for child_payload in payload.children:
-                key = (
-                    child_payload.name.casefold(),
-                    child_payload.birthDate,
-                    child_payload.gender.value,
-                )
-                if key in existing_keys or key in request_keys:
-                    continue
+                # Child fields are not identity. Twins and children with the
+                # same name/birth date/gender are valid domain records. Retry
+                # safety comes from the terminal onboarding state plus the
+                # row lock above, not from collapsing payload entries.
                 self._session.add(
                     MobileChild(
                         user_id=locked_user.id,
@@ -80,7 +66,6 @@ class MobileOnboardingService:
                         gender=child_payload.gender.value,
                     )
                 )
-                request_keys.add(key)
 
             self._session.add(locked_user)
             self._session.commit()

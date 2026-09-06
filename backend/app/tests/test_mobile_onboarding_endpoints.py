@@ -119,6 +119,24 @@ class MobileOnboardingEndpointTests(unittest.TestCase):
         with self.SessionLocal() as session:
             self.assertEqual(session.query(MobileChild).count(), 3)
 
+    def test_identical_children_in_initial_payload_are_not_collapsed(self) -> None:
+        auth = self._authenticate('twins@example.com')
+        children = [
+            {'name': 'Али', 'birthDate': '2020-05-01', 'gender': 'male'},
+            {'name': 'Али', 'birthDate': '2020-05-01', 'gender': 'male'},
+        ]
+
+        first = self._complete(auth, children=children)
+        self.assertEqual(first.status_code, 200, first.text)
+        self.assertEqual(len(first.json()['children']), 2)
+
+        retry = self._complete(auth, children=children)
+        self.assertEqual(retry.status_code, 200, retry.text)
+        self.assertEqual(len(retry.json()['children']), 2)
+
+        with self.SessionLocal() as session:
+            self.assertEqual(session.query(MobileChild).count(), 2)
+
     def test_consent_is_required(self) -> None:
         auth = self._authenticate('consent@example.com')
         response = self._complete(auth, privacyConsentAccepted=False)
