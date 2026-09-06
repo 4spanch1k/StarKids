@@ -1,0 +1,73 @@
+from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel, Field, model_validator
+
+
+AudienceType = Literal['all_users', 'birthday_in_days']
+Destination = Literal['home', 'tickets', 'birthdays', 'promotions', 'profile']
+
+
+class PushCampaignAudience(BaseModel):
+    type: AudienceType
+    days_before_birthday: int | None = Field(default=None, ge=1, le=365)
+
+    @model_validator(mode='after')
+    def validate_config(self) -> 'PushCampaignAudience':
+        if self.type == 'birthday_in_days' and self.days_before_birthday is None:
+            raise ValueError('days_before_birthday is required for birthday audience')
+        if self.type == 'all_users' and self.days_before_birthday is not None:
+            raise ValueError('days_before_birthday is only valid for birthday audience')
+        return self
+
+
+class PushCampaignCreateRequest(BaseModel):
+    internal_name: str = Field(min_length=2, max_length=150)
+    title: str = Field(min_length=1, max_length=100)
+    body: str = Field(min_length=1, max_length=500)
+    audience: PushCampaignAudience
+    destination: Destination
+    scheduled_at: datetime | None = None
+
+    @model_validator(mode='after')
+    def validate_scheduled_at(self) -> 'PushCampaignCreateRequest':
+        if self.scheduled_at is not None and self.scheduled_at.tzinfo is None:
+            raise ValueError('scheduled_at must include a timezone')
+        return self
+
+
+class PushCampaignUpdateRequest(BaseModel):
+    internal_name: str | None = Field(default=None, min_length=2, max_length=150)
+    title: str | None = Field(default=None, min_length=1, max_length=100)
+    body: str | None = Field(default=None, min_length=1, max_length=500)
+    audience: PushCampaignAudience | None = None
+    destination: Destination | None = None
+    scheduled_at: datetime | None = None
+
+
+class PushCampaignResponse(BaseModel):
+    id: str
+    internal_name: str
+    title: str
+    body: str
+    audience: PushCampaignAudience
+    destination: Destination
+    status: str
+    scheduled_at: datetime | None
+    started_at: datetime | None
+    sent_at: datetime | None
+    cancelled_at: datetime | None
+    targeted_users: int
+    targeted_devices: int
+    sent_count: int
+    failed_count: int
+    push_provider_configured: bool
+
+
+class PushCampaignPreviewRequest(BaseModel):
+    audience: PushCampaignAudience
+
+
+class PushCampaignPreviewResponse(BaseModel):
+    targeted_users: int
+    targeted_devices: int

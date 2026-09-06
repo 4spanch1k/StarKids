@@ -33,6 +33,8 @@ from .news import News
 from .news_event import NewsEvent
 from .promotion import Promotion
 from .promotion_branch import PromotionBranch
+from .push_campaign import PushCampaign
+from .push_campaign_delivery import PushCampaignDelivery
 
 __all__ = [
     'Base',
@@ -70,4 +72,6 @@ __all__ = [
     'LoyaltySettings',
     'News',
     'NewsEvent',
+    'PushCampaign',
+    'PushCampaignDelivery',
 ]

@@ -4,6 +4,11 @@ import '../../../features/promotions/presentation/models/promotion_detail_page_a
 import '../../../features/tickets/presentation/models/ticket_detail_page_args.dart';
 
 enum NotificationDestinationType {
+  home,
+  tickets,
+  birthdays,
+  promotions,
+  profile,
   ticketDetail,
   birthday,
   promotionDetail,
@@ -20,6 +25,16 @@ class NotificationDestination {
     switch (type) {
       case NotificationDestinationType.ticketDetail:
         return AppRoutes.ticketDetail;
+      case NotificationDestinationType.home:
+        return AppRoutes.home;
+      case NotificationDestinationType.tickets:
+        return AppRoutes.tickets;
+      case NotificationDestinationType.birthdays:
+        return AppRoutes.birthdays;
+      case NotificationDestinationType.promotions:
+        return AppRoutes.promotions;
+      case NotificationDestinationType.profile:
+        return AppRoutes.profile;
       case NotificationDestinationType.birthday:
         return AppRoutes.birthdays;
       case NotificationDestinationType.promotionDetail:
@@ -32,6 +47,12 @@ class NotificationDestination {
   Object? get arguments {
     final id = entityId?.trim() ?? '';
     switch (type) {
+      case NotificationDestinationType.home:
+      case NotificationDestinationType.tickets:
+      case NotificationDestinationType.birthdays:
+      case NotificationDestinationType.promotions:
+      case NotificationDestinationType.profile:
+        return null;
       case NotificationDestinationType.ticketDetail:
         return id.isEmpty ? null : TicketDetailPageArgs(ticketId: id);
       case NotificationDestinationType.newsDetail:
@@ -59,14 +80,24 @@ class NotificationDestination {
             payload['newsId'])
         ?.toString();
     switch (rawType) {
+      case 'home':
+        return const NotificationDestination(type: NotificationDestinationType.home);
+      case 'tickets':
+        return const NotificationDestination(type: NotificationDestinationType.tickets);
+      case 'birthdays':
+      case 'birthday':
+        return const NotificationDestination(type: NotificationDestinationType.birthdays);
+      case 'promotions':
+        return const NotificationDestination(type: NotificationDestinationType.promotions);
+      case 'profile':
+        return const NotificationDestination(type: NotificationDestinationType.profile);
       case 'ticket_detail':
       case 'ticket':
         return id?.trim().isNotEmpty ?? false
             ? NotificationDestination(
                 type: NotificationDestinationType.ticketDetail, entityId: id)
             : null;
-      case 'birthday':
-      case 'birthdays':
+      case 'birthday_detail':
         return const NotificationDestination(
             type: NotificationDestinationType.birthday);
       case 'promotion_detail':
@@ -83,7 +114,7 @@ class NotificationDestination {
                 type: NotificationDestinationType.newsDetail, entityId: id)
             : null;
       default:
-        return null;
+        return const NotificationDestination(type: NotificationDestinationType.home);
     }
   }
 }

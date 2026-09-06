@@ -19,7 +19,9 @@ from app.db.repositories.mobile_notification_device_repository import (
 from app.main import app
 from app.services.push.delivery_result import PushDeliveryResult
 from app.services.push.dev_null_delivery_service import DevNullPushDeliveryService
+from app.services.push import dependencies as push_dependencies
 from app.services.push.push_service import PushService
+from app.services.push.unavailable_delivery_service import UnavailablePushDeliveryService
 
 
 class PushDeliveryResultTests(unittest.TestCase):
@@ -48,6 +50,53 @@ class DevNullPushDeliveryServiceTests(unittest.TestCase):
         self.assertFalse(result.success)
         self.assertEqual(result.error_code, 'not_configured')
         self.assertEqual(result.device_token, 'token-xyz')
+
+
+class UnavailablePushDeliveryServiceTests(unittest.TestCase):
+    def test_fail_closed_provider_never_reports_success(self) -> None:
+        result = UnavailablePushDeliveryService().send(
+            device_token='token-xyz', title='Hello', body='World'
+        )
+        self.assertFalse(result.success)
+        self.assertEqual(result.error_code, 'not_configured')
+
+    def test_production_dependency_does_not_return_devnull(self) -> None:
+        from app.core.config.settings import Settings
+
+        previous = push_dependencies._cached_delivery
+        push_dependencies._cached_delivery = None
+        try:
+            with patch.object(push_dependencies, 'get_settings', return_value=Settings(app_env='production', push_notifications_enabled=False)):
+                provider = push_dependencies.get_push_delivery()
+            self.assertIsInstance(provider, UnavailablePushDeliveryService)
+        finally:
+            push_dependencies._cached_delivery = previous
+
+    def test_production_fcm_initialization_failure_fails_closed(self) -> None:
+        from app.core.config.settings import Settings
+
+        previous = push_dependencies._cached_delivery
+        push_dependencies._cached_delivery = None
+        try:
+            settings = Settings(
+                app_env='production',
+                push_notifications_enabled=True,
+                fcm_project_id='project',
+                fcm_client_email='client@example.com',
+                fcm_private_key='invalid',
+            )
+            with (
+                patch.object(push_dependencies, 'get_settings', return_value=settings),
+                patch.object(
+                    push_dependencies.FcmPushDeliveryService,
+                    'from_service_account_fields',
+                    side_effect=RuntimeError('bad credentials'),
+                ),
+            ):
+                provider = push_dependencies.get_push_delivery()
+            self.assertIsInstance(provider, UnavailablePushDeliveryService)
+        finally:
+            push_dependencies._cached_delivery = previous
 
 
 class PushServiceTests(unittest.TestCase):

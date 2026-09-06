@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     fcm_project_id: str | None = None
     fcm_client_email: str | None = None
     fcm_private_key: str | None = None
+    push_notifications_enabled: bool = True
 
     clerk_secret_key: str | None = None
     clerk_issuer: str | None = None

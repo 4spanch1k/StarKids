@@ -12,6 +12,7 @@ from .delivery_port import PushDeliveryPort
 from .dev_null_delivery_service import DevNullPushDeliveryService
 from .fcm_delivery_service import FcmPushDeliveryService
 from .push_service import PushService
+from .unavailable_delivery_service import UnavailablePushDeliveryService
 
 logger = logging.getLogger(__name__)
 
@@ -22,16 +23,16 @@ def get_push_delivery() -> PushDeliveryPort:
     """
     Returns the application-level push delivery implementation.
 
-    Result is cached after first call.  Uses :class:`FcmPushDeliveryService`
-    when FCM credentials are present in settings, otherwise falls back to
-    :class:`DevNullPushDeliveryService` which logs a warning on every call.
+    Result is cached after first call.  DevNull is intentionally limited to
+    development/test environments; production-like environments fail closed
+    with :class:`UnavailablePushDeliveryService` when FCM is unavailable.
     """
     global _cached_delivery  # noqa: PLW0603
     if _cached_delivery is not None:
         return _cached_delivery
 
     settings = get_settings()
-    if settings.fcm_is_configured:
+    if settings.push_notifications_enabled and settings.fcm_is_configured:
         try:
             _cached_delivery = FcmPushDeliveryService.from_service_account_fields(
                 project_id=settings.fcm_project_id,  # type: ignore[arg-type]
@@ -44,18 +45,30 @@ def get_push_delivery() -> PushDeliveryPort:
                 'firebase-admin is not installed. '
                 'Run: pip install firebase-admin==6.6.0'
             )
-            _cached_delivery = DevNullPushDeliveryService()
+            _cached_delivery = _unavailable_or_dev_null(settings)
         except Exception as exc:  # noqa: BLE001
             logger.error('Failed to initialize FCM delivery service: %s', exc)
-            _cached_delivery = DevNullPushDeliveryService()
+            _cached_delivery = _unavailable_or_dev_null(settings)
     else:
-        logger.info(
-            'Push delivery: FCM credentials not set, using DevNullPushDeliveryService. '
-            'Set FCM_PROJECT_ID, FCM_CLIENT_EMAIL, FCM_PRIVATE_KEY to enable real delivery.',
+        message = (
+            'Push delivery is disabled or FCM credentials are not configured. '
+            'Set PUSH_NOTIFICATIONS_ENABLED=true and FCM credentials to enable delivery.'
         )
-        _cached_delivery = DevNullPushDeliveryService()
+        if settings.app_env.lower() in {'development', 'test'}:
+            logger.info('%s Using development DevNull provider.', message)
+            _cached_delivery = DevNullPushDeliveryService()
+        else:
+            logger.error('%s Production fails closed.', message)
+            _cached_delivery = UnavailablePushDeliveryService()
 
     return _cached_delivery
+
+
+def _unavailable_or_dev_null(settings) -> PushDeliveryPort:
+    """Keep fake delivery out of production, including init failures."""
+    if settings.app_env.lower() in {'development', 'test'}:
+        return DevNullPushDeliveryService()
+    return UnavailablePushDeliveryService()
 
 
 def get_push_service(

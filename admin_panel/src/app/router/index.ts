@@ -121,6 +121,7 @@ const routes: RouteRecordRaw[] = [
         path: 'push-campaigns',
         name: 'push-campaigns',
         component: PushCampaignsPage,
+        meta: { allowedRoles: ['super_admin'] },
       },
       { path: 'audit-logs', name: 'audit-logs', component: AuditLogsPage },
     ],
