@@ -5,6 +5,7 @@ from ..modules.admin_birthday_packages.router import router as admin_birthday_pa
 from ..modules.admin_branches.router import router as admin_branches_router
 from ..modules.admin_content.router import router as admin_content_router
 from ..modules.admin_customers.router import router as admin_customers_router
+from ..modules.admin_dashboard.router import router as admin_dashboard_router
 from ..modules.admin_leads.router import router as admin_leads_router
 from ..modules.admin_news.router import router as admin_news_router
 from ..modules.admin_promotions.router import router as admin_promotions_router
@@ -77,6 +78,7 @@ api_router.include_router(admin_push_campaigns_router, prefix='/admin', tags=['a
 api_router.include_router(admin_news_router, prefix='/admin', tags=['admin-news'])
 api_router.include_router(admin_content_router, prefix='/admin', tags=['admin-content'])
 api_router.include_router(admin_customers_router, prefix='/admin', tags=['admin-customers'])
+api_router.include_router(admin_dashboard_router, prefix='/admin', tags=['admin-dashboard'])
 api_router.include_router(admin_staff_router, prefix='/admin', tags=['admin-staff'])
 api_router.include_router(admin_leads_router, prefix='/admin', tags=['admin-leads'])
 api_router.include_router(admin_tickets_router, prefix='/admin', tags=['admin-tickets'])
