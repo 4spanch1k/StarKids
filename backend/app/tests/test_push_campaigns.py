@@ -66,8 +66,9 @@ class PushCampaignServiceTests(unittest.TestCase):
 
     def test_birthday_audience_deduplicates_user_with_two_matching_children(self) -> None:
         with self.SessionLocal() as session:
-            user = self._user(session, birthday=date(2020, 9, 13))
-            session.add(MobileChild(id=uuid4().hex, user_id=user.id, name='Али', birth_date=date(2019, 9, 13), gender='male'))
+            target = birthday_target_date(datetime.now(UTC), 7)
+            user = self._user(session, birthday=date(2020, target.month, target.day))
+            session.add(MobileChild(id=uuid4().hex, user_id=user.id, name='Али', birth_date=date(2019, target.month, target.day), gender='male'))
             session.commit()
             service = PushCampaignService(session, FakeDelivery())
             with patch.object(PushCampaignService, 'provider_configured', new_callable=PropertyMock, return_value=True):

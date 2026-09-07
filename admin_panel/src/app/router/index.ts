@@ -116,7 +116,18 @@ const routes: RouteRecordRaw[] = [
         component: FAQPage,
         idParam: adminCrudRouteNames.faq.idParam,
       }).routes,
-      { path: 'customers', name: 'customers', component: CustomersPage },
+      {
+        path: 'customers',
+        name: 'customers',
+        component: CustomersPage,
+        meta: { allowedRoles: ['super_admin'] },
+      },
+      {
+        path: 'customers/:customerId',
+        name: 'customers-detail',
+        component: CustomersPage,
+        meta: { allowedRoles: ['super_admin'] },
+      },
       {
         path: 'push-campaigns',
         name: 'push-campaigns',
