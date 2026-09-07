@@ -42,7 +42,12 @@ const routes: RouteRecordRaw[] = [
     },
     children: [
       { path: '', redirect: { name: 'leads' } },
-      { path: 'dashboard', name: 'dashboard', component: DashboardPage },
+      {
+        path: 'dashboard',
+        name: 'dashboard',
+        component: DashboardPage,
+        meta: { allowedRoles: ['super_admin'] },
+      },
       ...buildAdminCrudRouteGroup({
         path: 'leads',
         name: adminCrudRouteNames.leads.list,

@@ -19,7 +19,7 @@ export const primaryNavigationItems: NavigationItem[] = [
 ];
 
 export const secondaryNavigationItems: NavigationItem[] = [
-  { name: 'dashboard', label: 'Сводка', to: '/dashboard' },
+  { name: 'dashboard', label: 'Сводка', to: '/dashboard', allowedRoles: ['super_admin'] },
   { name: 'menu', label: 'Меню', to: '/menu' },
   { name: 'tickets', label: 'Билеты', to: '/tickets' },
   {
