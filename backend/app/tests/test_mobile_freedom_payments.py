@@ -345,6 +345,47 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['maxRedeemableBonus'], 2999)
+        self.assertFalse(response.json()['cashbackEnabled'])
+        self.assertIsNone(response.json()['expectedCashback'])
+
+    def test_quote_exposes_server_cashback_preview_without_mutating_ledger(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        self._configure_loyalty(balance=5000, max_percent='30', cashback_percent='5')
+        response = self.client.post(
+            '/api/v1/mobile/payments/freedom/quote',
+            headers=headers,
+            json={
+                'ticketItems': [{'ticketItemId': 'ticket-kids', 'quantity': 1}],
+                'visitDate': str(date.today()),
+                'requestedBonusAmount': 100,
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertTrue(body['cashbackEnabled'])
+        self.assertEqual(body['expectedCashback'], 130)  # (2700 - 100) * 5%
+        with self.SessionLocal() as session:
+            self.assertEqual(session.query(LoyaltyTransaction).count(), 0)
+
+    def test_full_bonus_quote_has_zero_expected_cashback(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        self._configure_loyalty(balance=5000, max_percent='100', cashback_percent='5')
+        response = self.client.post(
+            '/api/v1/mobile/payments/freedom/quote',
+            headers=headers,
+            json={
+                'ticketItems': [{'ticketItemId': 'ticket-kids', 'quantity': 1}],
+                'visitDate': str(date.today()),
+                'requestedBonusAmount': 2700,
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body['payableTenge'], 0)
+        self.assertTrue(body['cashbackEnabled'])
+        self.assertEqual(body['expectedCashback'], 0)
 
     def test_failed_payment_releases_bonus_reservation(self) -> None:
         auth = self._authenticate_mobile_user('+77071234567')

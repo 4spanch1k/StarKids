@@ -57,6 +57,7 @@ from .signing import (
 )
 from .ticket_qr_service import TicketQrService
 from .visit_lifecycle import should_complete_visit
+from ..loyalty.constants import LOYALTY_EVENT_TICKET_PURCHASE
 from ..loyalty.service import LoyaltyService
 
 logger = logging.getLogger(__name__)
@@ -76,6 +77,8 @@ class TicketPaymentQuote:
     max_redeemable_bonus: int
     requested_bonus_amount: int
     payable_tenge: int
+    cashback_enabled: bool = False
+    expected_cashback: int | None = None
 
     @property
     def bonus_spending_enabled(self) -> bool:
@@ -311,6 +314,10 @@ class MobilePaymentService:
             raise DomainHTTPException(code='loyalty_redemption_limit_exceeded', message='Сумма бонусов превышает допустимый лимит для заказа.', status_code=422)
         if requested_bonus_amount > available:
             raise DomainHTTPException(code='loyalty_insufficient_balance', message='Недостаточно доступных бонусов.', status_code=409)
+        cashback_enabled, expected_cashback = self._loyalty_service.preview_event_reward(
+            event_type=LOYALTY_EVENT_TICKET_PURCHASE,
+            cash_amount_kzt=gross_amount_tenge - requested_bonus_amount,
+        )
         return TicketPaymentQuote(
             subtotal_tenge=gross_amount_tenge,
             bonus_balance=account['balance'],
@@ -319,6 +326,8 @@ class MobilePaymentService:
             max_redeemable_bonus=max_redeemable,
             requested_bonus_amount=requested_bonus_amount,
             payable_tenge=gross_amount_tenge - requested_bonus_amount,
+            cashback_enabled=cashback_enabled,
+            expected_cashback=expected_cashback,
         )
 
     def _ensure_payment_snapshot(self, payment: MobilePayment, quote: TicketPaymentQuote) -> MobilePayment:
@@ -958,6 +967,8 @@ def _quote_response(quote: TicketPaymentQuote) -> FreedomPaymentQuoteResponse:
         requestedBonusAmount=quote.requested_bonus_amount,
         payableTenge=quote.payable_tenge,
         bonusSpendingEnabled=quote.bonus_spending_enabled,
+        cashbackEnabled=quote.cashback_enabled,
+        expectedCashback=quote.expected_cashback,
     )
 
 

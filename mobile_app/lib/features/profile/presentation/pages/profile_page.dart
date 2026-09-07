@@ -26,6 +26,7 @@ import '../../../notifications/domain/notification_permission_status.dart';
 import '../../../notifications/presentation/controllers/mobile_notifications_controller.dart';
 import '../../../request_history/domain/request_history_item.dart';
 import '../../../loyalty/presentation/controllers/loyalty_controller.dart';
+import '../../../loyalty/presentation/pages/loyalty_page.dart';
 import '../../domain/user_profile.dart';
 import '../controllers/profile_controller.dart';
 import '../widgets/profile_section_card.dart';
@@ -85,7 +86,8 @@ class _ProfilePageState extends State<ProfilePage> {
         widget.childrenControllerOverride ?? ServiceRegistry.childrenController;
     _settingsController = widget.settingsControllerOverride ??
         ServiceRegistry.appSettingsController;
-    _loyaltyController = widget.loyaltyControllerOverride ?? ServiceRegistry.loyaltyController;
+    _loyaltyController =
+        widget.loyaltyControllerOverride ?? ServiceRegistry.loyaltyController;
 
     unawaited(_controller.load());
     unawaited(_notificationsController.bootstrap());
@@ -125,9 +127,7 @@ class _ProfilePageState extends State<ProfilePage> {
         final c = SKTheme.of(dialogContext).colors;
         return AlertDialog(
           title: const Text('Выйти из аккаунта?'),
-          content: const Text(
-            'На этом устройстве понадобится снова войти.',
-          ),
+          content: const Text('На этом устройстве понадобится снова войти.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -180,10 +180,7 @@ class _ProfilePageState extends State<ProfilePage> {
           cropStyle: CropStyle.circle,
           lockAspectRatio: true,
         ),
-        IOSUiSettings(
-          title: 'Обрезать фото',
-          aspectRatioLockEnabled: true,
-        ),
+        IOSUiSettings(title: 'Обрезать фото', aspectRatioLockEnabled: true),
       ],
     );
     if (cropped == null) return;
@@ -316,6 +313,16 @@ class _ProfilePageState extends State<ProfilePage> {
             childrenController: _childrenController,
             loyaltyController: _loyaltyController,
           ),
+          const SizedBox(height: SKSpacing.x2),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              key: const ValueKey('profile-open-loyalty'),
+              onPressed: _openLoyalty,
+              icon: const Icon(Icons.stars_rounded),
+              label: const Text('Открыть бонусы'),
+            ),
+          ),
           if (_controller.errorMessage != null) ...[
             const SizedBox(height: SKSpacing.x4),
             _InlineErrorBanner(
@@ -342,6 +349,14 @@ class _ProfilePageState extends State<ProfilePage> {
           _buildFooter(context, l),
           const SizedBox(height: SKSpacing.x5),
         ],
+      ),
+    );
+  }
+
+  Future<void> _openLoyalty() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => LoyaltyPage(controller: _loyaltyController),
       ),
     );
   }
@@ -808,16 +823,11 @@ class _ChildrenSection extends StatelessWidget {
               style: textTheme.bodyMedium?.copyWith(color: c.danger),
             ),
             const SizedBox(height: SKSpacing.x3),
-            SecondaryButton(
-              label: l.retry,
-              onPressed: controller.retry,
-            ),
+            SecondaryButton(label: l.retry, onPressed: controller.retry),
           ],
         );
       case ChildrenStatus.empty:
-        content = _ChildrenEmptyState(
-          onAdd: () => _showAddChildSheet(context),
-        );
+        content = _ChildrenEmptyState(onAdd: () => _showAddChildSheet(context));
       case ChildrenStatus.success:
         content = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -850,30 +860,30 @@ class _ChildrenSection extends StatelessWidget {
 
   void _showAddChildSheet(BuildContext context) {
     final l = AppL10n.of(context);
-    unawaited(showGlassBottomSheet<void>(
-      context: context,
-      title: l.addChildSheetTitle,
-      initialSize: 0.85,
-      maxSize: 0.95,
-      builder: (ctx, _) => _ChildFormSheet(
-        controller: controller,
-        childToEdit: null,
+    unawaited(
+      showGlassBottomSheet<void>(
+        context: context,
+        title: l.addChildSheetTitle,
+        initialSize: 0.85,
+        maxSize: 0.95,
+        builder: (ctx, _) =>
+            _ChildFormSheet(controller: controller, childToEdit: null),
       ),
-    ));
+    );
   }
 
   void _showEditChildSheet(BuildContext context, Child child) {
     final l = AppL10n.of(context);
-    unawaited(showGlassBottomSheet<void>(
-      context: context,
-      title: l.editChild,
-      initialSize: 0.85,
-      maxSize: 0.95,
-      builder: (ctx, _) => _ChildFormSheet(
-        controller: controller,
-        childToEdit: child,
+    unawaited(
+      showGlassBottomSheet<void>(
+        context: context,
+        title: l.editChild,
+        initialSize: 0.85,
+        maxSize: 0.95,
+        builder: (ctx, _) =>
+            _ChildFormSheet(controller: controller, childToEdit: child),
       ),
-    ));
+    );
   }
 
   void _confirmDelete(BuildContext context, Child child) {
@@ -1045,10 +1055,7 @@ class _ChildrenEmptyState extends StatelessWidget {
 }
 
 class _AddChildButton extends StatelessWidget {
-  const _AddChildButton({
-    required this.onTap,
-    this.expand = false,
-  });
+  const _AddChildButton({required this.onTap, this.expand = false});
 
   final VoidCallback onTap;
   final bool expand;
@@ -1218,10 +1225,7 @@ class _ChildCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: SKSpacing.x2),
-                        _ChildActionMenu(
-                          onEdit: onEdit,
-                          onDelete: onDelete,
-                        ),
+                        _ChildActionMenu(onEdit: onEdit, onDelete: onDelete),
                       ],
                     ),
                     const SizedBox(height: SKSpacing.x3),
@@ -1256,14 +1260,11 @@ class _ChildCard extends StatelessWidget {
 enum _ChildCardMenuAction { edit, delete }
 
 class _ChildAvatarBadge extends StatelessWidget {
-  const _ChildAvatarBadge({
-    required this.child,
-    required this.size,
-  }) : placeholder = false;
+  const _ChildAvatarBadge({required this.child, required this.size})
+      : placeholder = false;
 
-  const _ChildAvatarBadge.placeholder({
-    required this.size,
-  })  : child = null,
+  const _ChildAvatarBadge.placeholder({required this.size})
+      : child = null,
         placeholder = true;
 
   final Child? child;
@@ -1296,15 +1297,9 @@ class _ChildAvatarBadge extends StatelessWidget {
         ),
       ),
       child: Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: c.elevated,
-        ),
+        decoration: BoxDecoration(shape: BoxShape.circle, color: c.elevated),
         child: Center(
-          child: Text(
-            emoji,
-            style: TextStyle(fontSize: size * 0.38),
-          ),
+          child: Text(emoji, style: TextStyle(fontSize: size * 0.38)),
         ),
       ),
     );
@@ -1312,10 +1307,7 @@ class _ChildAvatarBadge extends StatelessWidget {
 }
 
 class _HighlightedDateChip extends StatelessWidget {
-  const _HighlightedDateChip({
-    required this.label,
-    required this.value,
-  });
+  const _HighlightedDateChip({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -1367,10 +1359,7 @@ class _HighlightedDateChip extends StatelessWidget {
 }
 
 class _SoftMetaChip extends StatelessWidget {
-  const _SoftMetaChip({
-    required this.icon,
-    required this.label,
-  });
+  const _SoftMetaChip({required this.icon, required this.label});
 
   final IconData icon;
   final String label;
@@ -1406,10 +1395,7 @@ class _SoftMetaChip extends StatelessWidget {
 }
 
 class _ChildActionMenu extends StatelessWidget {
-  const _ChildActionMenu({
-    required this.onEdit,
-    required this.onDelete,
-  });
+  const _ChildActionMenu({required this.onEdit, required this.onDelete});
 
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -1457,13 +1443,13 @@ class _ChildActionMenu extends StatelessWidget {
                 final c = SKTheme.of(context).colors;
                 return Row(
                   children: [
-                    Icon(Icons.delete_outline_rounded,
-                        size: 18, color: c.danger),
-                    const SizedBox(width: SKSpacing.x2),
-                    Text(
-                      l.delete,
-                      style: TextStyle(color: c.danger),
+                    Icon(
+                      Icons.delete_outline_rounded,
+                      size: 18,
+                      color: c.danger,
                     ),
+                    const SizedBox(width: SKSpacing.x2),
+                    Text(l.delete, style: TextStyle(color: c.danger)),
                   ],
                 );
               },
@@ -1478,10 +1464,7 @@ class _ChildActionMenu extends StatelessWidget {
 // ─── Child form sheet ─────────────────────────────────────────────────────────
 
 class _ChildFormSheet extends StatefulWidget {
-  const _ChildFormSheet({
-    required this.controller,
-    required this.childToEdit,
-  });
+  const _ChildFormSheet({required this.controller, required this.childToEdit});
 
   final ChildrenController controller;
   final Child? childToEdit;
@@ -1787,13 +1770,8 @@ class _ChildFormAvatar extends StatelessWidget {
         ),
       ),
       child: Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: c.elevated,
-        ),
-        child: Center(
-          child: Text(emoji, style: const TextStyle(fontSize: 26)),
-        ),
+        decoration: BoxDecoration(shape: BoxShape.circle, color: c.elevated),
+        child: Center(child: Text(emoji, style: const TextStyle(fontSize: 26))),
       ),
     );
   }
@@ -2101,8 +2079,10 @@ class _ProfileHeaderCard extends StatelessWidget {
           Text(
             emailOrPhone,
             textAlign: TextAlign.center,
-            style: SKTextStyles.small
-                .copyWith(fontSize: 13, color: c.textTertiary),
+            style: SKTextStyles.small.copyWith(
+              fontSize: 13,
+              color: c.textTertiary,
+            ),
           ),
         ],
       ),
@@ -2175,9 +2155,10 @@ class _AvatarCircle extends StatelessWidget {
         decoration: BoxDecoration(color: c.elevated, shape: BoxShape.circle),
         child: const Center(
           child: SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2)),
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
         ),
       );
     } else if (avatarUrl != null && avatarUrl.isNotEmpty) {
@@ -2187,14 +2168,10 @@ class _AvatarCircle extends StatelessWidget {
           width: size,
           height: size,
           fit: BoxFit.cover,
-          placeholder: (_, __) => _AvatarFallback(
-            initials: profile?.initials ?? 'SK',
-            size: size,
-          ),
-          errorWidget: (_, __, ___) => _AvatarFallback(
-            initials: profile?.initials ?? 'SK',
-            size: size,
-          ),
+          placeholder: (_, __) =>
+              _AvatarFallback(initials: profile?.initials ?? 'SK', size: size),
+          errorWidget: (_, __, ___) =>
+              _AvatarFallback(initials: profile?.initials ?? 'SK', size: size),
         ),
       );
     } else {
@@ -2265,10 +2242,7 @@ class _InlineErrorBanner extends StatelessWidget {
           Icon(Icons.error_outline_rounded, color: c.danger, size: 20),
           const SizedBox(width: SKSpacing.x2),
           Expanded(
-            child: Text(
-              message,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            child: Text(message, style: Theme.of(context).textTheme.bodySmall),
           ),
           const SizedBox(width: SKSpacing.x1),
           GestureDetector(
@@ -2422,7 +2396,9 @@ class _StatRow extends StatelessWidget {
           const _StatDivider(),
           _StatCell(
             value: loyaltyController.status == LoyaltyViewStatus.success
-                ? _formatBonusBalance(loyaltyController.account?.availableBalance ?? 0)
+                ? _formatBonusBalance(
+                    loyaltyController.account?.availableBalance ?? 0,
+                  )
                 : loyaltyController.status == LoyaltyViewStatus.loading
                     ? '…'
                     : '0',

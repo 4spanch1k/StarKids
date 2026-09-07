@@ -39,6 +39,8 @@ import '../../../tickets/presentation/pages/ticket_detail_page.dart';
 import '../../../visits/domain/current_visit.dart';
 import '../../../visits/domain/current_visit_repository.dart';
 import '../../../request_history/presentation/controllers/request_history_controller.dart';
+import '../../../loyalty/presentation/controllers/loyalty_controller.dart';
+import '../../../loyalty/presentation/pages/loyalty_page.dart';
 import '../models/home_primary_state.dart';
 import '../widgets/home_birthday_lead_card.dart';
 
@@ -51,6 +53,7 @@ class HomePage extends StatefulWidget {
     this.nowProvider,
     this.currentVisitRepository,
     this.requestHistoryController,
+    this.loyaltyController,
   });
 
   final NewsFeedController? newsController;
@@ -59,6 +62,7 @@ class HomePage extends StatefulWidget {
   final DateTime Function()? nowProvider;
   final CurrentVisitRepository? currentVisitRepository;
   final RequestHistoryController? requestHistoryController;
+  final LoyaltyController? loyaltyController;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -74,6 +78,7 @@ class _HomePageState extends State<HomePage> {
   late final CurrentVisitRepository _currentVisitRepository;
   late final RequestHistoryController _requestHistoryController;
   late final bool _ownsRequestHistoryController;
+  late final LoyaltyController _loyaltyController;
   bool _isOpeningDestination = false;
   List<IssuedTicket> _issuedTickets = const [];
   bool _ticketsLoading = true;
@@ -103,9 +108,12 @@ class _HomePageState extends State<HomePage> {
         RequestHistoryController(
           repository: ServiceRegistry.requestHistoryRepository,
         );
+    _loyaltyController =
+        widget.loyaltyController ?? ServiceRegistry.loyaltyController;
     unawaited(_loadIssuedTickets());
     unawaited(_loadCurrentVisit());
     unawaited(_requestHistoryController.load());
+    unawaited(_loyaltyController.load());
     unawaited(_childrenController.load());
   }
 
@@ -147,6 +155,7 @@ class _HomePageState extends State<HomePage> {
       _newsController.forceRefresh(),
       _loadCurrentVisit(),
       _requestHistoryController.load(),
+      _loyaltyController.load(),
     ]);
     if (!mounted) return;
     setState(() => _secondaryRefreshVersion++);
@@ -262,6 +271,8 @@ class _HomePageState extends State<HomePage> {
                           _buildPrimarySection(context),
                           const SizedBox(height: SKSpacing.x5),
                           _buildBirthdayLeadSection(context),
+                          const SizedBox(height: SKSpacing.x5),
+                          _buildLoyaltySection(context),
                           const SizedBox(height: SKSpacing.x5),
                           _buildChildrenSection(context),
                           const SizedBox(height: SKSpacing.x4),
@@ -473,6 +484,98 @@ class _HomePageState extends State<HomePage> {
         );
       },
     );
+  }
+
+  Widget _buildLoyaltySection(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _loyaltyController,
+      builder: (context, _) {
+        switch (_loyaltyController.status) {
+          case LoyaltyViewStatus.loading:
+            return const SolidCard(
+              key: ValueKey('home-loyalty-loading'),
+              child: Row(
+                children: [
+                  Icon(Icons.stars_rounded),
+                  SizedBox(width: SKSpacing.x3),
+                  Expanded(child: Text('Загружаем бонусы')),
+                  SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ],
+              ),
+            );
+          case LoyaltyViewStatus.error:
+            return SolidCard(
+              key: const ValueKey('home-loyalty-error'),
+              child: Row(
+                children: [
+                  const Icon(Icons.stars_rounded),
+                  const SizedBox(width: SKSpacing.x3),
+                  Expanded(
+                    child: Text(
+                      'Бонусы временно недоступны',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Повторить',
+                    onPressed: _loyaltyController.load,
+                    icon: const Icon(Icons.refresh_rounded),
+                  ),
+                ],
+              ),
+            );
+          case LoyaltyViewStatus.idle:
+            return const SizedBox.shrink();
+          case LoyaltyViewStatus.success:
+            final account = _loyaltyController.account;
+            return SolidCard(
+              key: const ValueKey('home-loyalty-summary'),
+              onTap: _openLoyalty,
+              child: Row(
+                children: [
+                  const _HomeSectionIcon(icon: Icons.stars_rounded),
+                  const SizedBox(width: SKSpacing.x3),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Бонусы',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: SKSpacing.x1),
+                        Text(
+                          '${_formatBonusBalance(account?.availableBalance ?? 0)} доступно',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right_rounded),
+                ],
+              ),
+            );
+        }
+      },
+    );
+  }
+
+  Future<void> _openLoyalty() async {
+    if (_isOpeningDestination) return;
+    _isOpeningDestination = true;
+    try {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => LoyaltyPage(controller: _loyaltyController),
+        ),
+      );
+    } finally {
+      _isOpeningDestination = false;
+    }
   }
 
   Widget _buildChildrenSection(BuildContext context) {
@@ -1571,4 +1674,14 @@ class _HomeContentData {
   final List<PromotionOffer> promotions;
   final List<PublicContentBlock> contentBlocks;
   final List<PublicFaqItem> faqs;
+}
+
+String _formatBonusBalance(int value) {
+  final raw = value.toString();
+  final buffer = StringBuffer();
+  for (var index = 0; index < raw.length; index++) {
+    if (index > 0 && (raw.length - index) % 3 == 0) buffer.write(' ');
+    buffer.write(raw[index]);
+  }
+  return buffer.toString();
 }

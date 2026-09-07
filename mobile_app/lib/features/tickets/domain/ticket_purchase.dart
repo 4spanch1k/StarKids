@@ -44,6 +44,8 @@ class TicketCheckoutQuote {
     required this.requestedBonusAmount,
     required this.payableTenge,
     required this.bonusSpendingEnabled,
+    this.cashbackEnabled = false,
+    this.expectedCashback,
   });
 
   final int subtotalTenge;
@@ -54,6 +56,8 @@ class TicketCheckoutQuote {
   final int requestedBonusAmount;
   final int payableTenge;
   final bool bonusSpendingEnabled;
+  final bool cashbackEnabled;
+  final int? expectedCashback;
 }
 
 class TicketPaymentStatus {
