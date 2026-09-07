@@ -49,7 +49,10 @@ def validate_runtime_configuration(settings: Settings) -> RuntimeConfigurationSt
         push_enabled=settings.fcm_is_configured,
         development_seed_enabled=settings.development_seed_enabled,
     )
-    if not settings.is_production:
+    # Settings validates the allowlist at construction time.  Keep the
+    # explicit branches here as a defense in depth for callers that mutate a
+    # Settings instance after construction.
+    if settings.is_development or settings.is_test:
         if settings.requires_explicit_jwt_secret and _is_unsafe_jwt_secret(
             settings.jwt_secret_key
         ):
@@ -57,6 +60,11 @@ def validate_runtime_configuration(settings: Settings) -> RuntimeConfigurationSt
                 'JWT_SECRET_KEY must be a unique value of at least 32 characters'
             )
         return status
+
+    if not settings.is_production:
+        raise ProductionConfigurationError(
+            'APP_ENV must be one of: development, test, production'
+        )
 
     errors: list[str] = []
     if _is_unsafe_jwt_secret(settings.jwt_secret_key):

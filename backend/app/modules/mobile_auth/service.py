@@ -341,10 +341,10 @@ class MobileAuthService:
             ) from exc
 
     def _ensure_otp_available(self) -> None:
-        if self.settings.is_production:
+        if not self.settings.allows_mock_otp:
             raise DomainHTTPException(
                 code='otp_not_configured',
-                message='OTP authentication is not configured for production.',
+                message='OTP mock authentication is not enabled for this environment.',
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 

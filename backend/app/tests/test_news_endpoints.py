@@ -70,6 +70,7 @@ class NewsEndpointTests(unittest.TestCase):
             session = cls.SessionLocal()
             try:
                 settings = Settings(
+                    app_env='test',
                     storage_backend='local',
                     media_root=cls._temp_dir.name,
                     media_url_prefix='/media',

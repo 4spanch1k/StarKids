@@ -1,11 +1,15 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     app_name: str = 'Boom Bala API'
-    app_env: str = 'development'
+    # This value is intentionally required.  A missing or misspelled
+    # environment must stop startup instead of silently enabling local auth
+    # and bootstrap defaults.
+    app_env: Literal['development', 'test', 'production']
     backend_host: str = '0.0.0.0'
     backend_port: int = 8000
     backend_cors_origins: str = 'http://localhost:5173'
@@ -120,7 +124,7 @@ class Settings(BaseSettings):
 
     @property
     def normalized_app_env(self) -> str:
-        return self.app_env.strip().lower()
+        return self.app_env
 
     @property
     def is_development(self) -> bool:
@@ -128,7 +132,7 @@ class Settings(BaseSettings):
 
     @property
     def is_test(self) -> bool:
-        return self.normalized_app_env in {'test', 'testing'}
+        return self.normalized_app_env == 'test'
 
     @property
     def is_production(self) -> bool:
@@ -137,6 +141,11 @@ class Settings(BaseSettings):
     @property
     def development_seed_enabled(self) -> bool:
         return self.is_development or self.is_test
+
+    @property
+    def allows_mock_otp(self) -> bool:
+        """Return whether the explicit environment permits mock OTP auth."""
+        return self.otp_mock_mode and (self.is_development or self.is_test)
 
     @property
     def default_database_url(self) -> str:
