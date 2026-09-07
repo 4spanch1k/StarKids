@@ -400,6 +400,45 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
             self.assertEqual(account.reserved_balance, 0)
             self.assertEqual(session.query(LoyaltyTransaction).filter_by(type='release').count(), 1)
 
+    def test_failure_amount_mismatch_keeps_reconciliation_retryable(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        self._configure_loyalty(balance=5000, max_percent='30', cashback_percent='5')
+        payment = self._init_payment(
+            headers,
+            'checkout-failure-mismatch-retry',
+            requested_bonus_amount=800,
+        )
+
+        response = self._post_callback(
+            payment,
+            amount='1',
+            result='0',
+            can_reject='0',
+        )
+        self.assertIn('<pg_status>ok</pg_status>', response.text)
+        with self.SessionLocal() as session:
+            stored_payment = session.get(MobilePayment, payment['paymentId'])
+            account = session.scalar(select(LoyaltyAccount))
+            callback = session.scalar(select(MobilePaymentCallback))
+            self.assertEqual(stored_payment.status, 'pending')
+            self.assertEqual(account.reserved_balance, 800)
+            self.assertEqual(callback.result, 'reconciliation_required')
+
+        valid = self._signed_callback_payload(
+            order_id=payment['localOrderId'],
+            payment_id=payment['externalPaymentId'],
+            amount='1900',
+            result='1',
+        )
+        self.assertIn('<pg_status>ok</pg_status>', self._post_signed_payload(valid).text)
+        with self.SessionLocal() as session:
+            stored_payment = session.get(MobilePayment, payment['paymentId'])
+            account = session.scalar(select(LoyaltyAccount))
+            self.assertEqual(stored_payment.status, 'paid')
+            self.assertEqual(account.reserved_balance, 0)
+            self.assertEqual(session.query(LoyaltyTransaction).filter_by(type='capture').count(), 1)
+
     def test_expired_payment_releases_abandoned_reservation(self) -> None:
         from datetime import UTC, datetime, timedelta
 
@@ -1067,6 +1106,191 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
         )
         self.assertEqual(status_response.json()['status'], 'pending')
 
+    def test_success_callback_requires_amount_currency_and_provider_payment_id(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        invalid_callbacks = (
+            ('missing_amount', 'pg_amount', None),
+            ('missing_amount', 'pg_amount', ''),
+            ('invalid_amount', 'pg_amount', 'abc'),
+            ('invalid_amount', 'pg_amount', 'NaN'),
+            ('invalid_amount', 'pg_amount', 'Infinity'),
+            ('amount_mismatch', 'pg_amount', '2701'),
+            ('missing_currency', 'pg_currency', None),
+            ('missing_currency', 'pg_currency', ''),
+            ('currency_mismatch', 'pg_currency', 'USD'),
+            ('missing_provider_payment_id', 'pg_payment_id', None),
+            ('missing_provider_payment_id', 'pg_payment_id', ''),
+            ('provider_payment_id_mismatch', 'pg_payment_id', 'fp-other'),
+        )
+
+        for index, (reason, field, value) in enumerate(invalid_callbacks):
+            payment = self._init_payment(headers, f'checkout-invalid-field-{index}')
+            callback = self._signed_callback_payload(
+                order_id=payment['localOrderId'],
+                payment_id=payment['externalPaymentId'],
+                amount='2700',
+                result='1',
+            )
+            if value is None:
+                del callback[field]
+            else:
+                callback[field] = value
+            response = self._post_signed_payload(callback)
+
+            self.assertIn('<pg_status>rejected</pg_status>', response.text)
+            status_response = self.client.get(
+                f"/api/v1/mobile/payments/{payment['paymentId']}",
+                headers=headers,
+            )
+            self.assertEqual(status_response.json()['status'], 'pending')
+            with self.SessionLocal() as session:
+                stored_callback = session.scalar(
+                    select(MobilePaymentCallback).where(
+                        MobilePaymentCallback.mobile_payment_id == payment['paymentId']
+                    )
+                )
+                self.assertIsNotNone(stored_callback)
+                self.assertIn(reason, stored_callback.failure_reason)
+
+        self.assertEqual(
+            self.client.get('/api/v1/mobile/tickets', headers=headers).json()['total'],
+            0,
+        )
+
+    def test_success_callback_accepts_decimal_amount_equivalence(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        payment = self._init_payment(headers, 'checkout-decimal-amount')
+        callback = self._signed_callback_payload(
+            order_id=payment['localOrderId'],
+            payment_id=payment['externalPaymentId'],
+            amount='2700.00',
+            result='1',
+        )
+
+        response = self._post_signed_payload(callback)
+
+        self.assertIn('<pg_status>ok</pg_status>', response.text)
+        self.assertEqual(
+            self.client.get('/api/v1/mobile/tickets', headers=headers).json()['total'],
+            1,
+        )
+
+    def test_success_callback_rejects_missing_or_mismatched_stored_provider_id(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+
+        missing_local_id = self._init_payment(headers, 'checkout-missing-local-provider-id')
+        with self.SessionLocal() as session:
+            stored = session.get(MobilePayment, missing_local_id['paymentId'])
+            stored.external_payment_id = None
+            session.commit()
+        missing_local_callback = self._signed_callback_payload(
+            order_id=missing_local_id['localOrderId'],
+            payment_id=missing_local_id['externalPaymentId'],
+            amount='2700',
+            result='1',
+        )
+        response = self._post_signed_payload(missing_local_callback)
+        self.assertIn('<pg_status>rejected</pg_status>', response.text)
+
+        mismatched_id = self._init_payment(headers, 'checkout-mismatched-provider-id')
+        mismatched_callback = self._signed_callback_payload(
+            order_id=mismatched_id['localOrderId'],
+            payment_id='fp-other',
+            amount='2700',
+            result='1',
+        )
+        response = self._post_signed_payload(mismatched_callback)
+        self.assertIn('<pg_status>rejected</pg_status>', response.text)
+
+        with self.SessionLocal() as session:
+            missing_payment = session.get(MobilePayment, missing_local_id['paymentId'])
+            mismatched_payment = session.get(MobilePayment, mismatched_id['paymentId'])
+            self.assertEqual(missing_payment.status, 'pending')
+            self.assertIsNone(missing_payment.external_payment_id)
+            self.assertEqual(mismatched_payment.status, 'pending')
+            self.assertEqual(mismatched_payment.external_payment_id, 'fp-' + mismatched_id['localOrderId'])
+        self.assertEqual(
+            self.client.get('/api/v1/mobile/tickets', headers=headers).json()['total'],
+            0,
+        )
+
+    def test_malformed_success_then_valid_callback_recovers_once(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        payment = self._init_payment(headers, 'checkout-malformed-then-valid')
+        malformed = self._signed_callback_payload(
+            order_id=payment['localOrderId'],
+            payment_id=payment['externalPaymentId'],
+            amount='2700',
+            result='1',
+        )
+        del malformed['pg_amount']
+        first_response = self._post_signed_payload(malformed)
+        self.assertIn('<pg_status>rejected</pg_status>', first_response.text)
+
+        with self.SessionLocal() as session:
+            self.assertEqual(session.get(MobilePayment, payment['paymentId']).status, 'pending')
+        self.assertEqual(
+            self.client.get('/api/v1/mobile/tickets', headers=headers).json()['total'],
+            0,
+        )
+
+        valid = self._signed_callback_payload(
+            order_id=payment['localOrderId'],
+            payment_id=payment['externalPaymentId'],
+            amount='2700',
+            result='1',
+        )
+        second_response = self._post_signed_payload(valid)
+        self.assertIn('<pg_status>ok</pg_status>', second_response.text)
+        self.assertEqual(
+            self.client.get('/api/v1/mobile/tickets', headers=headers).json()['total'],
+            1,
+        )
+        with self.SessionLocal() as session:
+            callbacks = session.scalars(
+                select(MobilePaymentCallback).where(
+                    MobilePaymentCallback.mobile_payment_id == payment['paymentId']
+                )
+            ).all()
+            self.assertEqual([callback.result for callback in callbacks], ['rejected', 'success'])
+
+    def test_malformed_success_with_can_reject_zero_has_no_money_side_effects(self) -> None:
+        auth = self._authenticate_mobile_user('+77071234567')
+        headers = {'Authorization': f"Bearer {auth['access_token']}"}
+        self._configure_loyalty(balance=5000, max_percent='30', cashback_percent='5')
+        payment = self._init_payment(
+            headers,
+            'checkout-malformed-reconciliation',
+            requested_bonus_amount=800,
+        )
+        callback = self._signed_callback_payload(
+            order_id=payment['localOrderId'],
+            payment_id=payment['externalPaymentId'],
+            amount='1900',
+            result='1',
+            can_reject='0',
+        )
+        del callback['pg_amount']
+        response = self._post_signed_payload(callback)
+
+        self.assertIn('<pg_status>ok</pg_status>', response.text)
+        with self.SessionLocal() as session:
+            stored_payment = session.get(MobilePayment, payment['paymentId'])
+            account = session.scalar(select(LoyaltyAccount))
+            self.assertEqual(stored_payment.status, 'pending')
+            self.assertEqual(account.balance, 5000)
+            self.assertEqual(account.reserved_balance, 800)
+            self.assertEqual(session.query(IssuedTicket).count(), 0)
+            self.assertEqual(session.query(LoyaltyTransaction).filter_by(type='capture').count(), 0)
+            self.assertEqual(session.query(LoyaltyTransaction).filter_by(type='earn').count(), 0)
+            callback_record = session.scalar(select(MobilePaymentCallback))
+            self.assertEqual(callback_record.result, 'reconciliation_required')
+            self.assertIn('missing_amount', callback_record.failure_reason)
+
     def _init_payment(
         self,
         headers: dict[str, str],
@@ -1123,6 +1347,19 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
 
     def _post_success_callback(self, payment: dict[str, object], *, amount: str):
         return self._post_callback(payment, amount=amount, result='1')
+
+    def _post_signed_payload(self, payload: dict[str, str]):
+        payload['pg_sig'] = build_freedompay_signature(
+            script_name='result',
+            params=payload,
+            secret_key='test-secret',
+        )
+        response = self.client.post(
+            '/api/v1/public/payments/freedom/result',
+            data=payload,
+        )
+        self.assertEqual(response.status_code, 200)
+        return response
 
     def _post_failure_callback(
         self,
