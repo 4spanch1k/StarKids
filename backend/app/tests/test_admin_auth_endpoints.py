@@ -139,6 +139,7 @@ class AdminAuthEndpointTests(unittest.TestCase):
                 'email': 'admin@starkids.kz',
                 'full_name': 'Platform Admin',
                 'role': 'super_admin',
+                'branch_id': None,
             },
         )
 

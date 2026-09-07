@@ -17,7 +17,7 @@
         <select
           v-model="selectedBranchId"
           class="admin-control"
-          :disabled="isRedeeming || isScannerActive"
+          :disabled="isOperator || isRedeeming || isScannerActive"
           aria-label="Выберите филиал"
         >
           <option value="">Выберите филиал</option>
@@ -183,6 +183,7 @@ let scanner: Html5Qrcode | null = null;
 let scanLocked = false;
 
 const selectedBranch = computed(() => branches.value.find((branch) => branch.id === selectedBranchId.value));
+const isOperator = computed(() => sessionStore.operatorRole === 'operator');
 const resultToneClass = computed(() => {
   if (result.value?.outcome === 'redeemed') return 'scanner-result--success';
   return 'scanner-result--failure';
@@ -235,7 +236,21 @@ async function loadBranches() {
   branchesLoading.value = true;
   branchesError.value = '';
   try {
-    branches.value = await listScannerBranches();
+    const availableBranches = await listScannerBranches();
+    if (isOperator.value) {
+      const assignedBranchId = sessionStore.currentUser?.branch_id;
+      branches.value = assignedBranchId
+        ? availableBranches.filter((branch) => branch.id === assignedBranchId)
+        : [];
+      if (!assignedBranchId) {
+        branchesError.value = 'Вам не назначен активный филиал.';
+      } else if (branches.value.length === 0) {
+        branchesError.value = 'Назначенный филиал неактивен или недоступен.';
+      }
+      selectedBranchId.value = branches.value[0]?.id ?? '';
+    } else {
+      branches.value = availableBranches;
+    }
     if (!branches.value.some((branch) => branch.id === selectedBranchId.value)) {
       selectedBranchId.value = '';
       sessionStorage.removeItem('boom-bala.scanner.branch-id');

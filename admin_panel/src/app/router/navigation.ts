@@ -34,6 +34,12 @@ export const secondaryNavigationItems: NavigationItem[] = [
     to: '/customers',
     allowedRoles: ['super_admin'],
   },
+  {
+    name: 'staff',
+    label: 'Сотрудники',
+    to: '/staff',
+    allowedRoles: ['super_admin'],
+  },
   { name: 'push-campaigns', label: 'Пуш-кампании', to: '/push-campaigns' },
   { name: 'audit-logs', label: 'Журнал аудита', to: '/audit-logs' },
   { name: 'loyalty', label: 'Лояльность', to: '/loyalty', allowedRoles: ['super_admin'] },

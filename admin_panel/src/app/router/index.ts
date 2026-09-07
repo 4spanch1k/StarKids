@@ -11,6 +11,7 @@ import BranchesPage from '@/pages/branches/BranchesPage.vue';
 import ContentPage from '@/pages/content/ContentPage.vue';
 import CustomersPage from '@/pages/customers/CustomersPage.vue';
 import DashboardPage from '@/pages/dashboard/DashboardPage.vue';
+import StaffPage from '@/pages/staff/StaffPage.vue';
 import FAQPage from '@/pages/faq/FAQPage.vue';
 import GalleryPage from '@/pages/gallery/GalleryPage.vue';
 import LeadsPage from '@/pages/leads/LeadsPage.vue';
@@ -126,6 +127,12 @@ const routes: RouteRecordRaw[] = [
         path: 'customers/:customerId',
         name: 'customers-detail',
         component: CustomersPage,
+        meta: { allowedRoles: ['super_admin'] },
+      },
+      {
+        path: 'staff',
+        name: 'staff',
+        component: StaffPage,
         meta: { allowedRoles: ['super_admin'] },
       },
       {

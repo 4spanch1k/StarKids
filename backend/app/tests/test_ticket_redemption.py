@@ -89,6 +89,14 @@ class TicketRedemptionEndpointTests(unittest.TestCase):
                     gallery_image_urls=[], facilities=[], display_order=1, is_active=True,
                 )
             )
+            session.add(
+                Branch(
+                    id='branch-other', slug='other', name='Boom Bala Other', city='Shymkent',
+                    address='Tauke Khan', short_label='Other', working_hours='00:00 - 23:59',
+                    description='Other', phone='+77070000001', whatsapp_phone='+77070000001',
+                    gallery_image_urls=[], facilities=[], is_active=True,
+                )
+            )
             session.add(MobileUser(
                 id='mobile-1', phone='+77070000001', email='parent@example.com',
                 password_hash=hash_password('StrongPass123!'), is_active=True,
@@ -102,7 +110,9 @@ class TicketRedemptionEndpointTests(unittest.TestCase):
                 session.add(
                     AdminUser(
                         id=f'admin-{role}', email=email, full_name=role,
-                        password_hash=hash_password('StrongPass123!'), role=role, is_active=True,
+                        password_hash=hash_password('StrongPass123!'), role=role,
+                        branch_id='branch-main' if role == 'operator' else None,
+                        is_active=True,
                     )
                 )
             session.add(
@@ -301,7 +311,7 @@ class TicketRedemptionEndpointTests(unittest.TestCase):
             self.assertEqual(session.get(IssuedTicket, 'ticket-1').status, 'issued')
 
     def test_wrong_branch_and_wrong_date_leave_ticket_issued(self) -> None:
-        wrong_branch = self._redeem(branch_id='branch-other')
+        wrong_branch = self._redeem(role='super_admin', branch_id='branch-other')
         self.assertEqual(wrong_branch.status_code, 409)
         self.assertEqual(wrong_branch.json()['error']['code'], 'wrong_branch')
         with self.SessionLocal() as session:

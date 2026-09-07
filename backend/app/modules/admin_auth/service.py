@@ -331,6 +331,7 @@ class AdminAuthService:
             email=user.email,
             full_name=user.full_name,
             role=user.role,
+            branch_id=user.branch_id,
         )
 
     def _normalize_datetime(self, value: datetime) -> datetime:

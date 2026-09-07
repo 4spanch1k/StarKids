@@ -9,7 +9,12 @@ from .base import Repository
 
 
 class IssuedTicketRepository(Repository):
-    def lookup_orders(self, query: str) -> list[tuple[MobilePayment, MobileUser, Branch | None, list[tuple[IssuedTicket, TicketRedemption | None]]]]:
+    def lookup_orders(
+        self,
+        query: str,
+        *,
+        branch_id: str | None = None,
+    ) -> list[tuple[MobilePayment, MobileUser, Branch | None, list[tuple[IssuedTicket, TicketRedemption | None]]]]:
         normalized = query.strip()
         statement = (
             select(MobilePayment, MobileUser, Branch, IssuedTicket, TicketRedemption)
@@ -23,6 +28,15 @@ class IssuedTicketRepository(Repository):
             )
             .order_by(MobilePayment.created_at.desc(), IssuedTicket.line_index.asc())
         )
+        if branch_id is not None:
+            # Scope both sides of the payment -> issued-ticket relation. The
+            # payment branch is the order scope, while the ticket branch is
+            # the admission authority; requiring both prevents a corrupted
+            # or legacy mismatch from leaking another branch's ticket.
+            statement = statement.where(
+                MobilePayment.branch_id == branch_id,
+                IssuedTicket.branch_id == branch_id,
+            )
         grouped: dict[str, tuple[MobilePayment, MobileUser, Branch | None, list[tuple[IssuedTicket, TicketRedemption | None]]]] = {}
         for payment, user, branch, ticket, redemption in self.db.execute(statement).all():
             current = grouped.setdefault(payment.id, (payment, user, branch, []))

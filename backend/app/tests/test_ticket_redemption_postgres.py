@@ -56,7 +56,11 @@ class PostgreSQLAdmissionConcurrencyTests(unittest.TestCase):
         with self.SessionLocal() as db:
             db.add(Branch(id=branch_id, slug=f'pg-{suffix}', name='PG', city='Almaty', address='Test', short_label='PG', working_hours='11:00 - 23:00', description='Test', phone='1', whatsapp_phone='1', gallery_image_urls=[], facilities=[], is_active=True))
             db.add(MobileUser(id=user_id, phone=f'+77{suffix[:10]}', email=f'{suffix}@example.com', password_hash='x', is_active=True))
-            db.add(AdminUser(id=admin_id, email=f'{suffix}@admin.example.com', full_name='PG', password_hash='x', role='operator', is_active=True))
+            # Materialize the referenced branch before inserting the newly
+            # scoped operator; PostgreSQL does not infer dependency ordering
+            # from plain scalar foreign-key assignments.
+            db.flush()
+            db.add(AdminUser(id=admin_id, email=f'{suffix}@admin.example.com', full_name='PG', password_hash='x', role='operator', branch_id=branch_id, is_active=True))
             db.flush()
             db.add(MobilePayment(id=payment_id, mobile_user_id=user_id, branch_id=branch_id, payable_entity_type='branch_ticket_order', payable_entity_id=branch_id, local_order_id=f'pg-order-{suffix}', idempotency_key=f'pg-key-{suffix}', amount_tenge=1000, currency='KZT', quantity=len(ticket_ids), visit_date=business_today(), ticket_items=[], status='paid', init_payload={}, callback_payload={}))
             db.flush()
@@ -73,7 +77,7 @@ class PostgreSQLAdmissionConcurrencyTests(unittest.TestCase):
         def run(ticket_id: str) -> str:
             with self.SessionLocal() as db:
                 barrier.wait()
-                response = self._service(db).redeem(qr_payload=TicketQrService(self.secret).build_payload(ticket_id), branch_id=branch_id, admin_user=db.scalar(select(AdminUser).where(AdminUser.role == 'operator')))
+                response = self._service(db).redeem(qr_payload=TicketQrService(self.secret).build_payload(ticket_id), branch_id=branch_id, admin_user=db.scalar(select(AdminUser).where(AdminUser.role == 'operator', AdminUser.branch_id == branch_id)))
                 return response.outcome
         with ThreadPoolExecutor(max_workers=2) as executor:
             return list(executor.map(run, ticket_ids))

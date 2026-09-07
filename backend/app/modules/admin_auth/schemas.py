@@ -27,6 +27,7 @@ class AdminCurrentUserResponse(BaseModel):
     email: EmailStr
     full_name: str
     role: AdminRole
+    branch_id: str | None = None
 
 
 class AdminAuthResponse(BaseModel):
