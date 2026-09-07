@@ -32,6 +32,8 @@ class FreedomPaymentQuoteResponse(BaseModel):
     requestedBonusAmount: int
     payableTenge: int
     bonusSpendingEnabled: bool
+    cashbackEnabled: bool = False
+    expectedCashback: int | None = None
 
 
 class FreedomPaymentInitResponse(BaseModel):

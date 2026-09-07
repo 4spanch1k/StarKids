@@ -315,6 +315,7 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
             'Оплата подтверждена сервером. Билет добавлен в «Мои билеты».';
         _activePayment = payment;
       });
+      unawaited(ServiceRegistry.loyaltyController.load());
       Navigator.of(context).pop(true);
       return;
     }
@@ -394,6 +395,7 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
       }
     });
     if (paymentStatus.status == TicketPaymentStatusValue.paid && mounted) {
+      unawaited(ServiceRegistry.loyaltyController.load());
       Navigator.of(context).pop(true);
     }
   }
@@ -583,7 +585,8 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                             const Spacer(),
                             Text(
                               _formatTenge(
-                                  _quote?.payableTenge ?? _totalAmount),
+                                _quote?.payableTenge ?? _totalAmount,
+                              ),
                               style: TextStyle(
                                 fontFamily: SKTypography.display,
                                 fontSize: 24,
@@ -609,8 +612,9 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                             DecoratedBox(
                               decoration: BoxDecoration(
                                 color: c.raised,
-                                borderRadius:
-                                    BorderRadius.circular(SKRadius.md),
+                                borderRadius: BorderRadius.circular(
+                                  SKRadius.md,
+                                ),
                               ),
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
@@ -624,22 +628,26 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          Text('Использовать бонусы',
-                                              style: textTheme.titleSmall),
+                                          Text(
+                                            'Использовать бонусы',
+                                            style: textTheme.titleSmall,
+                                          ),
                                           Text(
                                             'Доступно ${_formatTenge(quote.availableBonusBalance)} · можно списать ${_formatTenge(quote.maxRedeemableBonus)}',
-                                            style: textTheme.bodySmall
-                                                ?.copyWith(
-                                                    color: c.textSecondary),
+                                            style:
+                                                textTheme.bodySmall?.copyWith(
+                                              color: c.textSecondary,
+                                            ),
                                           ),
                                         ],
                                       ),
                                     ),
                                     Switch(
-                                        value: _useBonuses,
-                                        onChanged: _isQuoteLoading
-                                            ? null
-                                            : _toggleBonuses),
+                                      value: _useBonuses,
+                                      onChanged: _isQuoteLoading
+                                          ? null
+                                          : _toggleBonuses,
+                                    ),
                                   ],
                                 ),
                               ),
@@ -649,8 +657,18 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                             const SizedBox(height: SKSpacing.x1),
                             Text(
                               'Бонусами −${_formatTenge(quote.requestedBonusAmount)} · к оплате ${_formatTenge(quote.payableTenge)}',
-                              style: textTheme.bodySmall
-                                  ?.copyWith(color: c.textSecondary),
+                              style: textTheme.bodySmall?.copyWith(
+                                color: c.textSecondary,
+                              ),
+                            ),
+                          ],
+                          if (quote.cashbackEnabled) ...[
+                            const SizedBox(height: SKSpacing.x1),
+                            Text(
+                              'Ожидаемое начисление: ${_formatTenge(quote.expectedCashback ?? 0)} бонусов',
+                              style: textTheme.bodySmall?.copyWith(
+                                color: c.textSecondary,
+                              ),
                             ),
                           ],
                         ],
@@ -660,9 +678,12 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
                         ],
                         if (_quoteErrorMessage != null) ...[
                           const SizedBox(height: SKSpacing.x2),
-                          Text(_quoteErrorMessage!,
-                              style: textTheme.bodySmall
-                                  ?.copyWith(color: c.danger)),
+                          Text(
+                            _quoteErrorMessage!,
+                            style: textTheme.bodySmall?.copyWith(
+                              color: c.danger,
+                            ),
+                          ),
                         ],
                         const SizedBox(height: SKSpacing.x3),
                       ],

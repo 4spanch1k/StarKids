@@ -46,6 +46,8 @@ class TicketCheckoutQuoteDto {
     required this.requestedBonusAmount,
     required this.payableTenge,
     required this.bonusSpendingEnabled,
+    this.cashbackEnabled = false,
+    this.expectedCashback,
   });
 
   final int subtotalTenge;
@@ -56,6 +58,8 @@ class TicketCheckoutQuoteDto {
   final int requestedBonusAmount;
   final int payableTenge;
   final bool bonusSpendingEnabled;
+  final bool cashbackEnabled;
+  final int? expectedCashback;
 
   factory TicketCheckoutQuoteDto.fromJson(Map<String, dynamic> json) {
     return TicketCheckoutQuoteDto(
@@ -68,6 +72,8 @@ class TicketCheckoutQuoteDto {
       requestedBonusAmount: json['requestedBonusAmount'] as int? ?? 0,
       payableTenge: json['payableTenge'] as int? ?? 0,
       bonusSpendingEnabled: json['bonusSpendingEnabled'] as bool? ?? false,
+      cashbackEnabled: json['cashbackEnabled'] as bool? ?? false,
+      expectedCashback: (json['expectedCashback'] as num?)?.toInt(),
     );
   }
 
@@ -80,6 +86,8 @@ class TicketCheckoutQuoteDto {
         requestedBonusAmount: requestedBonusAmount,
         payableTenge: payableTenge,
         bonusSpendingEnabled: bonusSpendingEnabled,
+        cashbackEnabled: cashbackEnabled,
+        expectedCashback: expectedCashback,
       );
 }
 

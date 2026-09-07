@@ -78,6 +78,25 @@ class LoyaltyService:
         settings = self.get_settings()
         return int((Decimal(order_amount_kzt) * settings.max_redemption_percent / Decimal('100')).to_integral_value(rounding=ROUND_DOWN))
 
+    def preview_event_reward(self, *, event_type: str, cash_amount_kzt: int | None) -> tuple[bool, int | None]:
+        """Return the currently configured reward without mutating the ledger."""
+        active_rules = self.repository.active_rules(event_type)
+        if len(active_rules) > 1:
+            logger.critical(
+                'Ambiguous active loyalty rules event_type=%s rule_ids=%s',
+                event_type,
+                [item.id for item in active_rules],
+            )
+            raise DomainHTTPException(
+                code='loyalty_ambiguous_rule',
+                message='Для этого события найдено несколько активных правил лояльности.',
+                status_code=409,
+            )
+        rule = active_rules[0] if active_rules else None
+        if rule is None or rule.value <= 0:
+            return False, None
+        return True, self._calculate_reward(rule, cash_amount_kzt)
+
     def available_balance(self, user_id: str) -> int:
         return self.account_response(user_id)['availableBalance']
 
