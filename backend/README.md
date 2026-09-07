@@ -2,6 +2,13 @@
 
 FastAPI backend for mobile and admin products.
 
+## Required environment
+
+`APP_ENV` is mandatory and must be exactly one of `development`, `test`, or
+`production`. The backend fails during startup for a missing or unknown value;
+it never falls back to development authentication. Use `APP_ENV=development`
+only for an explicit local environment and `APP_ENV=test` for test commands.
+
 ## Responsibilities
 
 - mobile API

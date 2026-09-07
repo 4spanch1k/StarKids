@@ -1,7 +1,9 @@
 import logging
+import os
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
+from pydantic import ValidationError
 from app.core.config.settings import Settings
 from app.core.config.validation import (
     ProductionConfigurationError,
@@ -40,6 +42,33 @@ def production_settings(**overrides: object) -> Settings:
 
 
 class ProductionGuardTests(unittest.TestCase):
+    def test_app_env_is_required(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaises(ValidationError):
+                Settings(_env_file=None)
+
+    def test_app_env_accepts_only_explicit_values(self) -> None:
+        for value in ('prod', 'staging', 'local', 'whatever'):
+            with self.subTest(value=value), self.assertRaises(ValidationError):
+                Settings(app_env=value, _env_file=None)
+
+        for value in ('development', 'test', 'production'):
+            with self.subTest(value=value):
+                settings = Settings(app_env=value, _env_file=None)
+                self.assertEqual(settings.normalized_app_env, value)
+
+    def test_mock_otp_requires_explicit_environment_and_flag(self) -> None:
+        self.assertTrue(Settings(app_env='development', otp_mock_mode=True).allows_mock_otp)
+        self.assertTrue(Settings(app_env='test', otp_mock_mode=True).allows_mock_otp)
+        self.assertFalse(Settings(app_env='development', otp_mock_mode=False).allows_mock_otp)
+        self.assertFalse(Settings(app_env='production', otp_mock_mode=True).allows_mock_otp)
+
+        service = MobileAuthService(
+            settings=Settings(app_env='development', otp_mock_mode=False)
+        )
+        with self.assertRaises(DomainHTTPException):
+            service.request_otp(OTPRequest(phone='+77070000000'))
+
     def test_production_rejects_default_jwt_secret(self) -> None:
         with self.assertRaises(ProductionConfigurationError):
             validate_runtime_configuration(
@@ -91,6 +120,7 @@ class ProductionGuardTests(unittest.TestCase):
 
     def test_placeholder_firebase_values_are_reported_as_disabled(self) -> None:
         settings = Settings(
+            app_env='test',
             fcm_project_id='PLACEHOLDER_PROJECT_ID',
             fcm_client_email='placeholder@example.com',
             fcm_private_key='PLACEHOLDER_PRIVATE_KEY',
@@ -108,7 +138,7 @@ class ProductionGuardTests(unittest.TestCase):
         with self.assertRaises(ProductionConfigurationError):
             validate_runtime_configuration(
                 production_settings(
-                    database_url=Settings().default_database_url,
+                    database_url=Settings(app_env='test').default_database_url,
                     backend_cors_origins='http://localhost:5173',
                 )
             )

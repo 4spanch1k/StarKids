@@ -72,6 +72,7 @@ class FakeGatewayResponse:
 class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
     def test_freedompay_init_uses_urlencoded_form_transport(self) -> None:
         settings = Settings(
+            app_env='test',
             freedompay_merchant_id='test-merchant',
             freedompay_secret_key='test-secret',
             freedompay_base_url='https://api.freedompay.kz',

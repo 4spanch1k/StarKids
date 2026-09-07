@@ -71,6 +71,7 @@ class MobileProfileEndpointTests(unittest.TestCase):
         tmp_dir = cls._tmp_dir.name
 
         _test_settings = Settings(
+            app_env='test',
             storage_backend='local',
             media_root=tmp_dir,
             media_url_prefix='/media',
