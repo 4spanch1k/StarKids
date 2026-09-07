@@ -24,6 +24,7 @@ from .schemas import (
     AdminTicketLookupTicket,
     AdminTicketRedemptionResponse,
 )
+from .branch_scope import require_active_branch_access, require_operator_branch_scope
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,11 @@ class TicketRedemptionService:
         branch_id: str,
         admin_user: AdminUser,
     ) -> AdminTicketRedemptionResponse:
+        require_active_branch_access(
+            admin_user=admin_user,
+            requested_branch_id=branch_id,
+            branch_repository=self._branch_repository,
+        )
         ticket_id = self._ticket_qr_service.verify_payload(qr_payload)
         if ticket_id is None:
             logger.warning(
@@ -82,6 +88,11 @@ class TicketRedemptionService:
         reason: str,
         admin_user: AdminUser,
     ) -> AdminTicketRedemptionResponse:
+        require_active_branch_access(
+            admin_user=admin_user,
+            requested_branch_id=branch_id,
+            branch_repository=self._branch_repository,
+        )
         return self._redeem_ticket(
             ticket_id=ticket_id,
             branch_id=branch_id,
@@ -105,6 +116,16 @@ class TicketRedemptionService:
                 code='ticket_not_found',
                 message='Ticket was not found.',
             )
+
+        # The branch supplied by the client is only an operating context. Re-
+        # authorize against the ticket's authoritative branch before looking
+        # at redemption state, so an operator cannot probe or redeem a ticket
+        # from another branch (including an already-used ticket).
+        require_active_branch_access(
+            admin_user=admin_user,
+            requested_branch_id=ticket.branch_id,
+            branch_repository=self._branch_repository,
+        )
 
         redemption = self._redemption_repository.get_for_ticket(ticket.id)
         if redemption is not None:
@@ -219,9 +240,16 @@ class TicketRedemptionService:
             visit_id=visit.id,
         )
 
-    def lookup(self, query: str) -> AdminTicketLookupResponse:
+    def lookup(self, query: str, admin_user: AdminUser) -> AdminTicketLookupResponse:
         items = []
-        for payment, user, branch, tickets in self._issued_ticket_repository.lookup_orders(query):
+        branch_id = require_operator_branch_scope(
+            admin_user=admin_user,
+            branch_repository=self._branch_repository,
+        )
+        for payment, user, branch, tickets in self._issued_ticket_repository.lookup_orders(
+            query,
+            branch_id=branch_id,
+        ):
             items.append(
                 AdminTicketLookupOrder(
                     paymentId=payment.id,

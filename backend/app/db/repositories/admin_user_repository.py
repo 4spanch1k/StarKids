@@ -26,6 +26,7 @@ class AdminUserRepository(Repository):
         full_name: str,
         password_hash: str,
         role: str,
+        branch_id: str | None = None,
         is_active: bool = True,
     ) -> AdminUser:
         user = AdminUser(
@@ -33,6 +34,7 @@ class AdminUserRepository(Repository):
             full_name=full_name.strip(),
             password_hash=password_hash,
             role=role,
+            branch_id=branch_id,
             is_active=is_active,
         )
         self.db.add(user)

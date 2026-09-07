@@ -73,4 +73,4 @@ def lookup_tickets(
     ),
     service: TicketRedemptionService = Depends(get_ticket_redemption_service),
 ) -> AdminTicketLookupResponse:
-    return service.lookup(query)
+    return service.lookup(query, current_admin_user)
