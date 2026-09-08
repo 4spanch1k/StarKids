@@ -2,6 +2,7 @@ from datetime import date, datetime, timezone
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
+from ..admin_dashboard.schemas import OwnerDashboardPeriod
 from ..leads.constants import LeadStatus, LeadType
 
 LeadInboxStatus = LeadStatus
@@ -24,6 +25,8 @@ class AdminLeadListQuery(BaseModel):
     status: LeadInboxStatus | None = None
     createdFrom: date | None = None
     createdTo: date | None = None
+    awaitingContact: bool = False
+    sort: str = Field(default='newest', pattern='^(newest|oldest_uncontacted)$')
 
 
 class AdminLeadBaseResponse(BaseModel):
@@ -39,6 +42,8 @@ class AdminLeadBaseResponse(BaseModel):
     guestCount: int | None = None
     requestedDate: date | None = None
     createdAt: datetime
+    waitingForContactMinutes: int | None = None
+    firstContactMinutes: int | None = None
     branch: AdminLeadBranchSummary | None = None
     package: AdminLeadPackageSummary | None = None
 
@@ -80,6 +85,8 @@ class AdminBirthdayLeadDetailResponse(BaseModel):
     comment: str | None = None
     adminNote: str | None = None
     createdAt: datetime
+    waitingForContactMinutes: int | None = None
+    firstContactMinutes: int | None = None
     updatedAt: datetime
     contactedAt: datetime | None = None
     qualifiedAt: datetime | None = None
@@ -94,3 +101,16 @@ class AdminLeadStatusUpdateRequest(BaseModel):
     adminNote: str | None = Field(default=None, max_length=2000)
     agreedAmountTenge: int | None = Field(default=None, ge=0)
     lostReason: str | None = Field(default=None, min_length=1, max_length=32)
+
+
+class AdminBirthdayOperationsSummaryResponse(BaseModel):
+    period: OwnerDashboardPeriod
+    periodStart: datetime
+    periodEnd: datetime
+    timezone: str
+    newAwaitingContact: int
+    oldestWaitingMinutes: int | None
+    leadsCreated: int
+    contactedFromCreatedLeads: int
+    medianFirstContactMinutes: int | None
+    p90FirstContactMinutes: int | None

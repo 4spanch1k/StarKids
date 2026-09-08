@@ -15,7 +15,9 @@ import {
   fetchAdminBirthdayLeadDetail,
   fetchAdminLeadDetail,
   fetchAdminLeadList,
+  fetchBirthdayOperationsSummary,
   fetchLeadInboxBranchOptions,
+  type BirthdayOperationsSummary,
   type LeadInboxBranchFilterOption,
   updateAdminLeadStatus,
 } from '@/features/leads/api/adminLeadInboxApi';
@@ -25,6 +27,8 @@ const defaultFilters = (): LeadListFilters => ({
   status: '',
   createdFrom: '',
   createdTo: '',
+  awaitingContact: '',
+  sort: 'newest',
 });
 
 export function useLeadInbox() {
@@ -47,16 +51,27 @@ export function useLeadInbox() {
   const isStatusUpdating = ref(false);
   const statusErrorMessage = ref('');
   const statusSuccessMessage = ref('');
+  const summaryPeriod = ref<BirthdayOperationsSummary['period']>('today');
+  const operationsSummary = ref<BirthdayOperationsSummary | null>(null);
+  const isSummaryLoading = ref(false);
+  const summaryErrorMessage = ref('');
 
   const hasActiveFilters = computed(() => {
-    return Object.values(filters).some(Boolean);
+    return Boolean(
+      filters.branchId ||
+      filters.status ||
+      filters.createdFrom ||
+      filters.createdTo ||
+      filters.awaitingContact === 'true' ||
+      filters.sort !== 'newest',
+    );
   });
   const selectedListItem = computed(() => {
     return leads.value.find((lead) => lead.id === selectedLeadId.value) ?? null;
   });
 
   async function initialize() {
-    await Promise.all([loadBranchOptions(), loadLeads()]);
+    await Promise.all([loadBranchOptions(), loadLeads(), loadOperationsSummary()]);
   }
 
   async function loadBranchOptions() {
@@ -96,6 +111,26 @@ export function useLeadInbox() {
       listErrorMessage.value = resolveAdminRequestError(error, 'Не удалось загрузить заявки.');
     } finally {
       isListLoading.value = false;
+    }
+  }
+
+  async function loadOperationsSummary(
+    period: BirthdayOperationsSummary['period'] = summaryPeriod.value,
+  ) {
+    summaryPeriod.value = period;
+    isSummaryLoading.value = true;
+    summaryErrorMessage.value = '';
+    try {
+      operationsSummary.value = await executeAuthorizedAdminRequest((accessToken) =>
+        fetchBirthdayOperationsSummary({ accessToken, period }),
+      );
+    } catch (error) {
+      summaryErrorMessage.value = resolveAdminRequestError(
+        error,
+        'Не удалось загрузить сводку по скорости обработки заявок.',
+      );
+    } finally {
+      isSummaryLoading.value = false;
     }
   }
 
@@ -314,6 +349,8 @@ export function useLeadInbox() {
         guestCount: updatedLead.guestCount,
         requestedDate: updatedLead.requestedDate,
         createdAt: updatedLead.createdAt,
+        waitingForContactMinutes: updatedLead.waitingForContactMinutes,
+        firstContactMinutes: updatedLead.firstContactMinutes,
         branch: updatedLead.branch,
         package: updatedLead.package,
         source: updatedLead.source,
@@ -355,6 +392,7 @@ export function useLeadInbox() {
     isDetailLoading,
     isListLoading,
     isStatusUpdating,
+    isSummaryLoading,
     leads,
     listErrorMessage,
     loadLeads,
@@ -365,6 +403,10 @@ export function useLeadInbox() {
     selectedListItem,
     statusErrorMessage,
     statusSuccessMessage,
+    operationsSummary,
+    loadOperationsSummary,
+    summaryErrorMessage,
+    summaryPeriod,
     total,
     quickUpdateLeadStatus,
     updateLeadStatus,

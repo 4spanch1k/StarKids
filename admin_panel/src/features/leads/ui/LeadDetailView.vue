@@ -189,6 +189,20 @@
             <dt>Создана</dt>
             <dd>{{ formatDateTime(lead.createdAt) }}</dd>
           </div>
+          <template v-if="lead.type === 'birthday_request'">
+            <div>
+              <dt>Первый контакт</dt>
+              <dd>{{ lead.contactedAt ? formatDateTime(lead.contactedAt) : 'Ещё не было' }}</dd>
+            </div>
+            <div v-if="lead.waitingForContactMinutes !== null">
+              <dt>Ожидает контакта</dt>
+              <dd>{{ formatDuration(lead.waitingForContactMinutes) }}</dd>
+            </div>
+            <div v-if="lead.firstContactMinutes !== null">
+              <dt>Время до контакта</dt>
+              <dd>{{ formatDuration(lead.firstContactMinutes) }}</dd>
+            </div>
+          </template>
           <div v-if="lead.contactedAt">
             <dt>Связались</dt>
             <dd>{{ formatDateTime(lead.contactedAt) }}</dd>
@@ -367,6 +381,26 @@ function formatDateTime(value: string): string {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(value));
+}
+
+function formatDuration(minutes: number | null): string {
+  if (minutes === null) {
+    return 'Неизвестно';
+  }
+
+  if (minutes < 60) {
+    return `${minutes} мин`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (hours < 24) {
+    return remainingMinutes ? `${hours} ч ${remainingMinutes} мин` : `${hours} ч`;
+  }
+
+  const days = Math.floor(hours / 24);
+  const remainingHours = hours % 24;
+  return remainingHours ? `${days} д ${remainingHours} ч` : `${days} д`;
 }
 
 function formatGuestCount(value: number | null): string {

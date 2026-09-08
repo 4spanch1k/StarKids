@@ -72,6 +72,8 @@ export type LeadListFilters = {
   status: LeadStatus | '';
   createdFrom: string;
   createdTo: string;
+  awaitingContact: '' | 'true';
+  sort: 'newest' | 'oldest_uncontacted';
 };
 
 export type LeadListItem = {
@@ -85,6 +87,8 @@ export type LeadListItem = {
   guestCount: number | null;
   requestedDate: string | null;
   createdAt: string;
+  waitingForContactMinutes: number | null;
+  firstContactMinutes: number | null;
   branch: LeadBranchSummary | null;
   package: LeadPackageSummary | null;
 };

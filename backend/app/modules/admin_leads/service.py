@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime, time, timedelta
+from math import ceil
+from statistics import median
+from typing import Callable
 
+from ...core.time.business_time import BUSINESS_TIMEZONE
 from ...core.exceptions.http import DomainHTTPException, NotFoundException
 from ...db.repositories.lead_inbox_repository import LeadInboxRecord, LeadInboxRepository
 from ..leads.constants import LEAD_TYPE_BIRTHDAY_REQUEST, LEAD_TYPE_CONTACT, LOST_REASONS
@@ -14,7 +18,9 @@ from .schemas import (
     AdminLeadListResponse,
     AdminLeadPackageSummary,
     AdminLeadStatusUpdateRequest,
+    AdminBirthdayOperationsSummaryResponse,
     LeadInboxStatus,
+    OwnerDashboardPeriod,
 )
 
 LEAD_INBOX_ALLOWED_ROLES = (
@@ -50,8 +56,10 @@ class AdminLeadInboxService:
         self,
         *,
         repository: LeadInboxRepository | None = None,
+        now_provider: Callable[[], datetime] | None = None,
     ) -> None:
         self.repository = repository or LeadInboxRepository()
+        self.now_provider = now_provider or (lambda: datetime.now(UTC))
 
     def list_leads(self, filters: AdminLeadListQuery) -> AdminLeadListResponse:
         self._validate_filters(filters)
@@ -60,6 +68,8 @@ class AdminLeadInboxService:
             status=filters.status,
             created_from=filters.createdFrom,
             created_to=filters.createdTo,
+            awaiting_contact=filters.awaitingContact,
+            sort=filters.sort,
         )
         return AdminLeadListResponse(
             items=[self._serialize_list_item(record) for record in records],
@@ -108,6 +118,8 @@ class AdminLeadInboxService:
             comment=record.notes,
             adminNote=record.admin_note,
             createdAt=record.created_at,
+            waitingForContactMinutes=self._waiting_for_contact_minutes(record),
+            firstContactMinutes=self._first_contact_minutes(record),
             updatedAt=record.updated_at,
             contactedAt=record.contacted_at,
             qualifiedAt=record.qualified_at,
@@ -115,6 +127,43 @@ class AdminLeadInboxService:
             completedAt=record.completed_at,
             lostAt=record.lost_at,
             closedAt=record.closed_at,
+        )
+
+    def get_birthday_operations_summary(
+        self,
+        period: OwnerDashboardPeriod,
+    ) -> AdminBirthdayOperationsSummaryResponse:
+        now = self._normalize_now(self.now_provider())
+        period_start = self._period_start(period, now)
+        waiting_count, oldest_waiting_created_at, period_rows = self.repository.list_birthday_operations_rows(
+            period_start=period_start.astimezone(UTC),
+            period_end=now,
+        )
+        contacted_period_rows = [
+            (created_at, contacted_at)
+            for created_at, contacted_at in period_rows
+            if contacted_at is not None
+            and self._normalize_now(contacted_at) >= self._normalize_now(created_at)
+        ]
+        response_minutes = [
+            self._elapsed_minutes(created_at, contacted_at)
+            for created_at, contacted_at in contacted_period_rows
+        ]
+        return AdminBirthdayOperationsSummaryResponse(
+            period=period,
+            periodStart=period_start,
+            periodEnd=now,
+            timezone=BUSINESS_TIMEZONE.key,
+            newAwaitingContact=waiting_count,
+            oldestWaitingMinutes=(
+                self._elapsed_minutes(oldest_waiting_created_at, now)
+                if oldest_waiting_created_at is not None
+                else None
+            ),
+            leadsCreated=len(period_rows),
+            contactedFromCreatedLeads=len(response_minutes),
+            medianFirstContactMinutes=(int(median(response_minutes)) if response_minutes else None),
+            p90FirstContactMinutes=self._p90(response_minutes),
         )
 
     def update_lead_status(
@@ -247,9 +296,59 @@ class AdminLeadInboxService:
             guestCount=record.guest_count,
             requestedDate=record.requested_date,
             createdAt=record.created_at,
+            waitingForContactMinutes=self._waiting_for_contact_minutes(record),
+            firstContactMinutes=self._first_contact_minutes(record),
             branch=self._serialize_branch(record),
             package=self._serialize_package(record),
         )
+
+    def _waiting_for_contact_minutes(self, record: LeadInboxRecord) -> int | None:
+        if (
+            record.type != LEAD_TYPE_BIRTHDAY_REQUEST
+            or record.status != 'new'
+            or record.contacted_at is not None
+        ):
+            return None
+        return self._elapsed_minutes(record.created_at, self._normalize_now(self.now_provider()))
+
+    def _first_contact_minutes(self, record: LeadInboxRecord) -> int | None:
+        if record.type != LEAD_TYPE_BIRTHDAY_REQUEST or record.contacted_at is None:
+            return None
+        return self._elapsed_minutes(record.created_at, record.contacted_at)
+
+    @staticmethod
+    def _period_start(period: OwnerDashboardPeriod, now: datetime) -> datetime:
+        days_back = {
+            OwnerDashboardPeriod.TODAY: 0,
+            OwnerDashboardPeriod.SEVEN_DAYS: 6,
+            OwnerDashboardPeriod.THIRTY_DAYS: 29,
+        }[period]
+        local_today = now.astimezone(BUSINESS_TIMEZONE).date()
+        return datetime.combine(
+            local_today - timedelta(days=days_back),
+            time.min,
+            tzinfo=BUSINESS_TIMEZONE,
+        )
+
+    @staticmethod
+    def _normalize_now(value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
+
+    @classmethod
+    def _elapsed_minutes(cls, start: datetime, end: datetime) -> int:
+        start_utc = cls._normalize_now(start)
+        end_utc = cls._normalize_now(end)
+        return max(0, int((end_utc - start_utc).total_seconds() // 60))
+
+    @staticmethod
+    def _p90(values: list[int]) -> int | None:
+        if not values:
+            return None
+        ordered = sorted(values)
+        index = max(0, min(len(ordered) - 1, ceil(len(ordered) * 0.9) - 1))
+        return ordered[index]
 
     def _serialize_detail(self, record: LeadInboxRecord) -> AdminLeadDetailResponse:
         return AdminLeadDetailResponse(
