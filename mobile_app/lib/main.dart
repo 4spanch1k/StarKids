@@ -20,6 +20,10 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   debugPrint('[BOOT] main started');
 
+  NotificationNavigationCoordinator.instance.configureCampaignOpenTracker(
+    ServiceRegistry.campaignOpenTracker.track,
+  );
+
   // Firebase is configured for the approved Android/iOS production app ids.
   // Runtime initialization remains best-effort so core app flows still start
   // if a device or deployment has no usable Firebase runtime configuration.

@@ -19,8 +19,13 @@ from .schemas import (
     MobileNotificationDeviceUpsertRequest,
 )
 from .service import NotificationService
+from ..admin_push_campaigns.attribution_service import PushCampaignAttributionService
 
 router = APIRouter()
+
+
+def get_campaign_attribution_service(session: Session = Depends(get_db_session)) -> PushCampaignAttributionService:
+    return PushCampaignAttributionService(session)
 
 
 def get_notification_service(
@@ -75,4 +80,14 @@ def remove_mobile_notification_device(
         current_user=current_context.user,
         current_session=current_context.session,
     )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post('/push-campaigns/{campaign_id}/open', status_code=status.HTTP_204_NO_CONTENT)
+def record_campaign_open(
+    campaign_id: str,
+    current_context: AuthenticatedMobileContext = Depends(get_current_mobile_auth_context),
+    service: PushCampaignAttributionService = Depends(get_campaign_attribution_service),
+) -> Response:
+    service.record_open(campaign_id, current_context.user.id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

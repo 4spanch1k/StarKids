@@ -35,6 +35,7 @@ from .promotion import Promotion
 from .promotion_branch import PromotionBranch
 from .push_campaign import PushCampaign
 from .push_campaign_delivery import PushCampaignDelivery
+from .push_campaign_open import PushCampaignOpen
 from .birthday_reminder import BirthdayReminder
 
 __all__ = [
@@ -75,5 +76,6 @@ __all__ = [
     'NewsEvent',
     'PushCampaign',
     'PushCampaignDelivery',
+    'PushCampaignOpen',
     'BirthdayReminder',
 ]
