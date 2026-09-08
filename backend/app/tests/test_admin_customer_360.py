@@ -312,8 +312,9 @@ class AdminCustomer360EndpointTests(unittest.TestCase):
         self.assertEqual(body['total'], 1)
         self.assertEqual(body['page'], 1)
         self.assertEqual(body['pageSize'], 1)
+        item = body['items'][0]
         self.assertEqual(
-            body['items'][0],
+            {key: value for key, value in item.items() if key != 'daysSinceLastVisit'},
             {
                 'id': 'user-alice',
                 'firstName': 'Айжан',
@@ -322,12 +323,15 @@ class AdminCustomer360EndpointTests(unittest.TestCase):
                 'email': 'alice@example.com',
                 'childrenCount': 3,
                 'visitsCount': 2,
+                'firstVisitAt': '2026-05-10T11:00:00Z',
                 'lastVisitAt': '2026-09-05T11:00:00Z',
+                'customerVisitType': 'returning',
                 'ticketCashSpendTenge': 2500,
                 'bonusBalance': 1200,
                 'createdAt': '2026-01-01T00:00:00Z',
             },
         )
+        self.assertIsInstance(item['daysSinceLastVisit'], int)
 
     def test_customer_list_pages_are_deterministic(self) -> None:
         headers = self._auth_headers('admin@example.com')
@@ -361,6 +365,8 @@ class AdminCustomer360EndpointTests(unittest.TestCase):
         self.assertEqual(body['metrics']['visitsCount'], 2)
         self.assertEqual(body['metrics']['firstVisitAt'], '2026-05-10T11:00:00Z')
         self.assertEqual(body['metrics']['lastVisitAt'], '2026-09-05T11:00:00Z')
+        self.assertIsInstance(body['metrics']['daysSinceLastVisit'], int)
+        self.assertEqual(body['metrics']['customerVisitType'], 'returning')
         self.assertEqual(body['metrics']['ticketCashSpendTenge'], 2500)
         self.assertEqual(body['loyalty'], {'balance': 1200, 'lifetimeEarned': 5000, 'lifetimeSpent': 3800})
         self.assertEqual(len(body['children']), 3)
@@ -383,6 +389,8 @@ class AdminCustomer360EndpointTests(unittest.TestCase):
         self.assertEqual(body['metrics']['visitsCount'], 0)
         self.assertIsNone(body['metrics']['firstVisitAt'])
         self.assertIsNone(body['metrics']['lastVisitAt'])
+        self.assertIsNone(body['metrics']['daysSinceLastVisit'])
+        self.assertEqual(body['metrics']['customerVisitType'], 'never_visited')
         self.assertEqual(body['loyalty'], {'balance': 0, 'lifetimeEarned': 0, 'lifetimeSpent': 0})
         self.assertEqual(body['children'], [])
         self.assertEqual(body['recentTicketPurchases'], [])
@@ -401,6 +409,21 @@ class AdminCustomer360EndpointTests(unittest.TestCase):
             self.client.get('/api/v1/admin/customers/unknown', headers=headers).status_code,
             404,
         )
+
+    def test_customer_list_supports_derived_visit_segment_filters(self) -> None:
+        headers = self._auth_headers('admin@example.com')
+        for segment, expected_ids in (
+            ('never_visited', ['user-bob']),
+            ('first_visit_only', []),
+            ('returning', ['user-alice']),
+        ):
+            response = self.client.get(
+                '/api/v1/admin/customers',
+                headers=headers,
+                params={'visitSegment': segment},
+            )
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual([item['id'] for item in response.json()['items']], expected_ids)
 
     def _auth_headers(self, email: str) -> dict[str, str]:
         response = self.client.post(

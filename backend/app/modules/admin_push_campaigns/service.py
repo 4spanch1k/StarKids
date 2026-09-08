@@ -16,6 +16,7 @@ from ...db.models.mobile_user import MobileUser
 from ...db.models.push_campaign import PushCampaign
 from ...db.models.push_campaign_delivery import PushCampaignDelivery
 from ...services.push.delivery_port import PushDeliveryPort
+from ..visit_segmentation import visit_segment_user_ids
 from .schemas import (
     PushCampaignAudience,
     PushCampaignCreateRequest,
@@ -108,8 +109,8 @@ class PushCampaignService:
         self.session.commit()
         return self.serialize(campaign)
 
-    def preview(self, audience: PushCampaignAudience) -> PushCampaignPreviewResponse:
-        users, devices = self._resolve_audience(audience)
+    def preview(self, audience: PushCampaignAudience, *, now: datetime | None = None) -> PushCampaignPreviewResponse:
+        users, devices = self._resolve_audience(audience, now=now)
         return PushCampaignPreviewResponse(targeted_users=len(users), targeted_devices=len(devices))
 
     def send(self, campaign_id: str) -> PushCampaignResponse:
@@ -233,7 +234,12 @@ class PushCampaignService:
         campaign.sent_at = datetime.now(UTC) if campaign.status == 'sent' else None
         self.session.commit()
 
-    def _resolve_audience(self, audience: PushCampaignAudience) -> tuple[list[str], list[tuple[str, MobileNotificationDevice]]]:
+    def _resolve_audience(
+        self,
+        audience: PushCampaignAudience,
+        *,
+        now: datetime | None = None,
+    ) -> tuple[list[str], list[tuple[str, MobileNotificationDevice]]]:
         query = select(MobileUser.id, MobileNotificationDevice).join(MobileNotificationDevice, MobileNotificationDevice.mobile_user_id == MobileUser.id).where(
             MobileUser.is_active.is_(True), MobileNotificationDevice.notifications_enabled.is_(True),
             MobileNotificationDevice.permission_status.not_in(['denied', 'unavailable']),
@@ -247,6 +253,13 @@ class PushCampaignService:
             query = query.join(MobileChild, MobileChild.user_id == MobileUser.id).where(month_match, day_match)
         elif audience.type == 'user':
             query = query.where(MobileUser.id == audience.user_id)
+        elif audience.type == 'visit_segment':
+            # Resolve the segment from authoritative Visit aggregates at the
+            # moment of preview/snapshot. Device eligibility remains owned by
+            # this existing campaign query.
+            query = query.where(
+                MobileUser.id.in_(visit_segment_user_ids(audience.visit_segment or 'never_visited', now))
+            )
         rows = self.session.execute(query.distinct()).all()
         devices = [(row[0], row[1]) for row in rows]
         return sorted({u for u, _ in devices}), devices

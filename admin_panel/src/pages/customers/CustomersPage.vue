@@ -22,6 +22,18 @@
           label="Поиск клиента"
           placeholder="Имя, телефон или email"
         />
+        <label class="customers-filter">
+          <span>Сегмент по посещениям</span>
+          <select v-model="customers.visitSegment" class="admin-control">
+            <option value="">Все семьи</option>
+            <option value="never_visited">Ещё не посещали</option>
+            <option value="first_visit_only">Были 1 раз</option>
+            <option value="returning">Возвращались</option>
+            <option value="dormant_30">Не были 30+ дней</option>
+            <option value="dormant_60">Не были 60+ дней</option>
+            <option value="dormant_90">Не были 90+ дней</option>
+          </select>
+        </label>
         <button type="submit" class="admin-button admin-button--primary">
           Найти
         </button>
@@ -74,7 +86,9 @@
                 <th>Клиент</th>
                 <th>Дети</th>
                 <th>Визиты</th>
+                <th>Тип визита</th>
                 <th>Последний визит</th>
+                <th>Дней с последнего</th>
                 <th>Билеты</th>
                 <th>Бонусы</th>
               </tr>
@@ -97,7 +111,9 @@
                 </td>
                 <td>{{ customer.childrenCount }}</td>
                 <td>{{ customer.visitsCount }}</td>
+                <td>{{ visitTypeLabel(customer.customerVisitType) }}</td>
                 <td>{{ formatDateTime(customer.lastVisitAt) }}</td>
+                <td>{{ customer.daysSinceLastVisit ?? '—' }}</td>
                 <td>{{ formatMoney(customer.ticketCashSpendTenge) }}</td>
                 <td>{{ customer.bonusBalance.toLocaleString('ru-RU') }}</td>
               </tr>
@@ -228,14 +244,29 @@ function formatDateTime(value: string | null): string {
 function formatMoney(value: number): string {
   return `${value.toLocaleString('ru-RU')} ₸`;
 }
+
+function visitTypeLabel(value: CustomerListItem['customerVisitType']): string {
+  return {
+    never_visited: 'Ещё не посещали',
+    first_visit_only: 'Были 1 раз',
+    returning: 'Возвращались',
+  }[value];
+}
 </script>
 
 <style scoped>
 .customers-search {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) auto;
+  grid-template-columns: minmax(240px, 1fr) minmax(190px, 240px) auto;
   gap: 10px;
   align-items: end;
+}
+
+.customers-filter {
+  display: grid;
+  gap: 5px;
+  color: var(--color-muted);
+  font-size: 12px;
 }
 
 .customers-layout {

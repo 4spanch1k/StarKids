@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import Select, case, func, or_, select
 
@@ -13,6 +13,11 @@ from ..models.mobile_child import MobileChild
 from ..models.mobile_payment import MobilePayment
 from ..models.mobile_user import MobileUser
 from ..models.visit import Visit
+from ...modules.visit_segmentation import (
+    VisitAudienceSegment,
+    visit_segment_predicate,
+    visit_stats_subquery,
+)
 from .base import Repository
 
 
@@ -21,6 +26,7 @@ class CustomerListRecord:
     user: MobileUser
     children_count: int
     visits_count: int
+    first_visit_at: datetime | None
     last_visit_at: datetime | None
     ticket_cash_spend_tenge: int
     bonus_balance: int
@@ -52,6 +58,8 @@ class AdminCustomerRepository(Repository):
         search: str | None,
         page: int,
         page_size: int,
+        visit_segment: VisitAudienceSegment | None = None,
+        now: datetime | None = None,
     ) -> tuple[list[CustomerListRecord], int]:
         child_counts = (
             select(
@@ -61,15 +69,7 @@ class AdminCustomerRepository(Repository):
             .group_by(MobileChild.user_id)
             .subquery()
         )
-        visit_stats = (
-            select(
-                Visit.mobile_user_id.label('user_id'),
-                func.count(Visit.id).label('visits_count'),
-                func.max(Visit.started_at).label('last_visit_at'),
-            )
-            .group_by(Visit.mobile_user_id)
-            .subquery()
-        )
+        visit_stats = visit_stats_subquery()
         payment_stats = (
             select(
                 MobilePayment.mobile_user_id.label('user_id'),
@@ -86,17 +86,25 @@ class AdminCustomerRepository(Repository):
         )
 
         conditions = self._customer_search_conditions(search)
-        count_statement = select(func.count(MobileUser.id))
+        first_visit_at = visit_stats.c.first_visit_at
+        last_visit_at = visit_stats.c.last_visit_at
+        conditions = [*conditions]
+        if visit_segment is not None:
+            conditions.append(visit_segment_predicate(visit_stats, visit_segment, now or datetime.now(UTC)))
+
+        count_statement = select(func.count(MobileUser.id)).outerjoin(
+            visit_stats, visit_stats.c.user_id == MobileUser.id
+        )
         if conditions:
             count_statement = count_statement.where(*conditions)
         total = int(self.db.scalar(count_statement) or 0)
 
-        last_visit_at = visit_stats.c.last_visit_at
-        statement: Select[tuple[MobileUser, int | None, int | None, datetime | None, int | None, int | None]] = (
+        statement: Select[tuple[MobileUser, int | None, int | None, datetime | None, datetime | None, int | None, int | None]] = (
             select(
                 MobileUser,
                 child_counts.c.children_count,
-                visit_stats.c.visits_count,
+                visit_stats.c.visit_count,
+                first_visit_at,
                 last_visit_at,
                 payment_stats.c.ticket_cash_spend_tenge,
                 LoyaltyAccount.balance,
@@ -126,11 +134,12 @@ class AdminCustomerRepository(Repository):
                     user=user,
                     children_count=int(children_count or 0),
                     visits_count=int(visits_count or 0),
+                    first_visit_at=first_visit,
                     last_visit_at=last_visit,
                     ticket_cash_spend_tenge=int(ticket_cash_spend or 0),
                     bonus_balance=int(balance or 0),
                 )
-                for user, children_count, visits_count, last_visit, ticket_cash_spend, balance in rows
+                for user, children_count, visits_count, first_visit, last_visit, ticket_cash_spend, balance in rows
             ],
             total,
         )

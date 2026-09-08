@@ -4,6 +4,8 @@ from datetime import UTC, date, datetime
 
 from pydantic import BaseModel, Field, field_serializer
 
+from ..visit_segmentation import CustomerVisitType, VisitAudienceSegment
+
 
 def _utc_iso(value: datetime | None) -> str | None:
     if value is None:
@@ -16,6 +18,7 @@ class AdminCustomerListQuery(BaseModel):
     search: str | None = Field(default=None, max_length=120)
     page: int = Field(default=1, ge=1, le=100_000)
     pageSize: int = Field(default=25, ge=1, le=100)
+    visitSegment: VisitAudienceSegment | None = None
 
 
 class AdminCustomerListItem(BaseModel):
@@ -26,12 +29,15 @@ class AdminCustomerListItem(BaseModel):
     email: str | None = None
     childrenCount: int
     visitsCount: int
+    firstVisitAt: datetime | None = None
     lastVisitAt: datetime | None = None
+    daysSinceLastVisit: int | None = None
+    customerVisitType: CustomerVisitType
     ticketCashSpendTenge: int
     bonusBalance: int
     createdAt: datetime
 
-    @field_serializer('lastVisitAt', 'createdAt')
+    @field_serializer('firstVisitAt', 'lastVisitAt', 'createdAt')
     def serialize_datetime(self, value: datetime | None) -> str | None:
         return _utc_iso(value)
 
@@ -138,6 +144,8 @@ class AdminCustomerMetricsResponse(BaseModel):
     visitsCount: int
     firstVisitAt: datetime | None = None
     lastVisitAt: datetime | None = None
+    daysSinceLastVisit: int | None = None
+    customerVisitType: CustomerVisitType
     ticketCashSpendTenge: int
 
     @field_serializer('firstVisitAt', 'lastVisitAt')

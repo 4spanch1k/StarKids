@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from ...core.exceptions.http import NotFoundException
 from ...db.repositories.admin_customer_repository import AdminCustomerRepository
+from ..visit_segmentation import customer_visit_type, days_since_last_visit
 from .schemas import (
     AdminCustomerBirthdayLeadResponse,
     AdminCustomerBranchResponse,
@@ -23,10 +26,13 @@ class AdminCustomerService:
         self.repository = repository
 
     def list_customers(self, query: AdminCustomerListQuery) -> AdminCustomerListResponse:
+        now = datetime.now(UTC)
         records, total = self.repository.list_customers(
             search=query.search,
             page=query.page,
             page_size=query.pageSize,
+            visit_segment=query.visitSegment,
+            now=now,
         )
         return AdminCustomerListResponse(
             items=[
@@ -38,7 +44,10 @@ class AdminCustomerService:
                     email=record.user.email,
                     childrenCount=record.children_count,
                     visitsCount=record.visits_count,
+                    firstVisitAt=record.first_visit_at,
                     lastVisitAt=record.last_visit_at,
+                    daysSinceLastVisit=days_since_last_visit(record.last_visit_at, now),
+                    customerVisitType=customer_visit_type(record.visits_count),
                     ticketCashSpendTenge=record.ticket_cash_spend_tenge,
                     bonusBalance=record.bonus_balance,
                     createdAt=record.user.created_at,
@@ -57,6 +66,7 @@ class AdminCustomerService:
 
         children = self.repository.list_children(user.id)
         visits_count, first_visit_at, last_visit_at = self.repository.get_visit_stats(user.id)
+        now = datetime.now(UTC)
         payments = self.repository.list_ticket_payments(user.id, limit=20)
         visits = self.repository.list_visits(user.id, limit=20)
         leads = self.repository.list_birthday_leads(user.id)
@@ -77,6 +87,8 @@ class AdminCustomerService:
                 visitsCount=visits_count,
                 firstVisitAt=first_visit_at,
                 lastVisitAt=last_visit_at,
+                daysSinceLastVisit=days_since_last_visit(last_visit_at, now),
+                customerVisitType=customer_visit_type(visits_count),
                 ticketCashSpendTenge=self._ticket_cash_spend(user.id),
             ),
             loyalty=AdminCustomerLoyaltyResponse(
