@@ -7,6 +7,7 @@ import {
 import type {
   CustomerDetail,
   CustomerListItem,
+  VisitAudienceSegment,
 } from '@/features/customers/model/customer';
 import {
   executeAuthorizedAdminRequest,
@@ -15,6 +16,7 @@ import {
 
 export function useCustomers() {
   const search = ref('');
+  const visitSegment = ref<VisitAudienceSegment | ''>('');
   const items = ref<CustomerListItem[]>([]);
   const total = ref(0);
   const page = ref(1);
@@ -47,6 +49,7 @@ export function useCustomers() {
           search: search.value,
           page: requestedPage,
           pageSize,
+          visitSegment: visitSegment.value,
         }),
       );
       items.value = response.items;
@@ -127,6 +130,7 @@ export function useCustomers() {
     page,
     pageSize,
     search,
+    visitSegment,
     selectedCustomer,
     selectedCustomerId,
     total,

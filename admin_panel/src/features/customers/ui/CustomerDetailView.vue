@@ -35,8 +35,10 @@
     <dl class="customer-metrics">
       <div><dt>Дети</dt><dd>{{ customer.metrics.childrenCount }}</dd></div>
       <div><dt>Визиты</dt><dd>{{ customer.metrics.visitsCount }}</dd></div>
+      <div><dt>Тип визита</dt><dd>{{ visitTypeLabel(customer.metrics.customerVisitType) }}</dd></div>
       <div><dt>Первый визит</dt><dd>{{ formatDateTime(customer.metrics.firstVisitAt) }}</dd></div>
       <div><dt>Последний визит</dt><dd>{{ formatDateTime(customer.metrics.lastVisitAt) }}</dd></div>
+      <div><dt>Дней с последнего визита</dt><dd>{{ customer.metrics.daysSinceLastVisit ?? '—' }}</dd></div>
       <div><dt>Расходы на билеты</dt><dd>{{ formatMoney(customer.metrics.ticketCashSpendTenge) }}</dd></div>
     </dl>
 
@@ -137,6 +139,14 @@ function formatDateTime(value: string | null): string {
 
 function formatMoney(value: number): string {
   return `${value.toLocaleString('ru-RU')} ₸`;
+}
+
+function visitTypeLabel(value: CustomerDetail['metrics']['customerVisitType']): string {
+  return {
+    never_visited: 'Ещё не посещали',
+    first_visit_only: 'Были 1 раз',
+    returning: 'Возвращались',
+  }[value];
 }
 
 function formatGender(value: string): string {

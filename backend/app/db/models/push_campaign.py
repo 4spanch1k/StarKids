@@ -11,7 +11,7 @@ class PushCampaign(Base):
     __tablename__ = 'push_campaigns'
     __table_args__ = (
         CheckConstraint(
-            "audience_type IN ('all_users', 'birthday_in_days', 'user')",
+            "audience_type IN ('all_users', 'birthday_in_days', 'user', 'visit_segment')",
             name='ck_push_campaigns_audience_type',
         ),
         CheckConstraint(

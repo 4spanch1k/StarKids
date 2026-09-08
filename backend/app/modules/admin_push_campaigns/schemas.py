@@ -3,8 +3,9 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from ..visit_segmentation import VisitAudienceSegment
 
-AudienceType = Literal['all_users', 'birthday_in_days', 'user']
+AudienceType = Literal['all_users', 'birthday_in_days', 'user', 'visit_segment']
 Destination = Literal['home', 'tickets', 'birthdays', 'promotions', 'profile']
 
 
@@ -12,6 +13,7 @@ class PushCampaignAudience(BaseModel):
     type: AudienceType
     days_before_birthday: int | None = Field(default=None, ge=1, le=365)
     user_id: str | None = Field(default=None, min_length=1, max_length=32)
+    visit_segment: VisitAudienceSegment | None = None
 
     @model_validator(mode='after')
     def validate_config(self) -> 'PushCampaignAudience':
@@ -19,10 +21,14 @@ class PushCampaignAudience(BaseModel):
             raise ValueError('days_before_birthday is required for birthday audience')
         if self.type == 'user' and self.user_id is None:
             raise ValueError('user_id is required for user audience')
+        if self.type == 'visit_segment' and self.visit_segment is None:
+            raise ValueError('visit_segment is required for visit segment audience')
         if self.type != 'birthday_in_days' and self.days_before_birthday is not None:
             raise ValueError('days_before_birthday is only valid for birthday audience')
         if self.type != 'user' and self.user_id is not None:
             raise ValueError('user_id is only valid for user audience')
+        if self.type != 'visit_segment' and self.visit_segment is not None:
+            raise ValueError('visit_segment is only valid for visit segment audience')
         return self
 
 

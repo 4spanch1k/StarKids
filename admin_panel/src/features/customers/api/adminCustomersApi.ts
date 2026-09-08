@@ -1,6 +1,7 @@
 import type {
   CustomerDetail,
   CustomerListResponse,
+  VisitAudienceSegment,
 } from '@/features/customers/model/customer';
 import { httpClient } from '@/shared/api/httpClient';
 
@@ -11,11 +12,13 @@ export function fetchAdminCustomerList({
   search,
   page,
   pageSize,
+  visitSegment,
 }: {
   accessToken: string;
   search?: string;
   page: number;
   pageSize: number;
+  visitSegment?: VisitAudienceSegment | '';
 }): Promise<CustomerListResponse> {
   const query = new URLSearchParams({
     page: String(page),
@@ -23,6 +26,9 @@ export function fetchAdminCustomerList({
   });
   if (search?.trim()) {
     query.set('search', search.trim());
+  }
+  if (visitSegment) {
+    query.set('visitSegment', visitSegment);
   }
 
   return httpClient<CustomerListResponse>({

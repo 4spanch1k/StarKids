@@ -16,6 +16,7 @@ from app.db.models.mobile_session import MobileSession
 from app.db.models.mobile_user import MobileUser
 from app.db.models.push_campaign import PushCampaign
 from app.db.models.push_campaign_delivery import PushCampaignDelivery
+from app.db.models.visit import Visit
 from app.modules.admin_push_campaigns.schemas import PushCampaignAudience, PushCampaignCreateRequest, PushCampaignUpdateRequest
 from app.modules.admin_push_campaigns.service import PushCampaignService, birthday_matches_target, birthday_target_date
 from app.services.push.delivery_result import PushDeliveryResult
@@ -49,9 +50,19 @@ class PushCampaignServiceTests(unittest.TestCase):
         with self.SessionLocal() as session:
             session.query(PushCampaignDelivery).delete()
             session.query(PushCampaign).delete()
-            for model in (MobileNotificationDevice, MobileSession, MobileChild, MobileUser):
+            for model in (Visit, MobileNotificationDevice, MobileSession, MobileChild, MobileUser):
                 session.query(model).delete()
             session.commit()
+
+    def _visit(self, session: Session, user: MobileUser, started_at: datetime) -> None:
+        session.add(Visit(
+            id=uuid4().hex,
+            mobile_payment_id=uuid4().hex,
+            mobile_user_id=user.id,
+            branch_id=uuid4().hex,
+            status='completed',
+            started_at=started_at,
+        ))
 
     def _user(self, session: Session, *, birthday: date | None = None) -> MobileUser:
         user = MobileUser(id=uuid4().hex, phone=f'+7{uuid4().int % 10**10:010d}', is_active=True)
@@ -75,6 +86,96 @@ class PushCampaignServiceTests(unittest.TestCase):
                 result = service.preview(PushCampaignAudience(type='birthday_in_days', days_before_birthday=7))
             self.assertEqual(result.targeted_users, 1)
             self.assertEqual(result.targeted_devices, 1)
+
+    def test_visit_segment_audience_requires_and_round_trips_segment(self) -> None:
+        audience = PushCampaignAudience(type='visit_segment', visit_segment='returning')
+        self.assertEqual(audience.model_dump(exclude_none=True), {'type': 'visit_segment', 'visit_segment': 'returning'})
+        with self.assertRaises(ValueError):
+            PushCampaignAudience(type='visit_segment')
+        with self.assertRaises(ValueError):
+            PushCampaignAudience(type='all_users', visit_segment='returning')
+
+    def test_visit_segment_campaign_persists_and_restores_audience_config(self) -> None:
+        with self.SessionLocal() as session:
+            service = PushCampaignService(session, FakeDelivery())
+            campaign = service.create(
+                PushCampaignCreateRequest(
+                    internal_name='segment-campaign',
+                    title='t',
+                    body='b',
+                    audience={'type': 'visit_segment', 'visit_segment': 'dormant_60'},
+                    destination='home',
+                ),
+                'admin-1',
+            )
+            self.assertEqual(service.get(campaign.id).audience.model_dump(exclude_none=True), {
+                'type': 'visit_segment',
+                'visit_segment': 'dormant_60',
+            })
+
+    def test_visit_segment_audience_uses_derived_visit_facts(self) -> None:
+        now = datetime(2026, 9, 8, 12, tzinfo=UTC)
+        with self.SessionLocal() as session:
+            never = self._user(session)
+            first = self._user(session)
+            returning = self._user(session)
+            dormant = self._user(session)
+            self._visit(session, first, now - timedelta(days=1))
+            self._visit(session, returning, now - timedelta(days=2))
+            self._visit(session, returning, now - timedelta(days=1))
+            self._visit(session, dormant, now - timedelta(days=30))
+            session.commit()
+            service = PushCampaignService(session, FakeDelivery())
+
+            self.assertEqual(
+                service.preview(PushCampaignAudience(type='visit_segment', visit_segment='never_visited'), now=now).targeted_users,
+                1,
+            )
+            self.assertEqual(
+                service.preview(PushCampaignAudience(type='visit_segment', visit_segment='first_visit_only'), now=now).targeted_users,
+                2,
+            )
+            self.assertEqual(
+                service.preview(PushCampaignAudience(type='visit_segment', visit_segment='returning'), now=now).targeted_users,
+                1,
+            )
+            self.assertEqual(
+                service.preview(PushCampaignAudience(type='visit_segment', visit_segment='dormant_30'), now=now).targeted_users,
+                1,
+            )
+            self.assertNotIn(
+                never.id,
+                service._resolve_audience(
+                    PushCampaignAudience(type='visit_segment', visit_segment='dormant_30'),
+                    now=now,
+                )[0],
+            )
+
+    def test_dormant_audience_thresholds_use_local_calendar_boundaries(self) -> None:
+        now = datetime(2026, 9, 8, 12, tzinfo=UTC)
+        with self.SessionLocal() as session:
+            users_by_age = {}
+            for age in (29, 30, 59, 60, 89, 90):
+                user = self._user(session)
+                self._visit(session, user, now - timedelta(days=age))
+                users_by_age[age] = user.id
+            session.commit()
+            service = PushCampaignService(session, FakeDelivery())
+
+            def ids(segment: str) -> set[str]:
+                return set(service._resolve_audience(
+                    PushCampaignAudience(type='visit_segment', visit_segment=segment),
+                    now=now,
+                )[0])
+
+            self.assertNotIn(users_by_age[29], ids('dormant_30'))
+            self.assertIn(users_by_age[30], ids('dormant_30'))
+            self.assertIn(users_by_age[59], ids('dormant_30'))
+            self.assertNotIn(users_by_age[59], ids('dormant_60'))
+            self.assertIn(users_by_age[60], ids('dormant_60'))
+            self.assertIn(users_by_age[89], ids('dormant_60'))
+            self.assertNotIn(users_by_age[89], ids('dormant_90'))
+            self.assertIn(users_by_age[90], ids('dormant_90'))
 
     def test_send_snapshots_and_delivers_once_per_device(self) -> None:
         delivery = FakeDelivery()

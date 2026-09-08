@@ -1,3 +1,6 @@
+export type CustomerVisitType = 'never_visited' | 'first_visit_only' | 'returning';
+export type VisitAudienceSegment = CustomerVisitType | 'dormant_30' | 'dormant_60' | 'dormant_90';
+
 export type CustomerListItem = {
   id: string;
   firstName: string | null;
@@ -6,7 +9,10 @@ export type CustomerListItem = {
   email: string | null;
   childrenCount: number;
   visitsCount: number;
+  firstVisitAt: string | null;
   lastVisitAt: string | null;
+  daysSinceLastVisit: number | null;
+  customerVisitType: CustomerVisitType;
   ticketCashSpendTenge: number;
   bonusBalance: number;
   createdAt: string;
@@ -94,6 +100,8 @@ export type CustomerDetail = {
     visitsCount: number;
     firstVisitAt: string | null;
     lastVisitAt: string | null;
+    daysSinceLastVisit: number | null;
+    customerVisitType: CustomerVisitType;
     ticketCashSpendTenge: number;
   };
   loyalty: CustomerLoyalty;
