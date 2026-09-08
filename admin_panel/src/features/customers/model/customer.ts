@@ -69,7 +69,14 @@ export type CustomerBirthdayLead = {
   branch: CustomerBranch | null;
   packageName: string | null;
   status: string;
+  agreedAmountTenge: number | null;
+  lostReason: string | null;
   createdAt: string;
+  contactedAt: string | null;
+  qualifiedAt: string | null;
+  bookedAt: string | null;
+  completedAt: string | null;
+  lostAt: string | null;
 };
 
 export type CustomerDetail = {

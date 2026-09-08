@@ -94,7 +94,12 @@
       <ul v-else class="customer-record-list">
         <li v-for="lead in customer.birthdayLeads" :key="lead.id">
           <strong>{{ lead.childName || 'Ребёнок не указан' }} · {{ lead.packageName || 'Пакет не указан' }}</strong>
-          <span>{{ formatDate(lead.desiredDate) }} · {{ formatLeadStatus(lead.status) }} · {{ lead.branch?.shortLabel || lead.branch?.name || 'Филиал не указан' }}</span>
+          <span>
+            {{ formatDate(lead.desiredDate) }} · {{ formatLeadStatus(lead.status) }} ·
+            {{ lead.branch?.shortLabel || lead.branch?.name || 'Филиал не указан' }}
+            <template v-if="lead.agreedAmountTenge !== null"> · согласовано {{ formatMoney(lead.agreedAmountTenge) }}</template>
+            <template v-if="lead.status === 'lost'"> · {{ formatLostReason(lead.lostReason) }}</template>
+          </span>
         </li>
       </ul>
     </section>
@@ -147,7 +152,11 @@ function formatPaymentStatus(value: string): string {
 }
 
 function formatLeadStatus(value: string): string {
-  return ({ new: 'Новая', in_progress: 'В работе', contacted: 'Менеджер связался', confirmed: 'Подтверждена', cancelled: 'Отменена', lost: 'Не состоялась', closed: 'Закрыта' } as Record<string, string>)[value] ?? value;
+  return ({ new: 'Новая', contacted: 'Менеджер связался', qualified: 'Квалифицирована', booked: 'Забронировано', completed: 'Проведено', in_progress: 'В работе', confirmed: 'Подтверждена', cancelled: 'Отменена', lost: 'Не состоялась', closed: 'Закрыта' } as Record<string, string>)[value] ?? value;
+}
+
+function formatLostReason(value: string | null): string {
+  return ({ too_expensive: 'Слишком дорого', date_unavailable: 'Дата занята', no_answer: 'Не дозвонились', competitor: 'Выбрали конкурента', changed_mind: 'Передумали', other_branch: 'Другой филиал', later: 'Позже', other: 'Другое' } as Record<string, string>)[value ?? ''] ?? 'Причина не указана';
 }
 </script>
 

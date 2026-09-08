@@ -4,7 +4,7 @@ from datetime import date
 
 from ...core.exceptions.http import DomainHTTPException, NotFoundException
 from ...db.repositories.lead_inbox_repository import LeadInboxRecord, LeadInboxRepository
-from ..leads.constants import LEAD_TYPE_BIRTHDAY_REQUEST, LEAD_TYPE_CONTACT
+from ..leads.constants import LEAD_TYPE_BIRTHDAY_REQUEST, LEAD_TYPE_CONTACT, LOST_REASONS
 from .schemas import (
     AdminLeadBaseResponse,
     AdminLeadBranchSummary,
@@ -31,13 +31,16 @@ LEAD_STATUS_TRANSITIONS: dict[LeadInboxStatus, set[LeadInboxStatus]] = {
 }
 
 BIRTHDAY_STATUS_TRANSITIONS: dict[LeadInboxStatus, set[LeadInboxStatus]] = {
-    'new': {'new', 'contacted', 'confirmed', 'cancelled', 'in_progress', 'closed'},
-    'contacted': {'contacted', 'confirmed', 'cancelled', 'lost'},
-    'confirmed': {'confirmed'},
+    'new': {'new', 'contacted', 'confirmed', 'cancelled', 'in_progress', 'closed', 'lost'},
+    'contacted': {'contacted', 'qualified', 'confirmed', 'cancelled', 'lost'},
+    'qualified': {'qualified', 'booked', 'lost'},
+    'booked': {'booked', 'completed', 'lost'},
+    'completed': {'completed'},
+    'confirmed': {'confirmed', 'completed', 'lost'},
     'cancelled': {'cancelled'},
     'lost': {'lost'},
     # Legacy values remain readable and safely terminal/forward-compatible.
-    'in_progress': {'in_progress', 'contacted', 'confirmed', 'cancelled', 'lost', 'closed'},
+    'in_progress': {'in_progress', 'contacted', 'qualified', 'booked', 'confirmed', 'cancelled', 'lost', 'closed'},
     'closed': {'closed'},
 }
 
@@ -100,11 +103,17 @@ class AdminLeadInboxService:
                 if record.birthday_package_snapshot_price is not None
                 else record.birthday_package_price
             ),
+            agreedAmountTenge=record.agreed_amount_tenge,
+            lostReason=record.lost_reason,
             comment=record.notes,
             adminNote=record.admin_note,
             createdAt=record.created_at,
             updatedAt=record.updated_at,
             contactedAt=record.contacted_at,
+            qualifiedAt=record.qualified_at,
+            bookedAt=record.booked_at,
+            completedAt=record.completed_at,
+            lostAt=record.lost_at,
             closedAt=record.closed_at,
         )
 
@@ -154,17 +163,51 @@ class AdminLeadInboxService:
                 ],
             )
 
+        if birthday_request is not None:
+            if payload.status == 'lost':
+                reason = payload.lostReason or birthday_request.lost_reason
+                if reason not in LOST_REASONS:
+                    raise DomainHTTPException(
+                        code='lost_reason_required',
+                        message='Select a reason for the lost lead.',
+                        status_code=422,
+                        details=[
+                            {
+                                'field': 'lostReason',
+                                'message': 'A valid lost reason is required.',
+                            }
+                        ],
+                    )
+            elif payload.lostReason is not None:
+                raise DomainHTTPException(
+                    code='lost_reason_only_for_lost',
+                    message='Lost reason can only be set for a lost lead.',
+                    status_code=422,
+                    details=[{'field': 'lostReason', 'message': 'Use lost status first.'}],
+                )
+
         if payload.status != current_status:
             if birthday_request is not None:
                 self.repository.update_birthday_request_status(
                     birthday_request,
                     status=payload.status,
+                    agreed_amount_tenge=payload.agreedAmountTenge,
+                    lost_reason=payload.lostReason,
                 )
             else:
                 self.repository.update_contact_lead_status(
                     contact_lead,
                     status=payload.status,
                 )
+        elif birthday_request is not None and (
+            payload.agreedAmountTenge is not None or payload.lostReason is not None
+        ):
+            self.repository.update_birthday_request_status(
+                birthday_request,
+                status=current_status,
+                agreed_amount_tenge=payload.agreedAmountTenge,
+                lost_reason=payload.lostReason or birthday_request.lost_reason,
+            )
 
         if birthday_request is not None and payload.adminNote is not None:
             self.repository.update_birthday_request_note(

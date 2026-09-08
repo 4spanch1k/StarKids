@@ -119,11 +119,18 @@ class AdminCustomerBirthdayLeadResponse(BaseModel):
     branch: AdminCustomerBranchResponse | None = None
     packageName: str | None = None
     status: str
+    agreedAmountTenge: int | None = None
+    lostReason: str | None = None
     createdAt: datetime
+    contactedAt: datetime | None = None
+    qualifiedAt: datetime | None = None
+    bookedAt: datetime | None = None
+    completedAt: datetime | None = None
+    lostAt: datetime | None = None
 
-    @field_serializer('createdAt')
-    def serialize_created_at(self, value: datetime) -> str:
-        return _utc_iso(value) or ''
+    @field_serializer('createdAt', 'contactedAt', 'qualifiedAt', 'bookedAt', 'completedAt', 'lostAt')
+    def serialize_datetime(self, value: datetime | None) -> str | None:
+        return _utc_iso(value)
 
 
 class AdminCustomerMetricsResponse(BaseModel):

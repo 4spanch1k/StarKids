@@ -2,7 +2,7 @@ import type {
   LeadDetail,
   LeadListFilters,
   LeadListResponse,
-  LeadStatus,
+  LeadStatusUpdate,
 } from '@/entities/lead/model/lead';
 import { httpClient } from '@/shared/api/httpClient';
 
@@ -17,9 +17,8 @@ type FetchLeadListRequest = AuthorizedRequest & {
   filters: LeadListFilters;
 };
 
-type UpdateLeadStatusRequest = AuthorizedRequest & {
+type UpdateLeadStatusRequest = AuthorizedRequest & LeadStatusUpdate & {
   leadId: string;
-  status: LeadStatus;
   adminNote?: string;
 };
 
@@ -86,6 +85,12 @@ type BirthdayLeadDetailResponse = LeadDetail & {
   adminNote?: string | null;
   updatedAt?: string | null;
   contactedAt?: string | null;
+  agreedAmountTenge?: number | null;
+  lostReason?: string | null;
+  qualifiedAt?: string | null;
+  bookedAt?: string | null;
+  completedAt?: string | null;
+  lostAt?: string | null;
   closedAt?: string | null;
 };
 
@@ -112,6 +117,12 @@ export async function fetchAdminBirthdayLeadDetail({
     adminNote: response.adminNote ?? null,
     updatedAt: response.updatedAt ?? null,
     contactedAt: response.contactedAt ?? null,
+    agreedAmountTenge: response.agreedAmountTenge ?? null,
+    lostReason: response.lostReason ?? null,
+    qualifiedAt: response.qualifiedAt ?? null,
+    bookedAt: response.bookedAt ?? null,
+    completedAt: response.completedAt ?? null,
+    lostAt: response.lostAt ?? null,
     closedAt: response.closedAt ?? null,
   };
 }
@@ -120,13 +131,20 @@ export function updateAdminLeadStatus({
   accessToken,
   leadId,
   status,
+  agreedAmountTenge,
+  lostReason,
   adminNote,
 }: UpdateLeadStatusRequest): Promise<LeadDetail> {
   return httpClient<LeadDetail>({
     path: `${ADMIN_LEADS_BASE_PATH}/${leadId}/status`,
     method: 'PATCH',
     headers: buildAuthorizedHeaders(accessToken),
-    body: JSON.stringify({ status, ...(adminNote ? { adminNote } : {}) }),
+    body: JSON.stringify({
+      status,
+      ...(adminNote !== undefined ? { adminNote } : {}),
+      ...(agreedAmountTenge !== undefined ? { agreedAmountTenge } : {}),
+      ...(lostReason !== undefined ? { lostReason } : {}),
+    }),
   });
 }
 

@@ -45,7 +45,7 @@
           class="lead-status-button"
           :class="{ 'lead-status-button--active': status === lead.status }"
           :disabled="isStatusUpdating || !isLeadStatusActionEnabled(lead.status, status)"
-          @click="$emit('update-status', status)"
+          @click="handleStatusAction(status)"
         >
           {{ formatStatus(status) }}
         </button>
@@ -67,6 +67,47 @@
       >
         {{ statusErrorMessage }}
       </p>
+    </section>
+
+    <section v-if="lead.type === 'birthday_request'" class="lead-sales-panel">
+      <div class="admin-section-heading">
+        <h3>Коммерческие данные</h3>
+        <p>Это данные переговоров, а не факт оплаты или выручка.</p>
+      </div>
+      <div class="lead-sales-panel__fields">
+        <label class="lead-sales-panel__field">
+          <span>Согласованная стоимость, ₸</span>
+          <input
+            v-model.number="agreedAmountDraft"
+            type="number"
+            min="0"
+            step="1"
+            inputmode="numeric"
+            placeholder="Не указана"
+            :disabled="isStatusUpdating"
+          />
+        </label>
+        <label class="lead-sales-panel__field">
+          <span>Причина потери</span>
+          <select v-model="lostReasonDraft" :disabled="isStatusUpdating">
+            <option value="">Не выбрана</option>
+            <option v-for="option in lostReasonOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </label>
+      </div>
+      <p v-if="salesFormError" class="admin-inline-message admin-inline-message--error">
+        {{ salesFormError }}
+      </p>
+      <button
+        type="button"
+        class="admin-button admin-button--secondary"
+        :disabled="isStatusUpdating || normalizedAgreedAmount() === undefined"
+        @click="saveSalesFields"
+      >
+        Сохранить коммерческие данные
+      </button>
     </section>
 
     <div class="admin-info-grid">
@@ -128,6 +169,14 @@
             <dt>Цена на момент заявки</dt>
             <dd>{{ formatMoney(lead.packagePriceSnapshot) }}</dd>
           </div>
+          <div v-if="lead.type === 'birthday_request' && lead.agreedAmountTenge !== null && lead.agreedAmountTenge !== undefined">
+            <dt>Согласованная стоимость</dt>
+            <dd>{{ formatMoney(lead.agreedAmountTenge) }}</dd>
+          </div>
+          <div v-if="lead.type === 'birthday_request' && lead.status === 'lost'">
+            <dt>Причина потери</dt>
+            <dd>{{ formatLostReason(lead.lostReason) }}</dd>
+          </div>
           <div v-if="lead.type === 'birthday_request'">
             <dt>Гостей</dt>
             <dd>{{ formatGuestCount(lead.guestCount) }}</dd>
@@ -139,6 +188,26 @@
           <div>
             <dt>Создана</dt>
             <dd>{{ formatDateTime(lead.createdAt) }}</dd>
+          </div>
+          <div v-if="lead.contactedAt">
+            <dt>Связались</dt>
+            <dd>{{ formatDateTime(lead.contactedAt) }}</dd>
+          </div>
+          <div v-if="lead.qualifiedAt">
+            <dt>Квалифицирована</dt>
+            <dd>{{ formatDateTime(lead.qualifiedAt) }}</dd>
+          </div>
+          <div v-if="lead.bookedAt">
+            <dt>Забронировано</dt>
+            <dd>{{ formatDateTime(lead.bookedAt) }}</dd>
+          </div>
+          <div v-if="lead.completedAt">
+            <dt>Проведено</dt>
+            <dd>{{ formatDateTime(lead.completedAt) }}</dd>
+          </div>
+          <div v-if="lead.lostAt">
+            <dt>Потеряно</dt>
+            <dd>{{ formatDateTime(lead.lostAt) }}</dd>
           </div>
         </dl>
       </article>
@@ -186,10 +255,12 @@ import {
   formatLeadType as formatType,
   isLeadStatusActionEnabled,
   leadStatuses,
+  lostReasonOptions,
   type LeadBranchSummary,
   type LeadDetail,
   type LeadPackageSummary,
   type LeadStatus,
+  type LeadStatusUpdate,
   type LeadType,
 } from '@/entities/lead/model/lead';
 import StatusBadge from '@/shared/ui/StatusBadge.vue';
@@ -202,25 +273,74 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  'update-status': [status: LeadStatus];
+  'update-status': [update: LeadStatus | LeadStatusUpdate];
   'save-note': [note: string];
 }>();
 
 const adminNoteDraft = ref(props.lead.adminNote ?? '');
+const agreedAmountDraft = ref<number | string | null>(props.lead.agreedAmountTenge ?? null);
+const lostReasonDraft = ref(props.lead.lostReason ?? '');
+const salesFormError = ref('');
 
 watch(
-  () => props.lead.id,
+  () => [props.lead.id, props.lead.agreedAmountTenge, props.lead.lostReason],
   () => {
     adminNoteDraft.value = props.lead.adminNote ?? '';
+    agreedAmountDraft.value = props.lead.agreedAmountTenge ?? null;
+    lostReasonDraft.value = props.lead.lostReason ?? '';
+    salesFormError.value = '';
   },
 );
+
+function handleStatusAction(status: LeadStatus) {
+  salesFormError.value = '';
+  if (status === 'lost' && !lostReasonDraft.value) {
+    salesFormError.value = 'Перед переводом в «Не состоялось» выберите причину потери.';
+    return;
+  }
+
+  emit('update-status', {
+    status,
+    agreedAmountTenge: normalizedAgreedAmount(),
+    lostReason: status === 'lost' ? lostReasonDraft.value : undefined,
+  });
+}
+
+function saveSalesFields() {
+  salesFormError.value = '';
+  const amount = normalizedAgreedAmount();
+  if (amount === undefined) {
+    salesFormError.value = 'Укажите согласованную стоимость целым числом.';
+    return;
+  }
+
+  emit('update-status', {
+    status: props.lead.status,
+    agreedAmountTenge: amount,
+    lostReason: props.lead.status === 'lost' ? lostReasonDraft.value || undefined : undefined,
+  });
+}
+
+function normalizedAgreedAmount(): number | undefined {
+  if (agreedAmountDraft.value === null || agreedAmountDraft.value === '') {
+    return undefined;
+  }
+
+  const amount = Number(agreedAmountDraft.value);
+  return Number.isInteger(amount) && amount >= 0 ? amount : undefined;
+}
 
 function statusTone(status: LeadStatus): 'new' | 'in-progress' | 'closed' {
   if (status === 'new') {
     return 'new';
   }
 
-  if (status === 'in_progress' || status === 'contacted') {
+  if (
+    status === 'in_progress' ||
+    status === 'contacted' ||
+    status === 'qualified' ||
+    status === 'booked'
+  ) {
     return 'in-progress';
   }
 
@@ -263,6 +383,10 @@ function formatGuestCount(value: number | null): string {
 
 function formatMoney(value: number): string {
   return new Intl.NumberFormat('ru-RU').format(value) + ' ₸';
+}
+
+function formatLostReason(value: string | null | undefined): string {
+  return lostReasonOptions.find((option) => option.value === value)?.label ?? 'Не указана';
 }
 
 function formatContactMethod(value: string): string {
@@ -402,6 +526,41 @@ function startOfDay(date: Date): Date {
   color: var(--color-muted);
 }
 
+.lead-sales-panel {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface-subtle);
+}
+
+.lead-sales-panel__fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.lead-sales-panel__field {
+  display: grid;
+  gap: 6px;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.lead-sales-panel__field input,
+.lead-sales-panel__field select {
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
 .lead-detail__deadline {
   display: inline-flex;
   align-items: center;
@@ -535,6 +694,10 @@ function startOfDay(date: Date): Date {
   .lead-detail__header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .lead-sales-panel__fields {
+    grid-template-columns: 1fr;
   }
 }
 </style>

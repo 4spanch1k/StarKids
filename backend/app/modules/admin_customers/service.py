@@ -135,7 +135,14 @@ class AdminCustomerService:
                         or (record.package.name if record.package else None)
                     ),
                     status=record.request.status,
+                    agreedAmountTenge=record.request.agreed_amount_tenge,
+                    lostReason=record.request.lost_reason,
                     createdAt=record.request.created_at,
+                    contactedAt=record.request.contacted_at,
+                    qualifiedAt=record.request.qualified_at,
+                    bookedAt=record.request.booked_at,
+                    completedAt=record.request.completed_at,
+                    lostAt=record.request.lost_at,
                 )
                 for record in leads
             ],
