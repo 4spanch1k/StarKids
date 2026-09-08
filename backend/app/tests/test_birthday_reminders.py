@@ -229,6 +229,29 @@ class BirthdayReminderServiceTests(unittest.TestCase):
                 self.assertEqual(reminder.skip_reason, 'active_lead')
                 self.assertEqual(len(delivery.tokens), 0)
 
+    def test_completed_lead_suppresses_same_birthday_date(self) -> None:
+        delivery = FakeDelivery()
+        with self.SessionLocal() as session:
+            user, child = self._user(session, birth_date=date(2020, 9, 20))
+            session.add(BirthdayRequest(
+                id=uuid4().hex,
+                mobile_user_id=user.id,
+                branch_id='branch-1',
+                customer_name='Parent',
+                phone='+77000000000',
+                child_id=child.id,
+                requested_date=date(2026, 9, 20),
+                status='completed',
+            ))
+            session.commit()
+            service = self._service(session, delivery)
+            with patch('app.modules.birthday_reminders.service.get_settings', return_value=self._settings(windows='14')), \
+                 patch.object(PushCampaignService, 'provider_configured', new_callable=PropertyMock, return_value=True):
+                service.process(now=datetime(2026, 9, 6, 12, tzinfo=UTC))
+            reminder = session.query(BirthdayReminder).one()
+            self.assertEqual(reminder.skip_reason, 'active_lead')
+            self.assertEqual(len(delivery.tokens), 0)
+
     def test_cancelled_lead_allows_but_confirmed_lead_suppresses(self) -> None:
         delivery = FakeDelivery()
         with self.SessionLocal() as session:
