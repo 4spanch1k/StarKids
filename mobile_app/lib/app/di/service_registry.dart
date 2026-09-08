@@ -27,6 +27,7 @@ import '../../features/menu/domain/menu_repository.dart';
 import '../../features/news/data/api_news_repository.dart';
 import '../../features/news/domain/news_repository.dart';
 import '../../features/notifications/data/api_notification_history_repository.dart';
+import '../../features/notifications/data/api_campaign_open_tracker.dart';
 import '../../features/notifications/data/api_push_token_repository.dart';
 import '../../features/notifications/domain/notification_history_repository.dart';
 import '../../features/notifications/data/device_notification_settings_repository.dart';
@@ -134,6 +135,11 @@ abstract final class ServiceRegistry {
   static final FcmTokenGateway fcmTokenGateway = FirebaseFcmTokenGateway();
   static final PushTokenRepository pushTokenRepository =
       ApiPushTokenRepository(apiClient: apiClient);
+  static final ApiCampaignOpenTracker campaignOpenTracker =
+      ApiCampaignOpenTracker(
+    apiClient: apiClient,
+    sessionStorage: mobileAuthSessionStorage,
+  );
   static final pushTokenController = PushTokenController(
     authController: mobileAuthController,
     notificationSettingsRepository: notificationSettingsRepository,

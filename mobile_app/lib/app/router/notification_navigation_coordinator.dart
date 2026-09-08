@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../features/notifications/domain/notification_destination.dart';
@@ -10,8 +12,15 @@ class NotificationNavigationCoordinator {
   NavigatorState? _navigator;
   ScaffoldMessengerState? _scaffoldMessenger;
   bool _authenticated = false;
-  NotificationDestination? _pending;
+  _PendingNotification? _pending;
   _ForegroundMessage? _pendingForegroundMessage;
+  Future<void> Function(String campaignId)? _trackCampaignOpen;
+
+  void configureCampaignOpenTracker(
+    Future<void> Function(String campaignId) tracker,
+  ) {
+    _trackCampaignOpen = tracker;
+  }
 
   void attach({
     required NavigatorState navigator,
@@ -28,7 +37,10 @@ class NotificationNavigationCoordinator {
   void handlePayload(Map<String, dynamic> payload) {
     final destination = NotificationDestination.fromPayload(payload) ??
         const NotificationDestination(type: NotificationDestinationType.home);
-    _pending = destination;
+    _pending = _PendingNotification(
+      destination: destination,
+      campaignId: _campaignId(payload),
+    );
     _flush();
   }
 
@@ -44,12 +56,17 @@ class NotificationNavigationCoordinator {
     final normalizedBody = body?.trim();
     final destination = NotificationDestination.fromPayload(payload) ??
         const NotificationDestination(type: NotificationDestinationType.home);
+    final normalizedPayload = <String, dynamic>{
+      ...destination.toPayload(),
+    };
+    final campaignId = _campaignId(payload);
+    if (campaignId != null) normalizedPayload['campaignId'] = campaignId;
     _pendingForegroundMessage = _ForegroundMessage(
       title: normalizedTitle?.isNotEmpty == true
           ? normalizedTitle!
           : 'Новое уведомление',
       body: normalizedBody?.isNotEmpty == true ? normalizedBody! : null,
-      payload: destination.toPayload(),
+      payload: normalizedPayload,
     );
     _flushForegroundMessage();
   }
@@ -61,6 +78,7 @@ class NotificationNavigationCoordinator {
     _authenticated = false;
     _pending = null;
     _pendingForegroundMessage = null;
+    _trackCampaignOpen = null;
   }
 
   void _flushForegroundMessage() {
@@ -102,14 +120,18 @@ class NotificationNavigationCoordinator {
 
   void _flush() {
     final navigator = _navigator;
-    final destination = _pending;
-    if (!_authenticated || navigator == null || destination == null) return;
+    final pending = _pending;
+    if (!_authenticated || navigator == null || pending == null) return;
     _pending = null;
+    final campaignId = pending.campaignId;
+    if (campaignId != null) {
+      unawaited(_trackCampaignOpen?.call(campaignId) ?? Future<void>.value());
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (navigator.mounted) {
         navigator.pushNamed(
-          destination.routeName,
-          arguments: destination.arguments,
+          pending.destination.routeName,
+          arguments: pending.destination.arguments,
         );
       }
     });
@@ -117,6 +139,19 @@ class NotificationNavigationCoordinator {
     // post-frame callback is not stranded when no frame is otherwise queued.
     WidgetsBinding.instance.scheduleFrame();
   }
+
+  String? _campaignId(Map<String, dynamic> payload) {
+    final value = payload['campaignId'] ?? payload['campaign_id'];
+    final id = value?.toString().trim();
+    return id == null || id.isEmpty ? null : id;
+  }
+}
+
+class _PendingNotification {
+  const _PendingNotification({required this.destination, this.campaignId});
+
+  final NotificationDestination destination;
+  final String? campaignId;
 }
 
 class _ForegroundMessage {

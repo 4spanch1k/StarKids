@@ -24,7 +24,12 @@
     <StatePanel v-if="loading" title="Загружаем кампании" />
     <div v-else class="admin-list-records">
       <article v-for="campaign in campaigns" :key="campaign.id" class="admin-list-record">
-        <div class="admin-list-record__copy"><strong>{{ campaign.internal_name }}</strong><span>{{ campaign.title }} · {{ audienceLabel(campaign) }}</span><span>Статус: {{ campaign.status }} · {{ campaign.sent_count }}/{{ campaign.targeted_devices }} отправлено</span></div>
+        <div class="admin-list-record__copy"><strong>{{ campaign.internal_name }}</strong><span>{{ campaign.title }} · {{ audienceLabel(campaign) }}</span><span>Статус: {{ campaign.status }} · {{ campaign.sent_count }}/{{ campaign.targeted_devices }} отправлено</span>
+          <small v-if="attributions[campaign.id]">Отправлено семьям: {{ attributions[campaign.id].sent_users }} · Открыли: {{ attributions[campaign.id].opened_users }}<template v-if="attributions[campaign.id].open_rate !== null"> ({{ formatRate(attributions[campaign.id].open_rate) }}%)</template></small>
+          <small v-if="attributions[campaign.id]">Last-touch, 7 дней: посещения {{ attributions[campaign.id].attributed_visit_users }} семей / {{ attributions[campaign.id].attributed_visits }} визитов · Birthday leads {{ attributions[campaign.id].attributed_birthday_leads }}</small>
+          <small v-else-if="attributionLoading" class="admin-muted">Загружаем атрибуцию…</small>
+          <small v-else-if="attributionError" class="admin-inline-message--error">Атрибуция недоступна</small>
+        </div>
         <div class="admin-page-actions"><button v-if="campaign.status === 'draft' || campaign.status === 'scheduled'" class="admin-button admin-button--primary" type="button" @click="send(campaign.id)">Отправить</button><button v-if="campaign.status === 'draft' || campaign.status === 'scheduled'" class="admin-button admin-button--secondary" type="button" @click="cancel(campaign.id)">Отменить</button></div>
       </article>
       <StatePanel v-if="campaigns.length === 0" title="Кампаний пока нет" description="Создайте первое сообщение для аудитории." />
@@ -36,11 +41,11 @@
 import { onMounted, reactive, ref } from 'vue';
 import PageShell from '@/shared/ui/PageShell.vue';
 import StatePanel from '@/shared/ui/StatePanel.vue';
-import { cancelPushCampaign, createPushCampaign, listPushCampaigns, previewPushAudience, sendPushCampaign, type CampaignAudience, type PushCampaign, type VisitAudienceSegment } from '@/features/push-campaigns/api/pushCampaignsApi';
+import { cancelPushCampaign, createPushCampaign, fetchPushCampaignAttribution, listPushCampaigns, previewPushAudience, sendPushCampaign, type CampaignAudience, type PushCampaign, type PushCampaignAttribution, type VisitAudienceSegment } from '@/features/push-campaigns/api/pushCampaignsApi';
 
-const campaigns = ref<PushCampaign[]>([]); const loading = ref(true); const saving = ref(false); const error = ref(''); const providerConfigured = ref(true); const previewResult = ref<{ targeted_users: number; targeted_devices: number } | null>(null);
+const campaigns = ref<PushCampaign[]>([]); const attributions = reactive<Record<string, PushCampaignAttribution>>({}); const loading = ref(true); const attributionLoading = ref(false); const attributionError = ref(false); const saving = ref(false); const error = ref(''); const providerConfigured = ref(true); const previewResult = ref<{ targeted_users: number; targeted_devices: number } | null>(null);
 const form = reactive({ internal_name: '', title: '', body: '', audience: { type: 'all_users' as 'all_users' | 'birthday_in_days' | 'visit_segment', days_before_birthday: 7, visit_segment: 'dormant_30' as VisitAudienceSegment }, destination: 'home' as PushCampaign['destination'], scheduled_at: '' });
-async function load() { loading.value = true; try { campaigns.value = await listPushCampaigns(); providerConfigured.value = campaigns.value.every((c) => c.push_provider_configured); } catch (e) { error.value = e instanceof Error ? e.message : 'Не удалось загрузить кампании'; } finally { loading.value = false; } }
+async function load() { loading.value = true; attributionLoading.value = true; attributionError.value = false; try { campaigns.value = await listPushCampaigns(); providerConfigured.value = campaigns.value.every((c) => c.push_provider_configured); const reports = await Promise.all(campaigns.value.map(async (campaign) => [campaign.id, await fetchPushCampaignAttribution(campaign.id)] as const)); Object.keys(attributions).forEach((id) => delete attributions[id]); reports.forEach(([id, report]) => { attributions[id] = report; }); } catch (e) { error.value = e instanceof Error ? e.message : 'Не удалось загрузить кампании'; attributionError.value = true; } finally { loading.value = false; attributionLoading.value = false; } }
 function currentAudience(): CampaignAudience {
   if (form.audience.type === 'birthday_in_days') return { type: 'birthday_in_days', days_before_birthday: form.audience.days_before_birthday };
   if (form.audience.type === 'visit_segment') return { type: 'visit_segment', visit_segment: form.audience.visit_segment };
@@ -57,5 +62,6 @@ function audienceLabel(c: PushCampaign) {
   return 'один пользователь';
 }
 function segmentLabel(segment: VisitAudienceSegment) { return ({ never_visited: 'ещё не посещали', first_visit_only: 'были 1 раз', returning: 'возвращались', dormant_30: 'не были 30+ дней', dormant_60: 'не были 60+ дней', dormant_90: 'не были 90+ дней' } as Record<VisitAudienceSegment, string>)[segment]; }
+function formatRate(value: number | null) { return value === null ? '—' : (value * 100).toFixed(1); }
 onMounted(load);
 </script>

@@ -13,6 +13,19 @@ export type PushCampaign = {
   scheduled_at: string | null; targeted_users: number; targeted_devices: number; sent_count: number; failed_count: number;
   push_provider_configured: boolean;
 };
+export type PushCampaignAttribution = {
+  campaign_id: string;
+  targeted_users: number;
+  sent_users: number;
+  opened_users: number;
+  open_rate: number | null;
+  attributed_visit_users: number;
+  attributed_visits: number;
+  attributed_birthday_lead_users: number;
+  attributed_birthday_leads: number;
+  attribution_window_days: number;
+  attribution_model: 'last_touch';
+};
 export type CampaignInput = { internal_name: string; title: string; body: string; audience: CampaignAudience; destination: PushCampaign['destination']; scheduled_at?: string | null };
 
 export function listPushCampaigns() { return executeAuthorizedAdminRequest((token) => httpClient<PushCampaign[]>({ path: '/api/v1/admin/push-campaigns', headers: buildAdminAuthHeaders(token) })); }
@@ -20,3 +33,4 @@ export function createPushCampaign(input: CampaignInput) { return executeAuthori
 export function sendPushCampaign(id: string) { return executeAuthorizedAdminRequest((token) => httpClient<PushCampaign>({ path: `/api/v1/admin/push-campaigns/${id}/send`, method: 'POST', headers: buildAdminAuthHeaders(token) })); }
 export function cancelPushCampaign(id: string) { return executeAuthorizedAdminRequest((token) => httpClient<PushCampaign>({ path: `/api/v1/admin/push-campaigns/${id}/cancel`, method: 'POST', headers: buildAdminAuthHeaders(token) })); }
 export function previewPushAudience(audience: CampaignAudience) { return executeAuthorizedAdminRequest((token) => httpClient<{ targeted_users: number; targeted_devices: number }>({ path: '/api/v1/admin/push-campaigns/audience-preview', method: 'POST', headers: buildAdminAuthHeaders(token), body: JSON.stringify({ audience }) })); }
+export function fetchPushCampaignAttribution(id: string) { return executeAuthorizedAdminRequest((token) => httpClient<PushCampaignAttribution>({ path: `/api/v1/admin/push-campaigns/${id}/attribution`, headers: buildAdminAuthHeaders(token) })); }

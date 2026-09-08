@@ -13,16 +13,22 @@ from .schemas import (
     PushCampaignCreateRequest,
     PushCampaignPreviewRequest,
     PushCampaignPreviewResponse,
+    PushCampaignAttributionResponse,
     PushCampaignResponse,
     PushCampaignUpdateRequest,
 )
 from .service import PushCampaignService
+from .attribution_service import PushCampaignAttributionService
 
 router = APIRouter(dependencies=[Depends(require_admin_roles('super_admin'))])
 
 
 def get_service(session: Session = Depends(get_db_session), delivery: PushDeliveryPort = Depends(get_push_delivery)) -> PushCampaignService:
     return PushCampaignService(session, delivery)
+
+
+def get_attribution_service(session: Session = Depends(get_db_session)) -> PushCampaignAttributionService:
+    return PushCampaignAttributionService(session)
 
 
 @router.get('/push-campaigns', response_model=list[PushCampaignResponse])
@@ -33,6 +39,12 @@ def list_campaigns(service: PushCampaignService = Depends(get_service)) -> list[
 @router.get('/push-campaigns/{campaign_id}', response_model=PushCampaignResponse, responses={404: {'model': ErrorResponse}})
 def get_campaign(campaign_id: str, service: PushCampaignService = Depends(get_service)) -> PushCampaignResponse:
     return service.get(campaign_id)
+
+
+@router.get('/push-campaigns/{campaign_id}/attribution', response_model=PushCampaignAttributionResponse, responses={404: {'model': ErrorResponse}})
+def campaign_attribution(campaign_id: str, service: PushCampaignAttributionService = Depends(get_attribution_service)) -> PushCampaignAttributionResponse:
+    report = service.report(campaign_id)
+    return PushCampaignAttributionResponse(**report.__dict__)
 
 
 @router.post('/push-campaigns', response_model=PushCampaignResponse, status_code=status.HTTP_201_CREATED)

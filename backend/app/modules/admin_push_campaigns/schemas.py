@@ -83,3 +83,17 @@ class PushCampaignPreviewRequest(BaseModel):
 class PushCampaignPreviewResponse(BaseModel):
     targeted_users: int
     targeted_devices: int
+
+
+class PushCampaignAttributionResponse(BaseModel):
+    campaign_id: str
+    targeted_users: int
+    sent_users: int
+    opened_users: int
+    open_rate: float | None
+    attributed_visit_users: int
+    attributed_visits: int
+    attributed_birthday_lead_users: int
+    attributed_birthday_leads: int
+    attribution_window_days: int
+    attribution_model: Literal['last_touch']
