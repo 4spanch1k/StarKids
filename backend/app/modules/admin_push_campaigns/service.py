@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import calendar
 import logging
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -41,6 +42,13 @@ def birthday_matches_target(birth_date: date, target: date) -> bool:
     if target.month == 2 and target.day == 28 and birth_date.day in {28, 29}:
         return True
     return birth_date.day == target.day
+
+
+def birthday_occurrence_for_year(birth_date: date, year: int) -> date:
+    """Return the birthday date for a year using the shared Feb-29 policy."""
+    if birth_date.month == 2 and birth_date.day == 29 and not calendar.isleap(year):
+        return date(year, 2, 28)
+    return date(year, birth_date.month, birth_date.day)
 
 
 class PushCampaignService:

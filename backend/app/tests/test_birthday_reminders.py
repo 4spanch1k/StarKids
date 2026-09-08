@@ -88,6 +88,35 @@ class BirthdayReminderServiceTests(unittest.TestCase):
     def _service(self, session: Session, delivery: FakeDelivery) -> BirthdayReminderService:
         return BirthdayReminderService(session, PushCampaignService(session, delivery))
 
+    def _completed_reminder_result(
+        self,
+        *,
+        birth_date: date,
+        requested_date: date | None,
+        now: datetime,
+        windows: str = '14',
+    ) -> tuple[str, str | None, int]:
+        delivery = FakeDelivery()
+        with self.SessionLocal() as session:
+            user, child = self._user(session, birth_date=birth_date)
+            session.add(BirthdayRequest(
+                id=uuid4().hex,
+                mobile_user_id=user.id,
+                branch_id='branch-1',
+                customer_name='Parent',
+                phone='+77000000000',
+                child_id=child.id,
+                requested_date=requested_date,
+                status='completed',
+            ))
+            session.commit()
+            service = self._service(session, delivery)
+            with patch('app.modules.birthday_reminders.service.get_settings', return_value=self._settings(windows=windows)), \
+                 patch.object(PushCampaignService, 'provider_configured', new_callable=PropertyMock, return_value=True):
+                service.process(now=now)
+            reminder = session.query(BirthdayReminder).filter_by(child_id=child.id).one()
+            return reminder.status, reminder.skip_reason, len(delivery.tokens)
+
     def test_windows_and_timezone_use_shared_birthday_semantics(self) -> None:
         self.assertEqual(
             birthday_target_date(datetime(2026, 9, 5, 18, 30, tzinfo=UTC), 1),
@@ -251,6 +280,87 @@ class BirthdayReminderServiceTests(unittest.TestCase):
             reminder = session.query(BirthdayReminder).one()
             self.assertEqual(reminder.skip_reason, 'active_lead')
             self.assertEqual(len(delivery.tokens), 0)
+
+    def test_completed_party_day_before_birthday_suppresses_cycle(self) -> None:
+        self.assertEqual(
+            self._completed_reminder_result(
+                birth_date=date(2020, 9, 20),
+                requested_date=date(2026, 9, 19),
+                now=datetime(2026, 9, 6, 12, tzinfo=UTC),
+            ),
+            ('skipped', 'active_lead', 0),
+        )
+
+    def test_completed_party_day_after_birthday_suppresses_cycle(self) -> None:
+        self.assertEqual(
+            self._completed_reminder_result(
+                birth_date=date(2020, 9, 20),
+                requested_date=date(2026, 9, 21),
+                now=datetime(2026, 9, 6, 12, tzinfo=UTC),
+            ),
+            ('skipped', 'active_lead', 0),
+        )
+
+    def test_completed_party_before_new_year_birthday_suppresses_cycle(self) -> None:
+        self.assertEqual(
+            self._completed_reminder_result(
+                birth_date=date(2020, 1, 1),
+                requested_date=date(2026, 12, 31),
+                now=datetime(2026, 12, 18, 12, tzinfo=UTC),
+            ),
+            ('skipped', 'active_lead', 0),
+        )
+
+    def test_completed_previous_birthday_cycle_does_not_suppress_next_year(self) -> None:
+        self.assertEqual(
+            self._completed_reminder_result(
+                birth_date=date(2020, 9, 20),
+                requested_date=date(2026, 9, 20),
+                now=datetime(2027, 9, 6, 12, tzinfo=UTC),
+            ),
+            ('sent', None, 1),
+        )
+
+    def test_completed_february_29_cycle_reuses_non_leap_policy(self) -> None:
+        self.assertEqual(
+            self._completed_reminder_result(
+                birth_date=date(2020, 2, 29),
+                requested_date=date(2027, 2, 27),
+                now=datetime(2027, 2, 14, 12, tzinfo=UTC),
+            ),
+            ('skipped', 'active_lead', 0),
+        )
+
+    def test_completed_without_requested_date_does_not_crash(self) -> None:
+        self.assertEqual(
+            self._completed_reminder_result(
+                birth_date=date(2020, 9, 20),
+                requested_date=None,
+                now=datetime(2026, 9, 6, 12, tzinfo=UTC),
+            ),
+            ('sent', None, 1),
+        )
+
+    def test_lost_lead_keeps_existing_reminder_behavior(self) -> None:
+        delivery = FakeDelivery()
+        with self.SessionLocal() as session:
+            user, child = self._user(session, birth_date=date(2020, 9, 20))
+            session.add(BirthdayRequest(
+                id=uuid4().hex,
+                mobile_user_id=user.id,
+                branch_id='branch-1',
+                customer_name='Parent',
+                phone='+77000000000',
+                child_id=child.id,
+                status='lost',
+            ))
+            session.commit()
+            service = self._service(session, delivery)
+            with patch('app.modules.birthday_reminders.service.get_settings', return_value=self._settings(windows='14')), \
+                 patch.object(PushCampaignService, 'provider_configured', new_callable=PropertyMock, return_value=True):
+                service.process(now=datetime(2026, 9, 6, 12, tzinfo=UTC))
+            self.assertEqual(session.query(BirthdayReminder).one().status, 'sent')
+            self.assertEqual(len(delivery.tokens), 1)
 
     def test_cancelled_lead_allows_but_confirmed_lead_suppresses(self) -> None:
         delivery = FakeDelivery()
