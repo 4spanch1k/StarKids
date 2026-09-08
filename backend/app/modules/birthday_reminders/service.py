@@ -5,7 +5,7 @@ from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select, update
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.orm import Session
 
 from ...core.config.settings import get_settings
@@ -131,7 +131,11 @@ class BirthdayReminderService:
         campaign_id = next((record.push_campaign_id for record in records if record.push_campaign_id), None)
         if campaign_id is None:
             for record in records:
-                if record.status == 'pending' and self._has_active_lead(record.child_id, user_id):
+                if record.status == 'pending' and self._has_suppressing_lead(
+                    record.child_id,
+                    user_id,
+                    target_date,
+                ):
                     self._skip(record, 'active_lead')
             pending = [record for record in records if record.status == 'pending']
             if not pending:
@@ -169,7 +173,12 @@ class BirthdayReminderService:
         self._finalize_records(campaign_id, response.status)
         return len(records)
 
-    def _has_active_lead(self, child_id: str | None, user_id: str) -> bool:
+    def _has_suppressing_lead(
+        self,
+        child_id: str | None,
+        user_id: str,
+        target_date: date,
+    ) -> bool:
         if child_id is None:
             return False
         return self.session.scalar(
@@ -177,7 +186,13 @@ class BirthdayReminderService:
             .where(
                 BirthdayRequest.mobile_user_id == user_id,
                 BirthdayRequest.child_id == child_id,
-                BirthdayRequest.status.in_(ACTIVE_LEAD_STATUSES),
+                or_(
+                    BirthdayRequest.status.in_(ACTIVE_LEAD_STATUSES),
+                    and_(
+                        BirthdayRequest.status == 'completed',
+                        BirthdayRequest.requested_date == target_date,
+                    ),
+                ),
             )
             .limit(1)
         ) is not None
