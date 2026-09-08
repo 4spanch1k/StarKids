@@ -362,7 +362,9 @@ const newLeadCount = computed(() => {
 });
 
 const inProgressLeadCount = computed(() => {
-  return leadInbox.leads.filter((lead) => lead.status === 'in_progress').length;
+  return leadInbox.leads.filter((lead) =>
+    ['in_progress', 'contacted', 'qualified', 'booked'].includes(lead.status),
+  ).length;
 });
 
 const urgentLeadCount = computed(() => {
@@ -496,7 +498,7 @@ function statusTone(status: LeadStatus): 'new' | 'in-progress' | 'closed' {
     return 'new';
   }
 
-  if (status === 'in_progress') {
+  if (['in_progress', 'contacted', 'qualified', 'booked'].includes(status)) {
     return 'in-progress';
   }
 

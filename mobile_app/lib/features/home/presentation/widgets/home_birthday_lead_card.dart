@@ -12,6 +12,8 @@ import '../../../requests/domain/request_type.dart';
 const _activeBirthdayStatuses = <RequestStatus>{
   RequestStatus.newRequest,
   RequestStatus.contacted,
+  RequestStatus.qualified,
+  RequestStatus.booked,
   RequestStatus.inProgress,
   RequestStatus.confirmed,
 };

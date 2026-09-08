@@ -15,11 +15,12 @@ from ...db.models.mobile_child import MobileChild
 from ...db.models.mobile_notification_device import MobileNotificationDevice
 from ...db.models.mobile_user import MobileUser
 from ..admin_push_campaigns.service import birthday_matches_target, PushCampaignService
+from ..leads.constants import ACTIVE_BIRTHDAY_LEAD_STATUSES
 
 logger = logging.getLogger(__name__)
 BUSINESS_TZ = ZoneInfo('Asia/Almaty')
 ALLOWED_WINDOWS = (14, 7, 1)
-ACTIVE_LEAD_STATUSES = {'new', 'contacted', 'in_progress', 'confirmed'}
+ACTIVE_LEAD_STATUSES = ACTIVE_BIRTHDAY_LEAD_STATUSES
 
 
 def birthday_target_date(now: datetime, days_before: int) -> date:

@@ -260,6 +260,38 @@ void main() {
     children.dispose();
   });
 
+  testWidgets('qualified and booked leads remain active on Home', (tester) async {
+    final children = _childrenController(const []);
+    await _pumpHome(
+      tester,
+      tickets: const [],
+      childrenController: children,
+      requests: [
+        _request(
+          status: RequestStatus.qualified,
+          requestedDate: DateTime(2026, 9, 20),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('home-active-birthday-lead')), findsOneWidget);
+    expect(find.text('Детали уточняются'), findsOneWidget);
+    children.dispose();
+  });
+
+  testWidgets('completed lead is terminal and hidden from Home', (tester) async {
+    final children = _childrenController(const []);
+    await _pumpHome(
+      tester,
+      tickets: const [],
+      childrenController: children,
+      requests: [_request(status: RequestStatus.completed)],
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('home-active-birthday-lead')), findsNothing);
+    children.dispose();
+  });
+
   testWidgets('confirmed lead remains visible with confirmation copy',
       (tester) async {
     final children = _childrenController(const []);

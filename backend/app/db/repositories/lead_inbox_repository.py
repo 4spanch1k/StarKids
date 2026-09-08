@@ -39,8 +39,14 @@ class LeadInboxRecord:
     child_name: str | None
     child_birth_date: date | None
     admin_note: str | None
+    agreed_amount_tenge: int | None
+    lost_reason: str | None
     updated_at: datetime
     contacted_at: datetime | None
+    qualified_at: datetime | None
+    booked_at: datetime | None
+    completed_at: datetime | None
+    lost_at: datetime | None
     closed_at: datetime | None
 
 
@@ -144,13 +150,26 @@ class LeadInboxRepository(Repository):
         birthday_request: BirthdayRequest,
         *,
         status: str,
+        agreed_amount_tenge: int | None = None,
+        lost_reason: str | None = None,
     ) -> BirthdayRequest:
         birthday_request.status = status
         now = datetime.now(UTC)
         birthday_request.updated_at = now
-        if status in {'contacted', 'in_progress'} and birthday_request.contacted_at is None:
+        if agreed_amount_tenge is not None:
+            birthday_request.agreed_amount_tenge = agreed_amount_tenge
+        birthday_request.lost_reason = lost_reason if status == 'lost' else None
+        if status in {'contacted', 'in_progress', 'qualified', 'booked', 'completed'} and birthday_request.contacted_at is None:
             birthday_request.contacted_at = now
-        if status in {'confirmed', 'cancelled', 'lost', 'closed'}:
+        if status in {'qualified', 'booked', 'completed'} and birthday_request.qualified_at is None:
+            birthday_request.qualified_at = now
+        if status in {'booked', 'completed'} and birthday_request.booked_at is None:
+            birthday_request.booked_at = now
+        if status == 'completed' and birthday_request.completed_at is None:
+            birthday_request.completed_at = now
+        if status == 'lost' and birthday_request.lost_at is None:
+            birthday_request.lost_at = now
+        if status in {'completed', 'lost', 'cancelled', 'closed', 'confirmed'}:
             birthday_request.closed_at = birthday_request.closed_at or now
         self.db.add(birthday_request)
         self.db.commit()
@@ -216,8 +235,14 @@ class LeadInboxRepository(Repository):
             child_name=birthday_request.child_name_snapshot,
             child_birth_date=birthday_request.child_birth_date_snapshot,
             admin_note=birthday_request.admin_note,
+            agreed_amount_tenge=birthday_request.agreed_amount_tenge,
+            lost_reason=birthday_request.lost_reason,
             updated_at=birthday_request.updated_at,
             contacted_at=birthday_request.contacted_at,
+            qualified_at=birthday_request.qualified_at,
+            booked_at=birthday_request.booked_at,
+            completed_at=birthday_request.completed_at,
+            lost_at=birthday_request.lost_at,
             closed_at=birthday_request.closed_at,
         )
 
@@ -247,7 +272,13 @@ class LeadInboxRepository(Repository):
             child_name=None,
             child_birth_date=None,
             admin_note=None,
+            agreed_amount_tenge=None,
+            lost_reason=None,
             updated_at=lead.created_at,
             contacted_at=None,
+            qualified_at=None,
+            booked_at=None,
+            completed_at=None,
+            lost_at=None,
             closed_at=None,
         )

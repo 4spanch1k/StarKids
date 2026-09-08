@@ -5,6 +5,7 @@ import type {
   LeadListFilters,
   LeadListItem,
   LeadStatus,
+  LeadStatusUpdate,
 } from '@/entities/lead/model/lead';
 import {
   executeAuthorizedAdminRequest,
@@ -124,9 +125,19 @@ export function useLeadInbox() {
     await loadLeads();
   }
 
-  async function updateLeadStatus(status: LeadStatus) {
+  async function updateLeadStatus(update: LeadStatus | LeadStatusUpdate) {
+    const status = typeof update === 'string' ? update : update.status;
+    const salesFields: LeadStatusUpdate =
+      typeof update === 'string' ? { status } : update;
     if (!selectedLead.value || selectedLead.value.status === status) {
-      return;
+      if (
+        !selectedLead.value ||
+        selectedLead.value.type !== 'birthday_request' ||
+        typeof update === 'string' ||
+        (update.agreedAmountTenge === undefined && update.lostReason === undefined)
+      ) {
+        return;
+      }
     }
 
     isStatusUpdating.value = true;
@@ -140,13 +151,19 @@ export function useLeadInbox() {
           accessToken,
           leadId,
           status,
+          agreedAmountTenge: salesFields.agreedAmountTenge,
+          lostReason: salesFields.lostReason,
         });
       });
 
-      selectedLead.value = {
-        ...selectedLead.value,
-        ...updatedLead,
-      };
+      if (selectedLead.value.type === 'birthday_request') {
+        await loadLeadDetail(leadId);
+      } else {
+        selectedLead.value = {
+          ...selectedLead.value,
+          ...updatedLead,
+        };
+      }
       patchLeadInList(updatedLead);
 
       if (filters.status && filters.status !== updatedLead.status) {

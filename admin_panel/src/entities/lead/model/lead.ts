@@ -1,10 +1,13 @@
 export const leadStatuses = [
   'new',
-  'in_progress',
   'contacted',
+  'qualified',
+  'booked',
+  'completed',
+  'lost',
+  'in_progress',
   'confirmed',
   'cancelled',
-  'lost',
   'closed',
 ] as const;
 
@@ -13,23 +16,40 @@ export type LeadType = 'birthday_request' | 'contact';
 
 export const leadStatusLabels: Record<LeadStatus, string> = {
   new: 'Новая',
-  in_progress: 'В работе',
-  closed: 'Закрыта',
   contacted: 'Менеджер связался',
+  qualified: 'Квалифицирована',
+  booked: 'Забронировано',
+  completed: 'Проведено',
+  lost: 'Не состоялось',
+  in_progress: 'В работе',
   confirmed: 'Праздник подтверждён',
   cancelled: 'Отменено',
-  lost: 'Не состоялось',
+  closed: 'Закрыта',
 };
 
 export const leadStatusTransitions: Record<LeadStatus, LeadStatus[]> = {
-  new: ['new', 'in_progress', 'contacted', 'confirmed', 'cancelled', 'closed'],
-  in_progress: ['in_progress', 'closed'],
-  contacted: ['contacted', 'confirmed', 'cancelled', 'lost'],
-  confirmed: ['confirmed'],
-  cancelled: ['cancelled'],
+  new: ['new', 'in_progress', 'contacted', 'confirmed', 'cancelled', 'closed', 'lost'],
+  contacted: ['contacted', 'qualified', 'confirmed', 'cancelled', 'lost'],
+  qualified: ['qualified', 'booked', 'lost'],
+  booked: ['booked', 'completed', 'lost'],
+  completed: ['completed'],
   lost: ['lost'],
+  in_progress: ['in_progress', 'contacted', 'qualified', 'booked', 'confirmed', 'cancelled', 'lost', 'closed'],
+  confirmed: ['confirmed', 'completed', 'lost'],
+  cancelled: ['cancelled'],
   closed: ['closed'],
 };
+
+export const lostReasonOptions = [
+  { value: 'too_expensive', label: 'Слишком дорого' },
+  { value: 'date_unavailable', label: 'Дата занята' },
+  { value: 'no_answer', label: 'Не дозвонились' },
+  { value: 'competitor', label: 'Выбрали конкурента' },
+  { value: 'changed_mind', label: 'Передумали' },
+  { value: 'other_branch', label: 'Выбрали другой филиал' },
+  { value: 'later', label: 'Отложили на потом' },
+  { value: 'other', label: 'Другое' },
+] as const;
 
 export const leadTypeLabels: Record<LeadType, string> = {
   birthday_request: 'День рождения',
@@ -87,6 +107,18 @@ export type LeadDetail = LeadListItem & {
   updatedAt?: string | null;
   contactedAt?: string | null;
   closedAt?: string | null;
+  agreedAmountTenge?: number | null;
+  lostReason?: string | null;
+  qualifiedAt?: string | null;
+  bookedAt?: string | null;
+  completedAt?: string | null;
+  lostAt?: string | null;
+};
+
+export type LeadStatusUpdate = {
+  status: LeadStatus;
+  agreedAmountTenge?: number | null;
+  lostReason?: string | null;
 };
 
 export function formatLeadStatus(status: LeadStatus): string {
@@ -114,7 +146,19 @@ export function describeLeadStatusFlow(status: LeadStatus): string {
   }
 
   if (status === 'contacted') {
-    return 'Менеджер связался с родителем: можно подтвердить или отменить заявку.';
+    return 'Менеджер связался с родителем: можно квалифицировать интерес или закрыть заявку.';
+  }
+
+  if (status === 'qualified') {
+    return 'Потребность подтверждена: согласуйте дату, пакет и стоимость.';
+  }
+
+  if (status === 'booked') {
+    return 'Дата и пакет согласованы. После проведения переведите заявку в «Проведено».';
+  }
+
+  if (status === 'completed') {
+    return 'Праздник состоялся: заявка доступна только для просмотра.';
   }
 
   if (status === 'confirmed') {
