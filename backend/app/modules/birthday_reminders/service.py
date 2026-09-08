@@ -5,7 +5,7 @@ from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import and_, or_, select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
 from ...core.config.settings import get_settings
@@ -14,13 +14,38 @@ from ...db.models.birthday_request import BirthdayRequest
 from ...db.models.mobile_child import MobileChild
 from ...db.models.mobile_notification_device import MobileNotificationDevice
 from ...db.models.mobile_user import MobileUser
-from ..admin_push_campaigns.service import birthday_matches_target, PushCampaignService
+from ..admin_push_campaigns.service import (
+    birthday_matches_target,
+    birthday_occurrence_for_year,
+    PushCampaignService,
+)
 from ..leads.constants import ACTIVE_BIRTHDAY_LEAD_STATUSES
 
 logger = logging.getLogger(__name__)
 BUSINESS_TZ = ZoneInfo('Asia/Almaty')
 ALLOWED_WINDOWS = (14, 7, 1)
 ACTIVE_LEAD_STATUSES = ACTIVE_BIRTHDAY_LEAD_STATUSES
+
+
+def birthday_cycle_matches(
+    *,
+    birth_date: date,
+    requested_date: date | None,
+    target_date: date,
+) -> bool:
+    """Match a completed party to the nearest annual birthday occurrence."""
+    if requested_date is None:
+        return False
+
+    occurrences = tuple(
+        birthday_occurrence_for_year(birth_date, year)
+        for year in range(requested_date.year - 1, requested_date.year + 2)
+    )
+    nearest = min(
+        occurrences,
+        key=lambda occurrence: (abs((occurrence - requested_date).days), occurrence),
+    )
+    return nearest == target_date
 
 
 def birthday_target_date(now: datetime, days_before: int) -> date:
@@ -130,10 +155,12 @@ class BirthdayReminderService:
         records = list(by_child.values())
         campaign_id = next((record.push_campaign_id for record in records if record.push_campaign_id), None)
         if campaign_id is None:
+            suppressing_leads = self._suppressing_leads_by_child(user_id, child_ids)
+            birth_dates = {child.id: child.birth_date for child in children}
             for record in records:
                 if record.status == 'pending' and self._has_suppressing_lead(
-                    record.child_id,
-                    user_id,
+                    suppressing_leads.get(record.child_id, ()),
+                    birth_dates[record.child_id],
                     target_date,
                 ):
                     self._skip(record, 'active_lead')
@@ -173,29 +200,50 @@ class BirthdayReminderService:
         self._finalize_records(campaign_id, response.status)
         return len(records)
 
-    def _has_suppressing_lead(
+    def _suppressing_leads_by_child(
         self,
-        child_id: str | None,
         user_id: str,
-        target_date: date,
-    ) -> bool:
-        if child_id is None:
-            return False
-        return self.session.scalar(
-            select(BirthdayRequest.id)
+        child_ids: list[str],
+    ) -> dict[str, list[tuple[str, date | None]]]:
+        rows = self.session.execute(
+            select(
+                BirthdayRequest.child_id,
+                BirthdayRequest.status,
+                BirthdayRequest.requested_date,
+            )
             .where(
                 BirthdayRequest.mobile_user_id == user_id,
-                BirthdayRequest.child_id == child_id,
+                BirthdayRequest.child_id.in_(child_ids),
                 or_(
                     BirthdayRequest.status.in_(ACTIVE_LEAD_STATUSES),
-                    and_(
-                        BirthdayRequest.status == 'completed',
-                        BirthdayRequest.requested_date == target_date,
-                    ),
+                    BirthdayRequest.status == 'completed',
                 ),
             )
-            .limit(1)
-        ) is not None
+        ).all()
+        leads_by_child: dict[str, list[tuple[str, date | None]]] = defaultdict(list)
+        for child_id, status, requested_date in rows:
+            if child_id is not None:
+                leads_by_child[child_id].append((status, requested_date))
+        return leads_by_child
+
+    @staticmethod
+    def _has_suppressing_lead(
+        leads: list[tuple[str, date | None]] | tuple[tuple[str, date | None], ...],
+        child_birth_date: date,
+        target_date: date,
+    ) -> bool:
+        return any(
+            status in ACTIVE_LEAD_STATUSES
+            or (
+                status == 'completed'
+                and birthday_cycle_matches(
+                    birth_date=child_birth_date,
+                    requested_date=requested_date,
+                    target_date=target_date,
+                )
+            )
+            for status, requested_date in leads
+        )
 
     def _has_active_device(self, user_id: str) -> bool:
         return self.session.scalar(
