@@ -15,6 +15,18 @@ class BirthdayRequest(Base):
             'agreed_amount_tenge IS NULL OR agreed_amount_tenge >= 0',
             name='ck_birthday_requests_agreed_amount_non_negative',
         ),
+        CheckConstraint(
+            'expected_amount_tenge IS NULL OR expected_amount_tenge >= 0',
+            name='ck_birthday_requests_expected_amount_non_negative',
+        ),
+        CheckConstraint(
+            'deposit_amount_tenge IS NULL OR deposit_amount_tenge >= 0',
+            name='ck_birthday_requests_deposit_amount_non_negative',
+        ),
+        CheckConstraint(
+            'paid_amount_tenge IS NULL OR paid_amount_tenge >= 0',
+            name='ck_birthday_requests_paid_amount_non_negative',
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid4().hex)
@@ -54,12 +66,19 @@ class BirthdayRequest(Base):
     package_name_snapshot: Mapped[str | None] = mapped_column(String(255), nullable=True)
     package_price_snapshot: Mapped[int | None] = mapped_column(Integer, nullable=True)
     admin_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # agreed_amount_tenge is retained for API/database compatibility with the
+    # previous funnel version. New sales code treats expected_amount_tenge as
+    # the canonical expected booking value and keeps the legacy field in sync.
     agreed_amount_tenge: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    expected_amount_tenge: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    deposit_amount_tenge: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    paid_amount_tenge: Mapped[int | None] = mapped_column(Integer, nullable=True)
     lost_reason: Mapped[str | None] = mapped_column(String(32), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     contacted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     qualified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     booked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     lost_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

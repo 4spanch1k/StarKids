@@ -76,14 +76,38 @@
       </div>
       <div class="lead-sales-panel__fields">
         <label class="lead-sales-panel__field">
-          <span>Согласованная стоимость, ₸</span>
+          <span>Ожидаемая стоимость, ₸</span>
           <input
-            v-model.number="agreedAmountDraft"
+            v-model.number="expectedAmountDraft"
             type="number"
             min="0"
             step="1"
             inputmode="numeric"
             placeholder="Не указана"
+            :disabled="isStatusUpdating"
+          />
+        </label>
+        <label class="lead-sales-panel__field">
+          <span>Депозит, ₸</span>
+          <input
+            v-model.number="depositAmountDraft"
+            type="number"
+            min="0"
+            step="1"
+            inputmode="numeric"
+            placeholder="Не указан"
+            :disabled="isStatusUpdating"
+          />
+        </label>
+        <label class="lead-sales-panel__field">
+          <span>Получено, ₸</span>
+          <input
+            v-model.number="paidAmountDraft"
+            type="number"
+            min="0"
+            step="1"
+            inputmode="numeric"
+            placeholder="Не указано"
             :disabled="isStatusUpdating"
           />
         </label>
@@ -103,7 +127,7 @@
       <button
         type="button"
         class="admin-button admin-button--secondary"
-        :disabled="isStatusUpdating || normalizedAgreedAmount() === undefined"
+        :disabled="isStatusUpdating || !hasValidSalesAmounts()"
         @click="saveSalesFields"
       >
         Сохранить коммерческие данные
@@ -173,6 +197,14 @@
             <dt>Согласованная стоимость</dt>
             <dd>{{ formatMoney(lead.agreedAmountTenge) }}</dd>
           </div>
+          <div v-if="lead.type === 'birthday_request' && lead.depositAmountTenge !== null && lead.depositAmountTenge !== undefined">
+            <dt>Депозит</dt>
+            <dd>{{ formatMoney(lead.depositAmountTenge) }}</dd>
+          </div>
+          <div v-if="lead.type === 'birthday_request' && lead.paidAmountTenge !== null && lead.paidAmountTenge !== undefined">
+            <dt>Оплачено</dt>
+            <dd>{{ formatMoney(lead.paidAmountTenge) }}</dd>
+          </div>
           <div v-if="lead.type === 'birthday_request' && lead.status === 'lost'">
             <dt>Причина потери</dt>
             <dd>{{ formatLostReason(lead.lostReason) }}</dd>
@@ -214,6 +246,10 @@
           <div v-if="lead.bookedAt">
             <dt>Забронировано</dt>
             <dd>{{ formatDateTime(lead.bookedAt) }}</dd>
+          </div>
+          <div v-if="lead.paidAt">
+            <dt>Оплачено</dt>
+            <dd>{{ formatDateTime(lead.paidAt) }}</dd>
           </div>
           <div v-if="lead.completedAt">
             <dt>Проведено</dt>
@@ -292,15 +328,19 @@ const emit = defineEmits<{
 }>();
 
 const adminNoteDraft = ref(props.lead.adminNote ?? '');
-const agreedAmountDraft = ref<number | string | null>(props.lead.agreedAmountTenge ?? null);
+const expectedAmountDraft = ref<number | string | null>(props.lead.expectedAmountTenge ?? props.lead.agreedAmountTenge ?? null);
+const depositAmountDraft = ref<number | string | null>(props.lead.depositAmountTenge ?? null);
+const paidAmountDraft = ref<number | string | null>(props.lead.paidAmountTenge ?? null);
 const lostReasonDraft = ref(props.lead.lostReason ?? '');
 const salesFormError = ref('');
 
 watch(
-  () => [props.lead.id, props.lead.agreedAmountTenge, props.lead.lostReason],
+  () => [props.lead.id, props.lead.expectedAmountTenge, props.lead.agreedAmountTenge, props.lead.depositAmountTenge, props.lead.paidAmountTenge, props.lead.lostReason],
   () => {
     adminNoteDraft.value = props.lead.adminNote ?? '';
-    agreedAmountDraft.value = props.lead.agreedAmountTenge ?? null;
+    expectedAmountDraft.value = props.lead.expectedAmountTenge ?? props.lead.agreedAmountTenge ?? null;
+    depositAmountDraft.value = props.lead.depositAmountTenge ?? null;
+    paidAmountDraft.value = props.lead.paidAmountTenge ?? null;
     lostReasonDraft.value = props.lead.lostReason ?? '';
     salesFormError.value = '';
   },
@@ -312,36 +352,53 @@ function handleStatusAction(status: LeadStatus) {
     salesFormError.value = 'Перед переводом в «Не состоялось» выберите причину потери.';
     return;
   }
+  if (status === 'paid' && normalizedAmount(paidAmountDraft.value) === undefined) {
+    salesFormError.value = 'Перед переводом в «Оплачено» укажите полученную сумму.';
+    return;
+  }
 
   emit('update-status', {
     status,
-    agreedAmountTenge: normalizedAgreedAmount(),
+    expectedAmountTenge: normalizedAmount(expectedAmountDraft.value),
+    depositAmountTenge: normalizedAmount(depositAmountDraft.value),
+    paidAmountTenge: normalizedAmount(paidAmountDraft.value),
     lostReason: status === 'lost' ? lostReasonDraft.value : undefined,
   });
 }
 
 function saveSalesFields() {
   salesFormError.value = '';
-  const amount = normalizedAgreedAmount();
-  if (amount === undefined) {
-    salesFormError.value = 'Укажите согласованную стоимость целым числом.';
+  if (!hasValidSalesAmounts()) {
+    salesFormError.value = 'Укажите суммы целыми неотрицательными числами.';
     return;
   }
 
   emit('update-status', {
     status: props.lead.status,
-    agreedAmountTenge: amount,
+    expectedAmountTenge: normalizedAmount(expectedAmountDraft.value),
+    depositAmountTenge: normalizedAmount(depositAmountDraft.value),
+    paidAmountTenge: normalizedAmount(paidAmountDraft.value),
     lostReason: props.lead.status === 'lost' ? lostReasonDraft.value || undefined : undefined,
   });
 }
 
-function normalizedAgreedAmount(): number | undefined {
-  if (agreedAmountDraft.value === null || agreedAmountDraft.value === '') {
+function normalizedAmount(value: number | string | null): number | undefined {
+  if (value === null || value === '') {
     return undefined;
   }
 
-  const amount = Number(agreedAmountDraft.value);
+  const amount = Number(value);
   return Number.isInteger(amount) && amount >= 0 ? amount : undefined;
+}
+
+function hasValidSalesAmounts(): boolean {
+  return [expectedAmountDraft.value, depositAmountDraft.value, paidAmountDraft.value].every((value) => {
+    if (value === null || value === '') {
+      return true;
+    }
+    const amount = Number(value);
+    return Number.isInteger(amount) && amount >= 0;
+  });
 }
 
 function statusTone(status: LeadStatus): 'new' | 'in-progress' | 'closed' {
@@ -353,7 +410,8 @@ function statusTone(status: LeadStatus): 'new' | 'in-progress' | 'closed' {
     status === 'in_progress' ||
     status === 'contacted' ||
     status === 'qualified' ||
-    status === 'booked'
+    status === 'booked' ||
+    status === 'paid'
   ) {
     return 'in-progress';
   }

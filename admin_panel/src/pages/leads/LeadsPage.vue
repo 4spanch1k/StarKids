@@ -599,7 +599,7 @@ function statusTone(status: LeadStatus): 'new' | 'in-progress' | 'closed' {
     return 'new';
   }
 
-  if (['in_progress', 'contacted', 'qualified', 'booked'].includes(status)) {
+  if (['in_progress', 'contacted', 'qualified', 'booked', 'paid'].includes(status)) {
     return 'in-progress';
   }
 

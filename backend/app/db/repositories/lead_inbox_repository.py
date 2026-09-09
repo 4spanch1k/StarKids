@@ -40,11 +40,15 @@ class LeadInboxRecord:
     child_birth_date: date | None
     admin_note: str | None
     agreed_amount_tenge: int | None
+    expected_amount_tenge: int | None
+    deposit_amount_tenge: int | None
+    paid_amount_tenge: int | None
     lost_reason: str | None
     updated_at: datetime
     contacted_at: datetime | None
     qualified_at: datetime | None
     booked_at: datetime | None
+    paid_at: datetime | None
     completed_at: datetime | None
     lost_at: datetime | None
     closed_at: datetime | None
@@ -196,6 +200,9 @@ class LeadInboxRepository(Repository):
         *,
         status: str,
         agreed_amount_tenge: int | None = None,
+        expected_amount_tenge: int | None = None,
+        deposit_amount_tenge: int | None = None,
+        paid_amount_tenge: int | None = None,
         lost_reason: str | None = None,
     ) -> BirthdayRequest:
         birthday_request.status = status
@@ -203,13 +210,23 @@ class LeadInboxRepository(Repository):
         birthday_request.updated_at = now
         if agreed_amount_tenge is not None:
             birthday_request.agreed_amount_tenge = agreed_amount_tenge
+            birthday_request.expected_amount_tenge = agreed_amount_tenge
+        if expected_amount_tenge is not None:
+            birthday_request.expected_amount_tenge = expected_amount_tenge
+            birthday_request.agreed_amount_tenge = expected_amount_tenge
+        if deposit_amount_tenge is not None:
+            birthday_request.deposit_amount_tenge = deposit_amount_tenge
+        if paid_amount_tenge is not None:
+            birthday_request.paid_amount_tenge = paid_amount_tenge
         birthday_request.lost_reason = lost_reason if status == 'lost' else None
-        if status in {'contacted', 'in_progress', 'qualified', 'booked', 'completed'} and birthday_request.contacted_at is None:
+        if status in {'contacted', 'in_progress', 'qualified', 'booked', 'paid', 'completed'} and birthday_request.contacted_at is None:
             birthday_request.contacted_at = now
-        if status in {'qualified', 'booked', 'completed'} and birthday_request.qualified_at is None:
+        if status in {'qualified', 'booked', 'paid', 'completed'} and birthday_request.qualified_at is None:
             birthday_request.qualified_at = now
-        if status in {'booked', 'completed'} and birthday_request.booked_at is None:
+        if status in {'booked', 'paid', 'completed'} and birthday_request.booked_at is None:
             birthday_request.booked_at = now
+        if status in {'paid', 'completed'} and birthday_request.paid_amount_tenge is not None and birthday_request.paid_at is None:
+            birthday_request.paid_at = now
         if status == 'completed' and birthday_request.completed_at is None:
             birthday_request.completed_at = now
         if status == 'lost' and birthday_request.lost_at is None:
@@ -281,11 +298,19 @@ class LeadInboxRepository(Repository):
             child_birth_date=birthday_request.child_birth_date_snapshot,
             admin_note=birthday_request.admin_note,
             agreed_amount_tenge=birthday_request.agreed_amount_tenge,
+            expected_amount_tenge=(
+                birthday_request.expected_amount_tenge
+                if birthday_request.expected_amount_tenge is not None
+                else birthday_request.agreed_amount_tenge
+            ),
+            deposit_amount_tenge=birthday_request.deposit_amount_tenge,
+            paid_amount_tenge=birthday_request.paid_amount_tenge,
             lost_reason=birthday_request.lost_reason,
             updated_at=birthday_request.updated_at,
             contacted_at=birthday_request.contacted_at,
             qualified_at=birthday_request.qualified_at,
             booked_at=birthday_request.booked_at,
+            paid_at=birthday_request.paid_at,
             completed_at=birthday_request.completed_at,
             lost_at=birthday_request.lost_at,
             closed_at=birthday_request.closed_at,
@@ -318,11 +343,15 @@ class LeadInboxRepository(Repository):
             child_birth_date=None,
             admin_note=None,
             agreed_amount_tenge=None,
+            expected_amount_tenge=None,
+            deposit_amount_tenge=None,
+            paid_amount_tenge=None,
             lost_reason=None,
             updated_at=lead.created_at,
             contacted_at=None,
             qualified_at=None,
             booked_at=None,
+            paid_at=None,
             completed_at=None,
             lost_at=None,
             closed_at=None,

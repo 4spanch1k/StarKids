@@ -40,11 +40,14 @@ BIRTHDAY_STATUS_TRANSITIONS: dict[LeadInboxStatus, set[LeadInboxStatus]] = {
     'new': {'new', 'contacted', 'confirmed', 'cancelled', 'in_progress', 'closed', 'lost'},
     'contacted': {'contacted', 'qualified', 'confirmed', 'cancelled', 'lost'},
     'qualified': {'qualified', 'booked', 'lost'},
-    'booked': {'booked', 'completed', 'lost'},
+    'booked': {'booked', 'paid', 'completed', 'lost'},
+    'paid': {'paid', 'completed', 'lost'},
     'completed': {'completed'},
-    'confirmed': {'confirmed', 'completed', 'lost'},
+    'confirmed': {'confirmed', 'paid', 'completed', 'lost'},
     'cancelled': {'cancelled'},
-    'lost': {'lost'},
+    # A lost lead can be reopened when the parent comes back. Historical
+    # lost_at remains an audit timestamp; current lost_reason is cleared.
+    'lost': {'lost', 'contacted', 'qualified'},
     # Legacy values remain readable and safely terminal/forward-compatible.
     'in_progress': {'in_progress', 'contacted', 'qualified', 'booked', 'confirmed', 'cancelled', 'lost', 'closed'},
     'closed': {'closed'},
@@ -114,6 +117,9 @@ class AdminLeadInboxService:
                 else record.birthday_package_price
             ),
             agreedAmountTenge=record.agreed_amount_tenge,
+            expectedAmountTenge=record.expected_amount_tenge,
+            depositAmountTenge=record.deposit_amount_tenge,
+            paidAmountTenge=record.paid_amount_tenge,
             lostReason=record.lost_reason,
             comment=record.notes,
             adminNote=record.admin_note,
@@ -127,6 +133,7 @@ class AdminLeadInboxService:
             completedAt=record.completed_at,
             lostAt=record.lost_at,
             closedAt=record.closed_at,
+            paidAt=record.paid_at,
         )
 
     def get_birthday_operations_summary(
@@ -234,6 +241,42 @@ class AdminLeadInboxService:
                     status_code=422,
                     details=[{'field': 'lostReason', 'message': 'Use lost status first.'}],
                 )
+            if payload.expectedAmountTenge is not None and payload.agreedAmountTenge is not None:
+                if payload.expectedAmountTenge != payload.agreedAmountTenge:
+                    raise DomainHTTPException(
+                        code='conflicting_expected_amount',
+                        message='Use one expected amount value.',
+                        status_code=422,
+                        details=[{'field': 'expectedAmountTenge', 'message': 'Values must match.'}],
+                    )
+            expected_amount = (
+                payload.expectedAmountTenge
+                if payload.expectedAmountTenge is not None
+                else payload.agreedAmountTenge
+            )
+            current_paid = birthday_request.paid_amount_tenge
+            next_paid = payload.paidAmountTenge if payload.paidAmountTenge is not None else current_paid
+            next_deposit = (
+                payload.depositAmountTenge
+                if payload.depositAmountTenge is not None
+                else birthday_request.deposit_amount_tenge
+            )
+            if next_deposit is not None and next_paid is not None and next_deposit > next_paid:
+                raise DomainHTTPException(
+                    code='deposit_exceeds_paid_amount',
+                    message='Deposit cannot exceed total received amount.',
+                    status_code=422,
+                    details=[{'field': 'depositAmountTenge', 'message': 'Must be less than or equal to paid amount.'}],
+                )
+            if payload.status == 'paid' and next_paid is None:
+                raise DomainHTTPException(
+                    code='paid_amount_required',
+                    message='Paid amount is required before marking a lead as paid.',
+                    status_code=422,
+                    details=[{'field': 'paidAmountTenge', 'message': 'Enter the amount received.'}],
+                )
+        else:
+            expected_amount = None
 
         if payload.status != current_status:
             if birthday_request is not None:
@@ -241,6 +284,9 @@ class AdminLeadInboxService:
                     birthday_request,
                     status=payload.status,
                     agreed_amount_tenge=payload.agreedAmountTenge,
+                    expected_amount_tenge=expected_amount,
+                    deposit_amount_tenge=payload.depositAmountTenge,
+                    paid_amount_tenge=payload.paidAmountTenge,
                     lost_reason=payload.lostReason,
                 )
             else:
@@ -249,12 +295,19 @@ class AdminLeadInboxService:
                     status=payload.status,
                 )
         elif birthday_request is not None and (
-            payload.agreedAmountTenge is not None or payload.lostReason is not None
+            payload.agreedAmountTenge is not None
+            or payload.expectedAmountTenge is not None
+            or payload.depositAmountTenge is not None
+            or payload.paidAmountTenge is not None
+            or payload.lostReason is not None
         ):
             self.repository.update_birthday_request_status(
                 birthday_request,
                 status=current_status,
                 agreed_amount_tenge=payload.agreedAmountTenge,
+                expected_amount_tenge=expected_amount,
+                deposit_amount_tenge=payload.depositAmountTenge,
+                paid_amount_tenge=payload.paidAmountTenge,
                 lost_reason=payload.lostReason or birthday_request.lost_reason,
             )
 
