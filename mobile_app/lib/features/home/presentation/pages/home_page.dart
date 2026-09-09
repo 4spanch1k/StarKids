@@ -84,6 +84,7 @@ class _HomePageState extends State<HomePage> {
   bool _ticketsLoading = true;
   String? _ticketsError;
   CurrentVisit? _currentVisit;
+  bool _hasCompletedVisitHistory = false;
   int _secondaryRefreshVersion = 0;
 
   @override
@@ -111,7 +112,7 @@ class _HomePageState extends State<HomePage> {
     _loyaltyController =
         widget.loyaltyController ?? ServiceRegistry.loyaltyController;
     unawaited(_loadIssuedTickets());
-    unawaited(_loadCurrentVisit());
+    unawaited(_loadVisitState());
     unawaited(_requestHistoryController.load());
     unawaited(_loyaltyController.load());
     unawaited(_childrenController.load());
@@ -153,7 +154,7 @@ class _HomePageState extends State<HomePage> {
       _loadIssuedTickets(),
       _childrenController.load(),
       _newsController.forceRefresh(),
-      _loadCurrentVisit(),
+      _loadVisitState(),
       _requestHistoryController.load(),
       _loyaltyController.load(),
     ]);
@@ -169,6 +170,22 @@ class _HomePageState extends State<HomePage> {
     } catch (_) {
       // A visit lookup is non-critical; keep the ticket/purchase Home usable.
       if (mounted) setState(() => _currentVisit = null);
+    }
+  }
+
+  Future<void> _loadVisitState() async {
+    // Resolve the current admission first. The history endpoint intentionally
+    // excludes an active visit, so a family inside its first visit is not
+    // classified as returning before that visit has ended.
+    await _loadCurrentVisit();
+    try {
+      final history = await _currentVisitRepository.getVisitHistory();
+      if (!mounted) return;
+      setState(() => _hasCompletedVisitHistory = history.hasCompletedVisit);
+    } catch (_) {
+      // Visit history is non-critical. A failed lookup must not invent a
+      // returning state or hide the ticket/checkout actions.
+      if (mounted) setState(() => _hasCompletedVisitHistory = false);
     }
   }
 
@@ -337,6 +354,7 @@ class _HomePageState extends State<HomePage> {
           tickets: _issuedTickets,
           children: _childrenController.children,
           now: _nowProvider(),
+          hasVisitHistory: _hasCompletedVisitHistory,
           hasCheckedInVisit: _currentVisit != null,
         );
         final hasUpcomingTicket = _issuedTickets.any(

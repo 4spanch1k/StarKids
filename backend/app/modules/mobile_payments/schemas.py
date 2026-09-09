@@ -133,6 +133,29 @@ class CurrentVisitResponse(BaseModel):
         return _serialize_datetime(value) or ''
 
 
+class VisitHistoryItemResponse(BaseModel):
+    visitId: str
+    branchId: str
+    branchName: str
+    startedAt: datetime
+    endedAt: datetime | None = None
+
+    @field_serializer('startedAt', 'endedAt')
+    def serialize_datetime(self, value: datetime | None) -> str | None:
+        return _serialize_datetime(value)
+
+
+class VisitHistoryResponse(BaseModel):
+    visitCount: int
+    firstVisitAt: datetime | None = None
+    lastVisitAt: datetime | None = None
+    items: list[VisitHistoryItemResponse] = Field(default_factory=list)
+
+    @field_serializer('firstVisitAt', 'lastVisitAt')
+    def serialize_stats_datetime(self, value: datetime | None) -> str | None:
+        return _serialize_datetime(value)
+
+
 def _serialize_datetime(value: datetime | None) -> str | None:
     if value is None:
         return None

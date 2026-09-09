@@ -218,6 +218,43 @@ class TicketRedemptionEndpointTests(unittest.TestCase):
         self.assertEqual(after.status_code, 200)
         self.assertEqual(after.json()['status'], 'active')
 
+    def test_visit_history_uses_completed_visits_and_excludes_active_admission(self) -> None:
+        login = self.client.post(
+            '/api/v1/mobile/auth/login',
+            json={'email': 'parent@example.com', 'password': 'StrongPass123!'},
+        )
+        headers = {'Authorization': f"Bearer {login.json()['access_token']}"}
+
+        before = self.client.get('/api/v1/mobile/visits/history', headers=headers)
+        self.assertEqual(before.status_code, 200)
+        self.assertEqual(before.json()['visitCount'], 0)
+        self.assertEqual(before.json()['items'], [])
+
+        self._redeem()
+        during = self.client.get('/api/v1/mobile/visits/history', headers=headers)
+        self.assertEqual(during.status_code, 200)
+        self.assertEqual(during.json()['visitCount'], 0)
+
+        # The current-visit endpoint performs the existing validity-cutoff
+        # transition; history then exposes that completed admission as the
+        # returning-family source of truth.
+        with self.SessionLocal() as session:
+            payment = session.get(MobilePayment, 'payment-1')
+            payment.visit_date = business_today() - timedelta(days=1)
+            session.commit()
+        current = self.client.get('/api/v1/mobile/visits/current', headers=headers)
+        self.assertEqual(current.status_code, 200)
+        self.assertIsNone(current.json())
+
+        after = self.client.get('/api/v1/mobile/visits/history', headers=headers)
+        self.assertEqual(after.status_code, 200)
+        body = after.json()
+        self.assertEqual(body['visitCount'], 1)
+        self.assertEqual(len(body['items']), 1)
+        self.assertEqual(body['items'][0]['branchId'], 'branch-main')
+        self.assertIsNotNone(body['firstVisitAt'])
+        self.assertIsNotNone(body['lastVisitAt'])
+
     def test_staff_lookup_finds_paid_order_by_order_number_or_phone(self) -> None:
         response = self.client.get(
             '/api/v1/admin/tickets/lookup',
