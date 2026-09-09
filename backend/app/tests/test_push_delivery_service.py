@@ -231,6 +231,33 @@ class PushServiceTests(unittest.TestCase):
         self.assertEqual(results, [])
         delivery.send.assert_not_called()
 
+    def test_send_to_user_disables_unregistered_device(self) -> None:
+        with self.SessionLocal() as session:
+            user, device = self._create_user_with_device(
+                session, '+77070000006', 'token-unregistered'
+            )
+
+        delivery = MagicMock()
+        delivery.send.return_value = PushDeliveryResult.failed(
+            'token-unregistered', 'unregistered', 'gone'
+        )
+
+        with self.SessionLocal() as session:
+            service = PushService(
+                delivery=delivery,
+                device_repository=MobileNotificationDeviceRepository(session),
+            )
+            results = service.send_to_user(
+                user_id=user.id,
+                title='Test',
+                body='Body',
+            )
+            refreshed = session.get(MobileNotificationDevice, device.id)
+
+        self.assertEqual(len(results), 1)
+        self.assertIsNotNone(refreshed)
+        self.assertFalse(refreshed.notifications_enabled)
+
     def test_send_to_users_aggregates_across_multiple_users(self) -> None:
         with self.SessionLocal() as session:
             user1, _ = self._create_user_with_device(session, '+77070000003', 'token-a')
@@ -252,6 +279,29 @@ class PushServiceTests(unittest.TestCase):
 
         self.assertEqual(len(results), 2)
         self.assertEqual(delivery.send.call_count, 2)
+
+    def test_send_to_users_deduplicates_user_ids(self) -> None:
+        with self.SessionLocal() as session:
+            user, _ = self._create_user_with_device(
+                session, '+77070000007', 'token-deduplicated'
+            )
+
+        delivery = MagicMock()
+        delivery.send.return_value = PushDeliveryResult.ok('token-deduplicated')
+
+        with self.SessionLocal() as session:
+            service = PushService(
+                delivery=delivery,
+                device_repository=MobileNotificationDeviceRepository(session),
+            )
+            results = service.send_to_users(
+                user_ids=[user.id, user.id],
+                title='Promo',
+                body='New deal',
+            )
+
+        self.assertEqual(len(results), 1)
+        delivery.send.assert_called_once()
 
     def test_notify_birthday_request_received_uses_correct_payload(self) -> None:
         with self.SessionLocal() as session:

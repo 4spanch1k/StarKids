@@ -35,22 +35,23 @@ void main() {
     });
 
     test(
-        'bootstrap → registered when authenticated + permission granted + token available',
-        () async {
-      final session = _buildSession('access-token-1');
-      final authController = _buildAuthController(session: session);
-      final controller = _buildPushController(
-        authController: authController,
-        permissionStatus: NotificationPermissionStatus.granted,
-        fcmToken: 'fcm-token-abc',
-        registerSuccess: true,
-      );
+      'bootstrap → registered when authenticated + permission granted + token available',
+      () async {
+        final session = _buildSession('access-token-1');
+        final authController = _buildAuthController(session: session);
+        final controller = _buildPushController(
+          authController: authController,
+          permissionStatus: NotificationPermissionStatus.granted,
+          fcmToken: 'fcm-token-abc',
+          registerSuccess: true,
+        );
 
-      await controller.bootstrap();
+        await controller.bootstrap();
 
-      expect(controller.status, PushRegistrationStatus.registered);
-      expect(controller.registeredToken, 'fcm-token-abc');
-    });
+        expect(controller.status, PushRegistrationStatus.registered);
+        expect(controller.registeredToken, 'fcm-token-abc');
+      },
+    );
 
     test('bootstrap → failed when backend rejects token', () async {
       final session = _buildSession('access-token-2');
@@ -84,21 +85,46 @@ void main() {
     });
 
     test(
-        'bootstrap → unavailable when FCM token is null (Firebase not configured)',
-        () async {
-      final session = _buildSession('access-token-4');
-      final authController = _buildAuthController(session: session);
-      final controller = _buildPushController(
-        authController: authController,
-        permissionStatus: NotificationPermissionStatus.granted,
-        fcmToken: null,
-        registerSuccess: true,
-      );
+      'bootstrap requests unknown permission before registering a token',
+      () async {
+        final session = _buildSession('access-token-permission');
+        final authController = _buildAuthController(session: session);
+        final settings = _RecordingNotificationSettingsRepository(
+          loadStatus: NotificationPermissionStatus.unknown,
+          requestedStatus: NotificationPermissionStatus.granted,
+        );
+        final controller = PushTokenController(
+          authController: authController,
+          notificationSettingsRepository: settings,
+          fcmTokenGateway: _FakeFcmTokenGateway(token: 'permission-token'),
+          pushTokenRepository: _FakePushTokenRepository(success: true),
+        );
 
-      await controller.bootstrap();
+        await controller.bootstrap();
 
-      expect(controller.status, PushRegistrationStatus.unavailable);
-    });
+        expect(settings.requestCount, 1);
+        expect(controller.status, PushRegistrationStatus.registered);
+        expect(controller.registeredToken, 'permission-token');
+      },
+    );
+
+    test(
+      'bootstrap → unavailable when FCM token is null (Firebase not configured)',
+      () async {
+        final session = _buildSession('access-token-4');
+        final authController = _buildAuthController(session: session);
+        final controller = _buildPushController(
+          authController: authController,
+          permissionStatus: NotificationPermissionStatus.granted,
+          fcmToken: null,
+          registerSuccess: true,
+        );
+
+        await controller.bootstrap();
+
+        expect(controller.status, PushRegistrationStatus.unavailable);
+      },
+    );
 
     test('token refresh triggers re-registration with new token', () async {
       final session = _buildSession('access-token-5');
@@ -166,33 +192,35 @@ void main() {
       expect(controller.registeredToken, isNull);
     });
 
-    test('prepareForLogout removes token before auth session is cleared',
-        () async {
-      final session = _buildSession('access-token-before-logout');
-      final authController = _buildAuthController(session: session);
-      final pushRepo = _RecordingPushTokenRepository(success: true);
-      final controller = PushTokenController(
-        authController: authController,
-        notificationSettingsRepository:
-            const _FakeNotificationSettingsRepository(
-          loadStatus: NotificationPermissionStatus.granted,
-        ),
-        fcmTokenGateway: _FakeFcmTokenGateway(token: 'logout-token'),
-        pushTokenRepository: pushRepo,
-      );
+    test(
+      'prepareForLogout removes token before auth session is cleared',
+      () async {
+        final session = _buildSession('access-token-before-logout');
+        final authController = _buildAuthController(session: session);
+        final pushRepo = _RecordingPushTokenRepository(success: true);
+        final controller = PushTokenController(
+          authController: authController,
+          notificationSettingsRepository:
+              const _FakeNotificationSettingsRepository(
+            loadStatus: NotificationPermissionStatus.granted,
+          ),
+          fcmTokenGateway: _FakeFcmTokenGateway(token: 'logout-token'),
+          pushTokenRepository: pushRepo,
+        );
 
-      await controller.bootstrap();
-      await controller.prepareForLogout(session);
+        await controller.bootstrap();
+        await controller.prepareForLogout(session);
 
-      expect(pushRepo.removedAccessTokens, ['access-token-before-logout']);
-      expect(controller.registeredToken, isNull);
+        expect(pushRepo.removedAccessTokens, ['access-token-before-logout']);
+        expect(controller.registeredToken, isNull);
 
-      // The later auth notification must not issue a second unauthenticated
-      // DELETE after the session has already been cleared.
-      authController.setSessionForTest(null);
-      await Future<void>.delayed(Duration.zero);
-      expect(pushRepo.removedAccessTokens, ['access-token-before-logout']);
-    });
+        // The later auth notification must not issue a second unauthenticated
+        // DELETE after the session has already been cleared.
+        authController.setSessionForTest(null);
+        await Future<void>.delayed(Duration.zero);
+        expect(pushRepo.removedAccessTokens, ['access-token-before-logout']);
+      },
+    );
 
     test('retryRegistration re-attempts when in failed state', () async {
       final session = _buildSession('access-token-7');
@@ -312,9 +340,7 @@ PushTokenController _buildPushController({
 
 class _FakeNotificationSettingsRepository
     implements NotificationSettingsRepository {
-  const _FakeNotificationSettingsRepository({
-    required this.loadStatus,
-  });
+  const _FakeNotificationSettingsRepository({required this.loadStatus});
 
   final NotificationPermissionStatus loadStatus;
 
@@ -327,6 +353,31 @@ class _FakeNotificationSettingsRepository
 
   @override
   Future<NotificationPermissionStatus> requestPermission() async => loadStatus;
+}
+
+class _RecordingNotificationSettingsRepository
+    implements NotificationSettingsRepository {
+  _RecordingNotificationSettingsRepository({
+    required this.loadStatus,
+    required this.requestedStatus,
+  });
+
+  final NotificationPermissionStatus loadStatus;
+  final NotificationPermissionStatus requestedStatus;
+  int requestCount = 0;
+
+  @override
+  Future<NotificationPermissionStatus> loadPermissionStatus() async =>
+      loadStatus;
+
+  @override
+  Future<NotificationPermissionStatus> requestPermission() async {
+    requestCount += 1;
+    return requestedStatus;
+  }
+
+  @override
+  Future<bool> openSystemSettings() async => true;
 }
 
 class _FakeFcmTokenGateway implements FcmTokenGateway {

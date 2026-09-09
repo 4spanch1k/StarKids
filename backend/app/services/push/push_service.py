@@ -58,15 +58,18 @@ class PushService:
         registered devices (no error is raised in that case).
         """
         devices = self._device_repository.get_active_devices_for_user(user_id)
-        return [
-            self._delivery.send(
+        results: list[PushDeliveryResult] = []
+        for device in devices:
+            result = self._delivery.send(
                 device_token=device.push_token,
                 title=title,
                 body=body,
                 data=data,
             )
-            for device in devices
-        ]
+            results.append(result)
+            if result.error_code in {'unregistered', 'invalid_token'}:
+                self._device_repository.disable(device.id)
+        return results
 
     def send_to_users(
         self,
@@ -78,7 +81,7 @@ class PushService:
     ) -> list[PushDeliveryResult]:
         """Send a notification to all active devices of multiple users."""
         results: list[PushDeliveryResult] = []
-        for user_id in user_ids:
+        for user_id in dict.fromkeys(user_ids):
             results.extend(
                 self.send_to_user(
                     user_id=user_id,
