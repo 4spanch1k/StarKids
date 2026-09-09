@@ -251,6 +251,71 @@ class BirthdaySalesFunnelV3Tests(unittest.TestCase):
         )
         self.assertEqual(completed.status_code, 200, completed.text)
 
+    def test_partial_payment_is_valid_before_and_at_manual_paid_stage(self) -> None:
+        headers = self._auth_headers()
+        for status in ('contacted', 'qualified'):
+            response = self.client.patch(
+                '/api/v1/admin/leads/lead-v3/status',
+                headers=headers,
+                json={'status': status},
+            )
+            self.assertEqual(response.status_code, 200, response.text)
+
+        booked = self.client.patch(
+            '/api/v1/admin/leads/lead-v3/status',
+            headers=headers,
+            json={
+                'status': 'booked',
+                'expectedAmountTenge': 200000,
+                'depositAmountTenge': 50000,
+                'paidAmountTenge': 50000,
+            },
+        )
+        self.assertEqual(booked.status_code, 200, booked.text)
+
+        partial_paid = self.client.patch(
+            '/api/v1/admin/leads/lead-v3/status',
+            headers=headers,
+            json={
+                'status': 'paid',
+                'expectedAmountTenge': 200000,
+                'depositAmountTenge': 50000,
+                'paidAmountTenge': 50000,
+            },
+        )
+        self.assertEqual(partial_paid.status_code, 200, partial_paid.text)
+
+        full_paid = self.client.patch(
+            '/api/v1/admin/leads/lead-v3/status',
+            headers=headers,
+            json={
+                'status': 'paid',
+                'expectedAmountTenge': 200000,
+                'depositAmountTenge': 50000,
+                'paidAmountTenge': 200000,
+            },
+        )
+        self.assertEqual(full_paid.status_code, 200, full_paid.text)
+
+        with self.SessionLocal() as session:
+            lead = session.scalar(select(BirthdayRequest).where(BirthdayRequest.id == 'lead-v3'))
+            self.assertEqual(lead.status, 'paid')
+            self.assertEqual(lead.expected_amount_tenge, 200000)
+            self.assertEqual(lead.deposit_amount_tenge, 50000)
+            self.assertEqual(lead.paid_amount_tenge, 200000)
+            self.assertIsNotNone(lead.paid_at)
+
+        completed = self.client.patch(
+            '/api/v1/admin/leads/lead-v3/status',
+            headers=headers,
+            json={'status': 'completed'},
+        )
+        self.assertEqual(completed.status_code, 200, completed.text)
+        with self.SessionLocal() as session:
+            lead = session.scalar(select(BirthdayRequest).where(BirthdayRequest.id == 'lead-v3'))
+            self.assertEqual(lead.status, 'completed')
+            self.assertEqual(lead.paid_amount_tenge, 200000)
+
     def test_paid_requires_received_amount_and_deposit_cannot_exceed_paid(self) -> None:
         headers = self._auth_headers()
         for status in ('contacted', 'qualified', 'booked'):
