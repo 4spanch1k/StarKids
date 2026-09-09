@@ -52,6 +52,75 @@ class ApiCurrentVisitRepository implements CurrentVisitRepository {
           'Не удалось проверить текущий визит.', error);
     }
   }
+
+  @override
+  Future<VisitHistory> getVisitHistory() async {
+    final session = await sessionStorage.readSession();
+    if (session == null) {
+      throw const CurrentVisitApiException(
+        'Войдите в аккаунт, чтобы посмотреть историю посещений.',
+      );
+    }
+    try {
+      final response = await apiClient.getJson(
+        '/visits/history',
+        headers: buildMobileAuthAuthorizationHeader(session),
+      );
+      if (!response.isSuccess || response.jsonBody == null) {
+        throw const CurrentVisitApiException(
+          'Не удалось загрузить историю посещений.',
+        );
+      }
+      final json = response.jsonBody!;
+      final rawItems = json['items'];
+      final items = rawItems is List
+          ? rawItems
+              .whereType<Map<String, dynamic>>()
+              .map(
+                (item) => VisitHistoryItem(
+                  visitId: item['visitId'] as String,
+                  branchId: item['branchId'] as String,
+                  branchName: item['branchName'] as String,
+                  startedAt: DateTime.parse(item['startedAt'] as String),
+                  endedAt: item['endedAt'] == null
+                      ? null
+                      : DateTime.parse(item['endedAt'] as String),
+                ),
+              )
+              .toList(growable: false)
+          : const <VisitHistoryItem>[];
+      return VisitHistory(
+        visitCount: (json['visitCount'] as num?)?.toInt() ?? 0,
+        firstVisitAt: _parseNullableDateTime(json['firstVisitAt']),
+        lastVisitAt: _parseNullableDateTime(json['lastVisitAt']),
+        items: items,
+      );
+    } on TimeoutException catch (error) {
+      throw CurrentVisitNetworkException(
+        'Не удалось загрузить историю посещений.',
+        error,
+      );
+    } on SocketException catch (error) {
+      throw CurrentVisitNetworkException(
+        'Не удалось загрузить историю посещений.',
+        error,
+      );
+    } on HttpException catch (error) {
+      throw CurrentVisitNetworkException(
+        'Не удалось загрузить историю посещений.',
+        error,
+      );
+    } on ClientException catch (error) {
+      throw CurrentVisitNetworkException(
+        'Не удалось загрузить историю посещений.',
+        error,
+      );
+    }
+  }
+
+  DateTime? _parseNullableDateTime(Object? value) {
+    return value is String ? DateTime.tryParse(value) : null;
+  }
 }
 
 class CurrentVisitApiException implements Exception {

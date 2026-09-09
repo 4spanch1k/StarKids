@@ -1,7 +1,12 @@
-from sqlalchemy import select
+from datetime import datetime
 
+from sqlalchemy import func, select
+
+from ..models.branch import Branch
 from ..models.visit import Visit
 from .base import Repository
+
+COMPLETED_VISIT_STATUS = 'completed'
 
 
 class VisitRepository(Repository):
@@ -19,6 +24,42 @@ class VisitRepository(Repository):
             .limit(1)
         )
         return self.db.scalar(statement)
+
+    def get_completed_stats_for_user(
+        self,
+        mobile_user_id: str,
+    ) -> tuple[int, datetime | None, datetime | None]:
+        """Return visit history stats, excluding an in-progress admission."""
+        row = self.db.execute(
+            select(
+                func.count(Visit.id),
+                func.min(Visit.started_at),
+                func.max(Visit.started_at),
+            ).where(
+                Visit.mobile_user_id == mobile_user_id,
+                Visit.status == COMPLETED_VISIT_STATUS,
+            )
+        ).one()
+        count, first_visit_at, last_visit_at = row
+        return int(count or 0), first_visit_at, last_visit_at
+
+    def list_completed_for_user(
+        self,
+        mobile_user_id: str,
+        *,
+        limit: int = 50,
+    ) -> list[tuple[Visit, Branch | None]]:
+        statement = (
+            select(Visit, Branch)
+            .outerjoin(Branch, Branch.id == Visit.branch_id)
+            .where(
+                Visit.mobile_user_id == mobile_user_id,
+                Visit.status == COMPLETED_VISIT_STATUS,
+            )
+            .order_by(Visit.started_at.desc(), Visit.id.desc())
+            .limit(limit)
+        )
+        return list(self.db.execute(statement).all())
 
     def add(self, visit: Visit) -> Visit:
         self.db.add(visit)

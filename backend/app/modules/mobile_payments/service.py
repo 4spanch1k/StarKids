@@ -49,6 +49,8 @@ from .schemas import (
     IssuedTicketsResponse,
     IssuedTicketQrResponse,
     CurrentVisitResponse,
+    VisitHistoryItemResponse,
+    VisitHistoryResponse,
 )
 from .signing import (
     build_freedompay_signature,
@@ -447,6 +449,35 @@ class MobilePaymentService:
             branchName=branch.name if branch is not None else 'Boom Bala',
             status=visit.status,
             startedAt=visit.started_at,
+        )
+
+    def get_visit_history(self, mobile_user_id: str) -> VisitHistoryResponse:
+        """Return completed admissions used for family-history decisions.
+
+        The active visit is intentionally excluded: while a family is inside
+        its first admission Home must show the checked-in state, not claim that
+        the family has already completed a previous visit.
+        """
+        visit_count, first_visit_at, last_visit_at = (
+            self._visit_repository.get_completed_stats_for_user(mobile_user_id)
+        )
+        items = [
+            VisitHistoryItemResponse(
+                visitId=visit.id,
+                branchId=visit.branch_id,
+                branchName=branch.name if branch is not None else 'Boom Bala',
+                startedAt=visit.started_at,
+                endedAt=visit.ended_at,
+            )
+            for visit, branch in self._visit_repository.list_completed_for_user(
+                mobile_user_id,
+            )
+        ]
+        return VisitHistoryResponse(
+            visitCount=visit_count,
+            firstVisitAt=first_visit_at,
+            lastVisitAt=last_visit_at,
+            items=items,
         )
 
     def get_issued_ticket(

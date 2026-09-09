@@ -10,6 +10,7 @@ import os
 import threading
 import unittest
 from uuid import uuid4
+from unittest.mock import patch
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -101,6 +102,37 @@ class PostgreSQLAdmissionConcurrencyTests(unittest.TestCase):
                 self.assertEqual(len(redemptions), 2)
                 self.assertEqual(len({item.visit_id for item in redemptions}), 1)
                 self.assertEqual(db.query(Visit).filter(Visit.branch_id == branch_id).count(), 1)
+
+    def test_redemption_failure_rolls_back_ticket_redemption_and_visit(self) -> None:
+        branch_id, ticket_ids = self._seed(two_tickets=False)
+        ticket_id = ticket_ids[0]
+        with self.SessionLocal() as db:
+            admin = db.scalar(
+                select(AdminUser).where(
+                    AdminUser.role == 'operator',
+                    AdminUser.branch_id == branch_id,
+                )
+            )
+            service = self._service(db)
+            with patch.object(db, 'commit', side_effect=RuntimeError('commit failed')):
+                with self.assertRaises(RuntimeError):
+                    service.redeem(
+                        qr_payload=TicketQrService(self.secret).build_payload(ticket_id),
+                        branch_id=branch_id,
+                        admin_user=admin,
+                    )
+            db.rollback()
+
+        with self.SessionLocal() as db:
+            ticket = db.get(IssuedTicket, ticket_id)
+            self.assertEqual(ticket.status, 'issued')
+            self.assertEqual(
+                db.query(TicketRedemption)
+                .filter(TicketRedemption.issued_ticket_id == ticket_id)
+                .count(),
+                0,
+            )
+            self.assertEqual(db.query(Visit).filter(Visit.branch_id == branch_id).count(), 0)
 
 
 if __name__ == '__main__':
