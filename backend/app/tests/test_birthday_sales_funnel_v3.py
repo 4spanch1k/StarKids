@@ -211,6 +211,93 @@ class BirthdaySalesFunnelV3Tests(unittest.TestCase):
         self.assertEqual(regress.status_code, 422)
         self.assertEqual(regress.json()['error']['code'], 'invalid_lead_status_transition')
 
+    def test_paid_stage_records_received_money_and_paid_timestamp(self) -> None:
+        headers = self._auth_headers()
+        for status, payload in (
+            ('contacted', {}),
+            ('qualified', {'expectedAmountTenge': 220000}),
+            ('booked', {'expectedAmountTenge': 220000}),
+            ('paid', {'expectedAmountTenge': 220000, 'depositAmountTenge': 50000, 'paidAmountTenge': 50000}),
+        ):
+            response = self.client.patch(
+                '/api/v1/admin/leads/lead-v3/status',
+                headers=headers,
+                json={'status': status, **payload},
+            )
+            self.assertEqual(response.status_code, 200, response.text)
+
+        with self.SessionLocal() as session:
+            lead = session.scalar(select(BirthdayRequest).where(BirthdayRequest.id == 'lead-v3'))
+            self.assertEqual(lead.status, 'paid')
+            self.assertEqual(lead.expected_amount_tenge, 220000)
+            self.assertEqual(lead.agreed_amount_tenge, 220000)
+            self.assertEqual(lead.deposit_amount_tenge, 50000)
+            self.assertEqual(lead.paid_amount_tenge, 50000)
+            self.assertIsNotNone(lead.paid_at)
+
+        detail = self.client.get(
+            '/api/v1/admin/leads/lead-v3/birthday',
+            headers=headers,
+        )
+        self.assertEqual(detail.status_code, 200, detail.text)
+        self.assertEqual(detail.json()['expectedAmountTenge'], 220000)
+        self.assertEqual(detail.json()['depositAmountTenge'], 50000)
+        self.assertEqual(detail.json()['paidAmountTenge'], 50000)
+
+        completed = self.client.patch(
+            '/api/v1/admin/leads/lead-v3/status',
+            headers=headers,
+            json={'status': 'completed'},
+        )
+        self.assertEqual(completed.status_code, 200, completed.text)
+
+    def test_paid_requires_received_amount_and_deposit_cannot_exceed_paid(self) -> None:
+        headers = self._auth_headers()
+        for status in ('contacted', 'qualified', 'booked'):
+            response = self.client.patch(
+                '/api/v1/admin/leads/lead-v3/status',
+                headers=headers,
+                json={'status': status},
+            )
+            self.assertEqual(response.status_code, 200, response.text)
+
+        missing_paid = self.client.patch(
+            '/api/v1/admin/leads/lead-v3/status',
+            headers=headers,
+            json={'status': 'paid'},
+        )
+        self.assertEqual(missing_paid.status_code, 422)
+        self.assertEqual(missing_paid.json()['error']['code'], 'paid_amount_required')
+
+        invalid_ratio = self.client.patch(
+            '/api/v1/admin/leads/lead-v3/status',
+            headers=headers,
+            json={'status': 'paid', 'depositAmountTenge': 50000, 'paidAmountTenge': 10000},
+        )
+        self.assertEqual(invalid_ratio.status_code, 422)
+        self.assertEqual(invalid_ratio.json()['error']['code'], 'deposit_exceeds_paid_amount')
+
+    def test_lost_lead_can_be_reopened_without_current_loss_reason(self) -> None:
+        headers = self._auth_headers()
+        lost = self.client.patch(
+            '/api/v1/admin/leads/lead-v3/status',
+            headers=headers,
+            json={'status': 'lost', 'lostReason': 'duplicate'},
+        )
+        self.assertEqual(lost.status_code, 200, lost.text)
+
+        reopened = self.client.patch(
+            '/api/v1/admin/leads/lead-v3/status',
+            headers=headers,
+            json={'status': 'contacted'},
+        )
+        self.assertEqual(reopened.status_code, 200, reopened.text)
+        with self.SessionLocal() as session:
+            lead = session.scalar(select(BirthdayRequest).where(BirthdayRequest.id == 'lead-v3'))
+            self.assertEqual(lead.status, 'contacted')
+            self.assertIsNone(lead.lost_reason)
+            self.assertIsNotNone(lead.lost_at)
+
     def _auth_headers(self) -> dict[str, str]:
         response = self.client.post(
             '/api/v1/admin/auth/login',

@@ -169,7 +169,11 @@ export function useLeadInbox() {
         !selectedLead.value ||
         selectedLead.value.type !== 'birthday_request' ||
         typeof update === 'string' ||
-        (update.agreedAmountTenge === undefined && update.lostReason === undefined)
+        (update.agreedAmountTenge === undefined &&
+          update.expectedAmountTenge === undefined &&
+          update.depositAmountTenge === undefined &&
+          update.paidAmountTenge === undefined &&
+          update.lostReason === undefined)
       ) {
         return;
       }
@@ -187,6 +191,9 @@ export function useLeadInbox() {
           leadId,
           status,
           agreedAmountTenge: salesFields.agreedAmountTenge,
+          expectedAmountTenge: salesFields.expectedAmountTenge,
+          depositAmountTenge: salesFields.depositAmountTenge,
+          paidAmountTenge: salesFields.paidAmountTenge,
           lostReason: salesFields.lostReason,
         });
       });

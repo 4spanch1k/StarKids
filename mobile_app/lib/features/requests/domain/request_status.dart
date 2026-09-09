@@ -3,6 +3,7 @@ enum RequestStatus {
   contacted(apiValue: 'contacted', label: 'Менеджер связался'),
   qualified(apiValue: 'qualified', label: 'Детали уточняются'),
   booked(apiValue: 'booked', label: 'Праздник забронирован'),
+  paid(apiValue: 'paid', label: 'Праздник забронирован'),
   completed(apiValue: 'completed', label: 'Праздник проведён'),
   lost(apiValue: 'lost', label: 'Не состоялось'),
 
@@ -24,6 +25,7 @@ enum RequestStatus {
         RequestStatus.contacted => 'Менеджер связался',
         RequestStatus.qualified => 'Детали уточняются',
         RequestStatus.booked => 'Праздник забронирован',
+        RequestStatus.paid => 'Праздник забронирован',
         RequestStatus.completed => 'Праздник проведён',
         RequestStatus.inProgress => 'Заявка в работе',
         RequestStatus.confirmed => 'Праздник подтверждён',
@@ -42,6 +44,8 @@ enum RequestStatus {
         return RequestStatus.qualified;
       case 'booked':
         return RequestStatus.booked;
+      case 'paid':
+        return RequestStatus.paid;
       case 'completed':
         return RequestStatus.completed;
       case 'in_progress':

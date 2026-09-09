@@ -162,11 +162,11 @@ function formatPaymentStatus(value: string): string {
 }
 
 function formatLeadStatus(value: string): string {
-  return ({ new: 'Новая', contacted: 'Менеджер связался', qualified: 'Квалифицирована', booked: 'Забронировано', completed: 'Проведено', in_progress: 'В работе', confirmed: 'Подтверждена', cancelled: 'Отменена', lost: 'Не состоялась', closed: 'Закрыта' } as Record<string, string>)[value] ?? value;
+  return ({ new: 'Новая', contacted: 'Менеджер связался', qualified: 'Квалифицирована', booked: 'Забронировано', paid: 'Оплачено', completed: 'Проведено', in_progress: 'В работе', confirmed: 'Подтверждена', cancelled: 'Отменена', lost: 'Не состоялась', closed: 'Закрыта' } as Record<string, string>)[value] ?? value;
 }
 
 function formatLostReason(value: string | null): string {
-  return ({ too_expensive: 'Слишком дорого', date_unavailable: 'Дата занята', no_answer: 'Не дозвонились', competitor: 'Выбрали конкурента', changed_mind: 'Передумали', other_branch: 'Другой филиал', later: 'Позже', other: 'Другое' } as Record<string, string>)[value ?? ''] ?? 'Причина не указана';
+  return ({ too_expensive: 'Слишком дорого', price: 'Слишком дорого', date_unavailable: 'Дата занята', no_answer: 'Не дозвонились', no_response: 'Не дозвонились', competitor: 'Выбрали конкурента', chose_competitor: 'Выбрали конкурента', changed_mind: 'Передумали', changed_plans: 'Изменили планы', other_branch: 'Другой филиал', later: 'Позже', duplicate: 'Дубликат заявки', other: 'Другое' } as Record<string, string>)[value ?? ''] ?? 'Причина не указана';
 }
 </script>
 

@@ -116,6 +116,9 @@ type BirthdayLeadDetailResponse = LeadDetail & {
   updatedAt?: string | null;
   contactedAt?: string | null;
   agreedAmountTenge?: number | null;
+  expectedAmountTenge?: number | null;
+  depositAmountTenge?: number | null;
+  paidAmountTenge?: number | null;
   lostReason?: string | null;
   qualifiedAt?: string | null;
   bookedAt?: string | null;
@@ -148,12 +151,16 @@ export async function fetchAdminBirthdayLeadDetail({
     updatedAt: response.updatedAt ?? null,
     contactedAt: response.contactedAt ?? null,
     agreedAmountTenge: response.agreedAmountTenge ?? null,
+    expectedAmountTenge: response.expectedAmountTenge ?? response.agreedAmountTenge ?? null,
+    depositAmountTenge: response.depositAmountTenge ?? null,
+    paidAmountTenge: response.paidAmountTenge ?? null,
     lostReason: response.lostReason ?? null,
     qualifiedAt: response.qualifiedAt ?? null,
     bookedAt: response.bookedAt ?? null,
     completedAt: response.completedAt ?? null,
     lostAt: response.lostAt ?? null,
     closedAt: response.closedAt ?? null,
+    paidAt: response.paidAt ?? null,
   };
 }
 
@@ -162,6 +169,9 @@ export function updateAdminLeadStatus({
   leadId,
   status,
   agreedAmountTenge,
+  expectedAmountTenge,
+  depositAmountTenge,
+  paidAmountTenge,
   lostReason,
   adminNote,
 }: UpdateLeadStatusRequest): Promise<LeadDetail> {
@@ -173,6 +183,9 @@ export function updateAdminLeadStatus({
       status,
       ...(adminNote !== undefined ? { adminNote } : {}),
       ...(agreedAmountTenge !== undefined ? { agreedAmountTenge } : {}),
+      ...(expectedAmountTenge !== undefined ? { expectedAmountTenge } : {}),
+      ...(depositAmountTenge !== undefined ? { depositAmountTenge } : {}),
+      ...(paidAmountTenge !== undefined ? { paidAmountTenge } : {}),
       ...(lostReason !== undefined ? { lostReason } : {}),
     }),
   });

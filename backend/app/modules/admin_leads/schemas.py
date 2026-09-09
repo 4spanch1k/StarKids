@@ -81,6 +81,9 @@ class AdminBirthdayLeadDetailResponse(BaseModel):
     packageNameSnapshot: str | None = None
     packagePriceSnapshot: int | None = None
     agreedAmountTenge: int | None = None
+    expectedAmountTenge: int | None = None
+    depositAmountTenge: int | None = None
+    paidAmountTenge: int | None = None
     lostReason: str | None = None
     comment: str | None = None
     adminNote: str | None = None
@@ -94,12 +97,16 @@ class AdminBirthdayLeadDetailResponse(BaseModel):
     completedAt: datetime | None = None
     lostAt: datetime | None = None
     closedAt: datetime | None = None
+    paidAt: datetime | None = None
 
 
 class AdminLeadStatusUpdateRequest(BaseModel):
     status: LeadInboxStatus
     adminNote: str | None = Field(default=None, max_length=2000)
     agreedAmountTenge: int | None = Field(default=None, ge=0)
+    expectedAmountTenge: int | None = Field(default=None, ge=0)
+    depositAmountTenge: int | None = Field(default=None, ge=0)
+    paidAmountTenge: int | None = Field(default=None, ge=0)
     lostReason: str | None = Field(default=None, min_length=1, max_length=32)
 
 

@@ -6,6 +6,7 @@ LeadStatus = Literal[
     'contacted',
     'qualified',
     'booked',
+    'paid',
     'completed',
     'lost',
     # Legacy values remain readable for historical/contact records.
@@ -25,6 +26,7 @@ LEAD_STATUS_CLOSED: Final[LeadStatus] = 'closed'
 LEAD_STATUS_CONTACTED: Final[LeadStatus] = 'contacted'
 LEAD_STATUS_QUALIFIED: Final[LeadStatus] = 'qualified'
 LEAD_STATUS_BOOKED: Final[LeadStatus] = 'booked'
+LEAD_STATUS_PAID: Final[LeadStatus] = 'paid'
 LEAD_STATUS_COMPLETED: Final[LeadStatus] = 'completed'
 LEAD_STATUS_LOST: Final[LeadStatus] = 'lost'
 
@@ -37,6 +39,14 @@ LOST_REASON_OTHER_BRANCH: Final[str] = 'other_branch'
 LOST_REASON_LATER: Final[str] = 'later'
 LOST_REASON_OTHER: Final[str] = 'other'
 
+# Canonical sales reasons. Legacy values below remain accepted so existing
+# requests and historical rows remain readable.
+LOST_REASON_PRICE: Final[str] = 'price'
+LOST_REASON_NO_RESPONSE: Final[str] = 'no_response'
+LOST_REASON_CHOSE_COMPETITOR: Final[str] = 'chose_competitor'
+LOST_REASON_CHANGED_PLANS: Final[str] = 'changed_plans'
+LOST_REASON_DUPLICATE: Final[str] = 'duplicate'
+
 LOST_REASONS: frozenset[str] = frozenset(
     {
         LOST_REASON_TOO_EXPENSIVE,
@@ -47,6 +57,11 @@ LOST_REASONS: frozenset[str] = frozenset(
         LOST_REASON_OTHER_BRANCH,
         LOST_REASON_LATER,
         LOST_REASON_OTHER,
+        LOST_REASON_PRICE,
+        LOST_REASON_NO_RESPONSE,
+        LOST_REASON_CHOSE_COMPETITOR,
+        LOST_REASON_CHANGED_PLANS,
+        LOST_REASON_DUPLICATE,
     }
 )
 
@@ -56,6 +71,7 @@ ACTIVE_BIRTHDAY_LEAD_STATUSES: frozenset[str] = frozenset(
         'contacted',
         'qualified',
         'booked',
+        'paid',
         # Historical statuses remain active until explicitly terminal.
         'in_progress',
         'confirmed',

@@ -3,6 +3,7 @@ export const leadStatuses = [
   'contacted',
   'qualified',
   'booked',
+  'paid',
   'completed',
   'lost',
   'in_progress',
@@ -19,6 +20,7 @@ export const leadStatusLabels: Record<LeadStatus, string> = {
   contacted: 'Менеджер связался',
   qualified: 'Квалифицирована',
   booked: 'Забронировано',
+  paid: 'Оплачено',
   completed: 'Проведено',
   lost: 'Не состоялось',
   in_progress: 'В работе',
@@ -31,9 +33,10 @@ export const leadStatusTransitions: Record<LeadStatus, LeadStatus[]> = {
   new: ['new', 'in_progress', 'contacted', 'confirmed', 'cancelled', 'closed', 'lost'],
   contacted: ['contacted', 'qualified', 'confirmed', 'cancelled', 'lost'],
   qualified: ['qualified', 'booked', 'lost'],
-  booked: ['booked', 'completed', 'lost'],
+  booked: ['booked', 'paid', 'completed', 'lost'],
+  paid: ['paid', 'completed', 'lost'],
   completed: ['completed'],
-  lost: ['lost'],
+  lost: ['lost', 'contacted', 'qualified'],
   in_progress: ['in_progress', 'contacted', 'qualified', 'booked', 'confirmed', 'cancelled', 'lost', 'closed'],
   confirmed: ['confirmed', 'completed', 'lost'],
   cancelled: ['cancelled'],
@@ -49,6 +52,11 @@ export const lostReasonOptions = [
   { value: 'other_branch', label: 'Выбрали другой филиал' },
   { value: 'later', label: 'Отложили на потом' },
   { value: 'other', label: 'Другое' },
+  { value: 'price', label: 'Слишком дорого' },
+  { value: 'no_response', label: 'Не дозвонились' },
+  { value: 'chose_competitor', label: 'Выбрали конкурента' },
+  { value: 'changed_plans', label: 'Изменили планы' },
+  { value: 'duplicate', label: 'Дубликат заявки' },
 ] as const;
 
 export const leadTypeLabels: Record<LeadType, string> = {
@@ -112,16 +120,23 @@ export type LeadDetail = LeadListItem & {
   contactedAt?: string | null;
   closedAt?: string | null;
   agreedAmountTenge?: number | null;
+  expectedAmountTenge?: number | null;
+  depositAmountTenge?: number | null;
+  paidAmountTenge?: number | null;
   lostReason?: string | null;
   qualifiedAt?: string | null;
   bookedAt?: string | null;
   completedAt?: string | null;
   lostAt?: string | null;
+  paidAt?: string | null;
 };
 
 export type LeadStatusUpdate = {
   status: LeadStatus;
   agreedAmountTenge?: number | null;
+  expectedAmountTenge?: number | null;
+  depositAmountTenge?: number | null;
+  paidAmountTenge?: number | null;
   lostReason?: string | null;
 };
 
@@ -158,7 +173,11 @@ export function describeLeadStatusFlow(status: LeadStatus): string {
   }
 
   if (status === 'booked') {
-    return 'Дата и пакет согласованы. После проведения переведите заявку в «Проведено».';
+    return 'Дата и пакет согласованы. После получения оплаты переведите заявку в «Оплачено».';
+  }
+
+  if (status === 'paid') {
+    return 'Оплата зафиксирована. После проведения переведите заявку в «Проведено».';
   }
 
   if (status === 'completed') {
@@ -169,8 +188,12 @@ export function describeLeadStatusFlow(status: LeadStatus): string {
     return 'Праздник подтверждён: заявка доступна только для просмотра.';
   }
 
-  if (status === 'cancelled' || status === 'lost' || status === 'closed') {
+  if (status === 'cancelled' || status === 'closed') {
     return 'Заявка завершена: обратные переходы не поддерживаются.';
+  }
+
+  if (status === 'lost') {
+    return 'Заявка потеряна. Если клиент вернулся, можно вернуть её в работу.';
   }
 
   return 'Заявка закрыта: статус остается только для просмотра, обратные переходы не поддерживаются.';
