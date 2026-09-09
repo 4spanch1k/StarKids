@@ -30,7 +30,7 @@
           <small v-else-if="attributionLoading" class="admin-muted">Загружаем атрибуцию…</small>
           <small v-else-if="attributionError" class="admin-inline-message--error">Атрибуция недоступна</small>
         </div>
-        <div class="admin-page-actions"><button v-if="campaign.status === 'draft' || campaign.status === 'scheduled'" class="admin-button admin-button--primary" type="button" @click="send(campaign.id)">Отправить</button><button v-if="campaign.status === 'draft' || campaign.status === 'scheduled'" class="admin-button admin-button--secondary" type="button" @click="cancel(campaign.id)">Отменить</button></div>
+        <div class="admin-page-actions"><button v-if="campaign.status === 'draft' || campaign.status === 'scheduled'" class="admin-button admin-button--primary" type="button" :disabled="sendingId === campaign.id" @click="send(campaign.id)">{{ sendingId === campaign.id ? 'Отправляем…' : 'Отправить' }}</button><button v-if="campaign.status === 'draft' || campaign.status === 'scheduled'" class="admin-button admin-button--secondary" type="button" :disabled="sendingId === campaign.id" @click="cancel(campaign.id)">Отменить</button></div>
       </article>
       <StatePanel v-if="campaigns.length === 0" title="Кампаний пока нет" description="Создайте первое сообщение для аудитории." />
     </div>
@@ -43,7 +43,7 @@ import PageShell from '@/shared/ui/PageShell.vue';
 import StatePanel from '@/shared/ui/StatePanel.vue';
 import { cancelPushCampaign, createPushCampaign, fetchPushCampaignAttribution, listPushCampaigns, previewPushAudience, sendPushCampaign, type CampaignAudience, type PushCampaign, type PushCampaignAttribution, type VisitAudienceSegment } from '@/features/push-campaigns/api/pushCampaignsApi';
 
-const campaigns = ref<PushCampaign[]>([]); const attributions = reactive<Record<string, PushCampaignAttribution>>({}); const loading = ref(true); const attributionLoading = ref(false); const attributionError = ref(false); const saving = ref(false); const error = ref(''); const providerConfigured = ref(true); const previewResult = ref<{ targeted_users: number; targeted_devices: number } | null>(null);
+const campaigns = ref<PushCampaign[]>([]); const attributions = reactive<Record<string, PushCampaignAttribution>>({}); const loading = ref(true); const attributionLoading = ref(false); const attributionError = ref(false); const saving = ref(false); const sendingId = ref<string | null>(null); const error = ref(''); const providerConfigured = ref(true); const previewResult = ref<{ targeted_users: number; targeted_devices: number } | null>(null);
 const form = reactive({ internal_name: '', title: '', body: '', audience: { type: 'all_users' as 'all_users' | 'birthday_in_days' | 'visit_segment', days_before_birthday: 7, visit_segment: 'dormant_30' as VisitAudienceSegment }, destination: 'home' as PushCampaign['destination'], scheduled_at: '' });
 async function load() { loading.value = true; attributionLoading.value = true; attributionError.value = false; try { campaigns.value = await listPushCampaigns(); providerConfigured.value = campaigns.value.every((c) => c.push_provider_configured); const reports = await Promise.all(campaigns.value.map(async (campaign) => [campaign.id, await fetchPushCampaignAttribution(campaign.id)] as const)); Object.keys(attributions).forEach((id) => delete attributions[id]); reports.forEach(([id, report]) => { attributions[id] = report; }); } catch (e) { error.value = e instanceof Error ? e.message : 'Не удалось загрузить кампании'; attributionError.value = true; } finally { loading.value = false; attributionLoading.value = false; } }
 function currentAudience(): CampaignAudience {
@@ -53,7 +53,7 @@ function currentAudience(): CampaignAudience {
 }
 async function preview() { try { previewResult.value = await previewPushAudience(currentAudience()); } catch (e) { error.value = e instanceof Error ? e.message : 'Не удалось проверить аудиторию'; } }
 async function create() { saving.value = true; error.value = ''; try { await createPushCampaign({ ...form, scheduled_at: form.scheduled_at ? new Date(form.scheduled_at).toISOString() : null, audience: currentAudience() }); Object.assign(form, { internal_name: '', title: '', body: '', scheduled_at: '' }); await load(); } catch (e) { error.value = e instanceof Error ? e.message : 'Не удалось создать кампанию'; } finally { saving.value = false; } }
-async function send(id: string) { if (!window.confirm('Отправить кампанию сейчас?')) return; try { await sendPushCampaign(id); await load(); } catch (e) { error.value = e instanceof Error ? e.message : 'Не удалось отправить кампанию'; } }
+async function send(id: string) { if (sendingId.value || !window.confirm('Отправить кампанию сейчас?')) return; sendingId.value = id; error.value = ''; try { await sendPushCampaign(id); await load(); } catch (e) { error.value = e instanceof Error ? e.message : 'Не удалось отправить кампанию'; } finally { sendingId.value = null; } }
 async function cancel(id: string) { try { await cancelPushCampaign(id); await load(); } catch (e) { error.value = e instanceof Error ? e.message : 'Не удалось отменить кампанию'; } }
 function audienceLabel(c: PushCampaign) {
   if (c.audience.type === 'all_users') return 'все пользователи';

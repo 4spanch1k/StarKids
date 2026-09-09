@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
 
 from ..models.mobile_notification_device import MobileNotificationDevice
@@ -145,3 +145,21 @@ class MobileNotificationDeviceRepository(Repository):
         self.db.delete(device)
         self.db.commit()
         return True
+
+    def disable(self, device_id: str, *, commit: bool = False) -> bool:
+        """Stop retrying a token that the provider says is no longer valid.
+
+        The repository flushes by default and leaves transaction ownership to
+        the push use-case.  Callers that intentionally use this repository as
+        a standalone boundary may opt into the legacy commit behavior.
+        """
+        result = self.db.execute(
+            update(MobileNotificationDevice)
+            .where(MobileNotificationDevice.id == device_id)
+            .values(notifications_enabled=False, updated_at=datetime.now(UTC))
+        )
+        if commit:
+            self.db.commit()
+        else:
+            self.db.flush()
+        return bool(result.rowcount)

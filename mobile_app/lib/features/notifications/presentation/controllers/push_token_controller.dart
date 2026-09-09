@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 import '../../../auth/domain/mobile_auth_session.dart';
 import '../../../auth/presentation/controllers/mobile_auth_controller.dart';
@@ -19,7 +20,7 @@ import '../../domain/push_token_repository.dart';
 /// - [NotificationSettingsRepository] — supplies the current permission status.
 /// - [FcmTokenGateway] — fetches and streams FCM tokens.
 /// - [PushTokenRepository] — sends/removes tokens via the backend API.
-class PushTokenController extends ChangeNotifier {
+class PushTokenController extends ChangeNotifier with WidgetsBindingObserver {
   PushTokenController({
     required MobileAuthController authController,
     required NotificationSettingsRepository notificationSettingsRepository,
@@ -48,8 +49,10 @@ class PushTokenController extends ChangeNotifier {
   String? get registeredToken => _registeredToken;
 
   /// Starts listening to auth and permission changes and attempts the first
-  /// token registration if the user is already authenticated and permission is
-  /// granted.  Safe to call multiple times — subsequent calls are no-ops.
+  /// token registration if the user is already authenticated. If the platform
+  /// has not asked for notification permission yet, the permission request is
+  /// made explicitly here before obtaining a token. Safe to call multiple
+  /// times — subsequent calls are no-ops.
   Future<void> bootstrap() async {
     if (_bootstrapped) {
       return;
@@ -57,6 +60,7 @@ class PushTokenController extends ChangeNotifier {
 
     _bootstrapped = true;
     _authController.addListener(_onAuthStateChanged);
+    WidgetsBinding.instance.addObserver(this);
     _subscribeToTokenRefresh();
     await _tryRegisterIfReady();
   }
@@ -97,8 +101,19 @@ class PushTokenController extends ChangeNotifier {
   @override
   void dispose() {
     _authController.removeListener(_onAuthStateChanged);
+    WidgetsBinding.instance.removeObserver(this);
     _tokenRefreshSubscription?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // A user may grant notification permission from the system Settings app.
+    // Retrying on resume also recovers a registration that failed while the
+    // device was offline, without requiring a logout/login cycle.
+    if (state == AppLifecycleState.resumed && _authController.isAuthenticated) {
+      unawaited(retryRegistration());
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -160,8 +175,13 @@ class PushTokenController extends ChangeNotifier {
       return;
     }
 
-    final permissionStatus =
+    var permissionStatus =
         await _notificationSettingsRepository.loadPermissionStatus();
+
+    if (permissionStatus == NotificationPermissionStatus.unknown) {
+      permissionStatus =
+          await _notificationSettingsRepository.requestPermission();
+    }
 
     if (permissionStatus == NotificationPermissionStatus.denied) {
       _setStatus(PushRegistrationStatus.permissionDenied);
@@ -172,9 +192,10 @@ class PushTokenController extends ChangeNotifier {
       _setStatus(PushRegistrationStatus.unavailable);
       return;
     }
-
-    // For unknown permission: attempt to get token anyway; the backend call
-    // will succeed and the user will be prompted for permission separately.
+    if (permissionStatus != NotificationPermissionStatus.granted) {
+      _setStatus(PushRegistrationStatus.unavailable);
+      return;
+    }
 
     _setStatus(PushRegistrationStatus.registering);
 
@@ -184,10 +205,18 @@ class PushTokenController extends ChangeNotifier {
       return;
     }
 
-    await _registerToken(token, accessToken: session.accessToken);
+    await _registerToken(
+      token,
+      accessToken: session.accessToken,
+      permissionStatus: permissionStatus,
+    );
   }
 
-  Future<void> _registerToken(String token, {String? accessToken}) async {
+  Future<void> _registerToken(
+    String token, {
+    String? accessToken,
+    NotificationPermissionStatus? permissionStatus,
+  }) async {
     if (_logoutInProgress) {
       return;
     }
@@ -199,13 +228,29 @@ class PushTokenController extends ChangeNotifier {
 
     _setStatus(PushRegistrationStatus.registering);
 
-    final permissionStatus =
+    var resolvedPermissionStatus = permissionStatus ??
         await _notificationSettingsRepository.loadPermissionStatus();
+    if (resolvedPermissionStatus == NotificationPermissionStatus.unknown) {
+      resolvedPermissionStatus =
+          await _notificationSettingsRepository.requestPermission();
+    }
+    if (resolvedPermissionStatus == NotificationPermissionStatus.denied) {
+      _setStatus(PushRegistrationStatus.permissionDenied);
+      return;
+    }
+    if (resolvedPermissionStatus == NotificationPermissionStatus.unavailable) {
+      _setStatus(PushRegistrationStatus.unavailable);
+      return;
+    }
+    if (resolvedPermissionStatus != NotificationPermissionStatus.granted) {
+      _setStatus(PushRegistrationStatus.unavailable);
+      return;
+    }
 
     final success = await _pushTokenRepository.registerToken(
       token: token,
       platform: defaultTargetPlatform.name.toLowerCase(),
-      permissionStatus: permissionStatus.name,
+      permissionStatus: resolvedPermissionStatus.name,
       accessToken: resolvedToken,
     );
 
