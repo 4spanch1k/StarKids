@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from ...core.database.session import get_db_session
@@ -9,10 +9,12 @@ from ...db.repositories.lead_inbox_repository import LeadInboxRepository
 from ..admin_auth.dependencies import require_admin_roles
 from .schemas import (
     AdminBirthdayLeadDetailResponse,
+    AdminBirthdayOperationsSummaryResponse,
     AdminLeadDetailResponse,
     AdminLeadListQuery,
     AdminLeadListResponse,
     AdminLeadStatusUpdateRequest,
+    OwnerDashboardPeriod,
 )
 from .service import AdminLeadInboxService, LEAD_INBOX_ALLOWED_ROLES
 
@@ -43,6 +45,18 @@ def list_admin_leads(
     service: AdminLeadInboxService = Depends(get_admin_lead_inbox_service),
 ) -> AdminLeadListResponse:
     return service.list_leads(filters)
+
+
+@router.get(
+    '/leads/birthday/operations-summary',
+    response_model=AdminBirthdayOperationsSummaryResponse,
+    responses={401: {'model': ErrorResponse}, 403: {'model': ErrorResponse}},
+)
+def get_birthday_operations_summary(
+    period: OwnerDashboardPeriod = Query(default=OwnerDashboardPeriod.TODAY),
+    service: AdminLeadInboxService = Depends(get_admin_lead_inbox_service),
+) -> AdminBirthdayOperationsSummaryResponse:
+    return service.get_birthday_operations_summary(period)
 
 
 @router.get(

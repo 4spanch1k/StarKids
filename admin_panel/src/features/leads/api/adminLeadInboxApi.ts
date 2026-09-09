@@ -17,6 +17,19 @@ type FetchLeadListRequest = AuthorizedRequest & {
   filters: LeadListFilters;
 };
 
+export type BirthdayOperationsSummary = {
+  period: 'today' | '7d' | '30d';
+  periodStart: string;
+  periodEnd: string;
+  timezone: string;
+  newAwaitingContact: number;
+  oldestWaitingMinutes: number | null;
+  leadsCreated: number;
+  contactedFromCreatedLeads: number;
+  medianFirstContactMinutes: number | null;
+  p90FirstContactMinutes: number | null;
+};
+
 type UpdateLeadStatusRequest = AuthorizedRequest & LeadStatusUpdate & {
   leadId: string;
   adminNote?: string;
@@ -54,10 +67,27 @@ export function fetchAdminLeadList({
   if (filters.createdTo) {
     query.set('createdTo', filters.createdTo);
   }
+  if (filters.awaitingContact) {
+    query.set('awaitingContact', 'true');
+  }
+  if (filters.sort !== 'newest') {
+    query.set('sort', filters.sort);
+  }
 
   const querySuffix = query.size > 0 ? `?${query.toString()}` : '';
   return httpClient<LeadListResponse>({
     path: `${ADMIN_LEADS_BASE_PATH}${querySuffix}`,
+    method: 'GET',
+    headers: buildAuthorizedHeaders(accessToken),
+  });
+}
+
+export function fetchBirthdayOperationsSummary({
+  accessToken,
+  period,
+}: AuthorizedRequest & { period: BirthdayOperationsSummary['period'] }): Promise<BirthdayOperationsSummary> {
+  return httpClient<BirthdayOperationsSummary>({
+    path: `/admin/leads/birthday/operations-summary?period=${encodeURIComponent(period)}`,
     method: 'GET',
     headers: buildAuthorizedHeaders(accessToken),
   });

@@ -109,8 +109,9 @@ class ContactLeadEndpointTests(unittest.TestCase):
 
         self.assertEqual(inbox_response.status_code, 200)
         self.assertEqual(inbox_response.json()['total'], 1)
+        inbox_item = inbox_response.json()['items'][0]
         self.assertEqual(
-            inbox_response.json()['items'][0],
+            {key: inbox_item[key] for key in inbox_item if key not in {'waitingForContactMinutes', 'firstContactMinutes'}},
             {
                 'id': lead_id,
                 'type': 'contact',
@@ -126,6 +127,8 @@ class ContactLeadEndpointTests(unittest.TestCase):
                 'package': None,
             },
         )
+        self.assertIsNone(inbox_item['waitingForContactMinutes'])
+        self.assertIsNone(inbox_item['firstContactMinutes'])
 
         detail_response = self.client.get(
             f'/api/v1/admin/leads/{lead_id}',
@@ -133,8 +136,9 @@ class ContactLeadEndpointTests(unittest.TestCase):
         )
 
         self.assertEqual(detail_response.status_code, 200)
+        detail_body = detail_response.json()
         self.assertEqual(
-            detail_response.json(),
+            {key: detail_body[key] for key in detail_body if key not in {'waitingForContactMinutes', 'firstContactMinutes'}},
             {
                 'id': lead_id,
                 'type': 'contact',
@@ -153,6 +157,8 @@ class ContactLeadEndpointTests(unittest.TestCase):
                 'contactMethod': 'phone',
             },
         )
+        self.assertIsNone(detail_body['waitingForContactMinutes'])
+        self.assertIsNone(detail_body['firstContactMinutes'])
 
     def test_contact_lead_status_can_be_updated_from_admin_inbox(self) -> None:
         with self.SessionLocal() as session:

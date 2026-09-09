@@ -58,14 +58,17 @@ class LeadInboxRepository(Repository):
         status: str | None = None,
         created_from: date | None = None,
         created_to: date | None = None,
+        awaiting_contact: bool = False,
+        sort: str = 'newest',
     ) -> list[LeadInboxRecord]:
         records = self._list_birthday_request_records(
             branch_id=branch_id,
             status=status,
             created_from=created_from,
             created_to=created_to,
+            awaiting_contact=awaiting_contact,
         )
-        if branch_id is None:
+        if branch_id is None and not awaiting_contact:
             records.extend(
                 self._list_contact_records(
                     status=status,
@@ -73,7 +76,15 @@ class LeadInboxRepository(Repository):
                     created_to=created_to,
                 )
             )
-        return sorted(records, key=lambda record: record.created_at, reverse=True)
+        if sort == 'oldest_uncontacted':
+            waiting = [record for record in records if self._is_waiting_for_contact(record)]
+            other = [record for record in records if not self._is_waiting_for_contact(record)]
+            return sorted(waiting, key=lambda record: (record.created_at, record.id)) + sorted(
+                other,
+                key=lambda record: (record.created_at, record.id),
+                reverse=True,
+            )
+        return sorted(records, key=lambda record: (record.created_at, record.id), reverse=True)
 
     def get_record(self, lead_id: str) -> LeadInboxRecord | None:
         birthday_record = self.get_birthday_request_record(lead_id)
@@ -88,6 +99,7 @@ class LeadInboxRepository(Repository):
         status: str | None = None,
         created_from: date | None = None,
         created_to: date | None = None,
+        awaiting_contact: bool = False,
     ) -> list[LeadInboxRecord]:
         statement = self._build_record_query()
 
@@ -99,9 +111,42 @@ class LeadInboxRepository(Repository):
             statement = statement.where(func.date(BirthdayRequest.created_at) >= created_from)
         if created_to:
             statement = statement.where(func.date(BirthdayRequest.created_at) <= created_to)
+        if awaiting_contact:
+            statement = statement.where(
+                BirthdayRequest.status == 'new',
+                BirthdayRequest.contacted_at.is_(None),
+            )
 
         rows = self.db.execute(statement.order_by(BirthdayRequest.created_at.desc())).all()
         return [self._map_record(row) for row in rows]
+
+    def list_birthday_operations_rows(
+        self,
+        *,
+        period_start: datetime,
+        period_end: datetime,
+    ) -> tuple[int, datetime | None, list[tuple[datetime, datetime | None]]]:
+        """Return current queue aggregates and bounded period response rows.
+
+        Both queries deliberately target BirthdayRequest only. Contact leads are
+        not birthday revenue leads and must never affect these operational metrics.
+        """
+        waiting_count, oldest_waiting_created_at = self.db.execute(
+            select(
+                func.count(BirthdayRequest.id),
+                func.min(BirthdayRequest.created_at),
+            ).where(
+                BirthdayRequest.status == 'new',
+                BirthdayRequest.contacted_at.is_(None),
+            )
+        ).one()
+        period_rows = self.db.execute(
+            select(BirthdayRequest.created_at, BirthdayRequest.contacted_at).where(
+                BirthdayRequest.created_at >= period_start,
+                BirthdayRequest.created_at <= period_end,
+            )
+        ).all()
+        return int(waiting_count or 0), oldest_waiting_created_at, period_rows
 
     def get_birthday_request_record(self, lead_id: str) -> LeadInboxRecord | None:
         row = self.db.execute(
@@ -281,4 +326,12 @@ class LeadInboxRepository(Repository):
             completed_at=None,
             lost_at=None,
             closed_at=None,
+        )
+
+    @staticmethod
+    def _is_waiting_for_contact(record: LeadInboxRecord) -> bool:
+        return (
+            record.type == LEAD_TYPE_BIRTHDAY_REQUEST
+            and record.status == 'new'
+            and record.contacted_at is None
         )
