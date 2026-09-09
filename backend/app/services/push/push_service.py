@@ -59,6 +59,7 @@ class PushService:
         """
         devices = self._device_repository.get_active_devices_for_user(user_id)
         results: list[PushDeliveryResult] = []
+        disabled_device = False
         for device in devices:
             result = self._delivery.send(
                 device_token=device.push_token,
@@ -69,6 +70,12 @@ class PushService:
             results.append(result)
             if result.error_code in {'unregistered', 'invalid_token'}:
                 self._device_repository.disable(device.id)
+                disabled_device = True
+        if disabled_device:
+            # PushService owns this send use-case.  Commit once after all
+            # provider results so repository helpers cannot commit a caller's
+            # surrounding transaction halfway through the send.
+            self._device_repository.db.commit()
         return results
 
     def send_to_users(

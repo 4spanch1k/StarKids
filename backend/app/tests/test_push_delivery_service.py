@@ -258,6 +258,23 @@ class PushServiceTests(unittest.TestCase):
         self.assertIsNotNone(refreshed)
         self.assertFalse(refreshed.notifications_enabled)
 
+    def test_disable_leaves_transaction_ownership_with_caller(self) -> None:
+        with self.SessionLocal() as session:
+            user, device = self._create_user_with_device(
+                session, '+77070000008', 'token-transaction-boundary'
+            )
+
+        with self.SessionLocal() as session:
+            repository = MobileNotificationDeviceRepository(session)
+            self.assertTrue(repository.disable(device.id))
+            session.rollback()
+
+        with self.SessionLocal() as session:
+            refreshed = session.get(MobileNotificationDevice, device.id)
+
+        self.assertIsNotNone(refreshed)
+        self.assertTrue(refreshed.notifications_enabled)
+
     def test_send_to_users_aggregates_across_multiple_users(self) -> None:
         with self.SessionLocal() as session:
             user1, _ = self._create_user_with_device(session, '+77070000003', 'token-a')
