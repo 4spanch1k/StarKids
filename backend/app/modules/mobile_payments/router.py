@@ -17,6 +17,7 @@ from .schemas import (
     MobilePaymentStatusResponse,
     PurchasedTicketsResponse,
     CurrentVisitResponse,
+    VisitHistoryResponse,
 )
 from .service import MobilePaymentService
 
@@ -112,6 +113,18 @@ def get_current_visit(
     service: MobilePaymentService = Depends(get_mobile_payment_service),
 ) -> CurrentVisitResponse | None:
     return service.get_current_visit(auth_context.user.id)
+
+
+@mobile_router.get(
+    '/visits/history',
+    response_model=VisitHistoryResponse,
+    responses={401: {'model': ErrorResponse}},
+)
+def get_visit_history(
+    auth_context: AuthenticatedMobileContext = Depends(get_current_mobile_auth_context),
+    service: MobilePaymentService = Depends(get_mobile_payment_service),
+) -> VisitHistoryResponse:
+    return service.get_visit_history(auth_context.user.id)
 
 
 @mobile_router.get(
