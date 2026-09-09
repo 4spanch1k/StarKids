@@ -129,8 +129,9 @@ class MobileLeadToAdminInboxFlowTests(unittest.TestCase):
 
         self.assertEqual(inbox_response.status_code, 200)
         self.assertEqual(inbox_response.json()['total'], 1)
+        item = inbox_response.json()['items'][0]
         self.assertEqual(
-            inbox_response.json()['items'][0],
+            {key: item[key] for key in item if key not in {'waitingForContactMinutes', 'firstContactMinutes'}},
             {
                 'id': request_id,
                 'type': 'birthday_request',
@@ -156,6 +157,8 @@ class MobileLeadToAdminInboxFlowTests(unittest.TestCase):
                 },
             },
         )
+        self.assertGreaterEqual(item['waitingForContactMinutes'], 0)
+        self.assertIsNone(item['firstContactMinutes'])
 
     def _auth_headers(self) -> dict[str, str]:
         login_response = self.client.post(

@@ -2,10 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../foundations/star_kids_colors.dart';
-
-const starKidsLogoAssetPath =
-    'assets/images/645959303_17890733316429584_1469844678684572952_n.jpg';
+import '../sk_theme.dart';
+import 'star_kids_brand_logo.dart';
 
 class StarKidsLogoLoader extends StatelessWidget {
   const StarKidsLogoLoader({
@@ -19,6 +17,8 @@ class StarKidsLogoLoader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final shortestSide = constraints.biggest.shortestSide;
@@ -37,17 +37,15 @@ class StarKidsLogoLoader extends StatelessWidget {
                 dimension: ringSize,
                 child: CircularProgressIndicator(
                   strokeWidth: strokeWidth,
-                  backgroundColor: StarKidsColors.surfaceTertiary,
-                  valueColor: const AlwaysStoppedAnimation<Color>(
-                    StarKidsColors.brandPrimary,
-                  ),
+                  backgroundColor: c.hairline,
+                  valueColor: AlwaysStoppedAnimation<Color>(c.cta),
                 ),
               ),
               DecoratedBox(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: StarKidsColors.surfacePrimary,
-                  boxShadow: [
+                  color: c.elevated,
+                  boxShadow: const [
                     BoxShadow(
                       color: Color(0x14000000),
                       blurRadius: 18,
@@ -55,15 +53,11 @@ class StarKidsLogoLoader extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(6),
-                  child: ClipOval(
-                    child: Image.asset(
-                      starKidsLogoAssetPath,
-                      width: resolvedLogoSize,
-                      height: resolvedLogoSize,
-                      fit: BoxFit.cover,
-                    ),
+                child: SizedBox.square(
+                  dimension: resolvedLogoSize + 12,
+                  child: StarKidsBrandLogo(
+                    logoSize: resolvedLogoSize,
+                    maxRelativeSize: 1,
                   ),
                 ),
               ),
@@ -73,9 +67,7 @@ class StarKidsLogoLoader extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: StarKidsColors.surfacePrimary.withValues(
-                          alpha: 0.78,
-                        ),
+                        color: Colors.white.withValues(alpha: 0.78),
                         width: 1,
                       ),
                     ),

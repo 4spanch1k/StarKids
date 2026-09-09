@@ -2,7 +2,7 @@ const SURFACE_LABELS: Record<string, string> = {
   birthdays: 'Дни рождения',
   contacts: 'Контакты и маршрут',
   home: 'Главный экран',
-  prices_rules: 'Цены и правила',
+  prices_rules: 'Меню',
   promotions: 'Акции',
   request: 'Форма заявки',
 };

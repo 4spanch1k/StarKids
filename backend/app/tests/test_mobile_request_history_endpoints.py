@@ -186,7 +186,9 @@ class MobileRequestHistoryEndpointTests(unittest.TestCase):
             headers={'Authorization': f"Bearer {user_two['access_token']}"},
         )
         self.assertEqual(other_user_history_response.status_code, 200)
-        self.assertEqual(other_user_history_response.json(), {'items': [], 'total': 0})
+        other_body = other_user_history_response.json()
+        self.assertEqual(other_body['items'], [])
+        self.assertEqual(other_body['total'], 0)
 
         with self.SessionLocal() as session:
             saved_birthday = session.scalar(

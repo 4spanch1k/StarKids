@@ -45,7 +45,7 @@
           class="lead-status-button"
           :class="{ 'lead-status-button--active': status === lead.status }"
           :disabled="isStatusUpdating || !isLeadStatusActionEnabled(lead.status, status)"
-          @click="$emit('update-status', status)"
+          @click="handleStatusAction(status)"
         >
           {{ formatStatus(status) }}
         </button>
@@ -67,6 +67,71 @@
       >
         {{ statusErrorMessage }}
       </p>
+    </section>
+
+    <section v-if="lead.type === 'birthday_request'" class="lead-sales-panel">
+      <div class="admin-section-heading">
+        <h3>Коммерческие данные</h3>
+        <p>Это данные переговоров, а не факт оплаты или выручка.</p>
+      </div>
+      <div class="lead-sales-panel__fields">
+        <label class="lead-sales-panel__field">
+          <span>Ожидаемая стоимость, ₸</span>
+          <input
+            v-model.number="expectedAmountDraft"
+            type="number"
+            min="0"
+            step="1"
+            inputmode="numeric"
+            placeholder="Не указана"
+            :disabled="isStatusUpdating"
+          />
+        </label>
+        <label class="lead-sales-panel__field">
+          <span>Депозит, ₸</span>
+          <input
+            v-model.number="depositAmountDraft"
+            type="number"
+            min="0"
+            step="1"
+            inputmode="numeric"
+            placeholder="Не указан"
+            :disabled="isStatusUpdating"
+          />
+        </label>
+        <label class="lead-sales-panel__field">
+          <span>Получено, ₸</span>
+          <input
+            v-model.number="paidAmountDraft"
+            type="number"
+            min="0"
+            step="1"
+            inputmode="numeric"
+            placeholder="Не указано"
+            :disabled="isStatusUpdating"
+          />
+        </label>
+        <label class="lead-sales-panel__field">
+          <span>Причина потери</span>
+          <select v-model="lostReasonDraft" :disabled="isStatusUpdating">
+            <option value="">Не выбрана</option>
+            <option v-for="option in lostReasonOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </label>
+      </div>
+      <p v-if="salesFormError" class="admin-inline-message admin-inline-message--error">
+        {{ salesFormError }}
+      </p>
+      <button
+        type="button"
+        class="admin-button admin-button--secondary"
+        :disabled="isStatusUpdating || !hasValidSalesAmounts()"
+        @click="saveSalesFields"
+      >
+        Сохранить коммерческие данные
+      </button>
     </section>
 
     <div class="admin-info-grid">
@@ -118,6 +183,32 @@
             <dt>Пакет</dt>
             <dd>{{ formatPackageName(lead.package) }}</dd>
           </div>
+          <div v-if="lead.type === 'birthday_request' && lead.childName">
+            <dt>Ребёнок</dt>
+            <dd>
+              {{ lead.childName }}<span v-if="lead.childBirthDate">, {{ formatDate(lead.childBirthDate) }}</span>
+            </dd>
+          </div>
+          <div v-if="lead.type === 'birthday_request' && lead.packagePriceSnapshot !== null && lead.packagePriceSnapshot !== undefined">
+            <dt>Цена на момент заявки</dt>
+            <dd>{{ formatMoney(lead.packagePriceSnapshot) }}</dd>
+          </div>
+          <div v-if="lead.type === 'birthday_request' && lead.agreedAmountTenge !== null && lead.agreedAmountTenge !== undefined">
+            <dt>Согласованная стоимость</dt>
+            <dd>{{ formatMoney(lead.agreedAmountTenge) }}</dd>
+          </div>
+          <div v-if="lead.type === 'birthday_request' && lead.depositAmountTenge !== null && lead.depositAmountTenge !== undefined">
+            <dt>Депозит</dt>
+            <dd>{{ formatMoney(lead.depositAmountTenge) }}</dd>
+          </div>
+          <div v-if="lead.type === 'birthday_request' && lead.paidAmountTenge !== null && lead.paidAmountTenge !== undefined">
+            <dt>Оплачено</dt>
+            <dd>{{ formatMoney(lead.paidAmountTenge) }}</dd>
+          </div>
+          <div v-if="lead.type === 'birthday_request' && lead.status === 'lost'">
+            <dt>Причина потери</dt>
+            <dd>{{ formatLostReason(lead.lostReason) }}</dd>
+          </div>
           <div v-if="lead.type === 'birthday_request'">
             <dt>Гостей</dt>
             <dd>{{ formatGuestCount(lead.guestCount) }}</dd>
@@ -130,6 +221,44 @@
             <dt>Создана</dt>
             <dd>{{ formatDateTime(lead.createdAt) }}</dd>
           </div>
+          <template v-if="lead.type === 'birthday_request'">
+            <div>
+              <dt>Первый контакт</dt>
+              <dd>{{ lead.contactedAt ? formatDateTime(lead.contactedAt) : 'Ещё не было' }}</dd>
+            </div>
+            <div v-if="lead.waitingForContactMinutes !== null">
+              <dt>Ожидает контакта</dt>
+              <dd>{{ formatDuration(lead.waitingForContactMinutes) }}</dd>
+            </div>
+            <div v-if="lead.firstContactMinutes !== null">
+              <dt>Время до контакта</dt>
+              <dd>{{ formatDuration(lead.firstContactMinutes) }}</dd>
+            </div>
+          </template>
+          <div v-if="lead.contactedAt">
+            <dt>Связались</dt>
+            <dd>{{ formatDateTime(lead.contactedAt) }}</dd>
+          </div>
+          <div v-if="lead.qualifiedAt">
+            <dt>Квалифицирована</dt>
+            <dd>{{ formatDateTime(lead.qualifiedAt) }}</dd>
+          </div>
+          <div v-if="lead.bookedAt">
+            <dt>Забронировано</dt>
+            <dd>{{ formatDateTime(lead.bookedAt) }}</dd>
+          </div>
+          <div v-if="lead.paidAt">
+            <dt>Оплачено</dt>
+            <dd>{{ formatDateTime(lead.paidAt) }}</dd>
+          </div>
+          <div v-if="lead.completedAt">
+            <dt>Проведено</dt>
+            <dd>{{ formatDateTime(lead.completedAt) }}</dd>
+          </div>
+          <div v-if="lead.lostAt">
+            <dt>Потеряно</dt>
+            <dd>{{ formatDateTime(lead.lostAt) }}</dd>
+          </div>
         </dl>
       </article>
 
@@ -141,42 +270,149 @@
           {{ notesFallback(lead.type, lead.notes) }}
         </p>
       </article>
+
+      <article v-if="lead.type === 'birthday_request'" class="lead-detail-card lead-detail-card--full">
+        <div class="admin-section-heading">
+          <h3>Внутренняя заметка</h3>
+          <p>Видна только менеджерам.</p>
+        </div>
+        <textarea
+          v-model="adminNoteDraft"
+          class="lead-detail-card__note-input"
+          maxlength="2000"
+          rows="4"
+          placeholder="Например: позвонили, ждём подтверждение даты."
+          :disabled="isStatusUpdating"
+        />
+        <button
+          type="button"
+          class="admin-button admin-button--secondary lead-detail-card__note-button"
+          :disabled="isStatusUpdating"
+          @click="emit('save-note', adminNoteDraft.trim())"
+        >
+          Сохранить заметку
+        </button>
+      </article>
     </div>
   </template>
 </template>
 
 <script setup lang="ts">
+import { ref, watch } from 'vue';
 import {
   describeLeadStatusFlow,
   formatLeadStatus as formatStatus,
   formatLeadType as formatType,
   isLeadStatusActionEnabled,
   leadStatuses,
+  lostReasonOptions,
   type LeadBranchSummary,
   type LeadDetail,
   type LeadPackageSummary,
   type LeadStatus,
+  type LeadStatusUpdate,
   type LeadType,
 } from '@/entities/lead/model/lead';
 import StatusBadge from '@/shared/ui/StatusBadge.vue';
 
-defineProps<{
+const props = defineProps<{
   lead: LeadDetail;
   isStatusUpdating: boolean;
   statusSuccessMessage: string;
   statusErrorMessage: string;
 }>();
 
-defineEmits<{
-  'update-status': [status: LeadStatus];
+const emit = defineEmits<{
+  'update-status': [update: LeadStatus | LeadStatusUpdate];
+  'save-note': [note: string];
 }>();
+
+const adminNoteDraft = ref(props.lead.adminNote ?? '');
+const expectedAmountDraft = ref<number | string | null>(props.lead.expectedAmountTenge ?? props.lead.agreedAmountTenge ?? null);
+const depositAmountDraft = ref<number | string | null>(props.lead.depositAmountTenge ?? null);
+const paidAmountDraft = ref<number | string | null>(props.lead.paidAmountTenge ?? null);
+const lostReasonDraft = ref(props.lead.lostReason ?? '');
+const salesFormError = ref('');
+
+watch(
+  () => [props.lead.id, props.lead.expectedAmountTenge, props.lead.agreedAmountTenge, props.lead.depositAmountTenge, props.lead.paidAmountTenge, props.lead.lostReason],
+  () => {
+    adminNoteDraft.value = props.lead.adminNote ?? '';
+    expectedAmountDraft.value = props.lead.expectedAmountTenge ?? props.lead.agreedAmountTenge ?? null;
+    depositAmountDraft.value = props.lead.depositAmountTenge ?? null;
+    paidAmountDraft.value = props.lead.paidAmountTenge ?? null;
+    lostReasonDraft.value = props.lead.lostReason ?? '';
+    salesFormError.value = '';
+  },
+);
+
+function handleStatusAction(status: LeadStatus) {
+  salesFormError.value = '';
+  if (status === 'lost' && !lostReasonDraft.value) {
+    salesFormError.value = 'Перед переводом в «Не состоялось» выберите причину потери.';
+    return;
+  }
+  if (status === 'paid' && normalizedAmount(paidAmountDraft.value) === undefined) {
+    salesFormError.value = 'Перед переводом в «Оплачено» укажите полученную сумму.';
+    return;
+  }
+
+  emit('update-status', {
+    status,
+    expectedAmountTenge: normalizedAmount(expectedAmountDraft.value),
+    depositAmountTenge: normalizedAmount(depositAmountDraft.value),
+    paidAmountTenge: normalizedAmount(paidAmountDraft.value),
+    lostReason: status === 'lost' ? lostReasonDraft.value : undefined,
+  });
+}
+
+function saveSalesFields() {
+  salesFormError.value = '';
+  if (!hasValidSalesAmounts()) {
+    salesFormError.value = 'Укажите суммы целыми неотрицательными числами.';
+    return;
+  }
+
+  emit('update-status', {
+    status: props.lead.status,
+    expectedAmountTenge: normalizedAmount(expectedAmountDraft.value),
+    depositAmountTenge: normalizedAmount(depositAmountDraft.value),
+    paidAmountTenge: normalizedAmount(paidAmountDraft.value),
+    lostReason: props.lead.status === 'lost' ? lostReasonDraft.value || undefined : undefined,
+  });
+}
+
+function normalizedAmount(value: number | string | null): number | undefined {
+  if (value === null || value === '') {
+    return undefined;
+  }
+
+  const amount = Number(value);
+  return Number.isInteger(amount) && amount >= 0 ? amount : undefined;
+}
+
+function hasValidSalesAmounts(): boolean {
+  return [expectedAmountDraft.value, depositAmountDraft.value, paidAmountDraft.value].every((value) => {
+    if (value === null || value === '') {
+      return true;
+    }
+    const amount = Number(value);
+    return Number.isInteger(amount) && amount >= 0;
+  });
+}
 
 function statusTone(status: LeadStatus): 'new' | 'in-progress' | 'closed' {
   if (status === 'new') {
     return 'new';
   }
 
-  if (status === 'in_progress') {
+  if (
+    status === 'in_progress' ||
+    status === 'contacted' ||
+    status === 'qualified' ||
+    status === 'booked' ||
+    status === 'paid'
+  ) {
     return 'in-progress';
   }
 
@@ -205,6 +441,26 @@ function formatDateTime(value: string): string {
   }).format(new Date(value));
 }
 
+function formatDuration(minutes: number | null): string {
+  if (minutes === null) {
+    return 'Неизвестно';
+  }
+
+  if (minutes < 60) {
+    return `${minutes} мин`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (hours < 24) {
+    return remainingMinutes ? `${hours} ч ${remainingMinutes} мин` : `${hours} ч`;
+  }
+
+  const days = Math.floor(hours / 24);
+  const remainingHours = hours % 24;
+  return remainingHours ? `${days} д ${remainingHours} ч` : `${days} д`;
+}
+
 function formatGuestCount(value: number | null): string {
   if (!value) {
     return 'Не указано';
@@ -215,6 +471,14 @@ function formatGuestCount(value: number | null): string {
   }
 
   return `${value} гостей`;
+}
+
+function formatMoney(value: number): string {
+  return new Intl.NumberFormat('ru-RU').format(value) + ' ₸';
+}
+
+function formatLostReason(value: string | null | undefined): string {
+  return lostReasonOptions.find((option) => option.value === value)?.label ?? 'Не указана';
 }
 
 function formatContactMethod(value: string): string {
@@ -354,6 +618,41 @@ function startOfDay(date: Date): Date {
   color: var(--color-muted);
 }
 
+.lead-sales-panel {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface-subtle);
+}
+
+.lead-sales-panel__fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.lead-sales-panel__field {
+  display: grid;
+  gap: 6px;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.lead-sales-panel__field input,
+.lead-sales-panel__field select {
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
 .lead-detail__deadline {
   display: inline-flex;
   align-items: center;
@@ -462,6 +761,23 @@ function startOfDay(date: Date): Date {
   color: var(--color-accent);
 }
 
+.lead-detail-card__note-input {
+  width: 100%;
+  min-height: 92px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  line-height: 1.4;
+  resize: vertical;
+}
+
+.lead-detail-card__note-button {
+  justify-self: start;
+}
+
 .admin-info-grid {
   gap: 10px;
 }
@@ -470,6 +786,10 @@ function startOfDay(date: Date): Date {
   .lead-detail__header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .lead-sales-panel__fields {
+    grid-template-columns: 1fr;
   }
 }
 </style>

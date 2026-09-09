@@ -5,15 +5,19 @@ import type {
   LeadListFilters,
   LeadListItem,
   LeadStatus,
+  LeadStatusUpdate,
 } from '@/entities/lead/model/lead';
 import {
   executeAuthorizedAdminRequest,
   resolveAdminRequestError,
 } from '@/features/auth/lib/adminRequest';
 import {
+  fetchAdminBirthdayLeadDetail,
   fetchAdminLeadDetail,
   fetchAdminLeadList,
+  fetchBirthdayOperationsSummary,
   fetchLeadInboxBranchOptions,
+  type BirthdayOperationsSummary,
   type LeadInboxBranchFilterOption,
   updateAdminLeadStatus,
 } from '@/features/leads/api/adminLeadInboxApi';
@@ -23,6 +27,8 @@ const defaultFilters = (): LeadListFilters => ({
   status: '',
   createdFrom: '',
   createdTo: '',
+  awaitingContact: '',
+  sort: 'newest',
 });
 
 export function useLeadInbox() {
@@ -45,16 +51,27 @@ export function useLeadInbox() {
   const isStatusUpdating = ref(false);
   const statusErrorMessage = ref('');
   const statusSuccessMessage = ref('');
+  const summaryPeriod = ref<BirthdayOperationsSummary['period']>('today');
+  const operationsSummary = ref<BirthdayOperationsSummary | null>(null);
+  const isSummaryLoading = ref(false);
+  const summaryErrorMessage = ref('');
 
   const hasActiveFilters = computed(() => {
-    return Object.values(filters).some(Boolean);
+    return Boolean(
+      filters.branchId ||
+      filters.status ||
+      filters.createdFrom ||
+      filters.createdTo ||
+      filters.awaitingContact === 'true' ||
+      filters.sort !== 'newest',
+    );
   });
   const selectedListItem = computed(() => {
     return leads.value.find((lead) => lead.id === selectedLeadId.value) ?? null;
   });
 
   async function initialize() {
-    await Promise.all([loadBranchOptions(), loadLeads()]);
+    await Promise.all([loadBranchOptions(), loadLeads(), loadOperationsSummary()]);
   }
 
   async function loadBranchOptions() {
@@ -97,6 +114,26 @@ export function useLeadInbox() {
     }
   }
 
+  async function loadOperationsSummary(
+    period: BirthdayOperationsSummary['period'] = summaryPeriod.value,
+  ) {
+    summaryPeriod.value = period;
+    isSummaryLoading.value = true;
+    summaryErrorMessage.value = '';
+    try {
+      operationsSummary.value = await executeAuthorizedAdminRequest((accessToken) =>
+        fetchBirthdayOperationsSummary({ accessToken, period }),
+      );
+    } catch (error) {
+      summaryErrorMessage.value = resolveAdminRequestError(
+        error,
+        'Не удалось загрузить сводку по скорости обработки заявок.',
+      );
+    } finally {
+      isSummaryLoading.value = false;
+    }
+  }
+
   async function selectLead(leadId: string) {
     if (!leadId || isDetailLoading.value) {
       return;
@@ -123,9 +160,23 @@ export function useLeadInbox() {
     await loadLeads();
   }
 
-  async function updateLeadStatus(status: LeadStatus) {
+  async function updateLeadStatus(update: LeadStatus | LeadStatusUpdate) {
+    const status = typeof update === 'string' ? update : update.status;
+    const salesFields: LeadStatusUpdate =
+      typeof update === 'string' ? { status } : update;
     if (!selectedLead.value || selectedLead.value.status === status) {
-      return;
+      if (
+        !selectedLead.value ||
+        selectedLead.value.type !== 'birthday_request' ||
+        typeof update === 'string' ||
+        (update.agreedAmountTenge === undefined &&
+          update.expectedAmountTenge === undefined &&
+          update.depositAmountTenge === undefined &&
+          update.paidAmountTenge === undefined &&
+          update.lostReason === undefined)
+      ) {
+        return;
+      }
     }
 
     isStatusUpdating.value = true;
@@ -139,10 +190,22 @@ export function useLeadInbox() {
           accessToken,
           leadId,
           status,
+          agreedAmountTenge: salesFields.agreedAmountTenge,
+          expectedAmountTenge: salesFields.expectedAmountTenge,
+          depositAmountTenge: salesFields.depositAmountTenge,
+          paidAmountTenge: salesFields.paidAmountTenge,
+          lostReason: salesFields.lostReason,
         });
       });
 
-      selectedLead.value = updatedLead;
+      if (selectedLead.value.type === 'birthday_request') {
+        await loadLeadDetail(leadId);
+      } else {
+        selectedLead.value = {
+          ...selectedLead.value,
+          ...updatedLead,
+        };
+      }
       patchLeadInList(updatedLead);
 
       if (filters.status && filters.status !== updatedLead.status) {
@@ -159,6 +222,42 @@ export function useLeadInbox() {
       statusErrorMessage.value = resolveAdminRequestError(
         error,
         'Не удалось обновить статус заявки.',
+      );
+    } finally {
+      isStatusUpdating.value = false;
+    }
+  }
+
+  async function updateLeadNote(note: string) {
+    if (!selectedLead.value || selectedLead.value.type !== 'birthday_request') {
+      return;
+    }
+
+    isStatusUpdating.value = true;
+    statusErrorMessage.value = '';
+    statusSuccessMessage.value = '';
+    const leadId = selectedLead.value.id;
+    const currentStatus = selectedLead.value.status;
+
+    try {
+      const updatedLead = await executeAuthorizedAdminRequest((accessToken) => {
+        return updateAdminLeadStatus({
+          accessToken,
+          leadId,
+          status: currentStatus,
+          adminNote: note,
+        });
+      });
+      selectedLead.value = {
+        ...selectedLead.value,
+        ...updatedLead,
+        adminNote: note,
+      };
+      statusSuccessMessage.value = 'Внутренняя заметка сохранена.';
+    } catch (error) {
+      statusErrorMessage.value = resolveAdminRequestError(
+        error,
+        'Не удалось сохранить внутреннюю заметку.',
       );
     } finally {
       isStatusUpdating.value = false;
@@ -187,7 +286,10 @@ export function useLeadInbox() {
       patchLeadInList(updatedLead);
 
       if (selectedLeadId.value === leadId) {
-        selectedLead.value = updatedLead;
+        selectedLead.value = {
+          ...selectedLead.value,
+          ...updatedLead,
+        };
       }
 
       if (filters.status && filters.status !== updatedLead.status) {
@@ -217,9 +319,16 @@ export function useLeadInbox() {
     detailErrorMessage.value = '';
 
     try {
-      selectedLead.value = await executeAuthorizedAdminRequest((accessToken) => {
+      const baseLead = await executeAuthorizedAdminRequest((accessToken) => {
         return fetchAdminLeadDetail({ accessToken, leadId });
       });
+      if (baseLead.type === 'birthday_request') {
+        selectedLead.value = await executeAuthorizedAdminRequest((accessToken) => {
+          return fetchAdminBirthdayLeadDetail({ accessToken, leadId });
+        });
+      } else {
+        selectedLead.value = baseLead;
+      }
     } catch (error) {
       if (selectedLeadId.value === leadId) {
         detailErrorMessage.value = resolveAdminRequestError(
@@ -247,6 +356,8 @@ export function useLeadInbox() {
         guestCount: updatedLead.guestCount,
         requestedDate: updatedLead.requestedDate,
         createdAt: updatedLead.createdAt,
+        waitingForContactMinutes: updatedLead.waitingForContactMinutes,
+        firstContactMinutes: updatedLead.firstContactMinutes,
         branch: updatedLead.branch,
         package: updatedLead.package,
         source: updatedLead.source,
@@ -288,6 +399,7 @@ export function useLeadInbox() {
     isDetailLoading,
     isListLoading,
     isStatusUpdating,
+    isSummaryLoading,
     leads,
     listErrorMessage,
     loadLeads,
@@ -298,8 +410,13 @@ export function useLeadInbox() {
     selectedListItem,
     statusErrorMessage,
     statusSuccessMessage,
+    operationsSummary,
+    loadOperationsSummary,
+    summaryErrorMessage,
+    summaryPeriod,
     total,
     quickUpdateLeadStatus,
     updateLeadStatus,
+    updateLeadNote,
   };
 }

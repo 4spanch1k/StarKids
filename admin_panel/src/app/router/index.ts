@@ -11,13 +11,18 @@ import BranchesPage from '@/pages/branches/BranchesPage.vue';
 import ContentPage from '@/pages/content/ContentPage.vue';
 import CustomersPage from '@/pages/customers/CustomersPage.vue';
 import DashboardPage from '@/pages/dashboard/DashboardPage.vue';
+import StaffPage from '@/pages/staff/StaffPage.vue';
 import FAQPage from '@/pages/faq/FAQPage.vue';
 import GalleryPage from '@/pages/gallery/GalleryPage.vue';
 import LeadsPage from '@/pages/leads/LeadsPage.vue';
 import LoginPage from '@/pages/login/LoginPage.vue';
+import MenuPage from '@/pages/menu/MenuPage.vue';
+import NewsPage from '@/pages/news/NewsPage.vue';
 import PromotionsPage from '@/pages/promotions/PromotionsPage.vue';
 import PushCampaignsPage from '@/pages/push-campaigns/PushCampaignsPage.vue';
-import TariffsPage from '@/pages/tariffs/TariffsPage.vue';
+import TicketsPage from '@/pages/tickets/TicketsPage.vue';
+import TicketScannerPage from '@/pages/ticket-scanner/TicketScannerPage.vue';
+import LoyaltyRulesPage from '@/pages/loyalty/LoyaltyRulesPage.vue';
 import { useSessionStore } from '@/features/auth/stores/useSessionStore';
 
 const routes: RouteRecordRaw[] = [
@@ -37,7 +42,12 @@ const routes: RouteRecordRaw[] = [
     },
     children: [
       { path: '', redirect: { name: 'leads' } },
-      { path: 'dashboard', name: 'dashboard', component: DashboardPage },
+      {
+        path: 'dashboard',
+        name: 'dashboard',
+        component: DashboardPage,
+        meta: { allowedRoles: ['super_admin'] },
+      },
       ...buildAdminCrudRouteGroup({
         path: 'leads',
         name: adminCrudRouteNames.leads.list,
@@ -59,17 +69,39 @@ const routes: RouteRecordRaw[] = [
         idParam: adminCrudRouteNames.birthdayPackages.idParam,
       }).routes,
       ...buildAdminCrudRouteGroup({
-        path: 'tariffs',
-        name: adminCrudRouteNames.tariffs.list,
-        component: TariffsPage,
-        idParam: adminCrudRouteNames.tariffs.idParam,
+        path: 'menu',
+        name: adminCrudRouteNames.menu.list,
+        component: MenuPage,
+        idParam: adminCrudRouteNames.menu.idParam,
         allowCreate: false,
       }).routes,
+      ...buildAdminCrudRouteGroup({
+        path: 'tickets',
+        name: adminCrudRouteNames.tickets.list,
+        component: TicketsPage,
+        idParam: adminCrudRouteNames.tickets.idParam,
+        allowCreate: false,
+      }).routes,
+      {
+        path: 'ticket-scanner',
+        name: 'ticket-scanner',
+        component: TicketScannerPage,
+        meta: {
+          allowedRoles: ['super_admin', 'operator'],
+        },
+      },
+      { path: 'loyalty', name: 'loyalty', component: LoyaltyRulesPage, meta: { allowedRoles: ['super_admin'] } },
       ...buildAdminCrudRouteGroup({
         path: 'promotions',
         name: adminCrudRouteNames.promotions.list,
         component: PromotionsPage,
         idParam: adminCrudRouteNames.promotions.idParam,
+      }).routes,
+      ...buildAdminCrudRouteGroup({
+        path: 'news',
+        name: adminCrudRouteNames.news.list,
+        component: NewsPage,
+        idParam: adminCrudRouteNames.news.idParam,
       }).routes,
       ...buildAdminCrudRouteGroup({
         path: 'content',
@@ -90,11 +122,29 @@ const routes: RouteRecordRaw[] = [
         component: FAQPage,
         idParam: adminCrudRouteNames.faq.idParam,
       }).routes,
-      { path: 'customers', name: 'customers', component: CustomersPage },
+      {
+        path: 'customers',
+        name: 'customers',
+        component: CustomersPage,
+        meta: { allowedRoles: ['super_admin'] },
+      },
+      {
+        path: 'customers/:customerId',
+        name: 'customers-detail',
+        component: CustomersPage,
+        meta: { allowedRoles: ['super_admin'] },
+      },
+      {
+        path: 'staff',
+        name: 'staff',
+        component: StaffPage,
+        meta: { allowedRoles: ['super_admin'] },
+      },
       {
         path: 'push-campaigns',
         name: 'push-campaigns',
         component: PushCampaignsPage,
+        meta: { allowedRoles: ['super_admin'] },
       },
       { path: 'audit-logs', name: 'audit-logs', component: AuditLogsPage },
     ],
@@ -126,6 +176,13 @@ router.beforeEach(async (to) => {
         ? to.query.redirect
         : '/';
     return redirectPath;
+  }
+
+  const allowedRoles = to.matched
+    .map((record) => record.meta.allowedRoles)
+    .find((roles): roles is string[] => Array.isArray(roles));
+  if (allowedRoles && !allowedRoles.includes(sessionStore.operatorRole)) {
+    return { name: 'leads' };
   }
 
   return true;

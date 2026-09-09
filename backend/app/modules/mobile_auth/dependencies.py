@@ -7,10 +7,16 @@ from sqlalchemy.orm import Session
 from ...core.database.session import get_db_session
 from ...db.models.mobile_session import MobileSession
 from ...db.models.mobile_user import MobileUser
+from ...db.repositories.auth_throttle_state_repository import AuthThrottleStateRepository
 from ...db.repositories.mobile_session_repository import MobileSessionRepository
 from ...db.repositories.mobile_user_repository import MobileUserRepository
+from ..auth_security.service import AuthProtectionService
+from ...core.config.settings import Settings, get_settings
+from .clerk_verifier import ClerkSessionVerifier
 from .schemas import MobileCurrentUserResponse
 from .service import MobileAuthService
+from ..loyalty.dependencies import get_loyalty_service
+from ..loyalty.service import LoyaltyService
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -23,11 +29,22 @@ class AuthenticatedMobileContext:
 
 def get_mobile_auth_service(
     session: Session = Depends(get_db_session),
+    loyalty_service: LoyaltyService = Depends(get_loyalty_service),
 ) -> MobileAuthService:
     return MobileAuthService(
         user_repository=MobileUserRepository(session),
         session_repository=MobileSessionRepository(session),
+        auth_protection_service=AuthProtectionService(
+            throttle_repository=AuthThrottleStateRepository(session),
+        ),
+        loyalty_service=loyalty_service,
     )
+
+
+def get_clerk_session_verifier(
+    settings: Settings = Depends(get_settings),
+) -> ClerkSessionVerifier:
+    return ClerkSessionVerifier(settings=settings)
 
 
 def get_mobile_access_token(

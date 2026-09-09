@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../core/design_system/foundations/star_kids_colors.dart';
-import '../../core/design_system/foundations/star_kids_radii.dart';
-import '../../core/design_system/foundations/star_kids_spacing.dart';
-import '../../core/design_system/widgets/star_kids_button.dart';
+import '../../core/design_system/foundations/sk_tokens.dart';
+import '../../core/design_system/sk_color_scheme.dart';
+import '../../core/design_system/sk_theme.dart';
+import '../../core/design_system/widgets/primary_button.dart';
+import '../../core/design_system/widgets/sk_splash_view.dart';
 import '../../core/design_system/widgets/star_kids_logo_loader.dart';
 import '../app.dart';
 import '../theme/app_theme.dart';
@@ -26,6 +27,7 @@ class _StarKidsBootstrapAppState extends State<StarKidsBootstrapApp> {
   @override
   void initState() {
     super.initState();
+    debugPrint('[BOOT] Bootstrap app init started');
     _initialization = widget.initialize();
   }
 
@@ -36,13 +38,27 @@ class _StarKidsBootstrapAppState extends State<StarKidsBootstrapApp> {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.done &&
             !snapshot.hasError) {
+          debugPrint('[BOOT] Bootstrap app init completed');
           return const StarKidsApp();
         }
 
+        debugPrint(
+          snapshot.hasError
+              ? '[BOOT] Bootstrap app init failed: ${snapshot.error}'
+              : '[APP] rendering loading',
+        );
         return MaterialApp(
-          title: 'Star Kids',
+          title: 'Boom Bala',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light(),
+          builder: (ctx, child) {
+            final isDark = Theme.of(ctx).brightness == Brightness.dark;
+            return SKTheme(
+              dark: isDark,
+              colors: isDark ? SKColorScheme.dark() : SKColorScheme.light(),
+              child: child!,
+            );
+          },
           home: snapshot.hasError
               ? _BootstrapErrorView(
                   onRetry: () {
@@ -63,17 +79,7 @@ class _BootstrapLoadingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: StarKidsColors.surfaceCanvas,
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: EdgeInsets.all(StarKidsSpacing.xl),
-            child: StarKidsLogoLoader(),
-          ),
-        ),
-      ),
-    );
+    return const SkSplashView();
   }
 }
 
@@ -89,18 +95,18 @@ class _BootstrapErrorView extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: StarKidsColors.surfaceCanvas,
+      backgroundColor: SK.bg,
       body: SafeArea(
         child: Center(
           child: Padding(
-            padding: const EdgeInsets.all(StarKidsSpacing.xl),
+            padding: const EdgeInsets.all(SK.s5),
             child: Container(
               constraints: const BoxConstraints(maxWidth: 360),
-              padding: const EdgeInsets.all(StarKidsSpacing.xl),
+              padding: const EdgeInsets.all(SK.s5),
               decoration: BoxDecoration(
-                color: StarKidsColors.surfacePrimary,
-                borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-                border: Border.all(color: StarKidsColors.borderDefault),
+                color: SK.bgElev,
+                borderRadius: BorderRadius.circular(SK.rXl),
+                border: Border.all(color: SK.line),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -110,22 +116,20 @@ class _BootstrapErrorView extends StatelessWidget {
                     height: 156,
                     child: StarKidsLogoLoader(),
                   ),
-                  const SizedBox(height: StarKidsSpacing.lg),
+                  const SizedBox(height: SK.s4),
                   Text(
                     'Не удалось открыть приложение',
                     style: textTheme.titleLarge,
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: StarKidsSpacing.sm),
+                  const SizedBox(height: SK.s2),
                   Text(
                     'Попробуйте повторить загрузку. Маршруты не менялись, повторно запускается только инициализация приложения.',
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: StarKidsColors.textSecondary,
-                    ),
+                    style: textTheme.bodyMedium?.copyWith(color: SK.ink3),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: StarKidsSpacing.lg),
-                  StarKidsButton.primary(
+                  const SizedBox(height: SK.s4),
+                  PrimaryButton(
                     label: 'Повторить',
                     icon: Icons.refresh_rounded,
                     onPressed: onRetry,

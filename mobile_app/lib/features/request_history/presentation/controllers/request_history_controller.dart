@@ -23,12 +23,24 @@ class RequestHistoryController extends ChangeNotifier {
   List<RequestHistoryItem> _items = const [];
   int _total = 0;
   String? _errorMessage;
+  bool _isDisposed = false;
 
   RequestHistoryViewStatus get status => _status;
   List<RequestHistoryItem> get items => _items;
   int get total => _total;
   String? get errorMessage => _errorMessage;
   bool get isLoading => _status == RequestHistoryViewStatus.loading;
+
+  @override
+  void notifyListeners() {
+    if (!_isDisposed) super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
+  }
 
   Future<void> load() async {
     if (_status == RequestHistoryViewStatus.loading) {

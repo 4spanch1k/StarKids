@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_colors.dart';
-import '../../../../core/design_system/foundations/star_kids_icon_sizes.dart';
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
+import '../../../../app/router/nested_navigation.dart';
+import '../../../../core/design_system/sk_design_tokens.dart';
+import '../../../../core/design_system/sk_theme.dart';
+import '../../../../core/design_system/widgets/glass_app_bar.dart';
+import '../../../../core/design_system/widgets/primary_button.dart';
 import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
-import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_media_image.dart';
+import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
+import '../../../../core/design_system/widgets/stable_future_builder.dart';
 import '../../../../core/services/external_link_service.dart';
 import '../../../contacts/domain/branch_contact_links.dart';
 import '../../domain/branch_option.dart';
@@ -24,19 +27,21 @@ class BranchDetailsPage extends StatelessWidget {
         final branch = ServiceRegistry.selectedBranchController.selectedBranch;
 
         return Scaffold(
-          appBar: AppBar(
-            title: Text(branch.shortLabel),
-            actions: [
-              IconButton(
-                tooltip: 'Сменить филиал',
-                onPressed: () =>
-                    Navigator.of(context).pushNamed(AppRoutes.branchSelection),
-                icon: const Icon(Icons.swap_horiz_rounded),
-              ),
-            ],
+          appBar: GlassAppBar(
+            leading: const NestedBackButton(),
+            title: Text(
+              branch.shortLabel,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            trailing: GlassIconButton(
+              icon: Icons.swap_horiz_rounded,
+              tooltip: 'Сменить филиал',
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(AppRoutes.branchSelection),
+            ),
           ),
           bottomNavigationBar: StarKidsBottomCtaBar(
-            child: StarKidsButton.primary(
+            child: PrimaryButton(
               label: 'Написать в WhatsApp',
               icon: Icons.chat_bubble_rounded,
               onPressed: _hasValue(branch.whatsAppPhone)
@@ -49,18 +54,27 @@ class BranchDetailsPage extends StatelessWidget {
                   : null,
             ),
           ),
-          body: FutureBuilder<_BranchDetailsScreenData>(
-            future: _loadScreenData(branch.id),
+          body: StableFutureBuilder<_BranchDetailsScreenData>(
+            cacheKey: branch.id,
+            futureFactory: () => _loadScreenData(branch.id),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return const StarKidsContentSwitcher(
+                  child: Center(
+                    key: ValueKey('branch-details-loading'),
+                    child: CircularProgressIndicator(),
+                  ),
+                );
               }
 
               if (!snapshot.hasData) {
-                return const _BranchDetailsStateView(
-                  title: 'Филиал пока недоступен',
-                  description:
-                      'Не удалось загрузить live-данные по выбранному филиалу. Попробуйте открыть экран позже.',
+                return const StarKidsContentSwitcher(
+                  child: _BranchDetailsStateView(
+                    key: ValueKey('branch-details-empty'),
+                    title: 'Филиал пока недоступен',
+                    description:
+                        'Не удалось загрузить live-данные по выбранному филиалу. Попробуйте открыть экран позже.',
+                  ),
                 );
               }
 
@@ -70,192 +84,174 @@ class BranchDetailsPage extends StatelessWidget {
               final canOpenMap = _hasValue(contactLinks.mapUrl);
               final canCall = _hasValue(branchDetail.phone);
 
-              return ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  StarKidsSpacing.xl,
-                  StarKidsSpacing.lg,
-                  StarKidsSpacing.xl,
-                  StarKidsSpacing.x5l,
-                ),
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(32),
-                    child: AspectRatio(
-                      aspectRatio: 2,
-                      child: StarKidsMediaImage(
-                          source: branchDetail.heroImagePath),
-                    ),
+              return StarKidsContentSwitcher(
+                child: ListView(
+                  key: ValueKey('branch-details-${branchDetail.id}'),
+                  padding: const EdgeInsets.fromLTRB(
+                    SKSpacing.x5,
+                    SKSpacing.x4,
+                    SKSpacing.x5,
+                    SKSpacing.x12,
                   ),
-                  const SizedBox(height: StarKidsSpacing.lg),
-                  Text(branchDetail.name, style: textTheme.headlineMedium),
-                  const SizedBox(height: StarKidsSpacing.sm),
-                  Text(
-                    _displayValue(
-                      branchDetail.description,
-                      fallback:
-                          'Подробное описание филиала скоро появится. Пока можно посмотреть контакты, цены и пакеты праздника.',
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(32),
+                      child: AspectRatio(
+                        aspectRatio: 2,
+                        child: StarKidsMediaImage(
+                          source: branchDetail.heroImagePath,
+                          fallbackSource: 'assets/images/branch_hero.jpg',
+                        ),
+                      ),
                     ),
-                    style: textTheme.bodyLarge,
-                  ),
-                  const SizedBox(height: StarKidsSpacing.lg),
-                  _InfoRow(
-                    icon: Icons.location_on_rounded,
-                    title: 'Адрес',
-                    value: _displayValue(
-                      branchDetail.address,
-                      fallback: 'Уточняйте у менеджера',
+                    const SizedBox(height: SKSpacing.x4),
+                    Text(branchDetail.name, style: textTheme.headlineMedium),
+                    const SizedBox(height: SKSpacing.x2),
+                    Text(
+                      _displayValue(
+                        branchDetail.description,
+                        fallback:
+                            'Подробное описание филиала скоро появится. Пока можно посмотреть контакты, меню и пакеты праздника.',
+                      ),
+                      style: textTheme.bodyLarge,
                     ),
-                  ),
-                  _InfoRow(
-                    icon: Icons.schedule_rounded,
-                    title: 'Режим работы',
-                    value: _displayValue(
-                      branchDetail.workingHours,
-                      fallback: 'Уточняйте у менеджера',
+                    const SizedBox(height: SKSpacing.x4),
+                    _InfoRow(
+                      icon: Icons.location_on_rounded,
+                      title: 'Адрес',
+                      value: _displayValue(
+                        branchDetail.address,
+                        fallback: 'Уточняйте у менеджера',
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: StarKidsSpacing.lg),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: StarKidsButton.secondary(
-                          label: 'Маршрут',
-                          icon: Icons.map_rounded,
-                          onPressed: !canOpenMap
-                              ? null
-                              : () => _handleAction(
-                                    context,
-                                    () => ExternalLinkService.openMap(
-                                      contactLinks.mapUrl,
+                    _InfoRow(
+                      icon: Icons.schedule_rounded,
+                      title: 'Режим работы',
+                      value: _displayValue(
+                        branchDetail.workingHours,
+                        fallback: 'Уточняйте у менеджера',
+                      ),
+                    ),
+                    const SizedBox(height: SKSpacing.x4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SecondaryButton(
+                            label: 'Маршрут',
+                            icon: Icons.map_rounded,
+                            fullWidth: true,
+                            onPressed: !canOpenMap
+                                ? null
+                                : () => _handleAction(
+                                      context,
+                                      () => ExternalLinkService.openMap(
+                                        contactLinks.mapUrl,
+                                      ),
                                     ),
-                                  ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: StarKidsSpacing.md),
-                      Expanded(
-                        child: StarKidsButton.secondary(
-                          label: 'Позвонить',
-                          icon: Icons.call_rounded,
-                          onPressed: !canCall
-                              ? null
-                              : () => _handleAction(
-                                    context,
-                                    () => ExternalLinkService.openPhone(
-                                      branchDetail.phone,
+                        const SizedBox(width: SKSpacing.x3),
+                        Expanded(
+                          child: SecondaryButton(
+                            label: 'Позвонить',
+                            icon: Icons.call_rounded,
+                            fullWidth: true,
+                            onPressed: !canCall
+                                ? null
+                                : () => _handleAction(
+                                      context,
+                                      () => ExternalLinkService.openPhone(
+                                        branchDetail.phone,
+                                      ),
                                     ),
-                                  ),
+                          ),
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: SKSpacing.x6),
+                    const StarKidsSectionHeader(
+                      title: 'Еще полезно перед визитом',
+                      description:
+                          'Короткие переходы к важным коммерческим экранам без перегруза текущего филиала.',
+                    ),
+                    const SizedBox(height: SKSpacing.x3),
+                    _ResponsiveDetailActions(
+                      first: SecondaryButton(
+                        label: 'Меню',
+                        icon: Icons.restaurant_menu_rounded,
+                        fullWidth: true,
+                        onPressed: () =>
+                            Navigator.of(context).pushNamed(AppRoutes.menu),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: StarKidsSpacing.x2l),
-                  const StarKidsSectionHeader(
-                    title: 'Еще полезно перед визитом',
-                    description:
-                        'Короткие переходы к важным коммерческим экранам без перегруза текущего филиала.',
-                  ),
-                  const SizedBox(height: StarKidsSpacing.md),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: StarKidsButton.secondary(
-                          label: 'Цены и правила',
-                          icon: Icons.receipt_long_rounded,
-                          onPressed: () => Navigator.of(
-                            context,
-                          ).pushNamed(AppRoutes.pricesRules),
-                        ),
+                      second: SecondaryButton(
+                        label: 'Контакты и маршрут',
+                        icon: Icons.pin_drop_rounded,
+                        fullWidth: true,
+                        onPressed: () =>
+                            Navigator.of(context).pushNamed(AppRoutes.contacts),
                       ),
-                      const SizedBox(width: StarKidsSpacing.md),
-                      Expanded(
-                        child: StarKidsButton.secondary(
-                          label: 'Контакты и маршрут',
-                          icon: Icons.pin_drop_rounded,
-                          onPressed: () => Navigator.of(
-                            context,
-                          ).pushNamed(AppRoutes.contacts),
-                        ),
+                    ),
+                    const SizedBox(height: SKSpacing.x3),
+                    SecondaryButton(
+                      label: 'Посмотреть пакеты праздника',
+                      icon: Icons.cake_rounded,
+                      fullWidth: true,
+                      onPressed: () =>
+                          Navigator.of(context).pushNamed(AppRoutes.birthdays),
+                    ),
+                    const SizedBox(height: SKSpacing.x6),
+                    const StarKidsSectionHeader(
+                      title: 'Почему родители выбирают этот филиал',
+                      description:
+                          'Короткая, понятная информация без перегруза перед заявкой или повторным визитом.',
+                    ),
+                    const SizedBox(height: SKSpacing.x3),
+                    if (branchDetail.facilities.isNotEmpty)
+                      _FacilityChips(facilities: branchDetail.facilities)
+                    else
+                      const _BranchInlineStateCard(
+                        title: 'Подробности филиала скоро появятся',
+                        description:
+                            'Сейчас здесь пока нет отдельного списка удобств, но остальные данные филиала уже доступны.',
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: StarKidsSpacing.md),
-                  StarKidsButton.secondary(
-                    label: 'Посмотреть пакеты праздника',
-                    icon: Icons.cake_rounded,
-                    onPressed: () =>
-                        Navigator.of(context).pushNamed(AppRoutes.birthdays),
-                  ),
-                  const SizedBox(height: StarKidsSpacing.x2l),
-                  const StarKidsSectionHeader(
-                    title: 'Почему родители выбирают этот филиал',
-                    description:
-                        'Короткая, понятная информация без перегруза перед заявкой или повторным визитом.',
-                  ),
-                  const SizedBox(height: StarKidsSpacing.md),
-                  if (branchDetail.facilities.isNotEmpty)
-                    Wrap(
-                      spacing: StarKidsSpacing.sm,
-                      runSpacing: StarKidsSpacing.sm,
-                      children: branchDetail.facilities
-                          .map(
-                            (facility) => Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: StarKidsSpacing.md,
-                                vertical: StarKidsSpacing.xs,
-                              ),
-                              decoration: BoxDecoration(
-                                color: StarKidsColors.surfaceSecondary,
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                facility,
-                                style: textTheme.labelMedium?.copyWith(
-                                  color: StarKidsColors.textPrimary,
+                    const SizedBox(height: SKSpacing.x6),
+                    const StarKidsSectionHeader(
+                      title: 'Галерея филиала',
+                      description: 'Реальные зоны, сцены и атмосфера площадки.',
+                    ),
+                    const SizedBox(height: SKSpacing.x3),
+                    if (branchDetail.galleryImagePaths.isNotEmpty)
+                      SizedBox(
+                        height: 156,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemBuilder: (context, index) {
+                            final imagePath =
+                                branchDetail.galleryImagePaths[index];
+                            return ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: AspectRatio(
+                                aspectRatio: 4 / 5,
+                                child: StarKidsMediaImage(
+                                  source: imagePath,
+                                  fallbackSource:
+                                      'assets/images/branch_hero.jpg',
                                 ),
                               ),
-                            ),
-                          )
-                          .toList(),
-                    )
-                  else
-                    const _BranchInlineStateCard(
-                      title: 'Подробности филиала скоро появятся',
-                      description:
-                          'Сейчас здесь пока нет отдельного списка удобств, но остальные данные филиала уже доступны.',
-                    ),
-                  const SizedBox(height: StarKidsSpacing.x2l),
-                  const StarKidsSectionHeader(
-                    title: 'Галерея филиала',
-                    description: 'Реальные зоны, сцены и атмосфера площадки.',
-                  ),
-                  const SizedBox(height: StarKidsSpacing.md),
-                  if (branchDetail.galleryImagePaths.isNotEmpty)
-                    SizedBox(
-                      height: 156,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemBuilder: (context, index) {
-                          final imagePath =
-                              branchDetail.galleryImagePaths[index];
-                          return ClipRRect(
-                            borderRadius: BorderRadius.circular(20),
-                            child: AspectRatio(
-                              aspectRatio: 4 / 5,
-                              child: StarKidsMediaImage(source: imagePath),
-                            ),
-                          );
-                        },
-                        separatorBuilder: (_, __) => const SizedBox(width: 8),
-                        itemCount: branchDetail.galleryImagePaths.length,
+                            );
+                          },
+                          separatorBuilder: (_, __) => const SizedBox(width: 8),
+                          itemCount: branchDetail.galleryImagePaths.length,
+                        ),
+                      )
+                    else
+                      const _BranchInlineStateCard(
+                        title: 'Галерея скоро появится',
+                        description:
+                            'Для этого филиала еще не опубликованы изображения. Контакты и основные условия уже доступны.',
                       ),
-                    )
-                  else
-                    const _BranchInlineStateCard(
-                      title: 'Галерея скоро появится',
-                      description:
-                          'Для этого филиала еще не опубликованы изображения. Контакты и основные условия уже доступны.',
-                    ),
-                ],
+                  ],
+                ),
               );
             },
           ),
@@ -282,16 +278,18 @@ class BranchDetailsPage extends StatelessWidget {
   }
 
   Future<_BranchDetailsScreenData> _loadScreenData(String branchId) async {
-    final branch = await ServiceRegistry.branchRepository.getBranch(branchId);
-    ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
-    final contactLinks = await ServiceRegistry.contactLinksRepository
+    final branchFuture = ServiceRegistry.branchRepository.getBranch(branchId);
+    final contactLinksFuture = ServiceRegistry.contactLinksRepository
         .getForBranch(branchId)
-        .catchError((_) => _buildFallbackContactLinks(branch));
+        .then<BranchContactLinks?>((value) => value)
+        .catchError((_) => null);
 
-    return _BranchDetailsScreenData(
-      branch: branch,
-      contactLinks: contactLinks,
-    );
+    final branch = await branchFuture;
+    final contactLinks =
+        await contactLinksFuture ?? _buildFallbackContactLinks(branch);
+    ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
+
+    return _BranchDetailsScreenData(branch: branch, contactLinks: contactLinks);
   }
 
   BranchContactLinks _buildFallbackContactLinks(BranchOption branch) {
@@ -311,16 +309,86 @@ class BranchDetailsPage extends StatelessWidget {
     return value?.trim().isNotEmpty == true;
   }
 
-  static String _displayValue(
-    String? value, {
-    required String fallback,
-  }) {
+  static String _displayValue(String? value, {required String fallback}) {
     final normalized = value?.trim();
     if (normalized == null || normalized.isEmpty) {
       return fallback;
     }
 
     return normalized;
+  }
+}
+
+class _ResponsiveDetailActions extends StatelessWidget {
+  const _ResponsiveDetailActions({
+    required this.first,
+    required this.second,
+  });
+
+  final Widget first;
+  final Widget second;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 360) {
+          return Column(
+            children: [
+              first,
+              const SizedBox(height: SKSpacing.x3),
+              second,
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: first),
+            const SizedBox(width: SKSpacing.x3),
+            Expanded(child: second),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _FacilityChips extends StatelessWidget {
+  const _FacilityChips({required this.facilities});
+
+  final List<String> facilities;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final c = SKTheme.of(context).colors;
+
+    return Wrap(
+      spacing: SKSpacing.x2,
+      runSpacing: SKSpacing.x2,
+      children: facilities
+          .map(
+            (facility) => Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: SKSpacing.x3,
+                vertical: SKSpacing.x1,
+              ),
+              decoration: BoxDecoration(
+                color: c.elevated,
+                borderRadius: BorderRadius.circular(SKRadius.pill),
+                border: Border.all(color: c.hairline, width: 0.5),
+              ),
+              child: Text(
+                facility,
+                style: textTheme.labelMedium?.copyWith(
+                  color: c.textPrimary,
+                ),
+              ),
+            ),
+          )
+          .toList(),
+    );
   }
 }
 
@@ -338,24 +406,25 @@ class _InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final c = SKTheme.of(context).colors;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: StarKidsSpacing.md),
+      padding: const EdgeInsets.only(bottom: SKSpacing.x3),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
             icon,
-            size: StarKidsIconSizes.md,
-            color: StarKidsColors.brandPrimary,
+            size: 24,
+            color: c.cta,
           ),
-          const SizedBox(width: StarKidsSpacing.sm),
+          const SizedBox(width: SKSpacing.x2),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: textTheme.labelMedium),
-                const SizedBox(height: StarKidsSpacing.xs),
+                const SizedBox(height: SKSpacing.x1),
                 Text(value, style: textTheme.bodyLarge),
               ],
             ),
@@ -378,6 +447,7 @@ class _BranchDetailsScreenData {
 
 class _BranchDetailsStateView extends StatelessWidget {
   const _BranchDetailsStateView({
+    super.key,
     required this.title,
     required this.description,
   });
@@ -387,23 +457,25 @@ class _BranchDetailsStateView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(StarKidsSpacing.xl),
+        padding: const EdgeInsets.all(SKSpacing.x5),
         child: Center(
           child: Container(
-            padding: const EdgeInsets.all(StarKidsSpacing.xl),
+            padding: const EdgeInsets.all(SKSpacing.x5),
             decoration: BoxDecoration(
-              color: StarKidsColors.surfacePrimary,
-              borderRadius: BorderRadius.circular(32),
-              border: Border.all(color: StarKidsColors.borderDefault),
+              color: c.elevated,
+              borderRadius: BorderRadius.circular(SKRadius.xl),
+              border: Border.all(color: c.hairline, width: 0.5),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: Theme.of(context).textTheme.headlineSmall),
-                const SizedBox(height: StarKidsSpacing.sm),
+                const SizedBox(height: SKSpacing.x2),
                 Text(description, style: Theme.of(context).textTheme.bodyLarge),
               ],
             ),
@@ -425,18 +497,20 @@ class _BranchInlineStateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+
     return Container(
-      padding: const EdgeInsets.all(StarKidsSpacing.lg),
+      padding: const EdgeInsets.all(SKSpacing.x4),
       decoration: BoxDecoration(
-        color: StarKidsColors.surfacePrimary,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: StarKidsColors.borderDefault),
+        color: c.elevated,
+        borderRadius: BorderRadius.circular(SKRadius.lg),
+        border: Border.all(color: c.hairline, width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: StarKidsSpacing.sm),
+          const SizedBox(height: SKSpacing.x2),
           Text(description, style: Theme.of(context).textTheme.bodyLarge),
         ],
       ),

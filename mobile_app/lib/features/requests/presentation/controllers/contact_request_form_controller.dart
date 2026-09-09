@@ -40,12 +40,18 @@ class ContactRequestFormController extends ChangeNotifier {
   ContactRequestSubmission? _submission;
   String? _submissionErrorText;
   ContactRequestSubmissionStatus _status = ContactRequestSubmissionStatus.idle;
+  bool _isDisposed = false;
 
   ContactRequestSubmission? get submission => _submission;
   String? get submissionErrorText => _submissionErrorText;
   ContactRequestSubmissionStatus get status => _status;
   bool get isSubmitting => _status == ContactRequestSubmissionStatus.submitting;
   bool get hasInitialMessage => _initialMessage != null;
+
+  @override
+  void notifyListeners() {
+    if (!_isDisposed) super.notifyListeners();
+  }
 
   Future<void> submit() async {
     _submissionErrorText = null;
@@ -133,6 +139,7 @@ class ContactRequestFormController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _isDisposed = true;
     nameController.dispose();
     phoneController.dispose();
     emailController.dispose();

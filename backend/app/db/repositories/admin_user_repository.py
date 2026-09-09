@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from sqlalchemy import func, select
 
 from ..models.admin_user import AdminUser
@@ -24,6 +26,7 @@ class AdminUserRepository(Repository):
         full_name: str,
         password_hash: str,
         role: str,
+        branch_id: str | None = None,
         is_active: bool = True,
     ) -> AdminUser:
         user = AdminUser(
@@ -31,8 +34,28 @@ class AdminUserRepository(Repository):
             full_name=full_name.strip(),
             password_hash=password_hash,
             role=role,
+            branch_id=branch_id,
             is_active=is_active,
         )
+        self.db.add(user)
+        self.db.commit()
+        self.db.refresh(user)
+        return user
+
+    def update_password_hash(
+        self,
+        user: AdminUser,
+        *,
+        password_hash: str,
+    ) -> AdminUser:
+        user.password_hash = password_hash
+        self.db.add(user)
+        self.db.commit()
+        self.db.refresh(user)
+        return user
+
+    def record_successful_login(self, user: AdminUser) -> AdminUser:
+        user.last_login_at = datetime.now(UTC)
         self.db.add(user)
         self.db.commit()
         self.db.refresh(user)
