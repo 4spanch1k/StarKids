@@ -7,9 +7,11 @@ const SURFACE_LABELS: Record<string, string> = {
   request: 'Форма заявки',
 };
 
-export const contentSurfaceOptions = Object.entries(SURFACE_LABELS).map(([value, label]) => ({
+const SUPPORTED_SURFACES = ['birthdays', 'contacts', 'promotions'] as const;
+
+export const contentSurfaceOptions = SUPPORTED_SURFACES.map((value) => ({
   value,
-  label,
+  label: SURFACE_LABELS[value],
 }));
 
 export function getContentSurfaceLabel(surface: string): string {

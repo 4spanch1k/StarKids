@@ -11,11 +11,36 @@ export const primaryNavigationItems: NavigationItem[] = [
   { name: 'leads', label: 'Заявки', to: '/leads' },
   { name: 'branches', label: 'Филиалы', to: '/branches' },
   { name: 'birthday-packages', label: 'Пакеты дней рождения', to: '/birthday-packages' },
-  { name: 'promotions', label: 'Акции', to: '/promotions' },
-  { name: 'news', label: 'Новости', to: '/news' },
-  { name: 'content', label: 'Контент', to: '/content' },
-  { name: 'gallery', label: 'Галерея', to: '/gallery' },
-  { name: 'faq', label: 'Частые вопросы', to: '/faq' },
+  {
+    name: 'promotions',
+    label: 'Акции',
+    to: '/promotions',
+    allowedRoles: ['super_admin', 'content_manager'],
+  },
+  {
+    name: 'news',
+    label: 'Новости',
+    to: '/news',
+    allowedRoles: ['super_admin', 'content_manager'],
+  },
+  {
+    name: 'content',
+    label: 'Контент',
+    to: '/content',
+    allowedRoles: ['super_admin', 'content_manager'],
+  },
+  {
+    name: 'gallery',
+    label: 'Галерея',
+    to: '/gallery',
+    allowedRoles: ['super_admin', 'content_manager'],
+  },
+  {
+    name: 'faq',
+    label: 'Частые вопросы',
+    to: '/faq',
+    allowedRoles: ['super_admin', 'content_manager'],
+  },
 ];
 
 export const secondaryNavigationItems: NavigationItem[] = [
