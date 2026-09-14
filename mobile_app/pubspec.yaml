@@ -38,6 +38,7 @@ dependencies:
       url: https://github.com/clerk/clerk-sdk-flutter.git
       ref: 8191d1ec947d5aeea726653110671e13d7192a9e
       path: packages/clerk_flutter
+  flutter_secure_storage: ^10.3.4
 
 dev_dependencies:
   flutter_test:

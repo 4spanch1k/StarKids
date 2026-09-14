@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:star_kids_mobile/app/di/service_registry.dart';
@@ -30,6 +31,7 @@ void main() {
   setUp(() async {
     NewsFeedController.clearCache();
     SharedPreferences.setMockInitialValues({});
+    FlutterSecureStorage.setMockInitialValues({});
     await ServiceRegistry.selectedBranchController.selectBranch(
       defaultBranchId,
       selectedBranch: getBranchById(defaultBranchId),
