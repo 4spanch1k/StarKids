@@ -17,10 +17,12 @@ from .schemas import (
     PushCampaignResponse,
     PushCampaignUpdateRequest,
 )
-from .service import PushCampaignService
+from .service import PUSH_CAMPAIGN_ALLOWED_ROLES, PushCampaignService
 from .attribution_service import PushCampaignAttributionService
 
-router = APIRouter(dependencies=[Depends(require_admin_roles('super_admin'))])
+router = APIRouter(
+    dependencies=[Depends(require_admin_roles(*PUSH_CAMPAIGN_ALLOWED_ROLES))]
+)
 
 
 def get_service(session: Session = Depends(get_db_session), delivery: PushDeliveryPort = Depends(get_push_delivery)) -> PushCampaignService:
@@ -48,7 +50,7 @@ def campaign_attribution(campaign_id: str, service: PushCampaignAttributionServi
 
 
 @router.post('/push-campaigns', response_model=PushCampaignResponse, status_code=status.HTTP_201_CREATED)
-def create_campaign(payload: PushCampaignCreateRequest, current_admin: AdminCurrentUserResponse = Depends(require_admin_roles('super_admin')), service: PushCampaignService = Depends(get_service)) -> PushCampaignResponse:
+def create_campaign(payload: PushCampaignCreateRequest, current_admin: AdminCurrentUserResponse = Depends(require_admin_roles(*PUSH_CAMPAIGN_ALLOWED_ROLES)), service: PushCampaignService = Depends(get_service)) -> PushCampaignResponse:
     return service.create(payload, current_admin.id)
 
 
