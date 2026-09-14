@@ -27,6 +27,8 @@ void main() {
       repository: _FakeOnboardingRepository(),
     );
 
+    await auth.loginWithEmail(email: 'a@example.com', password: 'password');
+
     await tester.pumpWidget(
       MaterialApp(
         routes: {
@@ -117,7 +119,19 @@ class _UnusedAuthRepository implements MobileAuthRepository {
     required String email,
     required String password,
   }) async =>
-      const Failure('unused');
+      Success(
+        MobileAuthSession(
+          user: const MobileAuthUser(
+            id: 'user-1',
+            email: 'a@example.com',
+          ),
+          email: 'a@example.com',
+          accessToken: 'access-user-1',
+          refreshToken: 'refresh-user-1',
+          tokenType: 'bearer',
+          verifiedAt: DateTime.utc(2026, 1, 1),
+        ),
+      );
 
   @override
   Future<Result<OtpChallenge>> requestOtp(String phone) async =>

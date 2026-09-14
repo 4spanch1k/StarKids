@@ -30,6 +30,7 @@ class OnboardingController extends ChangeNotifier {
   OnboardingCompletion? _completion;
   bool _requestInFlight = false;
   String? _loadedAccountId;
+  int _operationGeneration = 0;
 
   OnboardingStatus get status => _status;
   String? get errorMessage => _errorMessage;
@@ -42,6 +43,7 @@ class OnboardingController extends ChangeNotifier {
   Future<void> load() async {
     if (!_authController.isAuthenticated || _requestInFlight) return;
     final requestedAccountId = _accountId;
+    final generation = ++_operationGeneration;
     _requestInFlight = true;
     _status = OnboardingStatus.loading;
     _errorMessage = null;
@@ -51,8 +53,7 @@ class OnboardingController extends ChangeNotifier {
       final result = await _repository.fetchProfile();
       // An account transition can happen while the request is in flight.
       // Never apply the previous account's response to the new session.
-      if (!_authController.isAuthenticated ||
-          _accountId != requestedAccountId) {
+      if (!_isCurrentOperation(generation, requestedAccountId)) {
         return;
       }
       if (result is Success<UserProfile>) {
@@ -66,13 +67,14 @@ class OnboardingController extends ChangeNotifier {
         _errorMessage = (result as Failure<UserProfile>).message;
       }
     } catch (_) {
-      _status = OnboardingStatus.error;
-      _errorMessage = 'Не удалось загрузить профиль. Попробуйте снова.';
+      if (_isCurrentOperation(generation, requestedAccountId)) {
+        _status = OnboardingStatus.error;
+        _errorMessage = 'Не удалось загрузить профиль. Попробуйте снова.';
+      }
     } finally {
-      _requestInFlight = false;
-      notifyListeners();
-      if (_authController.isAuthenticated && _accountId != requestedAccountId) {
-        unawaited(load());
+      if (_isCurrentOperation(generation, requestedAccountId)) {
+        _requestInFlight = false;
+        notifyListeners();
       }
     }
   }
@@ -82,7 +84,9 @@ class OnboardingController extends ChangeNotifier {
     required List<OnboardingChildDraft> children,
     required String privacyConsentVersion,
   }) async {
-    if (_requestInFlight) return false;
+    if (_requestInFlight || !_authController.isAuthenticated) return false;
+    final requestedAccountId = _accountId;
+    final generation = ++_operationGeneration;
     _requestInFlight = true;
     _status = OnboardingStatus.submitting;
     _errorMessage = null;
@@ -94,6 +98,7 @@ class OnboardingController extends ChangeNotifier {
         children: children,
         privacyConsentVersion: privacyConsentVersion,
       );
+      if (!_isCurrentOperation(generation, requestedAccountId)) return false;
       if (result is Success<OnboardingCompletion>) {
         _completion = result.data;
         _loadedAccountId = _accountId;
@@ -104,12 +109,16 @@ class OnboardingController extends ChangeNotifier {
       _errorMessage = (result as Failure).message;
       return false;
     } catch (_) {
-      _status = OnboardingStatus.required;
-      _errorMessage = 'Не удалось сохранить профиль. Попробуйте снова.';
+      if (_isCurrentOperation(generation, requestedAccountId)) {
+        _status = OnboardingStatus.required;
+        _errorMessage = 'Не удалось сохранить профиль. Попробуйте снова.';
+      }
       return false;
     } finally {
-      _requestInFlight = false;
-      notifyListeners();
+      if (_isCurrentOperation(generation, requestedAccountId)) {
+        _requestInFlight = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -123,6 +132,7 @@ class OnboardingController extends ChangeNotifier {
 
   void _handleAuthChanged() {
     if (!_authController.isAuthenticated) {
+      _operationGeneration++;
       _requestInFlight = false;
       _completion = null;
       _loadedAccountId = null;
@@ -132,6 +142,8 @@ class OnboardingController extends ChangeNotifier {
       return;
     }
     if (_accountId != _loadedAccountId) {
+      _operationGeneration++;
+      _requestInFlight = false;
       _completion = null;
     }
     if (_accountId != _loadedAccountId ||
@@ -145,6 +157,11 @@ class OnboardingController extends ChangeNotifier {
     final session = _authController.session;
     return session?.user?.id ?? session?.email ?? session?.phone;
   }
+
+  bool _isCurrentOperation(int generation, String? accountId) =>
+      generation == _operationGeneration &&
+      _authController.isAuthenticated &&
+      _accountId == accountId;
 
   @override
   void dispose() {

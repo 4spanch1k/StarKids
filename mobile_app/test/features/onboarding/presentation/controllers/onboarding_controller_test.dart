@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:star_kids_mobile/core/utils/result.dart';
@@ -52,6 +54,56 @@ void main() {
   );
 
   test(
+    'stale completion cannot change the next account onboarding state',
+    () async {
+      final authRepository = _FakeAuthRepository(_session('user-a'));
+      final auth = MobileAuthController(repository: authRepository);
+      final onboardingRepository = _FakeOnboardingRepository(
+        profile: const UserProfile(id: 'user-a'),
+      );
+      final onboarding = OnboardingController(
+        authController: auth,
+        repository: onboardingRepository,
+      );
+
+      await auth.loginWithEmail(email: 'a@example.com', password: 'password');
+      await _settle();
+      expect(onboarding.status, OnboardingStatus.required);
+
+      final completion = Completer<Result<OnboardingCompletion>>();
+      onboardingRepository.completionCompleter = completion;
+      final staleCompletion = onboarding.complete(
+        firstName: 'Айжан',
+        children: const [],
+        privacyConsentVersion: 'v1',
+      );
+
+      await auth.logout();
+      authRepository.session = _session('user-b');
+      onboardingRepository.profile = const UserProfile(id: 'user-b');
+      await auth.loginWithEmail(email: 'b@example.com', password: 'password');
+      await _settle();
+      expect(onboarding.status, OnboardingStatus.required);
+
+      completion.complete(
+        const Success<OnboardingCompletion>(
+          OnboardingCompletion(
+            profile: UserProfile(
+              id: 'user-a',
+              onboardingCompleted: true,
+            ),
+            children: [],
+          ),
+        ),
+      );
+
+      expect(await staleCompletion, isFalse);
+      expect(onboarding.status, OnboardingStatus.required);
+      expect(onboarding.completion, isNull);
+    },
+  );
+
+  test(
     'logout clears onboarding state and the next account uses server state',
     () async {
       final authRepository = _FakeAuthRepository(_session('user-a'));
@@ -101,6 +153,7 @@ class _FakeOnboardingRepository implements OnboardingRepository {
   UserProfile profile;
   String? lastFirstName;
   List<OnboardingChildDraft> lastChildren = const [];
+  Completer<Result<OnboardingCompletion>>? completionCompleter;
 
   @override
   Future<Result<UserProfile>> fetchProfile() async =>
@@ -112,6 +165,7 @@ class _FakeOnboardingRepository implements OnboardingRepository {
     required List<OnboardingChildDraft> children,
     required String privacyConsentVersion,
   }) async {
+    if (completionCompleter != null) return completionCompleter!.future;
     lastFirstName = firstName;
     lastChildren = children;
     profile = profile.copyWith(firstName: firstName, onboardingCompleted: true);

@@ -35,6 +35,8 @@ class ProfileController extends ChangeNotifier {
   List<RequestHistoryItem> _previewRequests = const [];
   int _totalRequests = 0;
   String? _requestsErrorMessage;
+  int _loadGeneration = 0;
+  int _requestPreviewGeneration = 0;
 
   ProfileViewStatus get status => _status;
   UserProfile? get profile => _profile;
@@ -93,9 +95,13 @@ class ProfileController extends ChangeNotifier {
       !_hasValidationErrors;
 
   Future<void> load() async {
+    final generation = ++_loadGeneration;
+    _requestPreviewGeneration++;
     _status = ProfileViewStatus.loading;
     _errorMessage = null;
     _profile = null;
+    _isSaving = false;
+    _isUploadingAvatar = false;
     _previewRequests = const [];
     _totalRequests = 0;
     _requestsStatus = ProfileRequestsStatus.loading;
@@ -103,13 +109,14 @@ class ProfileController extends ChangeNotifier {
     notifyListeners();
 
     final result = await _profileRepository.fetchProfile();
+    if (!_isCurrentLoad(generation)) return;
 
     if (result is Success<UserProfile>) {
       _profile = result.data;
       _applyProfileToDrafts(result.data);
       _status = ProfileViewStatus.success;
       notifyListeners();
-      await loadRequestPreview();
+      await loadRequestPreview(generation: generation);
     } else {
       _errorMessage = (result as Failure<UserProfile>).message;
       _status = ProfileViewStatus.error;
@@ -117,13 +124,19 @@ class ProfileController extends ChangeNotifier {
     }
   }
 
-  Future<void> loadRequestPreview() async {
+  Future<void> loadRequestPreview({int? generation}) async {
+    final loadGeneration = generation ?? _loadGeneration;
+    final previewGeneration = ++_requestPreviewGeneration;
     _requestsStatus = ProfileRequestsStatus.loading;
     _requestsErrorMessage = null;
     notifyListeners();
 
     try {
       final result = await _requestHistoryRepository.fetchMyRequests();
+      if (!_isCurrentLoad(loadGeneration) ||
+          previewGeneration != _requestPreviewGeneration) {
+        return;
+      }
 
       if (result is RequestHistoryFetchSuccess) {
         _previewRequests = result.items.take(3).toList(growable: false);
@@ -140,6 +153,10 @@ class ProfileController extends ChangeNotifier {
         _requestsStatus = ProfileRequestsStatus.error;
       }
     } catch (_) {
+      if (!_isCurrentLoad(loadGeneration) ||
+          previewGeneration != _requestPreviewGeneration) {
+        return;
+      }
       _requestsErrorMessage = 'Не удалось загрузить заявки. Попробуйте снова.';
       _requestsStatus = ProfileRequestsStatus.error;
     }
@@ -150,6 +167,7 @@ class ProfileController extends ChangeNotifier {
   Future<void> saveChanges() async {
     if (!canSave) return;
 
+    final generation = _loadGeneration;
     _isSaving = true;
     _errorMessage = null;
     notifyListeners();
@@ -161,6 +179,8 @@ class ProfileController extends ChangeNotifier {
     );
 
     final result = await _profileRepository.updateProfile(payload);
+
+    if (!_isCurrentLoad(generation)) return;
 
     _isSaving = false;
 
@@ -180,6 +200,7 @@ class ProfileController extends ChangeNotifier {
     String fileName,
     String contentType,
   ) async {
+    final generation = _loadGeneration;
     _isUploadingAvatar = true;
     _errorMessage = null;
     notifyListeners();
@@ -189,6 +210,8 @@ class ProfileController extends ChangeNotifier {
       fileName: fileName,
       contentType: contentType,
     );
+
+    if (!_isCurrentLoad(generation)) return;
 
     _isUploadingAvatar = false;
 
@@ -202,11 +225,14 @@ class ProfileController extends ChangeNotifier {
   }
 
   Future<void> deleteAvatar() async {
+    final generation = _loadGeneration;
     _isUploadingAvatar = true;
     _errorMessage = null;
     notifyListeners();
 
     final result = await _profileRepository.deleteAvatar();
+
+    if (!_isCurrentLoad(generation)) return;
 
     _isUploadingAvatar = false;
 
@@ -252,4 +278,6 @@ class ProfileController extends ChangeNotifier {
     _lastNameDraft = profile.lastName ?? '';
     _emailDraft = profile.email ?? '';
   }
+
+  bool _isCurrentLoad(int generation) => generation == _loadGeneration;
 }

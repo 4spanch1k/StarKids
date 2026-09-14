@@ -21,6 +21,7 @@ class ChildrenController extends ChangeNotifier {
   ChildFormStatus _formStatus = ChildFormStatus.idle;
   String? _formError;
   String? _deleteErrorMessage;
+  int _operationGeneration = 0;
 
   ChildrenStatus get status => _status;
   List<Child> get children => _children;
@@ -37,13 +38,17 @@ class ChildrenController extends ChangeNotifier {
       _children.where((c) => c.isBirthdayToday).toList();
 
   Future<void> load() async {
+    final generation = ++_operationGeneration;
     _status = ChildrenStatus.loading;
     _children = const [];
     _errorMessage = null;
+    _formStatus = ChildFormStatus.idle;
+    _formError = null;
     _deleteErrorMessage = null;
     notifyListeners();
 
     final result = await _repository.fetchChildren();
+    if (!_isCurrentOperation(generation)) return;
     if (result is Success<List<Child>>) {
       _children = result.data;
       _status =
@@ -60,6 +65,7 @@ class ChildrenController extends ChangeNotifier {
     required DateTime birthDate,
     required ChildGender gender,
   }) async {
+    final generation = ++_operationGeneration;
     _formStatus = ChildFormStatus.saving;
     _formError = null;
     _deleteErrorMessage = null;
@@ -71,6 +77,7 @@ class ChildrenController extends ChangeNotifier {
       gender: gender,
     );
 
+    if (!_isCurrentOperation(generation)) return false;
     if (result is Success<Child>) {
       _children = [..._children, result.data];
       _status = ChildrenStatus.success;
@@ -91,6 +98,7 @@ class ChildrenController extends ChangeNotifier {
     required DateTime birthDate,
     required ChildGender gender,
   }) async {
+    final generation = ++_operationGeneration;
     _formStatus = ChildFormStatus.saving;
     _formError = null;
     _deleteErrorMessage = null;
@@ -103,6 +111,7 @@ class ChildrenController extends ChangeNotifier {
       gender: gender,
     );
 
+    if (!_isCurrentOperation(generation)) return false;
     if (result is Success<Child>) {
       _children = [
         for (final c in _children)
@@ -123,12 +132,14 @@ class ChildrenController extends ChangeNotifier {
     // A destructive operation must not race another add/edit/delete request.
     if (isSaving) return false;
 
+    final generation = ++_operationGeneration;
     _formStatus = ChildFormStatus.saving;
     _formError = null;
     _deleteErrorMessage = null;
     notifyListeners();
 
     final result = await _repository.deleteChild(childId);
+    if (!_isCurrentOperation(generation)) return false;
     if (result is Success<void>) {
       _children = _children.where((c) => c.id != childId).toList();
       _status =
@@ -161,4 +172,7 @@ class ChildrenController extends ChangeNotifier {
   }
 
   Future<void> retry() => load();
+
+  bool _isCurrentOperation(int generation) =>
+      generation == _operationGeneration;
 }
