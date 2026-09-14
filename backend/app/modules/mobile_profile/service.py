@@ -87,9 +87,6 @@ class MobileProfileService:
                         details=[{'field': 'email', 'message': 'Этот email уже используется.'}],
                     )
             kwargs['email'] = new_email
-        if 'childBirthDate' in fields_set:
-            kwargs['child_birth_date'] = payload.childBirthDate
-
         if kwargs:
             user = self._user_repository.update(user, **kwargs)
 

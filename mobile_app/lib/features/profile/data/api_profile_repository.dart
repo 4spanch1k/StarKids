@@ -46,16 +46,12 @@ class ApiProfileRepository implements ProfileRepository {
 
   @override
   Future<Result<UserProfile>> updateProfile(
-      ProfileUpdatePayload payload) async {
+    ProfileUpdatePayload payload,
+  ) async {
     final body = <String, dynamic>{};
     if (payload.firstName != null) body['firstName'] = payload.firstName;
     if (payload.lastName != null) body['lastName'] = payload.lastName;
     if (payload.email != null) body['email'] = payload.email;
-    if (payload.childBirthDate != null) {
-      final d = payload.childBirthDate!;
-      body['childBirthDate'] =
-          '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-    }
 
     return _performAuthorizedRequest(
       perform: (session) => _apiClient.patchJson(

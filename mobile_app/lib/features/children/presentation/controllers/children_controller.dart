@@ -20,6 +20,7 @@ class ChildrenController extends ChangeNotifier {
 
   ChildFormStatus _formStatus = ChildFormStatus.idle;
   String? _formError;
+  String? _deleteErrorMessage;
 
   ChildrenStatus get status => _status;
   List<Child> get children => _children;
@@ -27,6 +28,7 @@ class ChildrenController extends ChangeNotifier {
 
   ChildFormStatus get formStatus => _formStatus;
   String? get formError => _formError;
+  String? get deleteErrorMessage => _deleteErrorMessage;
 
   bool get isSaving => _formStatus == ChildFormStatus.saving;
 
@@ -36,7 +38,9 @@ class ChildrenController extends ChangeNotifier {
 
   Future<void> load() async {
     _status = ChildrenStatus.loading;
+    _children = const [];
     _errorMessage = null;
+    _deleteErrorMessage = null;
     notifyListeners();
 
     final result = await _repository.fetchChildren();
@@ -58,6 +62,7 @@ class ChildrenController extends ChangeNotifier {
   }) async {
     _formStatus = ChildFormStatus.saving;
     _formError = null;
+    _deleteErrorMessage = null;
     notifyListeners();
 
     final result = await _repository.createChild(
@@ -88,6 +93,7 @@ class ChildrenController extends ChangeNotifier {
   }) async {
     _formStatus = ChildFormStatus.saving;
     _formError = null;
+    _deleteErrorMessage = null;
     notifyListeners();
 
     final result = await _repository.updateChild(
@@ -114,8 +120,12 @@ class ChildrenController extends ChangeNotifier {
   }
 
   Future<bool> deleteChild(String childId) async {
+    // A destructive operation must not race another add/edit/delete request.
+    if (isSaving) return false;
+
     _formStatus = ChildFormStatus.saving;
     _formError = null;
+    _deleteErrorMessage = null;
     notifyListeners();
 
     final result = await _repository.deleteChild(childId);
@@ -127,11 +137,20 @@ class ChildrenController extends ChangeNotifier {
       notifyListeners();
       return true;
     } else {
-      _formError = (result as Failure<void>).message;
-      _formStatus = ChildFormStatus.error;
+      // Keep delete failures out of the add/edit form error channel. The
+      // profile screen presents this operation-level error immediately, and
+      // the next child form starts clean.
+      _deleteErrorMessage = (result as Failure<void>).message;
+      _formStatus = ChildFormStatus.idle;
       notifyListeners();
       return false;
     }
+  }
+
+  void clearDeleteError() {
+    if (_deleteErrorMessage == null) return;
+    _deleteErrorMessage = null;
+    notifyListeners();
   }
 
   void clearFormError() {

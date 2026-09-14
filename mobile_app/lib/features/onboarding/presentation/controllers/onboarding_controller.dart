@@ -29,6 +29,7 @@ class OnboardingController extends ChangeNotifier {
   String? _errorMessage;
   OnboardingCompletion? _completion;
   bool _requestInFlight = false;
+  String? _loadedAccountId;
 
   OnboardingStatus get status => _status;
   String? get errorMessage => _errorMessage;
@@ -40,6 +41,7 @@ class OnboardingController extends ChangeNotifier {
 
   Future<void> load() async {
     if (!_authController.isAuthenticated || _requestInFlight) return;
+    final requestedAccountId = _accountId;
     _requestInFlight = true;
     _status = OnboardingStatus.loading;
     _errorMessage = null;
@@ -47,8 +49,15 @@ class OnboardingController extends ChangeNotifier {
 
     try {
       final result = await _repository.fetchProfile();
+      // An account transition can happen while the request is in flight.
+      // Never apply the previous account's response to the new session.
+      if (!_authController.isAuthenticated ||
+          _accountId != requestedAccountId) {
+        return;
+      }
       if (result is Success<UserProfile>) {
         final profile = result.data;
+        _loadedAccountId = requestedAccountId;
         _status = profile.onboardingCompleted
             ? OnboardingStatus.complete
             : OnboardingStatus.required;
@@ -62,6 +71,9 @@ class OnboardingController extends ChangeNotifier {
     } finally {
       _requestInFlight = false;
       notifyListeners();
+      if (_authController.isAuthenticated && _accountId != requestedAccountId) {
+        unawaited(load());
+      }
     }
   }
 
@@ -84,6 +96,7 @@ class OnboardingController extends ChangeNotifier {
       );
       if (result is Success<OnboardingCompletion>) {
         _completion = result.data;
+        _loadedAccountId = _accountId;
         _status = OnboardingStatus.complete;
         return true;
       }
@@ -112,14 +125,25 @@ class OnboardingController extends ChangeNotifier {
     if (!_authController.isAuthenticated) {
       _requestInFlight = false;
       _completion = null;
+      _loadedAccountId = null;
       _errorMessage = null;
       _status = OnboardingStatus.idle;
       notifyListeners();
       return;
     }
-    if (_status == OnboardingStatus.idle || _status == OnboardingStatus.error) {
+    if (_accountId != _loadedAccountId) {
+      _completion = null;
+    }
+    if (_accountId != _loadedAccountId ||
+        _status == OnboardingStatus.idle ||
+        _status == OnboardingStatus.error) {
       unawaited(load());
     }
+  }
+
+  String? get _accountId {
+    final session = _authController.session;
+    return session?.user?.id ?? session?.email ?? session?.phone;
   }
 
   @override

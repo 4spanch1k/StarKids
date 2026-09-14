@@ -141,37 +141,34 @@ class MobileProfileEndpointTests(unittest.TestCase):
         body = response.json()
         self.assertEqual(body['id'], auth['user']['id'])
         self.assertEqual(body['email'], 'test@example.com')
+        self.assertNotIn('childBirthDate', body)
 
-    def test_patch_mobile_me_updates_and_clears_fields(self) -> None:
+    def test_patch_mobile_me_updates_parent_fields_only(self) -> None:
         auth = self._authenticate_email()
         headers = self._auth_headers(auth)
 
-        child_dob = str(date.today() - timedelta(days=365 * 3))
         patch_response = self.client.patch(
             '/api/v1/mobile/me',
             headers=headers,
             json={
                 'firstName': 'Алима',
                 'lastName': 'Сейткали',
-                'childBirthDate': child_dob,
             },
         )
         self.assertEqual(patch_response.status_code, 200)
         body = patch_response.json()
         self.assertEqual(body['firstName'], 'Алима')
         self.assertEqual(body['lastName'], 'Сейткали')
-        self.assertEqual(body['childBirthDate'], child_dob)
 
         clear_response = self.client.patch(
             '/api/v1/mobile/me',
             headers=headers,
-            json={'firstName': None, 'lastName': None, 'childBirthDate': None},
+            json={'firstName': None, 'lastName': None},
         )
         self.assertEqual(clear_response.status_code, 200)
         cleared = clear_response.json()
         self.assertIsNone(cleared['firstName'])
         self.assertIsNone(cleared['lastName'])
-        self.assertIsNone(cleared['childBirthDate'])
 
     def test_patch_mobile_me_rejects_duplicate_email(self) -> None:
         self._authenticate_email('other@example.com')
@@ -186,7 +183,7 @@ class MobileProfileEndpointTests(unittest.TestCase):
         self.assertEqual(response.status_code, 409)
         self.assertEqual(response.json()['error']['code'], 'email_already_in_use')
 
-    def test_patch_mobile_me_rejects_future_child_birth_date(self) -> None:
+    def test_patch_mobile_me_ignores_legacy_child_birth_date_field(self) -> None:
         auth = self._authenticate_email()
         headers = self._auth_headers(auth)
 
@@ -196,7 +193,8 @@ class MobileProfileEndpointTests(unittest.TestCase):
             headers=headers,
             json={'childBirthDate': future_date},
         )
-        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn('childBirthDate', response.json())
 
     def test_avatar_upload_and_delete(self) -> None:
         auth = self._authenticate_email()

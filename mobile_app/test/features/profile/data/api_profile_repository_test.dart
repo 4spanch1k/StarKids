@@ -58,10 +58,7 @@ void main() {
           httpClient: MockClient((request) async {
             requestCount += 1;
             if (requestCount == 1) {
-              expect(
-                request.headers['Authorization'],
-                'Bearer expired-access',
-              );
+              expect(request.headers['Authorization'], 'Bearer expired-access');
               return http.Response('', 401);
             }
 
@@ -74,7 +71,6 @@ void main() {
                 'firstName': 'Иван',
                 'lastName': 'Иванов',
                 'avatarUrl': null,
-                'childBirthDate': null,
               }),
               200,
               headers: const {'content-type': 'application/json'},
