@@ -96,18 +96,21 @@ const routes: RouteRecordRaw[] = [
         name: adminCrudRouteNames.promotions.list,
         component: PromotionsPage,
         idParam: adminCrudRouteNames.promotions.idParam,
+        allowedRoles: ['super_admin', 'content_manager'],
       }).routes,
       ...buildAdminCrudRouteGroup({
         path: 'news',
         name: adminCrudRouteNames.news.list,
         component: NewsPage,
         idParam: adminCrudRouteNames.news.idParam,
+        allowedRoles: ['super_admin', 'content_manager'],
       }).routes,
       ...buildAdminCrudRouteGroup({
         path: 'content',
         name: adminCrudRouteNames.content.list,
         component: ContentPage,
         idParam: adminCrudRouteNames.content.idParam,
+        allowedRoles: ['super_admin', 'content_manager'],
       }).routes,
       ...buildAdminCrudRouteGroup({
         path: 'gallery',
@@ -115,12 +118,14 @@ const routes: RouteRecordRaw[] = [
         component: GalleryPage,
         idParam: adminCrudRouteNames.gallery.idParam,
         allowCreate: false,
+        allowedRoles: ['super_admin', 'content_manager'],
       }).routes,
       ...buildAdminCrudRouteGroup({
         path: 'faq',
         name: adminCrudRouteNames.faq.list,
         component: FAQPage,
         idParam: adminCrudRouteNames.faq.idParam,
+        allowedRoles: ['super_admin', 'content_manager'],
       }).routes,
       {
         path: 'customers',
