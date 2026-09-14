@@ -72,7 +72,7 @@
     <section v-if="lead.type === 'birthday_request'" class="lead-sales-panel">
       <div class="admin-section-heading">
         <h3>Коммерческие данные</h3>
-        <p>Это данные переговоров, а не факт оплаты или выручка.</p>
+        <p>Суммы фиксируются менеджером вручную и не являются данными платёжного провайдера или бухгалтерской выручкой.</p>
       </div>
       <div class="lead-sales-panel__fields">
         <label class="lead-sales-panel__field">
