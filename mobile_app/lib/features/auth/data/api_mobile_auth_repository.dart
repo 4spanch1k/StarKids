@@ -303,13 +303,22 @@ class ApiMobileAuthRepository implements MobileAuthRepository {
       );
 
       if (response.isSuccess || response.statusCode == 401) {
-        await _sessionStorage.clearSession();
+        try {
+          await _sessionStorage.clearSession();
+        } catch (error) {
+          // The server-side logout has succeeded. Keep the cleanup failure
+          // explicit so the controller can clear its in-memory session while
+          // surfacing the local-storage problem to the user.
+          throw MobileAuthLocalCleanupException(error);
+        }
         return const Success<void>(null);
       }
 
       return const Failure<void>(
         'Не удалось завершить сеанс. Попробуйте снова немного позже.',
       );
+    } on MobileAuthLocalCleanupException {
+      rethrow;
     } catch (_) {
       return const Failure<void>(
         'Не удалось завершить сеанс. Проверьте интернет и попробуйте снова.',

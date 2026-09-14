@@ -51,6 +51,7 @@ class MobileAuthSessionStorage {
       } catch (_) {
         // Ignore cleanup failure and keep the safe null result.
       }
+      await _bestEffortRemoveLegacySession();
       return null;
     }
 

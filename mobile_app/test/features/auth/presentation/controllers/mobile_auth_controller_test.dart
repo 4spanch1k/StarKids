@@ -187,6 +187,35 @@ void main() {
       expect(controller.session, isNull);
     });
 
+    test('logout leaves authenticated UI even when local cleanup fails',
+        () async {
+      final session = MobileAuthSession(
+        user: const MobileAuthUser(id: 'user-1', phone: '+77071234567'),
+        phone: '+77071234567',
+        accessToken: 'access-token',
+        refreshToken: 'refresh-token',
+        tokenType: 'bearer',
+        verifiedAt: DateTime(2026, 4, 8),
+      );
+      final repository = _FakeMobileAuthRepository(
+        restoredSession: session,
+        logoutError: MobileAuthLocalCleanupException(
+          StateError('secure delete failed'),
+        ),
+        clearSessionError: StateError('secure delete failed'),
+      );
+      final controller = MobileAuthController(repository: repository);
+
+      await controller.bootstrap();
+      await controller.logout();
+
+      expect(repository.wasCleared, isTrue);
+      expect(controller.status, MobileAuthStatus.unauthenticated);
+      expect(controller.session, isNull);
+      expect(controller.isLoggingOut, isFalse);
+      expect(controller.errorMessage, contains('локальн'));
+    });
+
     test('email login authenticates without otp challenge', () async {
       final emailSession = MobileAuthSession(
         user: const MobileAuthUser(
@@ -348,6 +377,8 @@ class _FakeMobileAuthRepository implements MobileAuthRepository {
     Result<void>? logoutResult,
     Object? restoreSessionError,
     Object? syncSessionError,
+    this.logoutError,
+    this.clearSessionError,
   })  : _syncSessionResult = syncSessionResult ??
             (restoredSession == null
                 ? const Success<MobileAuthSession?>(null)
@@ -369,6 +400,8 @@ class _FakeMobileAuthRepository implements MobileAuthRepository {
   final Result<void> _logoutResult;
   final Object? _restoreSessionError;
   final Object? _syncSessionError;
+  final Object? logoutError;
+  final Object? clearSessionError;
 
   String? requestedPhone;
   String? verifiedCode;
@@ -382,6 +415,9 @@ class _FakeMobileAuthRepository implements MobileAuthRepository {
   @override
   Future<void> clearSession() async {
     wasCleared = true;
+    if (clearSessionError != null) {
+      throw clearSessionError!;
+    }
   }
 
   @override
@@ -413,6 +449,9 @@ class _FakeMobileAuthRepository implements MobileAuthRepository {
   @override
   Future<Result<void>> logout(MobileAuthSession session) async {
     loggedOutAccessToken = session.accessToken;
+    if (logoutError != null) {
+      throw logoutError!;
+    }
     return _logoutResult;
   }
 

@@ -354,9 +354,17 @@ class MobileAuthController extends ChangeNotifier {
         // Push cleanup is best-effort and must never trap the user in the app.
       }
     }
-    final result = session == null
-        ? const Success<void>(null)
-        : await _repository.logout(session);
+    String? localCleanupError;
+    Result<void> result;
+    try {
+      result = session == null
+          ? const Success<void>(null)
+          : await _repository.logout(session);
+    } on MobileAuthLocalCleanupException {
+      localCleanupError =
+          'Не удалось полностью очистить локальную сессию. Войдите снова.';
+      result = const Success<void>(null);
+    }
 
     if (result is Failure<void>) {
       _onLogoutAborted?.call();
@@ -367,10 +375,18 @@ class MobileAuthController extends ChangeNotifier {
       return;
     }
 
-    await _repository.clearSession();
+    try {
+      await _repository.clearSession();
+    } catch (_) {
+      // The server logout has already succeeded. Never keep the user in the
+      // authenticated UI just because local credential cleanup failed; expose
+      // the cleanup issue on the unauthenticated screen instead.
+      localCleanupError =
+          'Не удалось полностью очистить локальную сессию. Войдите снова.';
+    }
     _session = null;
     _pendingChallenge = null;
-    _errorMessage = null;
+    _errorMessage = localCleanupError;
     _status = MobileAuthStatus.unauthenticated;
     _isRefreshingProfile = false;
     _isLoggingOut = false;

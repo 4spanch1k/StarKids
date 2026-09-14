@@ -217,7 +217,18 @@ void main() {
     );
     expect(
       preferences.getString(MobileAuthSessionStorage.legacySessionKey),
-      isNotNull,
+      isNull,
+    );
+
+    final secondResult = await storage.readSession();
+    expect(secondResult, isNull);
+    expect(
+      secureStorage.values[MobileAuthSessionStorage.secureSessionKey],
+      isNull,
+    );
+    expect(
+      preferences.getString(MobileAuthSessionStorage.legacySessionKey),
+      isNull,
     );
   });
 

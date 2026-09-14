@@ -3,6 +3,15 @@ import '../../../core/utils/result.dart';
 import 'mobile_auth_session.dart';
 import 'otp_challenge.dart';
 
+/// Signals that the server accepted logout but local credential cleanup did
+/// not complete. The controller can leave the authenticated UI while showing
+/// a cleanup warning instead of treating the server logout as a failure.
+class MobileAuthLocalCleanupException implements Exception {
+  const MobileAuthLocalCleanupException(this.cause);
+
+  final Object cause;
+}
+
 abstract interface class MobileAuthRepository {
   Future<Result<MobileAuthSession>> registerWithEmail({
     required String email,
