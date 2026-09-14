@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 BUSINESS_TZ = ZoneInfo('Asia/Almaty')
 MAX_ATTEMPTS = 3
 STALE_SENDING_AFTER = timedelta(minutes=5)
+PUSH_CAMPAIGN_ALLOWED_ROLES = ('super_admin', 'content_manager')
 
 
 def birthday_target_date(now: datetime, days_before_birthday: int) -> date:

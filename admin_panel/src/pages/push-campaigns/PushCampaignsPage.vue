@@ -24,13 +24,13 @@
     <StatePanel v-if="loading" title="Загружаем кампании" />
     <div v-else class="admin-list-records">
       <article v-for="campaign in campaigns" :key="campaign.id" class="admin-list-record">
-        <div class="admin-list-record__copy"><strong>{{ campaign.internal_name }}</strong><span>{{ campaign.title }} · {{ audienceLabel(campaign) }}</span><span>Статус: {{ campaign.status }} · {{ campaign.sent_count }}/{{ campaign.targeted_devices }} отправлено</span>
+        <div class="admin-list-record__copy"><strong>{{ campaign.internal_name }}</strong><span>{{ campaign.title }} · {{ audienceLabel(campaign) }}</span><span>Статус: {{ campaign.status }} · {{ campaign.sent_count }}/{{ campaign.targeted_devices }} отправлено</span><span v-if="campaign.status === 'scheduled' && campaign.scheduled_at">Запланированная отправка: {{ formatDateTime(campaign.scheduled_at) }}</span>
           <small v-if="attributions[campaign.id]">Отправлено семьям: {{ attributions[campaign.id].sent_users }} · Открыли: {{ attributions[campaign.id].opened_users }}<template v-if="attributions[campaign.id].open_rate !== null"> ({{ formatRate(attributions[campaign.id].open_rate) }}%)</template></small>
           <small v-if="attributions[campaign.id]">Last-touch, 7 дней: посещения {{ attributions[campaign.id].attributed_visit_users }} семей / {{ attributions[campaign.id].attributed_visits }} визитов · Birthday leads {{ attributions[campaign.id].attributed_birthday_leads }}</small>
           <small v-else-if="attributionLoading" class="admin-muted">Загружаем атрибуцию…</small>
           <small v-else-if="attributionError" class="admin-inline-message--error">Атрибуция недоступна</small>
         </div>
-        <div class="admin-page-actions"><button v-if="campaign.status === 'draft' || campaign.status === 'scheduled'" class="admin-button admin-button--primary" type="button" :disabled="sendingId === campaign.id" @click="send(campaign.id)">{{ sendingId === campaign.id ? 'Отправляем…' : 'Отправить' }}</button><button v-if="campaign.status === 'draft' || campaign.status === 'scheduled'" class="admin-button admin-button--secondary" type="button" :disabled="sendingId === campaign.id" @click="cancel(campaign.id)">Отменить</button></div>
+        <div class="admin-page-actions"><button v-if="campaign.status === 'draft'" class="admin-button admin-button--primary" type="button" :disabled="sendingId === campaign.id" @click="send(campaign.id)">{{ sendingId === campaign.id ? 'Отправляем…' : 'Отправить' }}</button><button v-if="campaign.status === 'draft' || campaign.status === 'scheduled'" class="admin-button admin-button--secondary" type="button" :disabled="sendingId === campaign.id" @click="cancel(campaign.id)">Отменить</button></div>
       </article>
       <StatePanel v-if="campaigns.length === 0" title="Кампаний пока нет" description="Создайте первое сообщение для аудитории." />
     </div>
@@ -63,5 +63,6 @@ function audienceLabel(c: PushCampaign) {
 }
 function segmentLabel(segment: VisitAudienceSegment) { return ({ never_visited: 'ещё не посещали', first_visit_only: 'были 1 раз', returning: 'возвращались', dormant_30: 'не были 30+ дней', dormant_60: 'не были 60+ дней', dormant_90: 'не были 90+ дней' } as Record<VisitAudienceSegment, string>)[segment]; }
 function formatRate(value: number | null) { return value === null ? '—' : (value * 100).toFixed(1); }
+function formatDateTime(value: string): string { return new Intl.DateTimeFormat('ru-RU', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Almaty' }).format(new Date(value)); }
 onMounted(load);
 </script>

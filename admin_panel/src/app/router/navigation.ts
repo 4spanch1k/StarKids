@@ -40,7 +40,12 @@ export const secondaryNavigationItems: NavigationItem[] = [
     to: '/staff',
     allowedRoles: ['super_admin'],
   },
-  { name: 'push-campaigns', label: 'Пуш-кампании', to: '/push-campaigns' },
+  {
+    name: 'push-campaigns',
+    label: 'Пуш-кампании',
+    to: '/push-campaigns',
+    allowedRoles: ['super_admin', 'content_manager'],
+  },
   { name: 'audit-logs', label: 'Журнал аудита', to: '/audit-logs' },
   { name: 'loyalty', label: 'Лояльность', to: '/loyalty', allowedRoles: ['super_admin'] },
 ];
