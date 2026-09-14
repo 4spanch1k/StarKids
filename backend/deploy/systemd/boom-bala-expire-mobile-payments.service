@@ -1,0 +1,12 @@
+[Unit]
+Description=Boom Bala mobile payment expiration cleanup
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=boom-bala
+Group=boom-bala
+WorkingDirectory=/opt/boom-bala/backend
+EnvironmentFile=/etc/boom-bala/backend.env
+ExecStart=/opt/boom-bala/backend/.venv/bin/python /opt/boom-bala/backend/scripts/expire_mobile_payments.py

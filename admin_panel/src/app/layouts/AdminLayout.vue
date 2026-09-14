@@ -9,8 +9,8 @@
     <AppSidebar
       class="layout__sidebar"
       :class="{ 'sidebar--open': isSidebarOpen }"
-      :primary-items="primaryNavigationItems"
-      :secondary-items="secondaryNavigationItems"
+      :primary-items="visiblePrimaryNavigationItems"
+      :secondary-items="visibleSecondaryNavigationItems"
       @navigate="closeSidebar"
     />
 
@@ -27,7 +27,7 @@
           </button>
 
           <div class="workspace__intro">
-            <p class="workspace__label">Star Kids</p>
+            <p class="workspace__label">Boom Bala</p>
             <p class="workspace__caption">
               Панель для обработки заявок и управления контентом без лишней сложности.
             </p>
@@ -72,12 +72,21 @@ import {
   primaryNavigationItems,
   secondaryNavigationItems,
 } from '@/app/router/navigation';
+import type { NavigationItem } from '@/app/router/navigation';
+import type { AdminRole } from '@/features/auth/types';
 import { useSessionStore } from '@/features/auth/stores/useSessionStore';
 import AppSidebar from '@/shared/ui/AppSidebar.vue';
 
 const router = useRouter();
 const sessionStore = useSessionStore();
 const isSidebarOpen = ref(false);
+
+const visiblePrimaryNavigationItems = computed(() =>
+  filterNavigationItems(primaryNavigationItems, sessionStore.operatorRole),
+);
+const visibleSecondaryNavigationItems = computed(() =>
+  filterNavigationItems(secondaryNavigationItems, sessionStore.operatorRole),
+);
 
 const roleLabels: Record<string, string> = {
   super_admin: 'Суперадмин',
@@ -104,6 +113,15 @@ function toggleSidebar() {
 
 function closeSidebar() {
   isSidebarOpen.value = false;
+}
+
+function filterNavigationItems(
+  items: NavigationItem[],
+  role: string,
+) {
+  return items.filter(
+    (item) => !item.allowedRoles || item.allowedRoles.includes(role as AdminRole),
+  );
 }
 </script>
 

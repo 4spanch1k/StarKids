@@ -13,6 +13,16 @@ from app.db.models import (  # noqa: F401
     birthday_package,
     birthday_request,
     branch,
+    branch_menu_category,
+    branch_menu_item,
+    mobile_payment,
+    issued_ticket,
+    ticket_redemption,
+    visit,
+    loyalty_account,
+    loyalty_rule,
+    loyalty_transaction,
+    loyalty_settings,
 )
 
 config = context.config

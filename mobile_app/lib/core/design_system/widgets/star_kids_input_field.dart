@@ -22,6 +22,8 @@ class StarKidsInputField extends StatelessWidget {
     this.validator,
     this.textCapitalization = TextCapitalization.none,
     this.inputFormatters,
+    this.obscureText = false,
+    this.autofillHints,
   });
 
   final TextEditingController controller;
@@ -42,6 +44,8 @@ class StarKidsInputField extends StatelessWidget {
   final FormFieldValidator<String>? validator;
   final TextCapitalization textCapitalization;
   final List<TextInputFormatter>? inputFormatters;
+  final bool obscureText;
+  final Iterable<String>? autofillHints;
 
   @override
   Widget build(BuildContext context) {
@@ -58,6 +62,8 @@ class StarKidsInputField extends StatelessWidget {
       validator: validator,
       textCapitalization: textCapitalization,
       inputFormatters: inputFormatters,
+      obscureText: obscureText,
+      autofillHints: autofillHints,
       decoration: InputDecoration(
         labelText: label,
         hintText: hintText,

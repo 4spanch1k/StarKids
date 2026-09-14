@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_colors.dart';
-import '../../../../core/design_system/foundations/star_kids_radii.dart';
-import '../../../../core/design_system/foundations/star_kids_shadows.dart';
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
+import '../../../../app/router/nested_navigation.dart';
+import '../../../../core/design_system/foundations/sk_tokens.dart';
+import '../../../../core/design_system/sk_design_tokens.dart';
+import '../../../../core/design_system/sk_theme.dart';
+import '../../../../core/design_system/widgets/glass_app_bar.dart';
+import '../../../../core/design_system/widgets/primary_button.dart';
 import '../../../../core/design_system/widgets/star_kids_bottom_cta_bar.dart';
-import '../../../../core/design_system/widgets/star_kids_button.dart';
 import '../../../../core/design_system/widgets/star_kids_content_block_card.dart';
+import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
+import '../../../../core/design_system/widgets/stable_future_builder.dart';
 import '../../../../core/services/external_link_service.dart';
 import '../../../branches/domain/branch_option.dart';
 import '../../../content/domain/public_content_block.dart';
@@ -27,11 +30,13 @@ class ContactsMapPage extends StatelessWidget {
       builder: (context, _) {
         final branch = ServiceRegistry.selectedBranchController.selectedBranch;
 
-        return FutureBuilder<_ContactsScreenData>(
-          future: _loadScreenData(branch.id),
+        return StableFutureBuilder<_ContactsScreenData>(
+          cacheKey: branch.id,
+          futureFactory: () => _loadScreenData(branch.id),
           builder: (context, snapshot) {
             final contactLinks = snapshot.data?.contactLinks;
             final branchDetail = snapshot.data?.branch ?? branch;
+            final whatsAppPhone = contactLinks?.whatsAppPhone ?? '';
             final canOpenWhatsApp =
                 contactLinks != null && _hasValue(contactLinks.whatsAppPhone);
             final canOpenMap =
@@ -40,324 +45,320 @@ class ContactsMapPage extends StatelessWidget {
                 contactLinks != null && _hasValue(contactLinks.phone);
 
             return Scaffold(
-              appBar: AppBar(
-                title: const Text('Контакты и маршрут'),
-                actions: [
-                  IconButton(
-                    tooltip: 'Сменить филиал',
-                    onPressed: () => Navigator.of(context)
-                        .pushNamed(AppRoutes.branchSelection),
-                    icon: const Icon(Icons.swap_horiz_rounded),
-                  ),
-                ],
+              appBar: GlassAppBar(
+                leading: const NestedBackButton(),
+                title: Text(
+                  'Как добраться',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                trailing: GlassIconButton(
+                  icon: Icons.swap_horiz_rounded,
+                  tooltip: 'Сменить филиал',
+                  onPressed: () => Navigator.of(context)
+                      .pushNamed(AppRoutes.branchSelection),
+                ),
               ),
               bottomNavigationBar: StarKidsBottomCtaBar(
-                child: StarKidsButton.primary(
-                  label: 'Написать в WhatsApp',
-                  icon: Icons.chat_bubble_rounded,
-                  onPressed: !canOpenWhatsApp
-                      ? null
-                      : () => _handleAction(
-                            context,
-                            () => ExternalLinkService.openWhatsApp(
-                              contactLinks.whatsAppPhone,
-                            ),
-                          ),
+                child: _WhatsAppButton(
+                  enabled: canOpenWhatsApp,
+                  onTap: () => _handleAction(
+                    context,
+                    () => ExternalLinkService.openWhatsApp(whatsAppPhone),
+                  ),
                 ),
               ),
               body: Builder(
                 builder: (context) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const StarKidsContentSwitcher(
+                      child: Center(
+                        key: ValueKey('contacts-loading'),
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
                   }
 
                   if (snapshot.hasError) {
-                    return _ContactsStateView(
-                      title: 'Контакты пока недоступны',
-                      description:
-                          'Не удалось открыть контакты и маршрут для выбранного филиала. Попробуйте выбрать другой филиал.',
-                      actionLabel: 'Сменить филиал',
-                      onActionTap: () => Navigator.of(context)
-                          .pushNamed(AppRoutes.branchSelection),
+                    return StarKidsContentSwitcher(
+                      child: _ContactsStateView(
+                        key: const ValueKey('contacts-error'),
+                        title: 'Контакты пока недоступны',
+                        description:
+                            'Не удалось открыть контакты и маршрут для выбранного филиала. Попробуйте выбрать другой филиал.',
+                        actionLabel: 'Сменить филиал',
+                        onActionTap: () => Navigator.of(
+                          context,
+                        ).pushNamed(AppRoutes.branchSelection),
+                      ),
                     );
                   }
 
                   if (!snapshot.hasData) {
-                    return _ContactsStateView(
-                      title: 'Контакты пока недоступны',
-                      description:
-                          'Экран готов, но контакты и маршрут для выбранного филиала пока не удалось показать.',
-                      actionLabel: 'Сменить филиал',
-                      onActionTap: () => Navigator.of(context)
-                          .pushNamed(AppRoutes.branchSelection),
+                    return StarKidsContentSwitcher(
+                      child: _ContactsStateView(
+                        key: const ValueKey('contacts-empty'),
+                        title: 'Контакты пока недоступны',
+                        description:
+                            'Экран готов, но контакты и маршрут для выбранного филиала пока не удалось показать.',
+                        actionLabel: 'Сменить филиал',
+                        onActionTap: () => Navigator.of(
+                          context,
+                        ).pushNamed(AppRoutes.branchSelection),
+                      ),
                     );
                   }
 
                   final textTheme = Theme.of(context).textTheme;
+                  final c = SKTheme.of(context).colors;
                   final contact = snapshot.data!.contactLinks;
 
-                  return ListView(
-                    padding: const EdgeInsets.fromLTRB(
-                      StarKidsSpacing.xl,
-                      StarKidsSpacing.lg,
-                      StarKidsSpacing.xl,
-                      StarKidsSpacing.x5l,
-                    ),
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(StarKidsSpacing.xl),
-                        decoration: BoxDecoration(
-                          color: StarKidsColors.surfacePrimary,
-                          borderRadius:
-                              BorderRadius.circular(StarKidsRadii.hero),
-                          border:
-                              Border.all(color: StarKidsColors.borderDefault),
-                          boxShadow: StarKidsShadows.depth1,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: StarKidsSpacing.md,
-                                vertical: StarKidsSpacing.sm,
-                              ),
-                              decoration: BoxDecoration(
-                                color: StarKidsColors.surfaceTertiary,
-                                borderRadius:
-                                    BorderRadius.circular(StarKidsRadii.full),
-                              ),
-                              child: Text(
-                                branchDetail.shortLabel,
-                                style: textTheme.labelMedium?.copyWith(
-                                  color: StarKidsColors.brandPrimary,
+                  return StarKidsContentSwitcher(
+                    child: ListView(
+                      key: ValueKey('contacts-loaded-${branchDetail.id}'),
+                      padding: const EdgeInsets.fromLTRB(
+                        SKSpacing.x5,
+                        SKSpacing.x4,
+                        SKSpacing.x5,
+                        SKSpacing.x12,
+                      ),
+                      children: [
+                        StarKidsReveal(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Boom Bala · ${branchDetail.shortLabel}'
+                                    .toUpperCase(),
+                                style: const TextStyle(
+                                  fontFamily: 'GeistMono',
+                                  fontSize: 11,
+                                  letterSpacing: 1.32,
+                                  color: SK.ink3,
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: StarKidsSpacing.md),
-                            Text(
-                              'Контакты и маршрут должны быть понятны за несколько секунд.',
-                              style: textTheme.headlineMedium,
-                            ),
-                            const SizedBox(height: StarKidsSpacing.md),
-                            Text(
-                              'Родитель должен быстро открыть карту, позвонить или написать в WhatsApp без лишних переходов.',
-                              style: textTheme.bodyLarge,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: StarKidsSpacing.x2l),
-                      const StarKidsSectionHeader(
-                        title: 'Все, что нужно перед визитом',
-                        description:
-                            'Один экран с адресом, режимом работы и быстрыми способами связи.',
-                      ),
-                      const SizedBox(height: StarKidsSpacing.lg),
-                      Container(
-                        padding: const EdgeInsets.all(StarKidsSpacing.lg),
-                        decoration: BoxDecoration(
-                          color: StarKidsColors.surfacePrimary,
-                          borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-                          border:
-                              Border.all(color: StarKidsColors.borderDefault),
-                        ),
-                        child: Column(
-                          children: [
-                            _ContactRow(
-                              icon: Icons.location_on_rounded,
-                              title: 'Адрес',
-                              value: _displayValue(
-                                contact.address,
-                                fallback: branchDetail.address,
+                              const SizedBox(height: SK.s3),
+                              const Text.rich(
+                                TextSpan(
+                                  children: [
+                                    TextSpan(text: 'Связаться\n'),
+                                    TextSpan(
+                                      text: 'в один тап.',
+                                      style: TextStyle(
+                                          fontStyle: FontStyle.italic),
+                                    ),
+                                  ],
+                                ),
+                                style: TextStyle(
+                                  fontFamily: 'Fraunces',
+                                  fontSize: 34,
+                                  height: 1.05,
+                                  letterSpacing: -0.85,
+                                  color: SK.ink,
+                                ),
                               ),
-                            ),
-                            _ContactRow(
-                              icon: Icons.schedule_rounded,
-                              title: 'Режим работы',
-                              value: _displayValue(
-                                branchDetail.workingHours,
-                                fallback: 'Уточняйте у менеджера',
-                              ),
-                            ),
-                            _ContactRow(
-                              icon: Icons.call_rounded,
-                              title: 'Телефон',
-                              value: _displayValue(
-                                contact.phone,
-                                fallback: 'Уточняйте у менеджера',
-                              ),
-                            ),
-                            _ContactRow(
-                              icon: Icons.chat_bubble_rounded,
-                              title: 'WhatsApp',
-                              value: _displayValue(
-                                contact.whatsAppPhone,
-                                fallback: 'Уточняйте у менеджера',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: StarKidsSpacing.lg),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: StarKidsButton.secondary(
-                              label: 'Построить маршрут',
-                              icon: Icons.map_rounded,
-                              onPressed: !canOpenMap
-                                  ? null
-                                  : () => _handleAction(
-                                        context,
-                                        () => ExternalLinkService.openMap(
-                                          contact.mapUrl,
-                                        ),
-                                      ),
-                            ),
+                            ],
                           ),
-                          const SizedBox(width: StarKidsSpacing.md),
-                          Expanded(
-                            child: StarKidsButton.secondary(
-                              label: 'Позвонить',
-                              icon: Icons.call_rounded,
-                              onPressed: !canCall
-                                  ? null
-                                  : () => _handleAction(
-                                        context,
-                                        () => ExternalLinkService.openPhone(
-                                          contact.phone,
-                                        ),
+                        ),
+                        const SizedBox(height: SKSpacing.x4),
+                        const _MapPlaceholder(),
+                        const SizedBox(height: SKSpacing.x5),
+                        const StarKidsSectionHeader(title: 'Адрес и связь'),
+                        const SizedBox(height: SKSpacing.x4),
+                        Container(
+                          padding: const EdgeInsets.all(SKSpacing.x4),
+                          decoration: BoxDecoration(
+                            color: c.elevated,
+                            borderRadius: BorderRadius.circular(SKRadius.xl),
+                            border: Border.all(color: c.hairline, width: 0.5),
+                          ),
+                          child: Column(
+                            children: [
+                              _ContactRow(
+                                icon: Icons.location_on_rounded,
+                                title: 'Адрес',
+                                value: _displayValue(
+                                  contact.address,
+                                  fallback: branchDetail.address,
+                                ),
+                              ),
+                              _ContactRow(
+                                icon: Icons.schedule_rounded,
+                                title: 'Режим работы',
+                                value: _displayValue(
+                                  branchDetail.workingHours,
+                                  fallback: 'Уточняйте у менеджера',
+                                ),
+                              ),
+                              _ContactRow(
+                                icon: Icons.call_rounded,
+                                title: 'Телефон',
+                                value: _displayValue(
+                                  contact.phone,
+                                  fallback: 'Уточняйте у менеджера',
+                                ),
+                              ),
+                              _ContactRow(
+                                icon: Icons.chat_bubble_rounded,
+                                title: 'WhatsApp',
+                                value: _displayValue(
+                                  contact.whatsAppPhone,
+                                  fallback: 'Уточняйте у менеджера',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: SKSpacing.x4),
+                        _ResponsiveContactActions(
+                          mapButton: SecondaryButton(
+                            label: 'Построить маршрут',
+                            icon: Icons.map_rounded,
+                            fullWidth: true,
+                            onPressed: !canOpenMap
+                                ? null
+                                : () => _handleAction(
+                                      context,
+                                      () => ExternalLinkService.openMap(
+                                        contact.mapUrl,
                                       ),
+                                    ),
+                          ),
+                          callButton: SecondaryButton(
+                            label: 'Позвонить',
+                            icon: Icons.call_rounded,
+                            fullWidth: true,
+                            onPressed: !canCall
+                                ? null
+                                : () => _handleAction(
+                                      context,
+                                      () => ExternalLinkService.openPhone(
+                                        contact.phone,
+                                      ),
+                                    ),
+                          ),
+                        ),
+                        const SizedBox(height: SKSpacing.x3),
+                        SecondaryButton(
+                          label: 'Написать в WhatsApp',
+                          icon: Icons.chat_bubble_rounded,
+                          fullWidth: true,
+                          onPressed: !canOpenWhatsApp
+                              ? null
+                              : () => _handleAction(
+                                    context,
+                                    () => ExternalLinkService.openWhatsApp(
+                                      contact.whatsAppPhone,
+                                    ),
+                                  ),
+                        ),
+                        const SizedBox(height: SKSpacing.x5),
+                        Container(
+                          padding: const EdgeInsets.all(SKSpacing.x4),
+                          decoration: BoxDecoration(
+                            color: c.elevated,
+                            borderRadius: BorderRadius.circular(SKRadius.xl),
+                            border: Border.all(color: c.hairline, width: 0.5),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Оставить запрос менеджеру',
+                                style: textTheme.titleLarge,
+                              ),
+                              const SizedBox(height: SKSpacing.x2),
+                              Text(
+                                'Опишите вопрос — перезвоним и поможем.',
+                                style: textTheme.bodyMedium,
+                              ),
+                              const SizedBox(height: SKSpacing.x4),
+                              SecondaryButton(
+                                label: 'Оставить запрос менеджеру',
+                                icon: Icons.support_agent_rounded,
+                                fullWidth: true,
+                                onPressed: () =>
+                                    Navigator.of(context).pushNamed(
+                                  AppRoutes.requests,
+                                  arguments: RequestPageArgs(
+                                    initialType: RequestType.contact,
+                                    initialContactContextLabel:
+                                        'Филиал: ${branchDetail.name}',
+                                    initialContactMessage:
+                                        'Интересует филиал ${branchDetail.name}. Нужна помощь по маршруту, формату визита или свободным датам.',
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (_hasValue(contact.routeLabel) ||
+                            _hasValue(contact.parkingHint) ||
+                            _hasValue(contact.arrivalHint)) ...[
+                          const SizedBox(height: SKSpacing.x6),
+                          Container(
+                            padding: const EdgeInsets.all(SKSpacing.x4),
+                            decoration: BoxDecoration(
+                              color: c.elevated,
+                              borderRadius: BorderRadius.circular(SKRadius.xl),
+                              border: Border.all(color: c.hairline, width: 0.5),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Как добраться',
+                                  style: textTheme.titleLarge,
+                                ),
+                                if (_hasValue(contact.routeLabel)) ...[
+                                  const SizedBox(height: SKSpacing.x2),
+                                  Text(
+                                    contact.routeLabel,
+                                    style: textTheme.labelMedium?.copyWith(
+                                      color: c.cta,
+                                    ),
+                                  ),
+                                ],
+                                if (_hasValue(contact.parkingHint)) ...[
+                                  const SizedBox(height: SKSpacing.x3),
+                                  Text(
+                                    contact.parkingHint!,
+                                    style: textTheme.bodyLarge,
+                                  ),
+                                ],
+                                if (_hasValue(contact.arrivalHint)) ...[
+                                  const SizedBox(height: SKSpacing.x2),
+                                  Text(
+                                    contact.arrivalHint!,
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: c.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                         ],
-                      ),
-                      const SizedBox(height: StarKidsSpacing.md),
-                      StarKidsButton.secondary(
-                        label: 'Написать в WhatsApp',
-                        icon: Icons.chat_bubble_rounded,
-                        onPressed: !canOpenWhatsApp
-                            ? null
-                            : () => _handleAction(
-                                  context,
-                                  () => ExternalLinkService.openWhatsApp(
-                                    contact.whatsAppPhone,
-                                  ),
-                                ),
-                      ),
-                      const SizedBox(height: StarKidsSpacing.xl),
-                      Container(
-                        padding: const EdgeInsets.all(StarKidsSpacing.lg),
-                        decoration: BoxDecoration(
-                          color: StarKidsColors.surfacePrimary,
-                          borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-                          border:
-                              Border.all(color: StarKidsColors.borderDefault),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Если неудобно говорить сейчас',
-                              style: textTheme.titleLarge,
-                            ),
-                            const SizedBox(height: StarKidsSpacing.sm),
-                            Text(
-                              'Оставьте короткий запрос менеджеру. Мы добавим в сообщение контекст по выбранному филиалу, чтобы оператору было проще помочь без лишних уточнений.',
-                              style: textTheme.bodyMedium,
-                            ),
-                            const SizedBox(height: StarKidsSpacing.lg),
-                            StarKidsButton.secondary(
-                              label: 'Оставить запрос менеджеру',
-                              icon: Icons.support_agent_rounded,
-                              onPressed: () => Navigator.of(context).pushNamed(
-                                AppRoutes.requests,
-                                arguments: RequestPageArgs(
-                                  initialType: RequestType.contact,
-                                  initialContactContextLabel:
-                                      'Филиал: ${branchDetail.name}',
-                                  initialContactMessage:
-                                      'Интересует филиал ${branchDetail.name}. Нужна помощь по маршруту, формату визита или свободным датам.',
-                                ),
+                        if (snapshot.data!.contentBlocks.isNotEmpty) ...[
+                          const SizedBox(height: SKSpacing.x6),
+                          const StarKidsSectionHeader(
+                            title: 'Полезно знать перед визитом',
+                          ),
+                          const SizedBox(height: SKSpacing.x3),
+                          ...snapshot.data!.contentBlocks.map(
+                            (block) => Padding(
+                              padding: const EdgeInsets.only(
+                                bottom: SKSpacing.x3,
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: StarKidsSpacing.x2l),
-                      Container(
-                        padding: const EdgeInsets.all(StarKidsSpacing.lg),
-                        decoration: BoxDecoration(
-                          color: StarKidsColors.surfaceSecondary,
-                          borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Как добраться',
-                              style: textTheme.titleLarge,
-                            ),
-                            if (_hasValue(contact.routeLabel)) ...[
-                              const SizedBox(height: StarKidsSpacing.sm),
-                              Text(
-                                contact.routeLabel,
-                                style: textTheme.labelMedium?.copyWith(
-                                  color: StarKidsColors.brandPrimary,
-                                ),
+                              child: StarKidsContentBlockCard(
+                                title: block.title,
+                                body: block.body,
+                                label: block.ctaLabel,
                               ),
-                            ],
-                            if (_hasValue(contact.parkingHint)) ...[
-                              const SizedBox(height: StarKidsSpacing.md),
-                              Text(
-                                contact.parkingHint!,
-                                style: textTheme.bodyLarge,
-                              ),
-                            ],
-                            if (_hasValue(contact.arrivalHint)) ...[
-                              const SizedBox(height: StarKidsSpacing.sm),
-                              Text(
-                                contact.arrivalHint!,
-                                style: textTheme.bodyMedium?.copyWith(
-                                  color: StarKidsColors.textSecondary,
-                                ),
-                              ),
-                            ],
-                            if (!_hasValue(contact.routeLabel) &&
-                                !_hasValue(contact.parkingHint) &&
-                                !_hasValue(contact.arrivalHint)) ...[
-                              const SizedBox(height: StarKidsSpacing.sm),
-                              Text(
-                                'Маршрут и дополнительные подсказки скоро появятся для этого филиала.',
-                                style: textTheme.bodyLarge,
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      if (snapshot.data!.contentBlocks.isNotEmpty) ...[
-                        const SizedBox(height: StarKidsSpacing.x2l),
-                        const StarKidsSectionHeader(
-                          title: 'Что еще важно знать',
-                          description:
-                              'Дополнительные подсказки по маршруту и визиту приходят из live-контента админки.',
-                        ),
-                        const SizedBox(height: StarKidsSpacing.md),
-                        ...snapshot.data!.contentBlocks.map(
-                          (block) => Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: StarKidsSpacing.md,
-                            ),
-                            child: StarKidsContentBlockCard(
-                              title: block.title,
-                              body: block.body,
-                              label: block.ctaLabel,
                             ),
                           ),
-                        ),
+                        ],
                       ],
-                    ],
+                    ),
                   );
                 },
               ),
@@ -386,16 +387,20 @@ class ContactsMapPage extends StatelessWidget {
   }
 
   Future<_ContactsScreenData> _loadScreenData(String branchId) async {
-    final branch = await ServiceRegistry.branchRepository.getBranch(branchId);
-    ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
-    final contactLinks = await ServiceRegistry.contactLinksRepository
+    final branchFuture = ServiceRegistry.branchRepository.getBranch(branchId);
+    final contactLinksFuture = ServiceRegistry.contactLinksRepository
         .getForBranch(branchId)
-        .catchError((_) => _buildFallbackContactLinks(branch));
-    final contentBlocks = await ServiceRegistry.publicContentRepository
-        .listContentBlocks(
-          surface: 'contacts',
-        )
+        .then<BranchContactLinks?>((value) => value)
+        .catchError((_) => null);
+    final contentBlocksFuture = ServiceRegistry.publicContentRepository
+        .listContentBlocks(surface: 'contacts')
         .catchError((_) => const <PublicContentBlock>[]);
+
+    final branch = await branchFuture;
+    final contactLinks =
+        await contactLinksFuture ?? _buildFallbackContactLinks(branch);
+    final contentBlocks = await contentBlocksFuture;
+    ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
 
     return _ContactsScreenData(
       branch: branch,
@@ -421,17 +426,191 @@ class ContactsMapPage extends StatelessWidget {
     return value?.trim().isNotEmpty == true;
   }
 
-  static String _displayValue(
-    String? value, {
-    required String fallback,
-  }) {
+  static String _displayValue(String? value, {required String fallback}) {
     final normalized = value?.trim();
     if (normalized == null || normalized.isEmpty) {
       return fallback;
     }
-
     return normalized;
   }
+}
+
+class _ResponsiveContactActions extends StatelessWidget {
+  const _ResponsiveContactActions({
+    required this.mapButton,
+    required this.callButton,
+  });
+
+  final Widget mapButton;
+  final Widget callButton;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 360) {
+          return Column(
+            children: [
+              mapButton,
+              const SizedBox(height: SKSpacing.x3),
+              callButton,
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: mapButton),
+            const SizedBox(width: SKSpacing.x3),
+            Expanded(child: callButton),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _WhatsAppButton extends StatefulWidget {
+  const _WhatsAppButton({
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  State<_WhatsAppButton> createState() => _WhatsAppButtonState();
+}
+
+class _WhatsAppButtonState extends State<_WhatsAppButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedScale(
+      scale: _pressed ? 0.965 : 1,
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      child: AnimatedOpacity(
+        opacity: widget.enabled ? 1 : 0.55,
+        duration: const Duration(milliseconds: 160),
+        child: Material(
+          color: const Color(0xFF25D366),
+          borderRadius: BorderRadius.circular(SKRadius.pill),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(SKRadius.pill),
+            onTap: widget.enabled ? widget.onTap : null,
+            onTapDown:
+                widget.enabled ? (_) => setState(() => _pressed = true) : null,
+            onTapUp: (_) => setState(() => _pressed = false),
+            onTapCancel: () => setState(() => _pressed = false),
+            splashColor: Colors.white.withValues(alpha: 0.18),
+            highlightColor: Colors.transparent,
+            child: const SizedBox(
+              height: 56,
+              width: double.infinity,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.chat_bubble_outline,
+                      color: Colors.white, size: 18),
+                  SizedBox(width: SKSpacing.x2),
+                  Text(
+                    'Написать в WhatsApp',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Geist',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MapPlaceholder extends StatelessWidget {
+  const _MapPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(SK.rLg),
+      child: AspectRatio(
+        aspectRatio: 16 / 10,
+        child: Stack(
+          children: [
+            const Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFFE5E7EB), Color(0xFFD1D5DB)],
+                  ),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: CustomPaint(painter: _MapGridPainter()),
+            ),
+            Center(
+              child: Transform.rotate(
+                angle: -0.785398,
+                child: Container(
+                  width: 42,
+                  height: 42,
+                  decoration: const BoxDecoration(
+                    color: SK.accent,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(SK.rPill),
+                      topRight: Radius.circular(SK.rPill),
+                      bottomLeft: Radius.circular(SK.rPill),
+                    ),
+                    boxShadow: SK.shadowMd,
+                  ),
+                  child: Transform.rotate(
+                    angle: 0.785398,
+                    child: const Icon(
+                      Icons.star,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MapGridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.42)
+      ..strokeWidth = 1;
+    for (var x = 0.0; x < size.width; x += 28) {
+      canvas.drawLine(
+          Offset(x, 0), Offset(x + size.height * 0.35, size.height), paint);
+    }
+    for (var y = 10.0; y < size.height; y += 28) {
+      canvas.drawLine(
+          Offset(0, y), Offset(size.width, y - size.width * 0.12), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _MapGridPainter oldDelegate) => false;
 }
 
 class _ContactRow extends StatelessWidget {
@@ -448,20 +627,21 @@ class _ContactRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final c = SKTheme.of(context).colors;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: StarKidsSpacing.md),
+      padding: const EdgeInsets.only(bottom: SKSpacing.x3),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: StarKidsColors.brandPrimary),
-          const SizedBox(width: StarKidsSpacing.sm),
+          Icon(icon, color: c.cta),
+          const SizedBox(width: SKSpacing.x2),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: textTheme.labelMedium),
-                const SizedBox(height: StarKidsSpacing.xs),
+                const SizedBox(height: SKSpacing.x1),
                 Text(value, style: textTheme.bodyLarge),
               ],
             ),
@@ -486,6 +666,7 @@ class _ContactsScreenData {
 
 class _ContactsStateView extends StatelessWidget {
   const _ContactsStateView({
+    super.key,
     required this.title,
     required this.description,
     required this.actionLabel,
@@ -499,26 +680,29 @@ class _ContactsStateView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = SKTheme.of(context).colors;
+
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(StarKidsSpacing.xl),
+        padding: const EdgeInsets.all(SKSpacing.x5),
         child: Center(
           child: Container(
-            padding: const EdgeInsets.all(StarKidsSpacing.xl),
+            padding: const EdgeInsets.all(SKSpacing.x5),
             decoration: BoxDecoration(
-              color: StarKidsColors.surfacePrimary,
-              borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-              border: Border.all(color: StarKidsColors.borderDefault),
+              color: c.elevated,
+              borderRadius: BorderRadius.circular(SKRadius.xl),
+              border: Border.all(color: c.hairline, width: 0.5),
+              boxShadow: SKShadows.sm,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: Theme.of(context).textTheme.headlineSmall),
-                const SizedBox(height: StarKidsSpacing.sm),
+                const SizedBox(height: SKSpacing.x2),
                 Text(description, style: Theme.of(context).textTheme.bodyLarge),
-                const SizedBox(height: StarKidsSpacing.lg),
-                StarKidsButton.secondary(
+                const SizedBox(height: SKSpacing.x4),
+                SecondaryButton(
                   label: actionLabel,
                   icon: Icons.swap_horiz_rounded,
                   onPressed: onActionTap,

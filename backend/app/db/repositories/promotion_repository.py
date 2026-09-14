@@ -1,6 +1,7 @@
 from collections.abc import Sequence
+from datetime import UTC, datetime
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 
 from ..models.promotion import Promotion
 from ..models.promotion_branch import PromotionBranch
@@ -33,11 +34,20 @@ class PromotionRepository(Repository):
         *,
         branch_id: str | None = None,
     ) -> list[Promotion]:
-        return self.list_admin(
-            branch_id=branch_id,
-            is_active=True,
-            is_published=True,
+        now = datetime.now(UTC)
+        statement = select(Promotion).where(
+            Promotion.is_active.is_(True),
+            Promotion.is_published.is_(True),
+            or_(Promotion.start_at.is_(None), Promotion.start_at <= now),
+            or_(Promotion.end_at.is_(None), Promotion.end_at > now),
         )
+        if branch_id:
+            promotion_ids = select(PromotionBranch.promotion_id).where(
+                PromotionBranch.branch_id == branch_id,
+            )
+            statement = statement.where(Promotion.id.in_(promotion_ids))
+        statement = statement.order_by(Promotion.display_order.asc(), Promotion.title.asc())
+        return list(self.db.scalars(statement).all())
 
     def get_by_id(self, promotion_id: str) -> Promotion | None:
         statement = select(Promotion).where(Promotion.id == promotion_id)

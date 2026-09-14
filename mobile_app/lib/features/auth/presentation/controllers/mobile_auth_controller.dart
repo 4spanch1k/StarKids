@@ -15,12 +15,25 @@ enum MobileAuthStatus {
   error,
 }
 
+class MobileAuthCancelledException implements Exception {
+  const MobileAuthCancelledException();
+}
+
+class MobileAuthFlowException implements Exception {
+  const MobileAuthFlowException(this.message);
+
+  final String message;
+}
+
 class MobileAuthController extends ChangeNotifier {
   MobileAuthController({
     required MobileAuthRepository repository,
   }) : _repository = repository;
 
   final MobileAuthRepository _repository;
+  Future<void> Function(MobileAuthSession session)? _beforeLogout;
+  void Function()? _onLogoutAborted;
+  static const _bootstrapTimeout = Duration(seconds: 8);
 
   MobileAuthStatus _status = MobileAuthStatus.idle;
   MobileAuthSession? _session;
@@ -49,36 +62,167 @@ class MobileAuthController extends ChangeNotifier {
       _isRefreshingProfile ||
       _isLoggingOut;
 
-  Future<void> bootstrap() async {
+  /// Wires cross-cutting cleanup without creating a service-registry
+  /// initialization cycle. This is called before auth bootstrap completes.
+  void configureLogoutHooks({
+    required Future<void> Function(MobileAuthSession session) beforeLogout,
+    required void Function() onLogoutAborted,
+  }) {
+    _beforeLogout = beforeLogout;
+    _onLogoutAborted = onLogoutAborted;
+  }
+
+  Future<void> registerWithEmail({
+    required String email,
+    required String password,
+  }) {
+    return _authenticateWithEmail(
+      _repository.registerWithEmail(
+        email: _normalizeEmail(email),
+        password: password,
+      ),
+    );
+  }
+
+  Future<void> loginWithEmail({
+    required String email,
+    required String password,
+  }) {
+    return _authenticateWithEmail(
+      _repository.loginWithEmail(
+        email: _normalizeEmail(email),
+        password: password,
+      ),
+    );
+  }
+
+  Future<void> loginWithGoogleClerk({
+    required Future<String> Function() requestSessionToken,
+  }) async {
+    if (isBusy) {
+      return;
+    }
+    _errorMessage = null;
+    _pendingChallenge = null;
     _status = MobileAuthStatus.loading;
     _isRefreshingProfile = false;
     _isLoggingOut = false;
     notifyListeners();
 
-    final restoredSession = await _repository.restoreSession();
-    _pendingChallenge = null;
-    _errorMessage = null;
+    try {
+      final sessionToken = (await requestSessionToken()).trim();
+      if (sessionToken.isEmpty) {
+        _session = null;
+        _errorMessage = 'Не удалось получить сессию Google. Попробуйте снова.';
+        _status = MobileAuthStatus.error;
+        notifyListeners();
+        return;
+      }
 
-    if (restoredSession == null) {
+      final result = await _repository.exchangeClerkSession(
+        sessionToken: sessionToken,
+      );
+
+      if (result is Success<MobileAuthSession>) {
+        _session = result.data;
+        _status = MobileAuthStatus.authenticated;
+        notifyListeners();
+        return;
+      }
+
       _session = null;
-      _status = MobileAuthStatus.unauthenticated;
+      _errorMessage = (result as Failure<MobileAuthSession>).message;
+      _status = MobileAuthStatus.error;
       notifyListeners();
-      return;
-    }
-
-    final syncResult = await _repository.syncSession(restoredSession);
-    if (syncResult is Success<MobileAuthSession?>) {
-      _session = syncResult.data;
-      _status = _session == null
-          ? MobileAuthStatus.unauthenticated
-          : MobileAuthStatus.authenticated;
+    } on MobileAuthCancelledException {
+      _session = null;
+      _errorMessage = null;
+      _status = MobileAuthStatus.idle;
       notifyListeners();
-      return;
+    } on MobileAuthFlowException catch (error) {
+      _session = null;
+      _errorMessage = error.message;
+      _status = MobileAuthStatus.error;
+      notifyListeners();
+    } catch (_) {
+      _session = null;
+      _errorMessage = 'Не удалось войти через Google. Попробуйте снова.';
+      _status = MobileAuthStatus.error;
+      notifyListeners();
     }
+  }
 
-    _session = restoredSession;
-    _status = MobileAuthStatus.authenticated;
+  Future<void> bootstrap() async {
+    debugPrint('[AUTH] bootstrap started');
+    _status = MobileAuthStatus.loading;
+    _isRefreshingProfile = false;
+    _isLoggingOut = false;
     notifyListeners();
+
+    try {
+      debugPrint('[AUTH] session storage read started');
+      final restoredSession = await _repository.restoreSession().timeout(
+            _bootstrapTimeout,
+          );
+      debugPrint(
+        '[AUTH] session storage result: hasSession=${restoredSession != null}',
+      );
+      _pendingChallenge = null;
+      _errorMessage = null;
+
+      if (restoredSession == null) {
+        _session = null;
+        debugPrint('[AUTH] state -> unauthenticated');
+        _status = MobileAuthStatus.unauthenticated;
+        return;
+      }
+
+      debugPrint('[AUTH] current-user sync started');
+      final syncResult = await _repository
+          .syncSession(restoredSession)
+          .timeout(_bootstrapTimeout);
+      if (syncResult is Success<MobileAuthSession?>) {
+        _session = syncResult.data;
+        _status = _session == null
+            ? MobileAuthStatus.unauthenticated
+            : MobileAuthStatus.authenticated;
+        debugPrint(
+          _session == null
+              ? '[AUTH] current-user sync returned no session'
+              : '[AUTH] current-user sync success',
+        );
+        debugPrint(
+          _session == null
+              ? '[AUTH] state -> unauthenticated'
+              : '[AUTH] state -> authenticated',
+        );
+        return;
+      }
+
+      debugPrint(
+        '[AUTH] current-user sync failed: '
+        '${(syncResult as Failure<MobileAuthSession?>).message}',
+      );
+      await _safeClearSession();
+      _session = null;
+      _pendingChallenge = null;
+      _errorMessage = null;
+      _status = MobileAuthStatus.unauthenticated;
+      debugPrint('[AUTH] state -> unauthenticated');
+    } catch (error) {
+      debugPrint('[AUTH] bootstrap failed: $error');
+      await _safeClearSession();
+      _session = null;
+      _pendingChallenge = null;
+      _errorMessage = null;
+      _status = MobileAuthStatus.unauthenticated;
+      debugPrint('[AUTH] state -> unauthenticated');
+    } finally {
+      _isRefreshingProfile = false;
+      _isLoggingOut = false;
+      debugPrint('[AUTH] bootstrap finally loading=false');
+      notifyListeners();
+    }
   }
 
   Future<void> requestOtp(String rawPhone) async {
@@ -203,11 +347,19 @@ class MobileAuthController extends ChangeNotifier {
     notifyListeners();
 
     final session = _session;
+    if (session != null && _beforeLogout != null) {
+      try {
+        await _beforeLogout!(session);
+      } catch (_) {
+        // Push cleanup is best-effort and must never trap the user in the app.
+      }
+    }
     final result = session == null
         ? const Success<void>(null)
         : await _repository.logout(session);
 
     if (result is Failure<void>) {
+      _onLogoutAborted?.call();
       _errorMessage = result.message;
       _status = MobileAuthStatus.error;
       _isLoggingOut = false;
@@ -223,6 +375,48 @@ class MobileAuthController extends ChangeNotifier {
     _isRefreshingProfile = false;
     _isLoggingOut = false;
     notifyListeners();
+  }
+
+  Future<void> _authenticateWithEmail(
+    Future<Result<MobileAuthSession>> request,
+  ) async {
+    _errorMessage = null;
+    _pendingChallenge = null;
+    _status = MobileAuthStatus.loading;
+    _isRefreshingProfile = false;
+    _isLoggingOut = false;
+    notifyListeners();
+
+    try {
+      final result = await request;
+
+      if (result is Success<MobileAuthSession>) {
+        _session = result.data;
+        _status = MobileAuthStatus.authenticated;
+        notifyListeners();
+        return;
+      }
+
+      _session = null;
+      _errorMessage = (result as Failure<MobileAuthSession>).message;
+      _status = MobileAuthStatus.error;
+      notifyListeners();
+    } catch (_) {
+      _session = null;
+      _errorMessage =
+          'Не удалось войти. Проверьте интернет и попробуйте снова.';
+      _status = MobileAuthStatus.error;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _safeClearSession() async {
+    try {
+      debugPrint('[AUTH] clear session');
+      await _repository.clearSession().timeout(_bootstrapTimeout);
+    } catch (error) {
+      debugPrint('[AUTH] clear session failed: $error');
+    }
   }
 
   void editPhone() {
@@ -285,6 +479,52 @@ class MobileAuthController extends ChangeNotifier {
     return null;
   }
 
+  String? validateEmailInput(String? value) {
+    final email = _normalizeEmail(value ?? '');
+    if (email.isEmpty) {
+      return 'Введите электронную почту.';
+    }
+
+    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
+      return 'Введите корректную электронную почту.';
+    }
+
+    return null;
+  }
+
+  String? validatePasswordInput(String? value) {
+    final password = value ?? '';
+    if (password.isEmpty) {
+      return 'Введите пароль.';
+    }
+
+    if (password.length < 8) {
+      return 'Пароль должен быть не короче 8 символов.';
+    }
+
+    return null;
+  }
+
+  String? validatePasswordConfirmation({
+    required String? password,
+    required String? confirmation,
+  }) {
+    final repeatedPassword = confirmation ?? '';
+    if (repeatedPassword.isEmpty) {
+      return 'Повторите пароль.';
+    }
+
+    if (repeatedPassword.length < 8) {
+      return 'Пароль должен быть не короче 8 символов.';
+    }
+
+    if ((password ?? '') != repeatedPassword) {
+      return 'Пароли не совпадают.';
+    }
+
+    return null;
+  }
+
   bool _isValidPhone(String phone) {
     return RegExp(r'^\+7\d{10}$').hasMatch(phone);
   }
@@ -311,5 +551,9 @@ class MobileAuthController extends ChangeNotifier {
     }
 
     return '+$digits';
+  }
+
+  String _normalizeEmail(String value) {
+    return value.trim().toLowerCase();
   }
 }

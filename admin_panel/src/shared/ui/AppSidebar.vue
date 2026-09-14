@@ -1,9 +1,9 @@
 <template>
   <aside class="sidebar">
     <div class="sidebar__brand">
-      <div class="sidebar__logo">SK</div>
+      <div class="sidebar__logo">BB</div>
       <div class="sidebar__copy">
-        <p class="sidebar__eyebrow">Star Kids</p>
+        <p class="sidebar__eyebrow">Boom Bala</p>
         <h2>Операционная панель</h2>
       </div>
     </div>
@@ -66,10 +66,11 @@ const iconPaths: Record<string, string> = {
   gallery: 'M5 6h14v12H5zM8 14l2-2 2 2 3-3 2 3',
   faq: 'M9.5 9a2.5 2.5 0 1 1 4.2 1.8c-.9.8-1.7 1.3-1.7 2.7M12 18h.01',
   dashboard: 'M5 13h5V5H5zm9 6h5V5h-5zm-9 0h5v-4H5z',
-  tariffs: 'M6 6h12M6 12h8M6 18h10M18 10v8m0 0-2-2m2 2 2-2',
+  menu: 'M6 6h12M6 12h12M6 18h8M18 7v10M15 10l3-3 3 3',
   customers: 'M12 12a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm-6 8a6 6 0 0 1 12 0',
   'push-campaigns': 'M6 17h12l-1-7 2-2H5l2 2-1 7Zm4 3h4',
   'audit-logs': 'M7 5h10v14H7zM9 9h6M9 13h6',
+  'ticket-scanner': 'M5 5h5M14 5h5M5 14v5M19 14v5M8 8h8v8H8z',
 };
 
 withDefaults(
