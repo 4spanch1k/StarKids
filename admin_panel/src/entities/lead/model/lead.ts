@@ -38,7 +38,7 @@ export const leadStatusTransitions: Record<LeadStatus, LeadStatus[]> = {
   completed: ['completed'],
   lost: ['lost', 'contacted', 'qualified'],
   in_progress: ['in_progress', 'contacted', 'qualified', 'booked', 'confirmed', 'cancelled', 'lost', 'closed'],
-  confirmed: ['confirmed', 'completed', 'lost'],
+  confirmed: ['confirmed', 'paid', 'completed', 'lost'],
   cancelled: ['cancelled'],
   closed: ['closed'],
 };
@@ -185,7 +185,7 @@ export function describeLeadStatusFlow(status: LeadStatus): string {
   }
 
   if (status === 'confirmed') {
-    return 'Праздник подтверждён: заявка доступна только для просмотра.';
+    return 'Праздник подтверждён. После получения оплаты можно перевести заявку в «Оплачено», после проведения — в «Проведено».';
   }
 
   if (status === 'cancelled' || status === 'closed') {
