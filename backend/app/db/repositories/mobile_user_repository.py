@@ -69,7 +69,6 @@ class MobileUserRepository(Repository):
         email: Any = _SENTINEL,
         clerk_user_id: Any = _SENTINEL,
         avatar_url: Any = _SENTINEL,
-        child_birth_date: Any = _SENTINEL,
     ) -> MobileUser:
         if first_name is not _SENTINEL:
             user.first_name = first_name
@@ -83,8 +82,6 @@ class MobileUserRepository(Repository):
             )
         if avatar_url is not _SENTINEL:
             user.avatar_url = avatar_url
-        if child_birth_date is not _SENTINEL:
-            user.child_birth_date = child_birth_date
         self.db.commit()
         self.db.refresh(user)
         return user

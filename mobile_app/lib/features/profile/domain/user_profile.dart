@@ -6,7 +6,6 @@ class UserProfile {
     this.lastName,
     this.avatarUrl,
     this.email,
-    this.childBirthDate,
     this.onboardingCompleted = false,
     this.onboardingCompletedAt,
     this.privacyConsentAt,
@@ -19,7 +18,6 @@ class UserProfile {
   final String? lastName;
   final String? avatarUrl;
   final String? email;
-  final DateTime? childBirthDate;
   final bool onboardingCompleted;
   final DateTime? onboardingCompletedAt;
   final DateTime? privacyConsentAt;
@@ -72,8 +70,6 @@ class UserProfile {
     bool clearAvatarUrl = false,
     String? email,
     bool clearEmail = false,
-    DateTime? childBirthDate,
-    bool clearChildBirthDate = false,
     bool? onboardingCompleted,
     DateTime? onboardingCompletedAt,
     DateTime? privacyConsentAt,
@@ -86,8 +82,6 @@ class UserProfile {
       lastName: clearLastName ? null : lastName ?? this.lastName,
       avatarUrl: clearAvatarUrl ? null : avatarUrl ?? this.avatarUrl,
       email: clearEmail ? null : email ?? this.email,
-      childBirthDate:
-          clearChildBirthDate ? null : childBirthDate ?? this.childBirthDate,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       onboardingCompletedAt:
           onboardingCompletedAt ?? this.onboardingCompletedAt,

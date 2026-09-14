@@ -30,13 +30,13 @@ class ProfileController extends ChangeNotifier {
   String _firstNameDraft = '';
   String _lastNameDraft = '';
   String _emailDraft = '';
-  DateTime? _childBirthDateDraft;
-  bool _draftsInitialized = false;
 
   ProfileRequestsStatus _requestsStatus = ProfileRequestsStatus.loading;
   List<RequestHistoryItem> _previewRequests = const [];
   int _totalRequests = 0;
   String? _requestsErrorMessage;
+  int _loadGeneration = 0;
+  int _requestPreviewGeneration = 0;
 
   ProfileViewStatus get status => _status;
   UserProfile? get profile => _profile;
@@ -47,7 +47,6 @@ class ProfileController extends ChangeNotifier {
   String get firstNameDraft => _firstNameDraft;
   String get lastNameDraft => _lastNameDraft;
   String get emailDraft => _emailDraft;
-  DateTime? get childBirthDateDraft => _childBirthDateDraft;
 
   ProfileRequestsStatus get requestsStatus => _requestsStatus;
   List<RequestHistoryItem> get previewRequests => _previewRequests;
@@ -77,31 +76,15 @@ class ProfileController extends ChangeNotifier {
     return null;
   }
 
-  String? get childBirthDateError {
-    final d = _childBirthDateDraft;
-    if (d == null) return null;
-    final now = DateTime.now();
-    if (d.isAfter(now)) return 'Дата рождения не может быть в будущем.';
-    final eighteenYearsAgo = DateTime(now.year - 18, now.month, now.day);
-    if (d.isBefore(eighteenYearsAgo)) {
-      return 'Ребёнку не может быть больше 18 лет.';
-    }
-    return null;
-  }
-
   bool get _hasValidationErrors =>
-      firstNameError != null ||
-      lastNameError != null ||
-      emailError != null ||
-      childBirthDateError != null;
+      firstNameError != null || lastNameError != null || emailError != null;
 
   bool get hasChanges {
     if (_profile == null) return false;
     final p = _profile!;
     return _firstNameDraft.trim() != (p.firstName ?? '') ||
         _lastNameDraft.trim() != (p.lastName ?? '') ||
-        _emailDraft.trim() != (p.email ?? '') ||
-        _childBirthDateDraft != p.childBirthDate;
+        _emailDraft.trim() != (p.email ?? '');
   }
 
   bool get canSave =>
@@ -112,18 +95,28 @@ class ProfileController extends ChangeNotifier {
       !_hasValidationErrors;
 
   Future<void> load() async {
+    final generation = ++_loadGeneration;
+    _requestPreviewGeneration++;
     _status = ProfileViewStatus.loading;
     _errorMessage = null;
+    _profile = null;
+    _isSaving = false;
+    _isUploadingAvatar = false;
+    _previewRequests = const [];
+    _totalRequests = 0;
+    _requestsStatus = ProfileRequestsStatus.loading;
+    _requestsErrorMessage = null;
     notifyListeners();
 
     final result = await _profileRepository.fetchProfile();
+    if (!_isCurrentLoad(generation)) return;
 
     if (result is Success<UserProfile>) {
       _profile = result.data;
       _applyProfileToDrafts(result.data);
       _status = ProfileViewStatus.success;
       notifyListeners();
-      await loadRequestPreview();
+      await loadRequestPreview(generation: generation);
     } else {
       _errorMessage = (result as Failure<UserProfile>).message;
       _status = ProfileViewStatus.error;
@@ -131,13 +124,19 @@ class ProfileController extends ChangeNotifier {
     }
   }
 
-  Future<void> loadRequestPreview() async {
+  Future<void> loadRequestPreview({int? generation}) async {
+    final loadGeneration = generation ?? _loadGeneration;
+    final previewGeneration = ++_requestPreviewGeneration;
     _requestsStatus = ProfileRequestsStatus.loading;
     _requestsErrorMessage = null;
     notifyListeners();
 
     try {
       final result = await _requestHistoryRepository.fetchMyRequests();
+      if (!_isCurrentLoad(loadGeneration) ||
+          previewGeneration != _requestPreviewGeneration) {
+        return;
+      }
 
       if (result is RequestHistoryFetchSuccess) {
         _previewRequests = result.items.take(3).toList(growable: false);
@@ -154,6 +153,10 @@ class ProfileController extends ChangeNotifier {
         _requestsStatus = ProfileRequestsStatus.error;
       }
     } catch (_) {
+      if (!_isCurrentLoad(loadGeneration) ||
+          previewGeneration != _requestPreviewGeneration) {
+        return;
+      }
       _requestsErrorMessage = 'Не удалось загрузить заявки. Попробуйте снова.';
       _requestsStatus = ProfileRequestsStatus.error;
     }
@@ -164,6 +167,7 @@ class ProfileController extends ChangeNotifier {
   Future<void> saveChanges() async {
     if (!canSave) return;
 
+    final generation = _loadGeneration;
     _isSaving = true;
     _errorMessage = null;
     notifyListeners();
@@ -172,10 +176,11 @@ class ProfileController extends ChangeNotifier {
       firstName: _firstNameDraft.trim().isEmpty ? null : _firstNameDraft.trim(),
       lastName: _lastNameDraft.trim().isEmpty ? null : _lastNameDraft.trim(),
       email: _emailDraft.trim().isEmpty ? null : _emailDraft.trim(),
-      childBirthDate: _childBirthDateDraft,
     );
 
     final result = await _profileRepository.updateProfile(payload);
+
+    if (!_isCurrentLoad(generation)) return;
 
     _isSaving = false;
 
@@ -195,6 +200,7 @@ class ProfileController extends ChangeNotifier {
     String fileName,
     String contentType,
   ) async {
+    final generation = _loadGeneration;
     _isUploadingAvatar = true;
     _errorMessage = null;
     notifyListeners();
@@ -204,6 +210,8 @@ class ProfileController extends ChangeNotifier {
       fileName: fileName,
       contentType: contentType,
     );
+
+    if (!_isCurrentLoad(generation)) return;
 
     _isUploadingAvatar = false;
 
@@ -217,11 +225,14 @@ class ProfileController extends ChangeNotifier {
   }
 
   Future<void> deleteAvatar() async {
+    final generation = _loadGeneration;
     _isUploadingAvatar = true;
     _errorMessage = null;
     notifyListeners();
 
     final result = await _profileRepository.deleteAvatar();
+
+    if (!_isCurrentLoad(generation)) return;
 
     _isUploadingAvatar = false;
 
@@ -249,11 +260,6 @@ class ProfileController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateChildBirthDate(DateTime? value) {
-    _childBirthDateDraft = value;
-    notifyListeners();
-  }
-
   Future<void> retry() async {
     await load();
   }
@@ -265,12 +271,13 @@ class ProfileController extends ChangeNotifier {
   }
 
   void _applyProfileToDrafts(UserProfile profile) {
-    if (!_draftsInitialized) {
-      _firstNameDraft = profile.firstName ?? '';
-      _lastNameDraft = profile.lastName ?? '';
-      _emailDraft = profile.email ?? '';
-      _childBirthDateDraft = profile.childBirthDate;
-      _draftsInitialized = true;
-    }
+    // Every authoritative load must replace local drafts. This controller is
+    // intentionally shared by the app, so a later authenticated account must
+    // never inherit fields from the previous account.
+    _firstNameDraft = profile.firstName ?? '';
+    _lastNameDraft = profile.lastName ?? '';
+    _emailDraft = profile.email ?? '';
   }
+
+  bool _isCurrentLoad(int generation) => generation == _loadGeneration;
 }

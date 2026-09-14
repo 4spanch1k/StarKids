@@ -8,7 +8,6 @@ class UserProfileDto {
     this.lastName,
     this.avatarUrl,
     this.email,
-    this.childBirthDate,
     this.onboardingCompleted = false,
     this.onboardingCompletedAt,
     this.privacyConsentAt,
@@ -21,7 +20,6 @@ class UserProfileDto {
   final String? lastName;
   final String? avatarUrl;
   final String? email;
-  final DateTime? childBirthDate;
   final bool onboardingCompleted;
   final DateTime? onboardingCompletedAt;
   final DateTime? privacyConsentAt;
@@ -35,7 +33,6 @@ class UserProfileDto {
       lastName: json['lastName'] as String?,
       avatarUrl: json['avatarUrl'] as String?,
       email: json['email'] as String?,
-      childBirthDate: _parseDate(json['childBirthDate'] as String?),
       onboardingCompleted: json['onboardingCompleted'] as bool? ?? false,
       onboardingCompletedAt: _parseDate(
         json['onboardingCompletedAt'] as String?,
@@ -53,7 +50,6 @@ class UserProfileDto {
       lastName: lastName,
       avatarUrl: avatarUrl,
       email: email,
-      childBirthDate: childBirthDate,
       onboardingCompleted: onboardingCompleted,
       onboardingCompletedAt: onboardingCompletedAt,
       privacyConsentAt: privacyConsentAt,

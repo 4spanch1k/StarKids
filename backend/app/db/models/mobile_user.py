@@ -38,6 +38,8 @@ class MobileUser(Base):
     first_name: Mapped[str | None] = mapped_column(String(50), nullable=True)
     last_name: Mapped[str | None] = mapped_column(String(50), nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # Deprecated storage retained for backward-compatible database upgrades.
+    # Active profile/child APIs use MobileChild.birth_date exclusively.
     child_birth_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     onboarding_completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),

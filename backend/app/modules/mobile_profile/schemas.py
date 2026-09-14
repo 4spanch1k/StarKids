@@ -20,7 +20,6 @@ class MobileProfileResponse(BaseModel):
     firstName: str | None = None
     lastName: str | None = None
     avatarUrl: str | None = None
-    childBirthDate: date | None = None
     onboardingCompleted: bool = False
     onboardingCompletedAt: datetime | None = None
     privacyConsentAt: datetime | None = None
@@ -35,7 +34,6 @@ class MobileProfileResponse(BaseModel):
             firstName=user.first_name,
             lastName=user.last_name,
             avatarUrl=user.avatar_url,
-            childBirthDate=user.child_birth_date,
             onboardingCompleted=user.onboarding_completed_at is not None,
             onboardingCompletedAt=user.onboarding_completed_at,
             privacyConsentAt=user.privacy_consent_at,
@@ -47,7 +45,6 @@ class MobileProfileUpdateRequest(BaseModel):
     firstName: str | None = None
     lastName: str | None = None
     email: EmailStr | None = None
-    childBirthDate: date | None = None
 
     @field_validator('firstName')
     @classmethod
@@ -78,20 +75,6 @@ class MobileProfileUpdateRequest(BaseModel):
     def strip_email(cls, v: object) -> object:
         if isinstance(v, str):
             return v.strip()
-        return v
-
-    @field_validator('childBirthDate')
-    @classmethod
-    def validate_child_birth_date(cls, v: date | None) -> date | None:
-        if v is None:
-            return v
-        today = date.today()
-        if v > today:
-            raise ValueError('Child birth date must not be in the future.')
-        from datetime import timedelta
-        eighteen_years_ago = today.replace(year=today.year - 18)
-        if v < eighteen_years_ago:
-            raise ValueError('Child birth date must be within the last 18 years.')
         return v
 
 

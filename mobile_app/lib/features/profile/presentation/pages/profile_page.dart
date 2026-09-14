@@ -107,8 +107,11 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _syncTextControllers() {
-    if (_controller.status == ProfileViewStatus.success &&
-        !_didInitTextControllers) {
+    if (_controller.status != ProfileViewStatus.success) {
+      _didInitTextControllers = false;
+      return;
+    }
+    if (!_didInitTextControllers) {
       _didInitTextControllers = true;
       _firstNameTextController.text = _controller.firstNameDraft;
       _lastNameTextController.text = _controller.lastNameDraft;
@@ -328,6 +331,13 @@ class _ProfilePageState extends State<ProfilePage> {
             _InlineErrorBanner(
               message: _controller.errorMessage!,
               onDismiss: _controller.clearError,
+            ),
+          ],
+          if (_childrenController.deleteErrorMessage != null) ...[
+            const SizedBox(height: SKSpacing.x4),
+            _InlineErrorBanner(
+              message: _childrenController.deleteErrorMessage!,
+              onDismiss: _childrenController.clearDeleteError,
             ),
           ],
           if (_childrenController.todaysBirthdays.isNotEmpty) ...[
@@ -860,6 +870,7 @@ class _ChildrenSection extends StatelessWidget {
 
   void _showAddChildSheet(BuildContext context) {
     final l = AppL10n.of(context);
+    controller.clearDeleteError();
     unawaited(
       showGlassBottomSheet<void>(
         context: context,
@@ -874,6 +885,7 @@ class _ChildrenSection extends StatelessWidget {
 
   void _showEditChildSheet(BuildContext context, Child child) {
     final l = AppL10n.of(context);
+    controller.clearDeleteError();
     unawaited(
       showGlassBottomSheet<void>(
         context: context,
@@ -899,10 +911,12 @@ class _ChildrenSection extends StatelessWidget {
             child: Text(l.cancel),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              controller.deleteChild(child.id);
-            },
+            onPressed: controller.isSaving
+                ? null
+                : () async {
+                    Navigator.of(ctx).pop();
+                    await controller.deleteChild(child.id);
+                  },
             child: Text(l.delete),
           ),
         ],

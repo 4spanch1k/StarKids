@@ -20,6 +20,8 @@ class ChildrenController extends ChangeNotifier {
 
   ChildFormStatus _formStatus = ChildFormStatus.idle;
   String? _formError;
+  String? _deleteErrorMessage;
+  int _operationGeneration = 0;
 
   ChildrenStatus get status => _status;
   List<Child> get children => _children;
@@ -27,6 +29,7 @@ class ChildrenController extends ChangeNotifier {
 
   ChildFormStatus get formStatus => _formStatus;
   String? get formError => _formError;
+  String? get deleteErrorMessage => _deleteErrorMessage;
 
   bool get isSaving => _formStatus == ChildFormStatus.saving;
 
@@ -35,11 +38,17 @@ class ChildrenController extends ChangeNotifier {
       _children.where((c) => c.isBirthdayToday).toList();
 
   Future<void> load() async {
+    final generation = ++_operationGeneration;
     _status = ChildrenStatus.loading;
+    _children = const [];
     _errorMessage = null;
+    _formStatus = ChildFormStatus.idle;
+    _formError = null;
+    _deleteErrorMessage = null;
     notifyListeners();
 
     final result = await _repository.fetchChildren();
+    if (!_isCurrentOperation(generation)) return;
     if (result is Success<List<Child>>) {
       _children = result.data;
       _status =
@@ -56,8 +65,10 @@ class ChildrenController extends ChangeNotifier {
     required DateTime birthDate,
     required ChildGender gender,
   }) async {
+    final generation = ++_operationGeneration;
     _formStatus = ChildFormStatus.saving;
     _formError = null;
+    _deleteErrorMessage = null;
     notifyListeners();
 
     final result = await _repository.createChild(
@@ -66,6 +77,7 @@ class ChildrenController extends ChangeNotifier {
       gender: gender,
     );
 
+    if (!_isCurrentOperation(generation)) return false;
     if (result is Success<Child>) {
       _children = [..._children, result.data];
       _status = ChildrenStatus.success;
@@ -86,8 +98,10 @@ class ChildrenController extends ChangeNotifier {
     required DateTime birthDate,
     required ChildGender gender,
   }) async {
+    final generation = ++_operationGeneration;
     _formStatus = ChildFormStatus.saving;
     _formError = null;
+    _deleteErrorMessage = null;
     notifyListeners();
 
     final result = await _repository.updateChild(
@@ -97,6 +111,7 @@ class ChildrenController extends ChangeNotifier {
       gender: gender,
     );
 
+    if (!_isCurrentOperation(generation)) return false;
     if (result is Success<Child>) {
       _children = [
         for (final c in _children)
@@ -114,11 +129,17 @@ class ChildrenController extends ChangeNotifier {
   }
 
   Future<bool> deleteChild(String childId) async {
+    // A destructive operation must not race another add/edit/delete request.
+    if (isSaving) return false;
+
+    final generation = ++_operationGeneration;
     _formStatus = ChildFormStatus.saving;
     _formError = null;
+    _deleteErrorMessage = null;
     notifyListeners();
 
     final result = await _repository.deleteChild(childId);
+    if (!_isCurrentOperation(generation)) return false;
     if (result is Success<void>) {
       _children = _children.where((c) => c.id != childId).toList();
       _status =
@@ -127,11 +148,20 @@ class ChildrenController extends ChangeNotifier {
       notifyListeners();
       return true;
     } else {
-      _formError = (result as Failure<void>).message;
-      _formStatus = ChildFormStatus.error;
+      // Keep delete failures out of the add/edit form error channel. The
+      // profile screen presents this operation-level error immediately, and
+      // the next child form starts clean.
+      _deleteErrorMessage = (result as Failure<void>).message;
+      _formStatus = ChildFormStatus.idle;
       notifyListeners();
       return false;
     }
+  }
+
+  void clearDeleteError() {
+    if (_deleteErrorMessage == null) return;
+    _deleteErrorMessage = null;
+    notifyListeners();
   }
 
   void clearFormError() {
@@ -142,4 +172,7 @@ class ChildrenController extends ChangeNotifier {
   }
 
   Future<void> retry() => load();
+
+  bool _isCurrentOperation(int generation) =>
+      generation == _operationGeneration;
 }
