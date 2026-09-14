@@ -23,7 +23,18 @@ class SharedPreferencesLegacyAuthSessionStore
   @override
   Future<void> remove(String key) async {
     final preferences = await SharedPreferences.getInstance();
-    await preferences.remove(key);
+    final removed = await preferences.remove(key);
+    if (removed) {
+      return;
+    }
+
+    // SharedPreferences may report false for an already absent key, which is
+    // an idempotent success. Reload before treating false as a failed cleanup
+    // so a platform-level failure that leaves the key behind is not hidden.
+    await preferences.reload();
+    if (preferences.containsKey(key)) {
+      throw StateError('Failed to remove legacy auth session');
+    }
   }
 }
 

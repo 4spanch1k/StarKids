@@ -2,6 +2,10 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+// This test-only platform seam verifies the production adapter's handling of
+// unsuccessful host removals without adding a runtime dependency.
+// ignore: depend_on_referenced_packages
+import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 import 'package:star_kids_mobile/features/auth/data/mobile_auth_session_storage.dart';
 import 'package:star_kids_mobile/features/auth/data/secure_storage_adapter.dart';
 import 'package:star_kids_mobile/features/auth/domain/mobile_auth_session.dart';
@@ -234,43 +238,68 @@ void main() {
 
   test('corrupt secure session stays authoritative when legacy cleanup fails',
       () async {
-    final preferences = await SharedPreferences.getInstance();
     final legacy = _encode(_session(accessToken: 'stale-legacy'));
-    await preferences.setString(
-      MobileAuthSessionStorage.legacySessionKey,
-      legacy,
-    );
-    const corrupt = '{not-json';
-    secureStorage.values[MobileAuthSessionStorage.secureSessionKey] = corrupt;
-    final failingLegacyStorage = FailingLegacyAuthSessionStore();
-    final storageWithFailure = MobileAuthSessionStorage(
-      secureStorage: secureStorage,
-      legacyStorage: failingLegacyStorage,
-    );
+    SharedPreferencesStorePlatform.instance =
+        FalseRemovingSharedPreferencesStore.withData({
+      'flutter.${MobileAuthSessionStorage.legacySessionKey}': legacy,
+    });
+    SharedPreferences.resetStatic();
+    final preferences = await SharedPreferences.getInstance();
+    secureStorage.values[MobileAuthSessionStorage.secureSessionKey] =
+        '{not-json';
 
-    final result = await storageWithFailure.readSession();
+    final result = await storage.readSession();
 
     expect(result, isNull);
     expect(
       secureStorage.values[MobileAuthSessionStorage.secureSessionKey],
-      corrupt,
+      '{not-json',
     );
     expect(
       preferences.getString(MobileAuthSessionStorage.legacySessionKey),
       legacy,
     );
 
-    final secondResult = await storageWithFailure.readSession();
+    final secondResult = await storage.readSession();
 
     expect(secondResult, isNull);
     expect(
       secureStorage.values[MobileAuthSessionStorage.secureSessionKey],
-      corrupt,
+      '{not-json',
     );
     expect(
       preferences.getString(MobileAuthSessionStorage.legacySessionKey),
       legacy,
     );
+  });
+
+  test('legacy adapter accepts an unsuccessful remove for an absent key',
+      () async {
+    SharedPreferencesStorePlatform.instance =
+        FalseRemovingSharedPreferencesStore.withData({});
+    SharedPreferences.resetStatic();
+    final adapter = SharedPreferencesLegacyAuthSessionStore();
+
+    await expectLater(
+      adapter.remove(MobileAuthSessionStorage.legacySessionKey),
+      completes,
+    );
+  });
+
+  test('legacy adapter rejects an unsuccessful remove that keeps the key',
+      () async {
+    const key = MobileAuthSessionStorage.legacySessionKey;
+    const value = 'legacy-session';
+    SharedPreferencesStorePlatform.instance =
+        FalseRemovingSharedPreferencesStore.withData({
+      'flutter.$key': value,
+    });
+    SharedPreferences.resetStatic();
+    final adapter = SharedPreferencesLegacyAuthSessionStore();
+
+    await expectLater(adapter.remove(key), throwsA(isA<StateError>()));
+    final preferences = await SharedPreferences.getInstance();
+    expect(preferences.getString(key), value);
   });
 
   test('clearSession removes secure and legacy entries', () async {
@@ -378,15 +407,10 @@ class InMemorySecureStorage implements SecureStorageAdapter {
   }
 }
 
-class FailingLegacyAuthSessionStore implements LegacyAuthSessionStore {
-  @override
-  Future<String?> read(String key) async {
-    final preferences = await SharedPreferences.getInstance();
-    return preferences.getString(key);
-  }
+class FalseRemovingSharedPreferencesStore
+    extends InMemorySharedPreferencesStore {
+  FalseRemovingSharedPreferencesStore.withData(super.data) : super.withData();
 
   @override
-  Future<void> remove(String key) {
-    throw StateError('legacy delete failed');
-  }
+  Future<bool> remove(String key) async => false;
 }
