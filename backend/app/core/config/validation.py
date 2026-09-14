@@ -5,6 +5,11 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ArgumentError
+
+from ..storage.backend import SUPPORTED_STORAGE_BACKENDS
+
 if TYPE_CHECKING:
     from .settings import Settings
 
@@ -34,6 +39,7 @@ _PLACEHOLDER_HOSTS = frozenset({'example.com', 'example.org'})
 _INSECURE_TICKET_QR_SECRETS = frozenset(
     {'replace-me', 'change-me', 'changeme', 'secret', 'secret-key'}
 )
+_SUPPORTED_PRODUCTION_DATABASE_DRIVERS = frozenset({'postgresql+psycopg'})
 
 
 def validate_runtime_configuration(settings: Settings) -> RuntimeConfigurationStatus:
@@ -49,6 +55,10 @@ def validate_runtime_configuration(settings: Settings) -> RuntimeConfigurationSt
         push_enabled=settings.fcm_is_configured,
         development_seed_enabled=settings.development_seed_enabled,
     )
+    storage_error = _storage_configuration_error(settings)
+    if storage_error:
+        raise ProductionConfigurationError(storage_error)
+
     # Settings validates the allowlist at construction time.  Keep the
     # explicit branches here as a defense in depth for callers that mutate a
     # Settings instance after construction.
@@ -96,8 +106,11 @@ def validate_runtime_configuration(settings: Settings) -> RuntimeConfigurationSt
     if settings.otp_mock_mode:
         errors.append('OTP mock authentication is not allowed')
 
-    if settings.database_url == settings.default_database_url:
+    if _is_default_database_url(settings.database_url, settings.default_database_url):
         errors.append('DATABASE_URL must be explicitly configured for production')
+    database_error = _production_database_configuration_error(settings.database_url)
+    if database_error:
+        errors.append(database_error)
     if any(_is_local_url(origin) for origin in settings.cors_origins_list):
         errors.append('BACKEND_CORS_ORIGINS must not contain localhost in production')
     if any(
@@ -158,3 +171,67 @@ def _is_unsafe_ticket_qr_secret(value: str | None) -> bool:
 def _is_placeholder_url(value: str) -> bool:
     parsed = urlparse(value)
     return (parsed.hostname or '').lower() in _PLACEHOLDER_HOSTS
+
+
+def _storage_configuration_error(settings: Settings) -> str | None:
+    backend = (settings.storage_backend or '').lower()
+    if backend not in SUPPORTED_STORAGE_BACKENDS:
+        return 'STORAGE_BACKEND must be one of: local, s3'
+    if backend == 's3' and not (settings.s3_bucket or '').strip():
+        return 'S3_BUCKET is required when STORAGE_BACKEND=s3'
+    return None
+
+
+def _production_database_configuration_error(database_url: str) -> str | None:
+    """Return a safe error for unsupported production SQLAlchemy URLs.
+
+    The project installs only the psycopg 3 driver, so the explicit
+    ``postgresql+psycopg`` URL is the sole production driver that the engine
+    can construct.  Parsing is performed without logging or interpolating the
+    URL, which keeps credentials out of configuration errors.
+    """
+
+    if not isinstance(database_url, str) or not database_url.strip():
+        return 'DATABASE_URL must use PostgreSQL with the psycopg driver in production'
+    try:
+        parsed = make_url(database_url)
+        port = parsed.port
+    except (ArgumentError, TypeError, ValueError):
+        return 'DATABASE_URL must be a valid PostgreSQL URL in production'
+    if parsed.drivername not in _SUPPORTED_PRODUCTION_DATABASE_DRIVERS:
+        return 'DATABASE_URL must use PostgreSQL with the psycopg driver in production'
+    if not parsed.host or not parsed.database:
+        return 'DATABASE_URL must include a PostgreSQL host and database in production'
+    if port is not None and not 1 <= port <= 65535:
+        return 'DATABASE_URL must be a valid PostgreSQL URL in production'
+    return None
+
+
+def _is_default_database_url(database_url: str, default_database_url: str) -> bool:
+    """Compare the configured database identity without exposing credentials.
+
+    Empty query parameters and an omitted PostgreSQL default port are equivalent
+    spellings of the local development URL and must not bypass the production
+    default guard.
+    """
+
+    try:
+        actual = make_url(database_url)
+        default = make_url(default_database_url)
+    except (ArgumentError, TypeError, ValueError):
+        return False
+
+    def identity(url):
+        return (
+            url.drivername,
+            url.username,
+            url.password,
+            url.host,
+            url.port or 5432,
+            url.database,
+        )
+
+    try:
+        return identity(actual) == identity(default)
+    except (TypeError, ValueError):
+        return False

@@ -20,6 +20,12 @@ from app.modules.mobile_payments.freedompay_client import (
     FreedomPayGatewayError,
 )
 from app.core.exceptions.http import DomainHTTPException
+from app.core.storage.backend import (
+    LocalStorageBackend,
+    S3StorageBackend,
+    StorageConfigurationError,
+    get_storage_backend,
+)
 
 
 def production_settings(**overrides: object) -> Settings:
@@ -143,6 +149,72 @@ class ProductionGuardTests(unittest.TestCase):
                 )
             )
 
+    def test_production_accepts_only_the_installed_postgresql_driver(self) -> None:
+        status = validate_runtime_configuration(
+            production_settings(
+                database_url='postgresql+psycopg://boom:secret@db.internal:5432/boom'
+            )
+        )
+        self.assertEqual(status.environment, 'production')
+
+        for value in (
+            'postgresql://boom:secret@db.internal:5432/boom',
+            'postgresql+psycopg2://boom:secret@db.internal:5432/boom',
+            'mysql://boom:secret@db.internal:3306/boom',
+            'unknown://db.internal/boom',
+            'not a database url',
+            'postgresql+psycopg://',
+            'postgresql+psycopg:///boom',
+            'postgresql+psycopg://boom:secret@/boom',
+            'postgresql+psycopg://boom:secret@db.internal',
+            'postgresql+psycopg://boom:secret@db.internal:invalid/boom',
+            'postgresql+psycopg://boom:secret@db.internal:65536/boom',
+        ):
+            with self.subTest(database_url=value), self.assertRaises(
+                ProductionConfigurationError
+            ):
+                validate_runtime_configuration(
+                    production_settings(database_url=value)
+                )
+
+        with self.assertRaises(ProductionConfigurationError) as error_context:
+            validate_runtime_configuration(
+                production_settings(
+                    database_url='mysql://boom:super-secret@db.internal:3306/boom'
+                )
+            )
+        self.assertNotIn('super-secret', str(error_context.exception))
+
+    def test_production_rejects_equivalent_local_default_database_urls(self) -> None:
+        for value in (
+            'postgresql+psycopg://postgres:postgres@localhost:5432/star_kids?',
+            'postgresql+psycopg://postgres:postgres@localhost:5432/star_kids?x=',
+            'postgresql+psycopg://postgres:postgres@localhost/star_kids',
+        ):
+            with self.subTest(database_url=value), self.assertRaises(
+                ProductionConfigurationError
+            ):
+                validate_runtime_configuration(
+                    production_settings(database_url=value)
+                )
+
+    def test_development_and_test_keep_sqlite_support(self) -> None:
+        for app_env in ('development', 'test'):
+            with self.subTest(app_env=app_env):
+                status = validate_runtime_configuration(
+                    Settings(
+                        app_env=app_env,
+                        database_url='sqlite:///local-test.db',
+                    )
+                )
+                self.assertEqual(status.environment, app_env)
+
+    def test_production_requires_s3_bucket_when_s3_is_selected(self) -> None:
+        with self.assertRaises(ProductionConfigurationError):
+            validate_runtime_configuration(
+                production_settings(storage_backend='s3', s3_bucket='')
+            )
+
     def test_production_otp_placeholder_is_unavailable(self) -> None:
         service = MobileAuthService(settings=production_settings())
 
@@ -226,3 +298,39 @@ class ProductionGuardTests(unittest.TestCase):
         self.assertNotIn('secret', message.lower())
         self.assertNotIn('password', message.lower())
         self.assertNotIn('token', message.lower())
+
+
+class StorageBackendConfigurationTests(unittest.TestCase):
+    def test_local_backend_is_selected(self) -> None:
+        settings = Settings(app_env='test', storage_backend='local')
+        self.assertIsInstance(get_storage_backend(settings), LocalStorageBackend)
+
+    def test_s3_backend_is_selected_without_network_access(self) -> None:
+        settings = Settings(
+            app_env='test',
+            storage_backend='s3',
+            s3_bucket='boom-bala-test',
+        )
+        self.assertIsInstance(get_storage_backend(settings), S3StorageBackend)
+
+    def test_unknown_backend_never_falls_back_to_local(self) -> None:
+        settings = Settings(app_env='test', storage_backend='s33')
+        with self.assertRaises(StorageConfigurationError):
+            get_storage_backend(settings)
+
+    def test_runtime_validation_rejects_unknown_backend_in_every_environment(self) -> None:
+        settings_by_environment = {
+            'development': Settings(app_env='development', storage_backend='s33'),
+            'test': Settings(app_env='test', storage_backend='s33'),
+            'production': production_settings(storage_backend='s33'),
+        }
+        for app_env, settings in settings_by_environment.items():
+            with self.subTest(app_env=app_env), self.assertRaises(
+                ProductionConfigurationError
+            ):
+                validate_runtime_configuration(settings)
+
+    def test_s3_requires_a_bucket(self) -> None:
+        settings = Settings(app_env='test', storage_backend='s3')
+        with self.assertRaises(StorageConfigurationError):
+            get_storage_backend(settings)

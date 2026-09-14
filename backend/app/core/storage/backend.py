@@ -27,6 +27,13 @@ class StorageBackend(Protocol):
     def delete(self, storage_key: str) -> None: ...
 
 
+SUPPORTED_STORAGE_BACKENDS = frozenset({'local', 's3'})
+
+
+class StorageConfigurationError(ValueError):
+    """Raised when a storage backend cannot be selected safely."""
+
+
 class LocalStorageBackend:
     def __init__(self, *, media_root: str, public_base_url: str | None, media_url_prefix: str) -> None:
         self._media_root = Path(media_root)
@@ -105,10 +112,17 @@ class S3StorageBackend:
 
 
 def get_storage_backend(settings: 'Settings') -> StorageBackend:
-    backend = settings.storage_backend.lower()
+    backend = (settings.storage_backend or '').lower()
+    if backend not in SUPPORTED_STORAGE_BACKENDS:
+        raise StorageConfigurationError('STORAGE_BACKEND must be one of: local, s3')
     if backend == 's3':
+        bucket = (settings.s3_bucket or '').strip()
+        if not bucket:
+            raise StorageConfigurationError(
+                'S3_BUCKET is required when STORAGE_BACKEND=s3'
+            )
         return S3StorageBackend(
-            bucket=settings.s3_bucket or '',
+            bucket=bucket,
             region=settings.s3_region,
             endpoint_url=settings.s3_endpoint,
             access_key=settings.s3_access_key,
