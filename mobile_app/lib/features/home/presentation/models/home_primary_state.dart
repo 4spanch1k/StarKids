@@ -26,7 +26,7 @@ class HomePrimaryContext {
   final int? birthdayAge;
 }
 
-/// Ticket > birthday > known returning family > first purchase.
+/// Checked-in visit > ticket > birthday > known returning family > first purchase.
 /// `hasVisitHistory` is explicit because a paid ticket is not a visit.
 HomePrimaryContext resolveHomePrimaryState({
   required Iterable<IssuedTicket> tickets,

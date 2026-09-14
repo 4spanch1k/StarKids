@@ -26,8 +26,6 @@ import '../../../birthdays/domain/birthday_package.dart';
 import '../../../branches/domain/branch_option.dart';
 import '../../../children/domain/child.dart';
 import '../../../children/presentation/controllers/children_controller.dart';
-import '../../../content/domain/public_content_block.dart';
-import '../../../content/domain/public_faq_item.dart';
 import '../../../news/presentation/controllers/news_feed_controller.dart';
 import '../../../news/presentation/widgets/home_news_section.dart';
 import '../../../promotions/domain/promotion_offer.dart';
@@ -42,6 +40,7 @@ import '../../../request_history/presentation/controllers/request_history_contro
 import '../../../loyalty/presentation/controllers/loyalty_controller.dart';
 import '../../../loyalty/presentation/pages/loyalty_page.dart';
 import '../models/home_primary_state.dart';
+import '../models/home_visit_copy.dart';
 import '../widgets/home_birthday_lead_card.dart';
 
 class HomePage extends StatefulWidget {
@@ -84,7 +83,7 @@ class _HomePageState extends State<HomePage> {
   bool _ticketsLoading = true;
   String? _ticketsError;
   CurrentVisit? _currentVisit;
-  bool _hasCompletedVisitHistory = false;
+  VisitHistory? _visitHistory;
   int _secondaryRefreshVersion = 0;
 
   @override
@@ -181,11 +180,11 @@ class _HomePageState extends State<HomePage> {
     try {
       final history = await _currentVisitRepository.getVisitHistory();
       if (!mounted) return;
-      setState(() => _hasCompletedVisitHistory = history.hasCompletedVisit);
+      setState(() => _visitHistory = history);
     } catch (_) {
       // Visit history is non-critical. A failed lookup must not invent a
       // returning state or hide the ticket/checkout actions.
-      if (mounted) setState(() => _hasCompletedVisitHistory = false);
+      if (mounted) setState(() => _visitHistory = null);
     }
   }
 
@@ -289,11 +288,11 @@ class _HomePageState extends State<HomePage> {
                           const SizedBox(height: SKSpacing.x5),
                           _buildBirthdayLeadSection(context),
                           const SizedBox(height: SKSpacing.x5),
-                          _buildLoyaltySection(context),
-                          const SizedBox(height: SKSpacing.x5),
                           _buildChildrenSection(context),
                           const SizedBox(height: SKSpacing.x4),
                           _buildSecondaryBirthdaySection(context),
+                          const SizedBox(height: SKSpacing.x5),
+                          _buildLoyaltySection(context),
                           const SizedBox(height: SKSpacing.x5),
                           _HomeQuickActions(
                             onBranchTap: () =>
@@ -354,7 +353,7 @@ class _HomePageState extends State<HomePage> {
           tickets: _issuedTickets,
           children: _childrenController.children,
           now: _nowProvider(),
-          hasVisitHistory: _hasCompletedVisitHistory,
+          hasVisitHistory: (_visitHistory?.visitCount ?? 0) > 0,
           hasCheckedInVisit: _currentVisit != null,
         );
         final hasUpcomingTicket = _issuedTickets.any(
@@ -386,12 +385,14 @@ class _HomePageState extends State<HomePage> {
               onOpen: () => _openRoot(AppRoutes.birthdays),
             );
           case HomePrimaryState.returningFamily:
-            // Visit history is not available yet, so never invent a count.
+            // Returning copy is rendered only from the completed Visit history.
             return _NewFamilyHero(
               key: const ValueKey('home-primary-returning-family'),
               returning: true,
               branchName:
                   ServiceRegistry.selectedBranchController.selectedBranch.name,
+              visitCount: _visitHistory?.visitCount,
+              lastVisitAt: _visitHistory?.lastVisitAt,
               onBuy: _openTicketPurchase,
             );
           case HomePrimaryState.newFamily:
@@ -736,18 +737,10 @@ class _HomePageState extends State<HomePage> {
     final promotionsFuture = ServiceRegistry.promotionRepository
         .listPromotions(branchId)
         .catchError((_) => const <PromotionOffer>[]);
-    final contentBlocksFuture = ServiceRegistry.publicContentRepository
-        .listContentBlocks(surface: 'home')
-        .catchError((_) => const <PublicContentBlock>[]);
-    final faqsFuture = ServiceRegistry.publicContentRepository
-        .listFaqs()
-        .catchError((_) => const <PublicFaqItem>[]);
 
     final branch = await branchFuture;
     final packages = await packagesFuture;
     final promotions = await promotionsFuture;
-    final contentBlocks = await contentBlocksFuture;
-    final faqs = await faqsFuture;
     ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
 
     BirthdayPackage? featuredPackage;
@@ -763,8 +756,6 @@ class _HomePageState extends State<HomePage> {
       branch: branch,
       featuredPackage: featuredPackage,
       promotions: promotions,
-      contentBlocks: contentBlocks,
-      faqs: faqs,
     );
   }
 }
@@ -897,11 +888,15 @@ class _NewFamilyHero extends StatelessWidget {
     required this.onBuy,
     this.returning = false,
     this.branchName,
+    this.visitCount,
+    this.lastVisitAt,
   });
 
   final VoidCallback onBuy;
   final bool returning;
   final String? branchName;
+  final int? visitCount;
+  final DateTime? lastVisitAt;
 
   @override
   Widget build(BuildContext context) {
@@ -951,24 +946,47 @@ class _NewFamilyHero extends StatelessWidget {
                     ),
                     const SizedBox(height: SKSpacing.x3),
                   ],
-                  Text(
-                    returning
-                        ? 'Готовы к следующему визиту?'
-                        : 'Планируете посещение?',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  const SizedBox(height: SKSpacing.x2),
-                  Text(
-                    returning
-                        ? 'Выберите дату и оформите следующий билет.'
-                        : 'Выберите дату и оформите первый билет Boom Bala.',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.86),
-                        ),
-                  ),
+                  if (returning) ...[
+                    Text(
+                      'С возвращением',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(height: SKSpacing.x2),
+                    if (visitCount != null && visitCount! > 0)
+                      Text(
+                        'Вы были у нас ${formatVisitCount(visitCount!)}',
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.92),
+                            ),
+                      ),
+                    if (lastVisitAt != null) ...[
+                      const SizedBox(height: SKSpacing.x1),
+                      Text(
+                        'Последний визит — ${formatLastVisitDate(lastVisitAt!)}',
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.86),
+                            ),
+                      ),
+                    ],
+                  ] else ...[
+                    Text(
+                      'Планируете посещение?',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(height: SKSpacing.x2),
+                    Text(
+                      'Выберите дату и оформите первый билет Boom Bala.',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.86),
+                          ),
+                    ),
+                  ],
                   const Spacer(),
                   PrimaryButton(
                     label: 'Купить билет',
@@ -1683,15 +1701,11 @@ class _HomeContentData {
     required this.branch,
     this.featuredPackage,
     required this.promotions,
-    required this.contentBlocks,
-    required this.faqs,
   });
 
   final BranchOption branch;
   final BirthdayPackage? featuredPackage;
   final List<PromotionOffer> promotions;
-  final List<PublicContentBlock> contentBlocks;
-  final List<PublicFaqItem> faqs;
 }
 
 String _formatBonusBalance(int value) {

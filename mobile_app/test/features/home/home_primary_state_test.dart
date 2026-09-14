@@ -17,11 +17,34 @@ void main() {
     expect(result.state, HomePrimaryState.activeTicket);
   });
 
+  test('upcoming ticket has priority over returning family', () {
+    final result = resolveHomePrimaryState(
+      tickets: [_ticket(DateTime(2026, 9, 5))],
+      children: const [],
+      now: today,
+      hasVisitHistory: true,
+    );
+
+    expect(result.state, HomePrimaryState.activeTicket);
+  });
+
   test('active visit is the highest priority state', () {
     final result = resolveHomePrimaryState(
       tickets: const [],
       children: const [],
       now: today,
+      hasCheckedInVisit: true,
+    );
+
+    expect(result.state, HomePrimaryState.checkedIn);
+  });
+
+  test('active visit has priority over returning family', () {
+    final result = resolveHomePrimaryState(
+      tickets: const [],
+      children: const [],
+      now: today,
+      hasVisitHistory: true,
       hasCheckedInVisit: true,
     );
 
@@ -39,6 +62,17 @@ void main() {
     expect(result.child?.name, 'Ася');
     expect(result.birthdayAge, 7);
     expect(result.nextBirthday, DateTime(2026, 9, 20));
+  });
+
+  test('upcoming birthday has priority over returning family', () {
+    final result = resolveHomePrimaryState(
+      tickets: const [],
+      children: [_child(DateTime(2019, 9, 20))],
+      now: today,
+      hasVisitHistory: true,
+    );
+
+    expect(result.state, HomePrimaryState.birthday);
   });
 
   test('past, used and open-date tickets are not active', () {

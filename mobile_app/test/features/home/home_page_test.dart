@@ -19,6 +19,8 @@ import 'package:star_kids_mobile/features/requests/domain/request_status.dart';
 import 'package:star_kids_mobile/features/requests/domain/request_type.dart';
 import 'package:star_kids_mobile/features/tickets/domain/issued_ticket.dart';
 import 'package:star_kids_mobile/features/tickets/domain/issued_ticket_repository.dart';
+import 'package:star_kids_mobile/features/visits/domain/current_visit.dart';
+import 'package:star_kids_mobile/features/visits/domain/current_visit_repository.dart';
 
 import '../../helpers/test_app_harness.dart';
 
@@ -336,6 +338,73 @@ void main() {
     children.dispose();
   });
 
+  testWidgets('returning family shows visit count and last visit', (
+    tester,
+  ) async {
+    final children = _childrenController(const []);
+    await _pumpHome(
+      tester,
+      tickets: const [],
+      childrenController: children,
+      currentVisitRepository: _FakeCurrentVisitRepository(
+        history: VisitHistory(
+          visitCount: 3,
+          firstVisitAt: DateTime(2026, 1, 10, 12),
+          lastVisitAt: DateTime(2026, 9, 5, 15),
+          items: const [],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('С возвращением'), findsOneWidget);
+    expect(find.text('Вы были у нас 3 раза'), findsOneWidget);
+    expect(find.text('Последний визит — 5 сентября'), findsOneWidget);
+    expect(find.text('Купить билет'), findsOneWidget);
+    children.dispose();
+  });
+
+  testWidgets('returning family renders a singular visit count', (
+    tester,
+  ) async {
+    final children = _childrenController(const []);
+    await _pumpHome(
+      tester,
+      tickets: const [],
+      childrenController: children,
+      currentVisitRepository: _FakeCurrentVisitRepository(
+        history: const VisitHistory(
+          visitCount: 1,
+          firstVisitAt: null,
+          lastVisitAt: null,
+          items: [],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Вы были у нас 1 раз'), findsOneWidget);
+    children.dispose();
+  });
+
+  testWidgets('visit history failure does not invent returning context', (
+    tester,
+  ) async {
+    final children = _childrenController(const []);
+    await _pumpHome(
+      tester,
+      tickets: const [],
+      childrenController: children,
+      currentVisitRepository: _FakeCurrentVisitRepository(failHistory: true),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('С возвращением'), findsNothing);
+    expect(find.text('Планируете посещение?'), findsOneWidget);
+    expect(find.text('Купить билет'), findsOneWidget);
+    children.dispose();
+  });
+
   testWidgets('nearest active birthday lead wins deterministically', (
     tester,
   ) async {
@@ -411,6 +480,7 @@ Future<void> _pumpHome(
   DateTime Function()? nowProvider,
   List<RequestHistoryItem> requests = const [],
   RequestHistoryController? requestHistoryController,
+  CurrentVisitRepository? currentVisitRepository,
 }) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
@@ -427,6 +497,7 @@ Future<void> _pumpHome(
         nowProvider: nowProvider ?? _fixedToday,
         requestHistoryController:
             requestHistoryController ?? _requestHistoryController(requests),
+        currentVisitRepository: currentVisitRepository,
       ),
     ),
   );
@@ -562,6 +633,33 @@ class _FakeRequestHistoryRepository implements RequestHistoryRepository {
       return const RequestHistoryFetchFailure('Не удалось загрузить заявки.');
     }
     return RequestHistoryFetchSuccess(items: items, total: items.length);
+  }
+}
+
+class _FakeCurrentVisitRepository implements CurrentVisitRepository {
+  _FakeCurrentVisitRepository({
+    this.history,
+    this.failHistory = false,
+  });
+
+  final VisitHistory? history;
+  final bool failHistory;
+
+  @override
+  Future<CurrentVisit?> getCurrentVisit() async => null;
+
+  @override
+  Future<VisitHistory> getVisitHistory() async {
+    if (failHistory) {
+      throw StateError('Visit history unavailable.');
+    }
+    return history ??
+        const VisitHistory(
+          visitCount: 0,
+          firstVisitAt: null,
+          lastVisitAt: null,
+          items: [],
+        );
   }
 }
 

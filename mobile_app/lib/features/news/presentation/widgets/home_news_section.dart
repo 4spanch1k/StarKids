@@ -69,13 +69,7 @@ class _HomeNewsSectionState extends State<HomeNewsSection> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            StarKidsSectionHeader(
-              title: 'Новости',
-              actionLabel: 'Все новости',
-              onActionTap: () => Navigator.of(context).pushNamed(
-                AppRoutes.notifications,
-              ),
-            ),
+            const StarKidsSectionHeader(title: 'Новости'),
             const SizedBox(height: SKSpacing.x4),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
