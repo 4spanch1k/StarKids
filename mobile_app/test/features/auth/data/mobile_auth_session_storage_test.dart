@@ -232,6 +232,47 @@ void main() {
     );
   });
 
+  test('corrupt secure session stays authoritative when legacy cleanup fails',
+      () async {
+    final preferences = await SharedPreferences.getInstance();
+    final legacy = _encode(_session(accessToken: 'stale-legacy'));
+    await preferences.setString(
+      MobileAuthSessionStorage.legacySessionKey,
+      legacy,
+    );
+    const corrupt = '{not-json';
+    secureStorage.values[MobileAuthSessionStorage.secureSessionKey] = corrupt;
+    final failingLegacyStorage = FailingLegacyAuthSessionStore();
+    final storageWithFailure = MobileAuthSessionStorage(
+      secureStorage: secureStorage,
+      legacyStorage: failingLegacyStorage,
+    );
+
+    final result = await storageWithFailure.readSession();
+
+    expect(result, isNull);
+    expect(
+      secureStorage.values[MobileAuthSessionStorage.secureSessionKey],
+      corrupt,
+    );
+    expect(
+      preferences.getString(MobileAuthSessionStorage.legacySessionKey),
+      legacy,
+    );
+
+    final secondResult = await storageWithFailure.readSession();
+
+    expect(secondResult, isNull);
+    expect(
+      secureStorage.values[MobileAuthSessionStorage.secureSessionKey],
+      corrupt,
+    );
+    expect(
+      preferences.getString(MobileAuthSessionStorage.legacySessionKey),
+      legacy,
+    );
+  });
+
   test('clearSession removes secure and legacy entries', () async {
     secureStorage.values[MobileAuthSessionStorage.secureSessionKey] =
         _encode(_session());
@@ -334,5 +375,18 @@ class InMemorySecureStorage implements SecureStorageAdapter {
       throw StateError('secure delete failed');
     }
     values.remove(key);
+  }
+}
+
+class FailingLegacyAuthSessionStore implements LegacyAuthSessionStore {
+  @override
+  Future<String?> read(String key) async {
+    final preferences = await SharedPreferences.getInstance();
+    return preferences.getString(key);
+  }
+
+  @override
+  Future<void> remove(String key) {
+    throw StateError('legacy delete failed');
   }
 }

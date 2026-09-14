@@ -6,14 +6,40 @@ import '../domain/mobile_auth_session.dart';
 import '../domain/mobile_auth_user.dart';
 import 'secure_storage_adapter.dart';
 
+abstract interface class LegacyAuthSessionStore {
+  Future<String?> read(String key);
+
+  Future<void> remove(String key);
+}
+
+class SharedPreferencesLegacyAuthSessionStore
+    implements LegacyAuthSessionStore {
+  @override
+  Future<String?> read(String key) async {
+    final preferences = await SharedPreferences.getInstance();
+    return preferences.getString(key);
+  }
+
+  @override
+  Future<void> remove(String key) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.remove(key);
+  }
+}
+
 class MobileAuthSessionStorage {
-  MobileAuthSessionStorage({SecureStorageAdapter? secureStorage})
-      : _secureStorage = secureStorage ?? FlutterSecureStorageAdapter();
+  MobileAuthSessionStorage({
+    SecureStorageAdapter? secureStorage,
+    LegacyAuthSessionStore? legacyStorage,
+  })  : _secureStorage = secureStorage ?? FlutterSecureStorageAdapter(),
+        _legacyStorage =
+            legacyStorage ?? SharedPreferencesLegacyAuthSessionStore();
 
   static const legacySessionKey = 'mobile_auth_session';
   static const secureSessionKey = 'mobile_auth_session_secure';
 
   final SecureStorageAdapter _secureStorage;
+  final LegacyAuthSessionStore _legacyStorage;
 
   Future<void> saveSession(MobileAuthSession session) async {
     final serialized = _serializeSession(session);
@@ -43,20 +69,23 @@ class MobileAuthSessionStorage {
         return secureSession;
       }
 
-      // Do not resurrect a stale legacy session when the secure entry is
-      // present but unusable. Removing it is best effort; the safe result is
-      // still unauthenticated.
+      // Keep the corrupt secure value in place until the legacy value has
+      // definitely been removed. It blocks a later read from resurrecting a
+      // stale plaintext session if legacy cleanup is temporarily unavailable.
+      final legacyRemoved = await _tryRemoveLegacySession();
+      if (!legacyRemoved) {
+        return null;
+      }
+
       try {
         await _secureStorage.delete(secureSessionKey);
       } catch (_) {
         // Ignore cleanup failure and keep the safe null result.
       }
-      await _bestEffortRemoveLegacySession();
       return null;
     }
 
-    final preferences = await SharedPreferences.getInstance();
-    final legacyRaw = preferences.getString(legacySessionKey);
+    final legacyRaw = await _legacyStorage.read(legacySessionKey);
     if (legacyRaw == null || legacyRaw.trim().isEmpty) {
       return null;
     }
@@ -77,7 +106,7 @@ class MobileAuthSessionStorage {
       return null;
     }
 
-    await preferences.remove(legacySessionKey);
+    await _legacyStorage.remove(legacySessionKey);
     return legacySession;
   }
 
@@ -93,8 +122,7 @@ class MobileAuthSessionStorage {
     }
 
     try {
-      final preferences = await SharedPreferences.getInstance();
-      await preferences.remove(legacySessionKey);
+      await _legacyStorage.remove(legacySessionKey);
     } catch (error, stackTrace) {
       firstError ??= error;
       firstStackTrace ??= stackTrace;
@@ -109,12 +137,17 @@ class MobileAuthSessionStorage {
   }
 
   Future<void> _bestEffortRemoveLegacySession() async {
+    await _tryRemoveLegacySession();
+  }
+
+  Future<bool> _tryRemoveLegacySession() async {
     try {
-      final preferences = await SharedPreferences.getInstance();
-      await preferences.remove(legacySessionKey);
+      await _legacyStorage.remove(legacySessionKey);
+      return true;
     } catch (_) {
       // Secure storage remains authoritative even if legacy cleanup is
       // temporarily unavailable.
+      return false;
     }
   }
 
