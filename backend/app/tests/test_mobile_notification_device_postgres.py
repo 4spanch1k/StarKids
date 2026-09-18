@@ -55,8 +55,13 @@ class MobileNotificationDevicePostgresTests(unittest.TestCase):
         session_ids = [f'pg-session-{suffix[:8]}-{index}' for index in (1, 2)]
 
         with self.SessionLocal() as db:
-            for user_id, session_id in zip(user_ids, session_ids):
-                db.add(MobileUser(id=user_id, phone=f'+77{suffix[:10]}{len(user_id)}'))
+            for index, (user_id, session_id) in enumerate(zip(user_ids, session_ids), start=1):
+                db.add(
+                    MobileUser(
+                        id=user_id,
+                        phone=f'+77{suffix[:10]}{index}',
+                    )
+                )
                 db.flush()
                 db.add(
                     MobileSession(
@@ -104,4 +109,3 @@ class MobileNotificationDevicePostgresTests(unittest.TestCase):
                 db.execute(delete(MobileSession).where(MobileSession.id.in_(session_ids)))
                 db.execute(delete(MobileUser).where(MobileUser.id.in_(user_ids)))
                 db.commit()
-
