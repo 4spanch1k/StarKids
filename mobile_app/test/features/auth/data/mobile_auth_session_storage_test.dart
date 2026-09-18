@@ -273,6 +273,37 @@ void main() {
     );
   });
 
+  test('successful migration keeps secure session when legacy removal fails',
+      () async {
+    final legacy = _encode(_session(accessToken: 'legacy-access'));
+    SharedPreferencesStorePlatform.instance =
+        FalseRemovingSharedPreferencesStore.withData({
+      'flutter.${MobileAuthSessionStorage.legacySessionKey}': legacy,
+    });
+    SharedPreferences.resetStatic();
+    final preferences = await SharedPreferences.getInstance();
+
+    final result = await storage.readSession();
+
+    expect(result?.accessToken, 'legacy-access');
+    expect(
+      secureStorage.values[MobileAuthSessionStorage.secureSessionKey],
+      isNotNull,
+    );
+    expect(
+      preferences.getString(MobileAuthSessionStorage.legacySessionKey),
+      legacy,
+    );
+
+    final secondResult = await storage.readSession();
+
+    expect(secondResult?.accessToken, 'legacy-access');
+    expect(
+      preferences.getString(MobileAuthSessionStorage.legacySessionKey),
+      legacy,
+    );
+  });
+
   test('legacy adapter accepts an unsuccessful remove for an absent key',
       () async {
     SharedPreferencesStorePlatform.instance =

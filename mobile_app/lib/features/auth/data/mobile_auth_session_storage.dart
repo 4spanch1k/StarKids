@@ -117,7 +117,13 @@ class MobileAuthSessionStorage {
       return null;
     }
 
-    await _legacyStorage.remove(legacySessionKey);
+    final legacyRemoved = await _tryRemoveLegacySession();
+    if (!legacyRemoved) {
+      // The secure write completed, so keep the session usable and let a
+      // later secure-first read retry legacy cleanup. Never fall back to or
+      // overwrite the secure value with plaintext credentials.
+      return legacySession;
+    }
     return legacySession;
   }
 
