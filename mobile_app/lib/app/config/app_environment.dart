@@ -115,6 +115,60 @@ abstract final class AppEnvironment {
       appEnv.trim().toLowerCase() == 'test' ||
       appEnv.trim().toLowerCase() == 'testing';
 
+  static const privacyPolicyUrl = String.fromEnvironment(
+    'MOBILE_PRIVACY_POLICY_URL',
+    defaultValue: '',
+  );
+
+  static const privacyConsentVersion = String.fromEnvironment(
+    'MOBILE_PRIVACY_CONSENT_VERSION',
+    defaultValue: 'v1-pending-legal',
+  );
+
+  static void validateReleaseConfiguration() {
+    // Accessing apiBaseUrl performs the existing production API validation.
+    apiBaseUrl;
+    validatePrivacyConfiguration(
+      environment: appEnv,
+      releaseMode: kReleaseMode,
+      configuredUrl: privacyPolicyUrl,
+      consentVersion: privacyConsentVersion,
+    );
+  }
+
+  static void validatePrivacyConfiguration({
+    required String environment,
+    required bool releaseMode,
+    required String configuredUrl,
+    required String consentVersion,
+  }) {
+    final normalizedEnvironment = environment.trim().toLowerCase();
+    if (!releaseMode && normalizedEnvironment != 'production') return;
+
+    final uri = Uri.tryParse(configuredUrl.trim());
+    final invalidHost = uri == null ||
+        uri.scheme != 'https' ||
+        uri.host.isEmpty ||
+        uri.host == 'localhost' ||
+        uri.host == '127.0.0.1' ||
+        uri.host.endsWith('.invalid');
+    if (invalidHost) {
+      throw StateError(
+        'MOBILE_PRIVACY_POLICY_URL must be an explicit HTTPS URL in production.',
+      );
+    }
+
+    final normalizedVersion = consentVersion.trim().toLowerCase();
+    if (normalizedVersion.isEmpty ||
+        normalizedVersion.contains('pending') ||
+        normalizedVersion.contains('placeholder') ||
+        normalizedVersion.startsWith('v1-pending-legal')) {
+      throw StateError(
+        'MOBILE_PRIVACY_CONSENT_VERSION must be an approved version in production.',
+      );
+    }
+  }
+
   static bool get allowsDevelopmentFixtures => isDevelopment || isTest;
 
   static bool get useMockBirthdayRequests =>

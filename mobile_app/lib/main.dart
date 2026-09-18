@@ -3,6 +3,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 
 import 'app/bootstrap/star_kids_bootstrap_app.dart';
+import 'app/config/app_environment.dart';
 import 'app/di/service_registry.dart';
 import 'app/router/notification_navigation_coordinator.dart';
 import 'firebase_options.dart';
@@ -19,6 +20,10 @@ Future<void> _onBackgroundMessage(RemoteMessage message) async {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   debugPrint('[BOOT] main started');
+
+  // Production/release builds must carry an approved, externally hosted
+  // privacy policy instead of the development-only pending-legal marker.
+  AppEnvironment.validateReleaseConfiguration();
 
   NotificationNavigationCoordinator.instance.configureCampaignOpenTracker(
     ServiceRegistry.campaignOpenTracker.track,

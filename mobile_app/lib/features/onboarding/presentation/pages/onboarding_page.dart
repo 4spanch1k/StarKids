@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../app/config/app_environment.dart';
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
@@ -20,7 +22,7 @@ class OnboardingPage extends StatefulWidget {
 }
 
 class _OnboardingPageState extends State<OnboardingPage> {
-  static const _consentVersion = 'v1-pending-legal';
+  static const _consentVersion = AppEnvironment.privacyConsentVersion;
 
   late final OnboardingController _controller;
   final _parentNameController = TextEditingController();
@@ -440,14 +442,35 @@ class _OnboardingPageState extends State<OnboardingPage> {
             onChanged: (value) =>
                 setState(() => _consentAccepted = value ?? false),
             title: const Text('Я согласен(а) на обработку персональных данных'),
-            subtitle: const Text(
-              'Финальный текст политики будет заменён после юридического утверждения.',
-            ),
+            subtitle: _privacyPolicySubtitle(),
             contentPadding: EdgeInsets.zero,
             controlAffinity: ListTileControlAffinity.leading,
           ),
         ],
       ),
+    );
+  }
+
+  Widget _privacyPolicySubtitle() {
+    final policyUrl = AppEnvironment.privacyPolicyUrl.trim();
+    if (policyUrl.isEmpty) {
+      return const Text(
+        'Политика конфиденциальности будет подключена перед production-релизом.',
+      );
+    }
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        const Text('Ознакомьтесь с '),
+        TextButton(
+          onPressed: () => launchUrl(
+            Uri.parse(policyUrl),
+            mode: LaunchMode.externalApplication,
+          ),
+          child: const Text('политикой конфиденциальности'),
+        ),
+        const Text(' перед продолжением.'),
+      ],
     );
   }
 
