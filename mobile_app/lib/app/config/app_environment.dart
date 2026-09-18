@@ -151,6 +151,12 @@ abstract final class AppEnvironment {
         uri.host.isEmpty ||
         uri.host == 'localhost' ||
         uri.host == '127.0.0.1' ||
+        uri.host == 'example.com' ||
+        uri.host.endsWith('.example.com') ||
+        uri.host == 'example.org' ||
+        uri.host.endsWith('.example.org') ||
+        uri.host == 'example.net' ||
+        uri.host.endsWith('.example.net') ||
         uri.host.endsWith('.invalid');
     if (invalidHost) {
       throw StateError(

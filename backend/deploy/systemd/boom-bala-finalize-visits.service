@@ -9,4 +9,4 @@ User=boom-bala
 Group=boom-bala
 WorkingDirectory=/opt/boom-bala/backend
 EnvironmentFile=/etc/boom-bala/backend.env
-ExecStart=/opt/boom-bala/backend/.venv/bin/python /opt/boom-bala/backend/scripts/finalize_visits.py
+ExecStart=/opt/boom-bala/backend/.venv/bin/python scripts/finalize_visits.py

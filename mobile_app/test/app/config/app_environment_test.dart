@@ -109,6 +109,15 @@ void main() {
       ),
       returnsNormally,
     );
+    expect(
+      () => AppEnvironment.validatePrivacyConfiguration(
+        environment: 'production',
+        releaseMode: true,
+        configuredUrl: 'https://example.com/privacy',
+        consentVersion: '2026-01',
+      ),
+      throwsA(isA<StateError>()),
+    );
   });
 
   test('iOS Google Sign-In requires native client and reversed URL config', () {
