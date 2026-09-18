@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import func, select
 
 from ..models.branch import Branch
+from ..models.mobile_payment import MobilePayment
 from ..models.visit import Visit
 from .base import Repository
 
@@ -10,6 +11,23 @@ COMPLETED_VISIT_STATUS = 'completed'
 
 
 class VisitRepository(Repository):
+    def list_active_with_context(
+        self,
+    ) -> list[tuple[Visit, MobilePayment, Branch | None]]:
+        statement = (
+            select(Visit, MobilePayment, Branch)
+            .join(MobilePayment, MobilePayment.id == Visit.mobile_payment_id)
+            .outerjoin(Branch, Branch.id == Visit.branch_id)
+            .where(Visit.status == 'active')
+            .order_by(Visit.started_at.asc(), Visit.id.asc())
+        )
+        return list(self.db.execute(statement).all())
+
+    def get_by_id_for_update(self, visit_id: str) -> Visit | None:
+        return self.db.scalar(
+            select(Visit).where(Visit.id == visit_id).with_for_update()
+        )
+
     def get_for_payment(self, mobile_payment_id: str, *, for_update: bool = False) -> Visit | None:
         statement = select(Visit).where(Visit.mobile_payment_id == mobile_payment_id)
         if for_update:
