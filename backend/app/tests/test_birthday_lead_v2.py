@@ -132,6 +132,47 @@ class BirthdayLeadV2EndpointTests(unittest.TestCase):
         with self.SessionLocal() as session:
             self.assertEqual(session.query(BirthdayRequest).count(), 1)
 
+    def test_anonymous_same_idempotency_key_returns_one_lead(self) -> None:
+        payload = {
+            'name': 'Айжан',
+            'phone': '+77071234567',
+            'branchId': 'branch-main',
+            'guestCount': 10,
+            'idempotencyKey': 'anonymous-retry-key',
+        }
+
+        first = self.client.post('/api/v1/mobile/leads/birthday', json=payload)
+        retry = self.client.post('/api/v1/mobile/leads/birthday', json=payload)
+
+        self.assertEqual(first.status_code, 201, first.text)
+        self.assertEqual(retry.status_code, 201, retry.text)
+        self.assertEqual(first.json()['requestId'], retry.json()['requestId'])
+        with self.SessionLocal() as session:
+            self.assertEqual(session.query(BirthdayRequest).count(), 1)
+
+    def test_anonymous_different_idempotency_keys_create_distinct_leads(self) -> None:
+        base_payload = {
+            'name': 'Айжан',
+            'phone': '+77071234567',
+            'branchId': 'branch-main',
+            'guestCount': 10,
+        }
+
+        first = self.client.post(
+            '/api/v1/mobile/leads/birthday',
+            json={**base_payload, 'idempotencyKey': 'anonymous-key-one'},
+        )
+        second = self.client.post(
+            '/api/v1/mobile/leads/birthday',
+            json={**base_payload, 'idempotencyKey': 'anonymous-key-two'},
+        )
+
+        self.assertEqual(first.status_code, 201, first.text)
+        self.assertEqual(second.status_code, 201, second.text)
+        self.assertNotEqual(first.json()['requestId'], second.json()['requestId'])
+        with self.SessionLocal() as session:
+            self.assertEqual(session.query(BirthdayRequest).count(), 2)
+
     def test_foreign_child_is_rejected_and_user_only_reads_own_leads(self) -> None:
         _, first_token = self._auth('first@example.com')
         first_headers = {'Authorization': first_token}

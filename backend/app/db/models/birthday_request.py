@@ -1,7 +1,19 @@
 from datetime import date, datetime
 from uuid import uuid4
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    CheckConstraint,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
@@ -11,6 +23,13 @@ class BirthdayRequest(Base):
     __tablename__ = 'birthday_requests'
     __table_args__ = (
         UniqueConstraint('mobile_user_id', 'idempotency_key', name='uq_birthday_requests_user_idempotency'),
+        Index(
+            'uq_birthday_requests_anonymous_idempotency',
+            'idempotency_key',
+            unique=True,
+            postgresql_where=text('mobile_user_id IS NULL AND idempotency_key IS NOT NULL'),
+            sqlite_where=text('mobile_user_id IS NULL AND idempotency_key IS NOT NULL'),
+        ),
         CheckConstraint(
             'agreed_amount_tenge IS NULL OR agreed_amount_tenge >= 0',
             name='ck_birthday_requests_agreed_amount_non_negative',

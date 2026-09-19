@@ -56,7 +56,7 @@ class LeadService:
         *,
         mobile_user_id: str | None = None,
     ) -> BirthdayLeadSubmittedResponse:
-        if mobile_user_id and payload.idempotencyKey:
+        if payload.idempotencyKey:
             existing = self.repository.get_birthday_lead_by_idempotency_key(
                 mobile_user_id=mobile_user_id,
                 idempotency_key=payload.idempotencyKey,
@@ -126,7 +126,7 @@ class LeadService:
             )
         except IntegrityError:
             self.repository.db.rollback()
-            if mobile_user_id and payload.idempotencyKey:
+            if payload.idempotencyKey:
                 existing = self.repository.get_birthday_lead_by_idempotency_key(
                     mobile_user_id=mobile_user_id,
                     idempotency_key=payload.idempotencyKey,
