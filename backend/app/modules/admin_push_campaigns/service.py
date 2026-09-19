@@ -6,6 +6,7 @@ from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, delete, extract, func, or_, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ...core.config.settings import get_settings
@@ -74,19 +75,38 @@ class PushCampaignService:
         return self.serialize(self._get(campaign_id))
 
     def create(self, payload: PushCampaignCreateRequest, admin_id: str) -> PushCampaignResponse:
+        if payload.idempotency_key:
+            existing = self.session.scalar(select(PushCampaign).where(
+                PushCampaign.origin == 'manual',
+                PushCampaign.created_by_admin_id == admin_id,
+                PushCampaign.idempotency_key == payload.idempotency_key,
+            ))
+            if existing is not None:
+                return self.serialize(existing)
         scheduled = self._normalize_scheduled(payload.scheduled_at)
         campaign = PushCampaign(
             internal_name=payload.internal_name.strip(), title=payload.title.strip(), body=payload.body.strip(),
             audience_type=payload.audience.type,
             audience_config=payload.audience.model_dump(exclude_none=True, exclude={'type'}),
             destination=payload.destination, destination_payload={},
-            status='scheduled' if scheduled else 'draft', scheduled_at=scheduled, created_by_admin_id=admin_id,
+            status='processing' if payload.send_now else ('scheduled' if scheduled else 'draft'),
+            scheduled_at=scheduled, created_by_admin_id=admin_id, idempotency_key=payload.idempotency_key,
         )
         self.session.add(campaign)
-        self.session.commit()
+        try:
+            self.session.commit()
+        except IntegrityError:
+            self.session.rollback()
+            if payload.idempotency_key:
+                existing = self.session.scalar(select(PushCampaign).where(
+                    PushCampaign.origin == 'manual',
+                    PushCampaign.created_by_admin_id == admin_id,
+                    PushCampaign.idempotency_key == payload.idempotency_key,
+                ))
+                if existing is not None:
+                    return self.serialize(existing)
+            raise
         self.session.refresh(campaign)
-        if payload.send_now:
-            return self.send(campaign.id)
         return self.serialize(campaign)
 
     def update(self, campaign_id: str, payload: PushCampaignUpdateRequest) -> PushCampaignResponse:
@@ -126,9 +146,11 @@ class PushCampaignService:
         if not self.provider_configured:
             self._mark_failed(campaign, 'push_provider_not_configured')
             return self.serialize(campaign)
-        self._start_snapshot(campaign_id)
-        self._deliver_campaign(campaign_id)
-        return self.get(campaign_id)
+        campaign.status = 'processing'
+        campaign.failure_reason = None
+        campaign.cancelled_at = None
+        self.session.commit()
+        return self.serialize(campaign)
 
     def cancel(self, campaign_id: str) -> PushCampaignResponse:
         campaign = self._get(campaign_id)

@@ -95,6 +95,7 @@ const sendingId = ref<string | null>(null);
 const error = ref('');
 const providerConfigured = ref(true);
 const previewResult = ref<{ targeted_users: number; targeted_devices: number } | null>(null);
+const createIdempotencyKey = ref(newIdempotencyKey());
 const form = reactive({ title: '', body: '', destination: 'home' as PushCampaign['destination'], mode: 'now' as 'now' | 'scheduled', scheduled_at: '' });
 
 const canSubmit = computed(() => form.title.trim().length > 0 && form.body.trim().length > 0 && (form.mode === 'now' || form.scheduled_at.length > 0));
@@ -139,15 +140,17 @@ async function create() {
   error.value = '';
   try {
     await createPushCampaign({
-      internal_name: `manual-${Date.now()}`,
+      internal_name: `manual-${createIdempotencyKey.value}`,
       title: form.title,
       body: form.body,
       audience: currentAudience(),
       destination: form.destination,
       scheduled_at: form.mode === 'scheduled' ? toAlmatyIso(form.scheduled_at) : null,
       send_now: form.mode === 'now',
+      idempotency_key: createIdempotencyKey.value,
     });
     Object.assign(form, { title: '', body: '', destination: 'home', mode: 'now', scheduled_at: '' });
+    createIdempotencyKey.value = newIdempotencyKey();
     previewResult.value = null;
     await load();
   } catch (e) {
@@ -199,6 +202,8 @@ function formatDateTime(value: string): string {
 function formatInputDate(value: string): string { return value ? `${value.replace('T', ' ')} (Asia/Almaty)` : '—'; }
 
 function toAlmatyIso(value: string): string { return new Date(`${value}:00+05:00`).toISOString(); }
+
+function newIdempotencyKey(): string { return `push-${globalThis.crypto.randomUUID()}`; }
 
 onMounted(load);
 </script>

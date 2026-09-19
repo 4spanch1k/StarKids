@@ -195,6 +195,10 @@ class PushCampaignServiceTests(unittest.TestCase):
             with patch.object(PushCampaignService, 'provider_configured', new_callable=PropertyMock, return_value=True):
                 campaign = service.create(PushCampaignCreateRequest(internal_name='test-campaign', title='Заголовок', body='Текст', audience={'type': 'all_users'}, destination='home'), 'admin-1')
                 result = service.send(campaign.id)
+                self.assertEqual(result.status, 'processing')
+                self.assertEqual(len(delivery.tokens), 0)
+                service.process_due()
+            result = service.get(campaign.id)
             self.assertEqual(result.status, 'sent')
             self.assertEqual(result.sent_count, 1)
             self.assertEqual(len(delivery.tokens), 1)
@@ -210,7 +214,7 @@ class PushCampaignServiceTests(unittest.TestCase):
             self.assertEqual(result.failure_reason, 'push_provider_not_configured')
             self.assertEqual(session.query(PushCampaignDelivery).filter_by(campaign_id=campaign.id).count(), 0)
 
-    def test_send_now_creates_and_dispatches_campaign(self) -> None:
+    def test_send_now_enqueues_for_background_dispatch(self) -> None:
         delivery = FakeDelivery()
         with self.SessionLocal() as session:
             self._user(session)
@@ -220,12 +224,53 @@ class PushCampaignServiceTests(unittest.TestCase):
                     PushCampaignCreateRequest(
                         internal_name='send-now', title='Заголовок', body='Текст',
                         audience={'type': 'all_users'}, destination='tickets', send_now=True,
+                        idempotency_key='send-now-idempotency',
                     ),
                     'admin-1',
                 )
+            self.assertEqual(result.status, 'processing')
+            self.assertEqual(result.sent_count, 0)
+            self.assertEqual(len(delivery.tokens), 0)
+            with patch.object(PushCampaignService, 'provider_configured', new_callable=PropertyMock, return_value=True):
+                service.process_due()
+            result = service.get(result.id)
             self.assertEqual(result.status, 'sent')
             self.assertEqual(result.sent_count, 1)
             self.assertEqual(len(delivery.tokens), 1)
+
+    def test_same_send_now_idempotency_key_returns_one_campaign_and_one_send(self) -> None:
+        delivery = FakeDelivery()
+        payload = PushCampaignCreateRequest(
+            internal_name='same-request', title='Заголовок', body='Текст',
+            audience={'type': 'all_users'}, destination='tickets', send_now=True,
+            idempotency_key='same-send-now-request',
+        )
+        with self.SessionLocal() as session:
+            self._user(session)
+            service = PushCampaignService(session, delivery)
+            with patch.object(PushCampaignService, 'provider_configured', new_callable=PropertyMock, return_value=True):
+                first = service.create(payload, 'admin-1')
+                second = service.create(payload, 'admin-1')
+                self.assertEqual(first.id, second.id)
+                self.assertEqual(session.query(PushCampaign).count(), 1)
+                self.assertEqual(session.query(PushCampaignDelivery).count(), 0)
+                service.process_due()
+            self.assertEqual(len(delivery.tokens), 1)
+            self.assertEqual(session.query(PushCampaignDelivery).count(), 1)
+
+    def test_different_send_now_idempotency_keys_create_different_campaigns(self) -> None:
+        with self.SessionLocal() as session:
+            service = PushCampaignService(session, FakeDelivery())
+            first = service.create(PushCampaignCreateRequest(
+                internal_name='request-one', title='t', body='b', audience={'type': 'all_users'},
+                destination='home', send_now=True, idempotency_key='send-request-one',
+            ), 'admin-1')
+            second = service.create(PushCampaignCreateRequest(
+                internal_name='request-two', title='t', body='b', audience={'type': 'all_users'},
+                destination='home', send_now=True, idempotency_key='send-request-two',
+            ), 'admin-1')
+            self.assertNotEqual(first.id, second.id)
+            self.assertEqual(session.query(PushCampaign).count(), 2)
 
     def test_disabled_scheduler_marks_due_campaign_failed_with_reason(self) -> None:
         with self.SessionLocal() as session:
@@ -267,7 +312,9 @@ class PushCampaignServiceTests(unittest.TestCase):
             service = PushCampaignService(session, delivery)
             with patch.object(PushCampaignService, 'provider_configured', new_callable=PropertyMock, return_value=True):
                 campaign = service.create(PushCampaignCreateRequest(internal_name='double-send', title='t', body='b', audience={'type': 'all_users'}, destination='home'), 'admin-1')
-                service.send(campaign.id)
+                self.assertEqual(service.send(campaign.id).status, 'processing')
+                self.assertEqual(service.send(campaign.id).status, 'processing')
+                service.process_due()
                 with self.assertRaises(Exception):
                     service.send(campaign.id)
             self.assertEqual(session.query(PushCampaignDelivery).filter_by(campaign_id=campaign.id).count(), 1)
@@ -297,6 +344,8 @@ class PushCampaignServiceTests(unittest.TestCase):
             with patch.object(PushCampaignService, 'provider_configured', new_callable=PropertyMock, return_value=True):
                 campaign = service.create(PushCampaignCreateRequest(internal_name='invalid', title='t', body='b', audience={'type': 'all_users'}, destination='home'), 'admin-1')
                 result = service.send(campaign.id)
+                service.process_due()
+            result = service.get(campaign.id)
             self.assertEqual(result.status, 'failed')
             device = session.query(MobileNotificationDevice).filter_by(mobile_user_id=user.id).one()
             self.assertFalse(device.notifications_enabled)
@@ -310,6 +359,8 @@ class PushCampaignServiceTests(unittest.TestCase):
             with patch.object(PushCampaignService, 'provider_configured', new_callable=PropertyMock, return_value=True):
                 campaign = service.create(PushCampaignCreateRequest(internal_name='retry', title='t', body='b', audience={'type': 'all_users'}, destination='home'), 'admin-1')
                 result = service.send(campaign.id)
+                service.process_due()
+            result = service.get(campaign.id)
             row = session.query(PushCampaignDelivery).filter_by(campaign_id=campaign.id).one()
             self.assertEqual(row.attempt_count, 3)
             self.assertEqual(result.status, 'failed')
@@ -341,6 +392,8 @@ class PushCampaignServiceTests(unittest.TestCase):
             with patch.object(PushCampaignService, 'provider_configured', new_callable=PropertyMock, return_value=True):
                 campaign = service.create(PushCampaignCreateRequest(internal_name='partial', title='t', body='b', audience={'type': 'all_users'}, destination='home'), 'admin-1')
                 result = service.send(campaign.id)
+                service.process_due()
+            result = service.get(campaign.id)
             self.assertEqual(result.status, 'partially_failed')
             self.assertEqual((result.sent_count, result.failed_count), (2, 1))
 
@@ -355,12 +408,15 @@ class PushCampaignServiceTests(unittest.TestCase):
                     PushCampaignCreateRequest(
                         internal_name='empty', title='t', body='b',
                         audience={'type': 'all_users'}, destination='home', send_now=True,
+                        idempotency_key='empty-send-now-request',
                     ),
                     'admin-1',
                 )
-            self.assertEqual(campaign.status, 'failed')
-            self.assertEqual(campaign.failure_reason, 'no_active_push_tokens')
-            self.assertEqual(campaign.targeted_devices, 0)
+                service.process_due()
+            result = service.get(campaign.id)
+            self.assertEqual(result.status, 'failed')
+            self.assertEqual(result.failure_reason, 'no_active_push_tokens')
+            self.assertEqual(result.targeted_devices, 0)
 
     def test_birthday_date_rules_cover_rollover_leap_and_timezone_boundary(self) -> None:
         self.assertTrue(birthday_matches_target(date(2019, 1, 4), date(2026, 1, 4)))

@@ -40,6 +40,7 @@ class PushCampaignCreateRequest(BaseModel):
     destination: Destination
     scheduled_at: datetime | None = None
     send_now: bool = False
+    idempotency_key: str | None = Field(default=None, min_length=16, max_length=128)
 
     @model_validator(mode='after')
     def validate_scheduled_at(self) -> 'PushCampaignCreateRequest':

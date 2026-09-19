@@ -28,7 +28,7 @@ export type PushCampaignAttribution = {
   attribution_window_days: number;
   attribution_model: 'last_touch';
 };
-export type CampaignInput = { internal_name: string; title: string; body: string; audience: CampaignAudience; destination: PushCampaign['destination']; scheduled_at?: string | null; send_now?: boolean };
+export type CampaignInput = { internal_name: string; title: string; body: string; audience: CampaignAudience; destination: PushCampaign['destination']; scheduled_at?: string | null; send_now?: boolean; idempotency_key?: string };
 
 export function listPushCampaigns() { return executeAuthorizedAdminRequest((token) => httpClient<PushCampaign[]>({ path: '/api/v1/admin/push-campaigns', headers: buildAdminAuthHeaders(token) })); }
 export function createPushCampaign(input: CampaignInput) { return executeAuthorizedAdminRequest((token) => httpClient<PushCampaign>({ path: '/api/v1/admin/push-campaigns', method: 'POST', headers: buildAdminAuthHeaders(token), body: JSON.stringify(input) })); }

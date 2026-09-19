@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, JSON, String, Text, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
@@ -10,6 +10,7 @@ from .base import Base
 class PushCampaign(Base):
     __tablename__ = 'push_campaigns'
     __table_args__ = (
+        UniqueConstraint('created_by_admin_id', 'idempotency_key', name='uq_push_campaigns_admin_idempotency'),
         CheckConstraint(
             "audience_type IN ('all_users', 'birthday_in_days', 'user', 'visit_segment')",
             name='ck_push_campaigns_audience_type',
@@ -41,6 +42,7 @@ class PushCampaign(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_by_admin_id: Mapped[str | None] = mapped_column(
         String(32),
         ForeignKey('admin_users.id', ondelete='RESTRICT'),

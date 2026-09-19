@@ -19,10 +19,6 @@ def main() -> None:
     try:
         delivery = get_push_delivery()
         service = PushCampaignService(session, delivery)
-        if not service.provider_configured:
-            raise RuntimeError(
-                'Push provider is not configured; scheduled campaigns were not processed.'
-            )
         processed = service.process_due()
         logger.info('processed push campaigns=%s', processed)
     finally:
