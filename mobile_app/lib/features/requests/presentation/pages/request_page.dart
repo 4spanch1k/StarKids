@@ -116,68 +116,68 @@ class _RequestPageState extends State<RequestPage> {
                     icon: isBirthdayRequest
                         ? Icons.send_rounded
                         : Icons.chat_bubble_rounded,
-                    onPressed: _isSubmitting
-                        ? null
-                        : () => _submitActiveForm(branch),
+                    onPressed:
+                        _isSubmitting ? null : () => _submitActiveForm(branch),
                   ),
                 ),
           body: StarKidsContentSwitcher(
             child: hasSubmission
                 ? isBirthdayRequest
-                      ? _RequestSuccessView(
-                          key: const ValueKey('birthday-request-success'),
-                          branch: branch,
-                          selectedPackage: package,
-                          type: RequestType.birthdayRequest,
-                          submission: birthdaySubmission!,
-                          onBackHome: () =>
-                              Navigator.of(context).pushNamedAndRemoveUntil(
-                                AppRoutes.home,
-                                (route) => false,
-                              ),
-                          onCreateAnother: () => _birthdayController.resetForm(
-                            preserveSelectedPackage: package != null,
-                          ),
-                        )
-                      : _ContactRequestSuccessView(
-                          key: const ValueKey('contact-request-success'),
-                          submission: contactSubmission!,
-                          contextLabel: _contactContextLabel,
-                          onBackHome: () =>
-                              Navigator.of(context).pushNamedAndRemoveUntil(
-                                AppRoutes.home,
-                                (route) => false,
-                              ),
-                          onCreateAnother: _contactController.resetForm,
-                        )
+                    ? _RequestSuccessView(
+                        key: const ValueKey('birthday-request-success'),
+                        branch: branch,
+                        selectedPackage: package,
+                        selectedDate: _birthdayController.desiredDate,
+                        type: RequestType.birthdayRequest,
+                        submission: birthdaySubmission!,
+                        onBackHome: () =>
+                            Navigator.of(context).pushNamedAndRemoveUntil(
+                          AppRoutes.home,
+                          (route) => false,
+                        ),
+                        onCreateAnother: () => _birthdayController.resetForm(
+                          preserveSelectedPackage: package != null,
+                        ),
+                      )
+                    : _ContactRequestSuccessView(
+                        key: const ValueKey('contact-request-success'),
+                        submission: contactSubmission!,
+                        contextLabel: _contactContextLabel,
+                        onBackHome: () =>
+                            Navigator.of(context).pushNamedAndRemoveUntil(
+                          AppRoutes.home,
+                          (route) => false,
+                        ),
+                        onCreateAnother: _contactController.resetForm,
+                      )
                 : isBirthdayRequest
-                ? _BirthdayRequestFormView(
-                    key: const ValueKey('birthday-request-form'),
-                    formKey: _birthdayFormKey,
-                    type: RequestType.birthdayRequest,
-                    typeSelector: _RequestTypeSelector(
-                      selectedType: _selectedType,
-                      onSelected: _selectRequestType,
-                    ),
-                    controller: _birthdayController,
-                    branch: branch,
-                    selectedPackage: package,
-                    selectedChild: _birthdayController.selectedChild,
-                    onPickBranch: _showBranchPicker,
-                    onPickPackage: _showPackagePicker,
-                    onPickChild: _showChildPicker,
-                  )
-                : _ContactRequestFormView(
-                    key: const ValueKey('contact-request-form'),
-                    formKey: _contactFormKey,
-                    type: RequestType.contact,
-                    typeSelector: _RequestTypeSelector(
-                      selectedType: _selectedType,
-                      onSelected: _selectRequestType,
-                    ),
-                    controller: _contactController,
-                    contextLabel: _contactContextLabel,
-                  ),
+                    ? _BirthdayRequestFormView(
+                        key: const ValueKey('birthday-request-form'),
+                        formKey: _birthdayFormKey,
+                        type: RequestType.birthdayRequest,
+                        typeSelector: _RequestTypeSelector(
+                          selectedType: _selectedType,
+                          onSelected: _selectRequestType,
+                        ),
+                        controller: _birthdayController,
+                        branch: branch,
+                        selectedPackage: package,
+                        selectedChild: _birthdayController.selectedChild,
+                        onPickBranch: _showBranchPicker,
+                        onPickPackage: _showPackagePicker,
+                        onPickChild: _showChildPicker,
+                      )
+                    : _ContactRequestFormView(
+                        key: const ValueKey('contact-request-form'),
+                        formKey: _contactFormKey,
+                        type: RequestType.contact,
+                        typeSelector: _RequestTypeSelector(
+                          selectedType: _selectedType,
+                          onSelected: _selectRequestType,
+                        ),
+                        controller: _contactController,
+                        contextLabel: _contactContextLabel,
+                      ),
           ),
         );
       },
@@ -326,7 +326,7 @@ class _RequestPageState extends State<RequestPage> {
     }
     final children = controller.children;
     if (children.isEmpty) {
-      _showLoadError('Сначала добавьте ребёнка в профиле.');
+      _showLoadError('Ребёнка можно указать позже — заявка не заблокирована.');
       return;
     }
     if (!mounted) return;
@@ -536,11 +536,10 @@ class _BirthdayRequestFormView extends StatelessWidget {
                   StarKidsSelectField(
                     label: 'Ребёнок',
                     value: selectedChild?.name,
-                    placeholderText: 'Выберите ребёнка',
+                    placeholderText: 'Не указан (необязательно)',
                     helperText: selectedChild == null
-                        ? 'Выберите ребёнка из профиля.'
+                        ? 'Можно добавить данные позже — менеджер свяжется с вами.'
                         : 'Возраст: ${selectedChild!.ageYears}',
-                    errorText: controller.childErrorText,
                     leadingIcon: Icons.child_care_rounded,
                     onTap: onPickChild,
                   ),
@@ -556,11 +555,10 @@ class _BirthdayRequestFormView extends StatelessWidget {
                   StarKidsSelectField(
                     label: 'Пакет праздника',
                     value: selectedPackage?.name,
-                    placeholderText: 'Выберите пакет',
+                    placeholderText: 'Помогите выбрать (необязательно)',
                     helperText: selectedPackage == null
-                        ? 'Выберите подходящий пакет для заявки.'
+                        ? 'Менеджер поможет подобрать формат и стоимость.'
                         : '${selectedPackage!.priceLabel} • ${selectedPackage!.guestLabel}',
-                    errorText: controller.packageErrorText,
                     leadingIcon: Icons.cake_rounded,
                     onTap: onPickPackage,
                   ),
@@ -809,6 +807,7 @@ class _RequestSuccessView extends StatefulWidget {
     super.key,
     required this.branch,
     required this.selectedPackage,
+    required this.selectedDate,
     required this.type,
     required this.submission,
     required this.onBackHome,
@@ -817,6 +816,7 @@ class _RequestSuccessView extends StatefulWidget {
 
   final BranchOption branch;
   final BirthdayPackage? selectedPackage;
+  final DateTime? selectedDate;
   final RequestType type;
   final BirthdayRequestSubmission submission;
   final VoidCallback onBackHome;
@@ -837,11 +837,6 @@ class _RequestSuccessViewState extends State<_RequestSuccessView> {
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _confettiController.play();
-    });
-    Future<void>.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        widget.onBackHome();
-      }
     });
   }
 
@@ -883,9 +878,15 @@ class _RequestSuccessViewState extends State<_RequestSuccessView> {
                     const SizedBox(height: SKSpacing.x3),
                     _SuccessRow(
                       label: 'Пакет',
-                      value:
-                          widget.selectedPackage?.name ??
+                      value: widget.selectedPackage?.name ??
                           'Менеджер поможет подобрать',
+                    ),
+                    const SizedBox(height: SKSpacing.x3),
+                    _SuccessRow(
+                      label: 'Дата',
+                      value: widget.selectedDate == null
+                          ? 'Дата пока не выбрана'
+                          : _formatSuccessDate(widget.selectedDate!),
                     ),
                     const SizedBox(height: SKSpacing.x3),
                     _SuccessRow(
@@ -938,6 +939,12 @@ class _RequestSuccessViewState extends State<_RequestSuccessView> {
       ],
     );
   }
+}
+
+String _formatSuccessDate(DateTime value) {
+  final month = value.month.toString().padLeft(2, '0');
+  final day = value.day.toString().padLeft(2, '0');
+  return '$day.$month.${value.year}';
 }
 
 class _ContactRequestSuccessView extends StatefulWidget {

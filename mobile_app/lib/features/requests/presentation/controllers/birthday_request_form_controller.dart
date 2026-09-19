@@ -23,6 +23,7 @@ class BirthdayRequestFormController extends ChangeNotifier {
        _packageRepository = packageRepository,
        _selectedPackageId = initialPackage?.id ?? initialPackageId,
        _selectedPackage = initialPackage {
+    guestCountController.text = '10';
     if (initialPackage != null) {
       _applySuggestedGuests(initialPackage);
     } else if (initialPackageId != null) {
@@ -38,7 +39,7 @@ class BirthdayRequestFormController extends ChangeNotifier {
   final guestCountController = TextEditingController();
   final commentController = TextEditingController();
   Child? _selectedChild;
-  final String _idempotencyKey = _newIdempotencyKey();
+  String _idempotencyKey = _newIdempotencyKey();
 
   String? _selectedPackageId;
   BirthdayPackage? _selectedPackage;
@@ -72,6 +73,8 @@ class BirthdayRequestFormController extends ChangeNotifier {
 
   bool get isSubmitting =>
       _status == BirthdayRequestSubmissionStatus.submitting;
+
+  String get idempotencyKey => _idempotencyKey;
 
   @override
   void notifyListeners() {
@@ -125,16 +128,12 @@ class BirthdayRequestFormController extends ChangeNotifier {
   }
 
   bool validateSelections() {
-    _packageErrorText = _selectedPackageId == null
-        ? 'Выберите пакет для праздника.'
-        : null;
-    _childErrorText = _selectedChild == null ? 'Выберите ребёнка.' : null;
-    _dateErrorText = _desiredDate == null ? 'Укажите желаемую дату.' : null;
+    _packageErrorText = null;
+    _childErrorText = null;
+    _dateErrorText = null;
     notifyListeners();
 
-    return _packageErrorText == null &&
-        _childErrorText == null &&
-        _dateErrorText == null;
+    return true;
   }
 
   Future<void> submit({required String branchId}) async {
@@ -149,8 +148,8 @@ class BirthdayRequestFormController extends ChangeNotifier {
         packageId: _selectedPackageId,
         name: nameController.text.trim(),
         phone: KzPhoneInputFormatter.normalizeForSubmit(phoneController.text),
-        preferredDate: _desiredDate!,
-        guestCount: int.parse(guestCountController.text.trim()),
+        preferredDate: _desiredDate,
+        guestCount: int.tryParse(guestCountController.text.trim()) ?? 10,
         comment: _normalizeComment(commentController.text),
         idempotencyKey: _idempotencyKey,
       ),
@@ -173,6 +172,7 @@ class BirthdayRequestFormController extends ChangeNotifier {
     _submission = null;
     _submissionErrorText = null;
     _status = BirthdayRequestSubmissionStatus.idle;
+    _idempotencyKey = _newIdempotencyKey();
     notifyListeners();
   }
 
@@ -194,6 +194,8 @@ class BirthdayRequestFormController extends ChangeNotifier {
     phoneController.clear();
     guestCountController.clear();
     commentController.clear();
+    guestCountController.text = '10';
+    _selectedChild = null;
     _selectedPackageId = preservedPackageId;
     _selectedPackage = preservedPackage;
     _desiredDate = null;
@@ -203,6 +205,7 @@ class BirthdayRequestFormController extends ChangeNotifier {
     _submission = null;
     _submissionErrorText = null;
     _status = BirthdayRequestSubmissionStatus.idle;
+    _idempotencyKey = _newIdempotencyKey();
 
     if (_selectedPackage != null) {
       _applySuggestedGuests(_selectedPackage!);

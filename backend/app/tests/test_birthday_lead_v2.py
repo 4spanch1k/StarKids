@@ -146,16 +146,24 @@ class BirthdayLeadV2EndpointTests(unittest.TestCase):
         self.assertIn(rejected.status_code, {403, 404})
         self.assertEqual(self.client.get('/api/v1/mobile/leads/birthday', headers=second_headers).json()['total'], 0)
 
-    def test_authenticated_lead_requires_child_and_date(self) -> None:
-        _, token = self._auth('required-fields@example.com')
+    def test_authenticated_lead_accepts_missing_optional_context(self) -> None:
+        _, token = self._auth('optional-fields@example.com')
         headers = {'Authorization': token}
         response = self.client.post(
             '/api/v1/mobile/leads/birthday', headers=headers,
             json={
                 'name': 'Айжан', 'phone': '+77071234567',
-                'branchId': 'branch-main', 'packageId': 'package-main',
+                'branchId': 'branch-main',
                 'guestCount': 10, 'idempotencyKey': 'required-fields',
             },
         )
-        self.assertEqual(response.status_code, 422)
-
+        self.assertEqual(response.status_code, 201, response.text)
+        with self.SessionLocal() as session:
+            request = session.scalar(
+                select(BirthdayRequest).where(BirthdayRequest.id == response.json()['requestId'])
+            )
+            self.assertIsNone(request.birthday_package_id)
+            self.assertIsNone(request.child_id)
+            self.assertIsNone(request.requested_date)
+            self.assertIsNone(request.package_name_snapshot)
+            self.assertIsNone(request.child_name_snapshot)

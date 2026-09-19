@@ -8,7 +8,7 @@ class BirthdayRequestBodyDto {
     required this.packageId,
     required this.name,
     required this.phone,
-    required this.preferredDate,
+    this.preferredDate,
     required this.guestCount,
     required this.comment,
     this.childId,
@@ -19,7 +19,7 @@ class BirthdayRequestBodyDto {
   final String? packageId;
   final String name;
   final String phone;
-  final String preferredDate;
+  final String? preferredDate;
   final int guestCount;
   final String? comment;
   final String? childId;
@@ -45,7 +45,8 @@ class BirthdayRequestBodyDto {
       BirthdayRequestApiContract.packageId: packageId,
       BirthdayRequestApiContract.name: name,
       BirthdayRequestApiContract.phone: phone,
-      BirthdayRequestApiContract.preferredDate: preferredDate,
+      if (preferredDate != null)
+        BirthdayRequestApiContract.preferredDate: preferredDate,
       BirthdayRequestApiContract.guestCount: guestCount,
       BirthdayRequestApiContract.comment: comment,
       if (childId != null) BirthdayRequestApiContract.childId: childId,
@@ -54,7 +55,11 @@ class BirthdayRequestBodyDto {
     };
   }
 
-  static String _formatDate(DateTime value) {
+  static String? _formatDate(DateTime? value) {
+    if (value == null) {
+      return null;
+    }
+
     final month = value.month.toString().padLeft(2, '0');
     final day = value.day.toString().padLeft(2, '0');
     return '${value.year}-$month-$day';

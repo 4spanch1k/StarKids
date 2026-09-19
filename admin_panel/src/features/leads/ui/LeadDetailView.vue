@@ -181,13 +181,11 @@
           </div>
           <div v-if="lead.type === 'birthday_request'">
             <dt>Пакет</dt>
-            <dd>{{ formatPackageName(lead.package) }}</dd>
+            <dd>{{ formatPackageName(lead.package, lead.packageNameSnapshot) }}</dd>
           </div>
-          <div v-if="lead.type === 'birthday_request' && lead.childName">
+          <div v-if="lead.type === 'birthday_request'">
             <dt>Ребёнок</dt>
-            <dd>
-              {{ lead.childName }}<span v-if="lead.childBirthDate">, {{ formatDate(lead.childBirthDate) }}</span>
-            </dd>
+            <dd>{{ formatChildName(lead.childName, lead.childBirthDate) }}</dd>
           </div>
           <div v-if="lead.type === 'birthday_request' && lead.packagePriceSnapshot !== null && lead.packagePriceSnapshot !== undefined">
             <dt>Цена на момент заявки</dt>
@@ -510,8 +508,19 @@ function formatBranchName(branch: LeadBranchSummary | null): string {
   return branch.shortLabel || branch.name;
 }
 
-function formatPackageName(birthdayPackage: LeadPackageSummary | null): string {
-  return birthdayPackage?.name ?? 'Не выбран';
+function formatPackageName(
+  birthdayPackage: LeadPackageSummary | null,
+  packageNameSnapshot?: string | null,
+): string {
+  return birthdayPackage?.name ?? packageNameSnapshot ?? 'Пакет не выбран';
+}
+
+function formatChildName(childName?: string | null, birthDate?: string | null): string {
+  if (!childName) {
+    return 'Ребёнок не указан';
+  }
+
+  return birthDate ? `${childName}, ${formatDate(birthDate)}` : childName;
 }
 
 function notesFallback(type: LeadType, notes: string | null): string {
