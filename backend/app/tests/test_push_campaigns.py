@@ -95,6 +95,16 @@ class PushCampaignServiceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             PushCampaignAudience(type='all_users', visit_segment='returning')
 
+    def test_campaign_destination_is_limited_to_mobile_routes(self) -> None:
+        with self.assertRaises(ValueError):
+            PushCampaignCreateRequest(
+                internal_name='unsafe-destination',
+                title='t',
+                body='b',
+                audience={'type': 'all_users'},
+                destination='https://example.com',
+            )
+
     def test_visit_segment_campaign_persists_and_restores_audience_config(self) -> None:
         with self.SessionLocal() as session:
             service = PushCampaignService(session, FakeDelivery())
@@ -190,17 +200,34 @@ class PushCampaignServiceTests(unittest.TestCase):
             self.assertEqual(len(delivery.tokens), 1)
             self.assertEqual(service.get(campaign.id).status, 'sent')
 
-    def test_send_rejects_when_provider_is_not_configured(self) -> None:
+    def test_send_marks_campaign_failed_when_provider_is_not_configured(self) -> None:
         with self.SessionLocal() as session:
             service = PushCampaignService(session, FakeDelivery())
             with patch.object(PushCampaignService, 'provider_configured', new_callable=PropertyMock, return_value=False):
                 campaign = service.create(PushCampaignCreateRequest(internal_name='test-campaign', title='Заголовок', body='Текст', audience={'type': 'all_users'}, destination='home'), 'admin-1')
-                with self.assertRaises(Exception):
-                    service.send(campaign.id)
-            self.assertEqual(service.get(campaign.id).status, 'draft')
+                result = service.send(campaign.id)
+            self.assertEqual(result.status, 'failed')
+            self.assertEqual(result.failure_reason, 'push_provider_not_configured')
             self.assertEqual(session.query(PushCampaignDelivery).filter_by(campaign_id=campaign.id).count(), 0)
 
-    def test_disabled_scheduler_does_not_mark_due_campaign_sent(self) -> None:
+    def test_send_now_creates_and_dispatches_campaign(self) -> None:
+        delivery = FakeDelivery()
+        with self.SessionLocal() as session:
+            self._user(session)
+            service = PushCampaignService(session, delivery)
+            with patch.object(PushCampaignService, 'provider_configured', new_callable=PropertyMock, return_value=True):
+                result = service.create(
+                    PushCampaignCreateRequest(
+                        internal_name='send-now', title='Заголовок', body='Текст',
+                        audience={'type': 'all_users'}, destination='tickets', send_now=True,
+                    ),
+                    'admin-1',
+                )
+            self.assertEqual(result.status, 'sent')
+            self.assertEqual(result.sent_count, 1)
+            self.assertEqual(len(delivery.tokens), 1)
+
+    def test_disabled_scheduler_marks_due_campaign_failed_with_reason(self) -> None:
         with self.SessionLocal() as session:
             campaign = PushCampaign(id=uuid4().hex, internal_name='scheduled', title='t', body='b', audience_type='all_users', audience_config={}, destination='home', destination_payload={}, status='scheduled', scheduled_at=datetime.now(UTC) - timedelta(minutes=1), created_by_admin_id='admin-1')
             session.add(campaign); session.commit()
@@ -208,7 +235,8 @@ class PushCampaignServiceTests(unittest.TestCase):
             with patch.object(PushCampaignService, 'provider_configured', new_callable=PropertyMock, return_value=False):
                 service.process_due()
             session.refresh(campaign)
-            self.assertEqual(campaign.status, 'scheduled')
+            self.assertEqual(campaign.status, 'failed')
+            self.assertEqual(campaign.failure_reason, 'push_provider_not_configured')
             self.assertEqual(session.query(PushCampaignDelivery).count(), 0)
 
     def test_future_schedule_is_not_early_and_cancelled_is_skipped(self) -> None:
@@ -313,8 +341,26 @@ class PushCampaignServiceTests(unittest.TestCase):
             with patch.object(PushCampaignService, 'provider_configured', new_callable=PropertyMock, return_value=True):
                 campaign = service.create(PushCampaignCreateRequest(internal_name='partial', title='t', body='b', audience={'type': 'all_users'}, destination='home'), 'admin-1')
                 result = service.send(campaign.id)
-            self.assertEqual(result.status, 'sent')
+            self.assertEqual(result.status, 'partially_failed')
             self.assertEqual((result.sent_count, result.failed_count), (2, 1))
+
+    def test_zero_active_tokens_is_a_failed_campaign(self) -> None:
+        with self.SessionLocal() as session:
+            user = MobileUser(id=uuid4().hex, phone=f'+7{uuid4().int % 10**10:010d}', is_active=True)
+            session.add(user)
+            session.commit()
+            service = PushCampaignService(session, FakeDelivery())
+            with patch.object(PushCampaignService, 'provider_configured', new_callable=PropertyMock, return_value=True):
+                campaign = service.create(
+                    PushCampaignCreateRequest(
+                        internal_name='empty', title='t', body='b',
+                        audience={'type': 'all_users'}, destination='home', send_now=True,
+                    ),
+                    'admin-1',
+                )
+            self.assertEqual(campaign.status, 'failed')
+            self.assertEqual(campaign.failure_reason, 'no_active_push_tokens')
+            self.assertEqual(campaign.targeted_devices, 0)
 
     def test_birthday_date_rules_cover_rollover_leap_and_timezone_boundary(self) -> None:
         self.assertTrue(birthday_matches_target(date(2019, 1, 4), date(2026, 1, 4)))

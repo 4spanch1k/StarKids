@@ -23,7 +23,7 @@ class PushCampaign(Base):
             name='ck_push_campaigns_destination',
         ),
         CheckConstraint(
-            "status IN ('draft', 'scheduled', 'processing', 'sent', 'failed', 'cancelled')",
+            "status IN ('draft', 'scheduled', 'processing', 'sent', 'partially_failed', 'failed', 'cancelled')",
             name='ck_push_campaigns_status',
         ),
     )
@@ -52,6 +52,7 @@ class PushCampaign(Base):
     targeted_devices: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default='0')
     sent_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default='0')
     failed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default='0')
+    failure_reason: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()

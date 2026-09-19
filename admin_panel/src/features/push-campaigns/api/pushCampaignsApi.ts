@@ -10,7 +10,9 @@ export type CampaignAudience =
 export type PushCampaign = {
   id: string; internal_name: string; title: string; body: string; audience: CampaignAudience;
   destination: 'home' | 'tickets' | 'birthdays' | 'promotions' | 'profile'; status: string;
-  scheduled_at: string | null; targeted_users: number; targeted_devices: number; sent_count: number; failed_count: number;
+  scheduled_at: string | null; started_at: string | null; sent_at: string | null; cancelled_at: string | null;
+  targeted_users: number; targeted_devices: number; sent_count: number; failed_count: number;
+  failure_reason: string | null; opened_count: number;
   push_provider_configured: boolean;
 };
 export type PushCampaignAttribution = {
@@ -26,7 +28,7 @@ export type PushCampaignAttribution = {
   attribution_window_days: number;
   attribution_model: 'last_touch';
 };
-export type CampaignInput = { internal_name: string; title: string; body: string; audience: CampaignAudience; destination: PushCampaign['destination']; scheduled_at?: string | null };
+export type CampaignInput = { internal_name: string; title: string; body: string; audience: CampaignAudience; destination: PushCampaign['destination']; scheduled_at?: string | null; send_now?: boolean };
 
 export function listPushCampaigns() { return executeAuthorizedAdminRequest((token) => httpClient<PushCampaign[]>({ path: '/api/v1/admin/push-campaigns', headers: buildAdminAuthHeaders(token) })); }
 export function createPushCampaign(input: CampaignInput) { return executeAuthorizedAdminRequest((token) => httpClient<PushCampaign>({ path: '/api/v1/admin/push-campaigns', method: 'POST', headers: buildAdminAuthHeaders(token), body: JSON.stringify(input) })); }
