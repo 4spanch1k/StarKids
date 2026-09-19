@@ -23,6 +23,8 @@ type AdminPromotionResponse = {
   display_order: number;
   is_active: boolean;
   is_published: boolean;
+  start_at: string | null;
+  end_at: string | null;
 };
 
 export async function listAdminPromotions({
@@ -113,13 +115,15 @@ function mapPromotion(response: AdminPromotionResponse): AdminPromotion {
     displayOrder: response.display_order,
     isActive: response.is_active,
     isPublished: response.is_published,
+    startAt: response.start_at,
+    endAt: response.end_at,
   };
 }
 
 function serializePromotionPayload(
   payload: AdminPromotionCreatePayload | AdminPromotionUpdatePayload,
 ): Record<string, unknown> {
-  return {
+  const serialized: Record<string, unknown> = {
     title: payload.title,
     description: payload.description,
     badge_label: payload.badgeLabel,
@@ -130,4 +134,27 @@ function serializePromotionPayload(
     is_active: payload.isActive,
     is_published: payload.isPublished,
   };
+
+  if ('startAt' in payload) {
+    serialized.start_at = serializeDateTime(payload.startAt);
+  }
+  if ('endAt' in payload) {
+    serialized.end_at = serializeDateTime(payload.endAt);
+  }
+
+  return serialized;
+}
+
+function serializeDateTime(value: string | null | undefined): string | null {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) {
+    return normalized;
+  }
+
+  return parsed.toISOString();
 }

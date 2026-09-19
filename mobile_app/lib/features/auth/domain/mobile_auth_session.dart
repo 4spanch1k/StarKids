@@ -3,7 +3,8 @@ import 'mobile_auth_user.dart';
 class MobileAuthSession {
   const MobileAuthSession({
     required this.user,
-    required this.phone,
+    this.phone,
+    this.email,
     required this.accessToken,
     required this.refreshToken,
     required this.tokenType,
@@ -13,7 +14,8 @@ class MobileAuthSession {
   });
 
   final MobileAuthUser? user;
-  final String phone;
+  final String? phone;
+  final String? email;
   final String accessToken;
   final String refreshToken;
   final String tokenType;
@@ -24,6 +26,7 @@ class MobileAuthSession {
   MobileAuthSession copyWith({
     MobileAuthUser? user,
     String? phone,
+    String? email,
     String? accessToken,
     String? refreshToken,
     String? tokenType,
@@ -32,10 +35,13 @@ class MobileAuthSession {
     DateTime? verifiedAt,
     bool clearAccessExpiresAt = false,
     bool clearRefreshExpiresAt = false,
+    bool clearPhone = false,
+    bool clearEmail = false,
   }) {
     return MobileAuthSession(
       user: user ?? this.user,
-      phone: phone ?? this.phone,
+      phone: clearPhone ? null : phone ?? this.phone,
+      email: clearEmail ? null : email ?? this.email,
       accessToken: accessToken ?? this.accessToken,
       refreshToken: refreshToken ?? this.refreshToken,
       tokenType: tokenType ?? this.tokenType,

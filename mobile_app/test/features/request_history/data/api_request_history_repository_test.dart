@@ -84,6 +84,7 @@ void main() {
                     'requestedDate': '2026-04-11',
                     'guestCount': 12,
                     'notes': 'Нужен аниматор',
+                    'childName': 'Алина',
                     'branch': {
                       'id': 'branch-main',
                       'name': 'Star Kids Main',
@@ -115,6 +116,7 @@ void main() {
       expect(success.total, 1);
       expect(success.items.single.type, RequestType.birthdayRequest);
       expect(success.items.single.status, RequestStatus.newRequest);
+      expect(success.items.single.childName, 'Алина');
       expect(requestCount, 2);
     });
   });
@@ -136,12 +138,35 @@ class _FakeMobileAuthRepository implements MobileAuthRepository {
   }
 
   @override
+  Future<Result<MobileAuthSession>> exchangeClerkSession({
+    required String sessionToken,
+  }) async {
+    return const Failure<MobileAuthSession>('not used');
+  }
+
+  @override
   Future<Result<void>> logout(MobileAuthSession session) async {
     return const Success<void>(null);
   }
 
   @override
   Future<Result<MobileAuthSession>> refreshSession(String refreshToken) async {
+    return const Failure<MobileAuthSession>('not used');
+  }
+
+  @override
+  Future<Result<MobileAuthSession>> registerWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    return const Failure<MobileAuthSession>('not used');
+  }
+
+  @override
+  Future<Result<MobileAuthSession>> loginWithEmail({
+    required String email,
+    required String password,
+  }) async {
     return const Failure<MobileAuthSession>('not used');
   }
 

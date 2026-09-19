@@ -18,8 +18,10 @@ class MobileAuthSessionStorage {
             : {
                 'id': session.user!.id,
                 'phone': session.user!.phone,
+                'email': session.user!.email,
               },
         'phone': session.phone,
+        'email': session.email,
         'accessToken': session.accessToken,
         'refreshToken': session.refreshToken,
         'tokenType': session.tokenType,
@@ -45,6 +47,7 @@ class MobileAuthSessionStorage {
       }
 
       final phone = json['phone'] as String?;
+      final email = json['email'] as String?;
       final accessToken = json['accessToken'] as String?;
       final refreshToken = json['refreshToken'] as String?;
       final tokenType = (json['tokenType'] as String?) ?? 'bearer';
@@ -53,7 +56,7 @@ class MobileAuthSessionStorage {
       final verifiedAtRaw = json['verifiedAt'] as String?;
       final userJson = json['user'];
 
-      if (phone == null ||
+      if ((phone == null && email == null) ||
           accessToken == null ||
           refreshToken == null ||
           verifiedAtRaw == null) {
@@ -64,10 +67,12 @@ class MobileAuthSessionStorage {
       if (userJson is Map<String, dynamic>) {
         final id = userJson['id'] as String?;
         final userPhone = userJson['phone'] as String?;
-        if (id != null && userPhone != null) {
+        final userEmail = userJson['email'] as String?;
+        if (id != null && (userPhone != null || userEmail != null)) {
           user = MobileAuthUser(
             id: id,
             phone: userPhone,
+            email: userEmail,
           );
         }
       }
@@ -75,6 +80,7 @@ class MobileAuthSessionStorage {
       return MobileAuthSession(
         user: user,
         phone: phone,
+        email: email,
         accessToken: accessToken,
         refreshToken: refreshToken,
         tokenType: tokenType,

@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:star_kids_mobile/features/requests/domain/request_type.dart';
 import 'package:star_kids_mobile/features/requests/presentation/models/request_page_args.dart';
 import 'package:star_kids_mobile/features/requests/presentation/pages/request_page.dart';
+
+import '../../../../helpers/test_app_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -16,25 +17,26 @@ void main() {
   testWidgets('renders contact request form when contact type is selected',
       (WidgetTester tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: RequestPage(
+      buildTestApp(
+        child: const RequestPage(
           args: RequestPageArgs(initialType: RequestType.contact),
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Связь с менеджером'), findsWidgets);
-    expect(find.text('Оставьте запрос на обратную связь'), findsOneWidget);
+    expect(find.text('Менеджеру'), findsWidgets);
+    expect(find.textContaining('Короткий запрос'), findsOneWidget);
+    expect(find.textContaining('без переписок.'), findsOneWidget);
     expect(find.text('Отправить запрос'), findsOneWidget);
     expect(find.text('Пакет праздника'), findsNothing);
   });
 
-  testWidgets('switches from birthday request to contact request in one flow',
+  testWidgets('birthday request form does not render contact fields',
       (WidgetTester tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: RequestPage(
+      buildTestApp(
+        child: const RequestPage(
           args: RequestPageArgs(
             initialType: RequestType.birthdayRequest,
           ),
@@ -46,19 +48,15 @@ void main() {
     expect(find.text('Пакет праздника'), findsOneWidget);
     expect(find.text('Отправить заявку'), findsOneWidget);
 
-    await tester.tap(find.text('Связь с менеджером').last);
-    await tester.pumpAndSettle();
-
-    expect(find.text('Пакет праздника'), findsNothing);
-    expect(find.text('Оставьте запрос на обратную связь'), findsOneWidget);
-    expect(find.text('Отправить запрос'), findsOneWidget);
+    expect(find.textContaining('Короткий запрос'), findsNothing);
+    expect(find.text('Отправить запрос'), findsNothing);
   });
 
   testWidgets('shows contact context and prefilled message when provided',
       (WidgetTester tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: RequestPage(
+      buildTestApp(
+        child: const RequestPage(
           args: RequestPageArgs(
             initialType: RequestType.contact,
             initialContactContextLabel: 'Филиал: Star Kids Main',
@@ -69,18 +67,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView).first, const Offset(0, -500));
-    await tester.pumpAndSettle();
 
     expect(find.text('Филиал: Star Kids Main'), findsOneWidget);
     expect(
-      find.textContaining('Контекст по выбранному филиалу уже добавлен'),
-      findsOneWidget,
-    );
-    expect(
-      find.text(
-        'Интересует филиал Star Kids Main. Нужна помощь по маршруту.',
-      ),
+      find.textContaining('Запрос уйдёт менеджеру по выбранному филиалу'),
       findsOneWidget,
     );
   });

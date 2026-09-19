@@ -1,84 +1,57 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/design_system/foundations/star_kids_colors.dart';
-import '../../../../core/design_system/foundations/star_kids_icon_sizes.dart';
-import '../../../../core/design_system/foundations/star_kids_radii.dart';
-import '../../../../core/design_system/foundations/star_kids_shadows.dart';
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
+import '../../../../core/design_system/sk_design_tokens.dart';
+import '../../../../core/design_system/sk_theme.dart';
+import '../../../../core/design_system/widgets/glass_bottom_sheet.dart';
 
-enum TicketsEntryAction {
-  myTickets,
-  buyTicket,
-}
+enum TicketsEntryAction { myTickets, buyTicket }
 
 Future<TicketsEntryAction?> showTicketsEntrySheet(BuildContext context) {
-  return showModalBottomSheet<TicketsEntryAction>(
+  return showGlassBottomSheet<TicketsEntryAction>(
     context: context,
-    backgroundColor: StarKidsColors.surfacePrimary,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-    ),
-    builder: (context) => const _TicketsEntrySheet(),
+    title: 'Билеты',
+    step: 'Покупка и история',
+    initialSize: 0.48,
+    minSize: 0.42,
+    maxSize: 0.72,
+    builder: (context, _) => const _TicketsEntryBody(),
   );
 }
 
-class _TicketsEntrySheet extends StatelessWidget {
-  const _TicketsEntrySheet();
+class _TicketsEntryBody extends StatelessWidget {
+  const _TicketsEntryBody();
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          StarKidsSpacing.xl,
-          StarKidsSpacing.md,
-          StarKidsSpacing.xl,
-          StarKidsSpacing.xl,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 44,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: StarKidsColors.borderDefault,
-                  borderRadius: BorderRadius.circular(StarKidsRadii.full),
-                ),
-              ),
-            ),
-            const SizedBox(height: StarKidsSpacing.lg),
-            Text('Билеты', style: textTheme.headlineSmall),
-            const SizedBox(height: StarKidsSpacing.sm),
-            Text(
-              'Выберите, что хотите сделать сейчас.',
-              style: textTheme.bodyMedium?.copyWith(
-                color: StarKidsColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: StarKidsSpacing.lg),
-            _TicketsEntryActionCard(
-              key: const ValueKey('my-tickets-action'),
-              icon: Icons.confirmation_num_rounded,
-              title: 'Мои билеты',
-              subtitle: 'Здесь будут ваши купленные и активные билеты.',
-              onTap: () => Navigator.of(context).pop(TicketsEntryAction.myTickets),
-            ),
-            const SizedBox(height: StarKidsSpacing.md),
-            _TicketsEntryActionCard(
-              key: const ValueKey('buy-ticket-action'),
-              icon: Icons.shopping_bag_rounded,
-              title: 'Купить входной билет',
-              subtitle: 'Выберите филиал, дату и нужное количество билетов.',
-              onTap: () => Navigator.of(context).pop(TicketsEntryAction.buyTicket),
-            ),
-          ],
-        ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        SKSpacing.x4,
+        SKSpacing.x3,
+        SKSpacing.x4,
+        SKSpacing.x4,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _TicketsEntryActionCard(
+            key: const ValueKey('buy-ticket-action'),
+            icon: Icons.shopping_bag_rounded,
+            title: 'Оформить покупку',
+            subtitle: 'Филиал, дата и количество',
+            onTap: () =>
+                Navigator.of(context).pop(TicketsEntryAction.buyTicket),
+          ),
+          const SizedBox(height: SKSpacing.x3),
+          _TicketsEntryActionCard(
+            key: const ValueKey('my-tickets-action'),
+            icon: Icons.confirmation_num_rounded,
+            title: 'Мои билеты',
+            subtitle: 'Активные билеты и история',
+            onTap: () =>
+                Navigator.of(context).pop(TicketsEntryAction.myTickets),
+          ),
+        ],
       ),
     );
   }
@@ -101,56 +74,68 @@ class _TicketsEntryActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final c = SKTheme.of(context).colors;
 
     return Material(
-      color: StarKidsColors.surfacePrimary,
-      borderRadius: BorderRadius.circular(StarKidsRadii.xl),
+      color: Colors.transparent,
       child: InkWell(
+        borderRadius: BorderRadius.circular(SKRadius.xl),
         onTap: onTap,
-        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-        child: Container(
-          padding: const EdgeInsets.all(StarKidsSpacing.lg),
+        child: Ink(
+          padding: const EdgeInsets.all(SKSpacing.x3),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-            border: Border.all(color: StarKidsColors.borderDefault),
-            boxShadow: StarKidsShadows.depth1,
+            color: c.raised,
+            borderRadius: BorderRadius.circular(SKRadius.xl),
+            border: Border.all(color: c.hairline, width: 0.5),
+            boxShadow: SKShadows.sm,
           ),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 42,
+                height: 42,
                 decoration: BoxDecoration(
-                  color: StarKidsColors.surfaceSecondary,
-                  borderRadius: BorderRadius.circular(StarKidsRadii.lg),
+                  color: c.accentSoft,
+                  borderRadius: BorderRadius.circular(SKRadius.md),
                 ),
                 child: Icon(
                   icon,
-                  size: StarKidsIconSizes.md,
-                  color: StarKidsColors.brandPrimary,
+                  size: 22,
+                  color: c.accent,
                 ),
               ),
-              const SizedBox(width: StarKidsSpacing.md),
+              const SizedBox(width: SKSpacing.x3),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(title, style: textTheme.titleMedium),
-                    const SizedBox(height: StarKidsSpacing.xs),
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.titleMedium?.copyWith(
+                        color: c.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: StarKidsColors.textSecondary,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.bodySmall?.copyWith(
+                        color: c.textSecondary,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: StarKidsSpacing.sm),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: StarKidsColors.textSecondary,
+              const SizedBox(width: SKSpacing.x2),
+              Icon(
+                Icons.arrow_forward_rounded,
+                size: 20,
+                color: c.textTertiary,
               ),
             ],
           ),

@@ -73,6 +73,7 @@ class TokenResponseDto {
     return MobileAuthSession(
       user: user.toDomain(),
       phone: user.phone,
+      email: user.email,
       accessToken: accessToken,
       refreshToken: refreshToken,
       tokenType: tokenType,
@@ -86,16 +87,19 @@ class TokenResponseDto {
 class MobileAuthUserDto {
   const MobileAuthUserDto({
     required this.id,
-    required this.phone,
+    this.phone,
+    this.email,
   });
 
   final String id;
-  final String phone;
+  final String? phone;
+  final String? email;
 
   factory MobileAuthUserDto.fromJson(Map<String, dynamic> json) {
     return MobileAuthUserDto(
       id: json['id'] as String,
-      phone: json['phone'] as String,
+      phone: json['phone'] as String?,
+      email: json['email'] as String?,
     );
   }
 
@@ -103,6 +107,7 @@ class MobileAuthUserDto {
     return MobileAuthUser(
       id: id,
       phone: phone,
+      email: email,
     );
   }
 }

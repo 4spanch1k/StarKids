@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:star_kids_mobile/core/utils/result.dart';
@@ -32,6 +34,7 @@ void main() {
       final controller = MobileAuthController(repository: repository);
 
       await controller.bootstrap();
+      await Future<void>.delayed(Duration.zero);
 
       expect(controller.status, MobileAuthStatus.authenticated);
       expect(controller.session?.user?.id, 'user-1');
@@ -53,6 +56,129 @@ void main() {
       final controller = MobileAuthController(repository: repository);
 
       await controller.bootstrap();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(controller.status, MobileAuthStatus.unauthenticated);
+      expect(controller.session, isNull);
+    });
+
+    test('bootstrap keeps restored session when backend is unavailable',
+        () async {
+      final repository = _FakeMobileAuthRepository(
+        restoredSession: MobileAuthSession(
+          user: null,
+          phone: '+77071234567',
+          accessToken: 'stale-access',
+          refreshToken: 'stale-refresh',
+          tokenType: 'bearer',
+          verifiedAt: DateTime(2026, 4, 8),
+        ),
+        syncSessionResult: const Failure<MobileAuthSession?>(
+          'Не удалось обновить профиль.',
+        ),
+      );
+      final controller = MobileAuthController(repository: repository);
+
+      await controller.bootstrap();
+
+      expect(repository.wasCleared, isFalse);
+      expect(controller.status, MobileAuthStatus.authenticated);
+      expect(controller.session, isNotNull);
+    });
+
+    test('bootstrap returns with restored session before a slow sync completes',
+        () async {
+      final restoredSession = MobileAuthSession(
+        user: null,
+        phone: '+77071234567',
+        accessToken: 'slow-access',
+        refreshToken: 'slow-refresh',
+        tokenType: 'bearer',
+        verifiedAt: DateTime(2026, 4, 8),
+      );
+      final syncCompleter = Completer<Result<MobileAuthSession?>>();
+      final repository = _FakeMobileAuthRepository(
+        restoredSession: restoredSession,
+        syncSessionFuture: syncCompleter.future,
+      );
+      final controller = MobileAuthController(
+        repository: repository,
+        syncTimeout: const Duration(milliseconds: 10),
+      );
+
+      await controller.bootstrap();
+
+      expect(controller.status, MobileAuthStatus.authenticated);
+      expect(controller.session?.accessToken, 'slow-access');
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(controller.session?.accessToken, 'slow-access');
+      syncCompleter.complete(const Failure<MobileAuthSession?>('offline'));
+    });
+
+    test('bootstrap without stored session resolves unauthenticated', () async {
+      final repository = _FakeMobileAuthRepository();
+      final controller = MobileAuthController(repository: repository);
+
+      await controller.bootstrap();
+
+      expect(repository.wasCleared, isFalse);
+      expect(controller.status, MobileAuthStatus.unauthenticated);
+      expect(controller.session, isNull);
+    });
+
+    test('bootstrap keeps restored session when sync throws', () async {
+      final repository = _FakeMobileAuthRepository(
+        restoredSession: MobileAuthSession(
+          user: null,
+          phone: '+77071234567',
+          accessToken: 'stale-access',
+          refreshToken: 'stale-refresh',
+          tokenType: 'bearer',
+          verifiedAt: DateTime(2026, 4, 8),
+        ),
+        syncSessionError: StateError('network failed'),
+      );
+      final controller = MobileAuthController(repository: repository);
+
+      await controller.bootstrap();
+
+      expect(repository.wasCleared, isFalse);
+      expect(controller.status, MobileAuthStatus.authenticated);
+      expect(controller.session, isNotNull);
+    });
+
+    test('bootstrap does not clear session when storage restore throws',
+        () async {
+      final repository = _FakeMobileAuthRepository(
+        restoreSessionError: StateError('storage failed'),
+      );
+      final controller = MobileAuthController(repository: repository);
+
+      await controller.bootstrap();
+
+      expect(repository.wasCleared, isFalse);
+      expect(controller.status, MobileAuthStatus.unauthenticated);
+      expect(controller.session, isNull);
+    });
+
+    test('confirmed invalid refresh logs out after background sync', () async {
+      final repository = _FakeMobileAuthRepository(
+        restoredSession: MobileAuthSession(
+          user: null,
+          phone: '+77071234567',
+          accessToken: 'expired-access',
+          refreshToken: 'expired-refresh',
+          tokenType: 'bearer',
+          verifiedAt: DateTime(2026, 4, 8),
+        ),
+        syncSessionResult: const Success<MobileAuthSession?>(null),
+      );
+      final controller = MobileAuthController(repository: repository);
+
+      await controller.bootstrap();
+      expect(controller.status, MobileAuthStatus.authenticated);
+
+      await Future<void>.delayed(Duration.zero);
 
       expect(controller.status, MobileAuthStatus.unauthenticated);
       expect(controller.session, isNull);
@@ -116,6 +242,154 @@ void main() {
       expect(controller.status, MobileAuthStatus.unauthenticated);
       expect(controller.session, isNull);
     });
+
+    test('email login authenticates without otp challenge', () async {
+      final emailSession = MobileAuthSession(
+        user: const MobileAuthUser(
+          id: 'user-email',
+          email: 'parent@example.com',
+        ),
+        email: 'parent@example.com',
+        accessToken: 'email-access-token',
+        refreshToken: 'email-refresh-token',
+        tokenType: 'bearer',
+        verifiedAt: DateTime(2026, 4, 12, 10),
+      );
+      final repository = _FakeMobileAuthRepository(
+        loginResult: Success<MobileAuthSession>(emailSession),
+      );
+      final controller = MobileAuthController(repository: repository);
+
+      await controller.bootstrap();
+      await controller.loginWithEmail(
+        email: ' PARENT@example.com ',
+        password: 'strong-pass-123',
+      );
+
+      expect(repository.loginEmail, 'parent@example.com');
+      expect(controller.status, MobileAuthStatus.authenticated);
+      expect(controller.pendingChallenge, isNull);
+      expect(controller.session?.user?.email, 'parent@example.com');
+    });
+
+    test('google clerk login exchanges token and authenticates', () async {
+      final googleSession = MobileAuthSession(
+        user: const MobileAuthUser(
+          id: 'user-google',
+          email: 'parent@example.com',
+        ),
+        email: 'parent@example.com',
+        accessToken: 'star-kids-access-token',
+        refreshToken: 'star-kids-refresh-token',
+        tokenType: 'bearer',
+        verifiedAt: DateTime(2026, 5, 24, 10),
+      );
+      final repository = _FakeMobileAuthRepository(
+        exchangeResult: Success<MobileAuthSession>(googleSession),
+      );
+      final controller = MobileAuthController(repository: repository);
+
+      await controller.bootstrap();
+      await controller.loginWithGoogleClerk(
+        requestSessionToken: () async => ' clerk-session-token ',
+      );
+
+      expect(repository.exchangeSessionToken, 'clerk-session-token');
+      expect(controller.status, MobileAuthStatus.authenticated);
+      expect(controller.session?.accessToken, 'star-kids-access-token');
+      expect(controller.session?.refreshToken, 'star-kids-refresh-token');
+    });
+
+    test('google clerk login sets error after exchange failure', () async {
+      final repository = _FakeMobileAuthRepository(
+        exchangeResult: const Failure<MobileAuthSession>(
+          'Не удалось войти через Google.',
+        ),
+      );
+      final controller = MobileAuthController(repository: repository);
+
+      await controller.bootstrap();
+      await controller.loginWithGoogleClerk(
+        requestSessionToken: () async => 'clerk-session-token',
+      );
+
+      expect(controller.status, MobileAuthStatus.error);
+      expect(controller.session, isNull);
+      expect(controller.errorMessage, 'Не удалось войти через Google.');
+    });
+
+    test('google cancellation returns controller to idle without an error',
+        () async {
+      final controller = MobileAuthController(
+        repository: _FakeMobileAuthRepository(),
+      );
+
+      await controller.bootstrap();
+      await controller.loginWithGoogleClerk(
+        requestSessionToken: () async {
+          throw const MobileAuthCancelledException();
+        },
+      );
+
+      expect(controller.status, MobileAuthStatus.idle);
+      expect(controller.errorMessage, isNull);
+    });
+
+    test('repeated Google taps do not start concurrent requests', () async {
+      final controller = MobileAuthController(
+        repository: _FakeMobileAuthRepository(),
+      );
+      final release = Completer<String>();
+      var calls = 0;
+
+      await controller.bootstrap();
+      final first = controller.loginWithGoogleClerk(
+        requestSessionToken: () {
+          calls++;
+          return release.future;
+        },
+      );
+      final second = controller.loginWithGoogleClerk(
+        requestSessionToken: () async {
+          calls++;
+          return 'unexpected';
+        },
+      );
+
+      expect(calls, 1);
+      release.complete('');
+      await Future.wait([first, second]);
+      expect(controller.status, MobileAuthStatus.error);
+    });
+
+    test('validates email password and confirmation inputs', () {
+      final controller = MobileAuthController(
+        repository: _FakeMobileAuthRepository(),
+      );
+
+      expect(
+        controller.validateEmailInput(''),
+        'Введите электронную почту.',
+      );
+      expect(
+        controller.validateEmailInput('wrong-email'),
+        'Введите корректную электронную почту.',
+      );
+      expect(controller.validateEmailInput('parent@example.com'), isNull);
+      expect(controller.validatePasswordInput(''), 'Введите пароль.');
+      expect(
+        controller.validatePasswordInput('short'),
+        'Пароль должен быть не короче 8 символов.',
+      );
+      expect(controller.validatePasswordInput('strong-pass-123'), isNull);
+      expect(
+        controller.validatePasswordConfirmation(
+          password: 'strong-pass-123',
+          confirmation: 'different-pass',
+        ),
+        'Пароли не совпадают.',
+      );
+    });
   });
 }
 
@@ -124,21 +398,42 @@ class _FakeMobileAuthRepository implements MobileAuthRepository {
     this.restoredSession,
     Result<MobileAuthSession?>? syncSessionResult,
     Result<MobileAuthSession>? verifyResult,
+    Result<MobileAuthSession>? registerResult,
+    Result<MobileAuthSession>? loginResult,
+    Result<MobileAuthSession>? exchangeResult,
     Result<void>? logoutResult,
+    Object? restoreSessionError,
+    Object? syncSessionError,
+    Future<Result<MobileAuthSession?>>? syncSessionFuture,
   })  : _syncSessionResult = syncSessionResult ??
             (restoredSession == null
                 ? const Success<MobileAuthSession?>(null)
                 : Success<MobileAuthSession?>(restoredSession)),
         _verifyResult = verifyResult,
-        _logoutResult = logoutResult ?? const Success<void>(null);
+        _registerResult = registerResult,
+        _loginResult = loginResult,
+        _exchangeResult = exchangeResult,
+        _logoutResult = logoutResult ?? const Success<void>(null),
+        _restoreSessionError = restoreSessionError,
+        _syncSessionError = syncSessionError,
+        _syncSessionFuture = syncSessionFuture;
 
   final MobileAuthSession? restoredSession;
   final Result<MobileAuthSession?> _syncSessionResult;
   final Result<MobileAuthSession>? _verifyResult;
+  final Result<MobileAuthSession>? _registerResult;
+  final Result<MobileAuthSession>? _loginResult;
+  final Result<MobileAuthSession>? _exchangeResult;
   final Result<void> _logoutResult;
+  final Object? _restoreSessionError;
+  final Object? _syncSessionError;
+  final Future<Result<MobileAuthSession?>>? _syncSessionFuture;
 
   String? requestedPhone;
   String? verifiedCode;
+  String? registerEmail;
+  String? loginEmail;
+  String? exchangeSessionToken;
   String? syncedAccessToken;
   String? loggedOutAccessToken;
   bool wasCleared = false;
@@ -154,6 +449,27 @@ class _FakeMobileAuthRepository implements MobileAuthRepository {
   }
 
   @override
+  Future<Result<MobileAuthSession>> exchangeClerkSession({
+    required String sessionToken,
+  }) async {
+    exchangeSessionToken = sessionToken;
+    return _exchangeResult ??
+        Success<MobileAuthSession>(
+          MobileAuthSession(
+            user: const MobileAuthUser(
+              id: 'user-google',
+              email: 'parent@example.com',
+            ),
+            email: 'parent@example.com',
+            accessToken: 'google-access-token',
+            refreshToken: 'google-refresh-token',
+            tokenType: 'bearer',
+            verifiedAt: DateTime(2026, 5, 24, 10),
+          ),
+        );
+  }
+
+  @override
   Future<Result<void>> logout(MobileAuthSession session) async {
     loggedOutAccessToken = session.accessToken;
     return _logoutResult;
@@ -162,6 +478,44 @@ class _FakeMobileAuthRepository implements MobileAuthRepository {
   @override
   Future<Result<MobileAuthSession>> refreshSession(String refreshToken) async {
     return const Failure<MobileAuthSession>('not used in controller test');
+  }
+
+  @override
+  Future<Result<MobileAuthSession>> registerWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    registerEmail = email;
+    return _registerResult ??
+        Success<MobileAuthSession>(
+          MobileAuthSession(
+            user: MobileAuthUser(id: 'user-register', email: email),
+            email: email,
+            accessToken: 'register-access-token',
+            refreshToken: 'register-refresh-token',
+            tokenType: 'bearer',
+            verifiedAt: DateTime(2026, 4, 12, 10),
+          ),
+        );
+  }
+
+  @override
+  Future<Result<MobileAuthSession>> loginWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    loginEmail = email;
+    return _loginResult ??
+        Success<MobileAuthSession>(
+          MobileAuthSession(
+            user: MobileAuthUser(id: 'user-login', email: email),
+            email: email,
+            accessToken: 'login-access-token',
+            refreshToken: 'login-refresh-token',
+            tokenType: 'bearer',
+            verifiedAt: DateTime(2026, 4, 12, 10),
+          ),
+        );
   }
 
   @override
@@ -179,12 +533,25 @@ class _FakeMobileAuthRepository implements MobileAuthRepository {
 
   @override
   Future<MobileAuthSession?> restoreSession() async {
+    final error = _restoreSessionError;
+    if (error != null) {
+      throw error;
+    }
     return restoredSession;
   }
 
   @override
   Future<Result<MobileAuthSession?>> syncSession(
       MobileAuthSession session) async {
+    final future = _syncSessionFuture;
+    if (future != null) {
+      syncedAccessToken = session.accessToken;
+      return future;
+    }
+    final error = _syncSessionError;
+    if (error != null) {
+      throw error;
+    }
     syncedAccessToken = session.accessToken;
     return _syncSessionResult;
   }
