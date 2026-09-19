@@ -6,6 +6,7 @@ from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, delete, extract, func, or_, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ...core.config.settings import get_settings
@@ -15,6 +16,7 @@ from ...db.models.mobile_notification_device import MobileNotificationDevice
 from ...db.models.mobile_user import MobileUser
 from ...db.models.push_campaign import PushCampaign
 from ...db.models.push_campaign_delivery import PushCampaignDelivery
+from ...db.models.push_campaign_open import PushCampaignOpen
 from ...services.push.delivery_port import PushDeliveryPort
 from ..visit_segmentation import visit_segment_user_ids
 from .schemas import (
@@ -73,16 +75,37 @@ class PushCampaignService:
         return self.serialize(self._get(campaign_id))
 
     def create(self, payload: PushCampaignCreateRequest, admin_id: str) -> PushCampaignResponse:
+        if payload.idempotency_key:
+            existing = self.session.scalar(select(PushCampaign).where(
+                PushCampaign.origin == 'manual',
+                PushCampaign.created_by_admin_id == admin_id,
+                PushCampaign.idempotency_key == payload.idempotency_key,
+            ))
+            if existing is not None:
+                return self.serialize(existing)
         scheduled = self._normalize_scheduled(payload.scheduled_at)
         campaign = PushCampaign(
             internal_name=payload.internal_name.strip(), title=payload.title.strip(), body=payload.body.strip(),
             audience_type=payload.audience.type,
             audience_config=payload.audience.model_dump(exclude_none=True, exclude={'type'}),
             destination=payload.destination, destination_payload={},
-            status='scheduled' if scheduled else 'draft', scheduled_at=scheduled, created_by_admin_id=admin_id,
+            status='processing' if payload.send_now else ('scheduled' if scheduled else 'draft'),
+            scheduled_at=scheduled, created_by_admin_id=admin_id, idempotency_key=payload.idempotency_key,
         )
         self.session.add(campaign)
-        self.session.commit()
+        try:
+            self.session.commit()
+        except IntegrityError:
+            self.session.rollback()
+            if payload.idempotency_key:
+                existing = self.session.scalar(select(PushCampaign).where(
+                    PushCampaign.origin == 'manual',
+                    PushCampaign.created_by_admin_id == admin_id,
+                    PushCampaign.idempotency_key == payload.idempotency_key,
+                ))
+                if existing is not None:
+                    return self.serialize(existing)
+            raise
         self.session.refresh(campaign)
         return self.serialize(campaign)
 
@@ -115,18 +138,19 @@ class PushCampaignService:
         return PushCampaignPreviewResponse(targeted_users=len(users), targeted_devices=len(devices))
 
     def send(self, campaign_id: str) -> PushCampaignResponse:
-        if not self.provider_configured:
-            raise DomainHTTPException(
-                code='push_not_configured',
-                message='FCM не настроен: отправка кампаний недоступна.',
-                status_code=503,
-            )
         campaign = self._get(campaign_id)
-        if campaign.status in {'sent', 'cancelled'}:
+        if campaign.status in {'sent', 'partially_failed', 'cancelled'}:
             raise DomainHTTPException(code='campaign_terminal', message='Завершённую кампанию нельзя отправить повторно.', status_code=409)
-        self._start_snapshot(campaign_id)
-        self._deliver_campaign(campaign_id)
-        return self.get(campaign_id)
+        if campaign.status == 'processing':
+            return self.serialize(campaign)
+        if not self.provider_configured:
+            self._mark_failed(campaign, 'push_provider_not_configured')
+            return self.serialize(campaign)
+        campaign.status = 'processing'
+        campaign.failure_reason = None
+        campaign.cancelled_at = None
+        self.session.commit()
+        return self.serialize(campaign)
 
     def cancel(self, campaign_id: str) -> PushCampaignResponse:
         campaign = self._get(campaign_id)
@@ -146,6 +170,7 @@ class PushCampaignService:
             try:
                 if not self.provider_configured:
                     logger.warning('push campaign skipped: FCM is not configured campaign_id=%s', campaign_id)
+                    self._mark_failed(self._get(campaign_id), 'push_provider_not_configured')
                     continue
                 self._start_snapshot(campaign_id)
                 self._deliver_campaign(campaign_id)
@@ -158,12 +183,13 @@ class PushCampaignService:
         campaign = self.session.scalar(select(PushCampaign).where(PushCampaign.id == campaign_id).with_for_update())
         if campaign is None:
             raise NotFoundException(code='campaign_not_found', message='Кампания не найдена.')
-        if campaign.status in {'sent', 'cancelled'}:
+        if campaign.status in {'sent', 'partially_failed', 'cancelled'}:
             return
         if campaign.status == 'scheduled' and campaign.scheduled_at and campaign.scheduled_at > datetime.now(UTC):
             raise DomainHTTPException(code='campaign_not_due', message='Кампания ещё не наступила.', status_code=409)
         existing = self.session.scalar(select(func.count()).select_from(PushCampaignDelivery).where(PushCampaignDelivery.campaign_id == campaign.id))
         campaign.status = 'processing'
+        campaign.failure_reason = None
         campaign.started_at = campaign.started_at or datetime.now(UTC)
         if not existing:
             audience = PushCampaignAudience(type=campaign.audience_type, **campaign.audience_config)
@@ -231,8 +257,28 @@ class PushCampaignService:
             self.session.commit(); return
         campaign.sent_count = sum(d.status == 'sent' for d in deliveries)
         campaign.failed_count = sum(d.status == 'failed' for d in deliveries)
-        campaign.status = 'failed' if campaign.failed_count and not campaign.sent_count else 'sent'
-        campaign.sent_at = datetime.now(UTC) if campaign.status == 'sent' else None
+        if not deliveries:
+            campaign.status = 'failed'
+            campaign.failure_reason = 'no_active_push_tokens'
+            campaign.sent_at = None
+        elif campaign.failed_count and campaign.sent_count:
+            campaign.status = 'partially_failed'
+            campaign.failure_reason = 'partial_delivery_failure'
+            campaign.sent_at = datetime.now(UTC)
+        elif campaign.failed_count:
+            campaign.status = 'failed'
+            campaign.failure_reason = 'delivery_failed'
+            campaign.sent_at = None
+        else:
+            campaign.status = 'sent'
+            campaign.failure_reason = None
+            campaign.sent_at = datetime.now(UTC)
+        self.session.commit()
+
+    def _mark_failed(self, campaign: PushCampaign, reason: str) -> None:
+        campaign.status = 'failed'
+        campaign.failure_reason = reason
+        campaign.sent_at = None
         self.session.commit()
 
     def _resolve_audience(
@@ -295,7 +341,7 @@ class PushCampaignService:
         if not self.provider_configured:
             return self.get(campaign_id)
         campaign = self._get(campaign_id)
-        if campaign.status in {'sent', 'cancelled'}:
+        if campaign.status in {'sent', 'partially_failed', 'cancelled'}:
             return self.serialize(campaign)
         self._start_snapshot(campaign_id)
         self._deliver_campaign(campaign_id)
@@ -317,10 +363,17 @@ class PushCampaignService:
 
     def serialize(self, campaign: PushCampaign) -> PushCampaignResponse:
         audience = PushCampaignAudience(type=campaign.audience_type, **campaign.audience_config)
+        opened_count = self.session.scalar(
+            select(func.count()).select_from(PushCampaignOpen).where(
+                PushCampaignOpen.campaign_id == campaign.id,
+            )
+        ) or 0
         return PushCampaignResponse(
             id=campaign.id, internal_name=campaign.internal_name, title=campaign.title, body=campaign.body,
             audience=audience, destination=campaign.destination, origin=campaign.origin, status=campaign.status,
             scheduled_at=campaign.scheduled_at, started_at=campaign.started_at, sent_at=campaign.sent_at,
             cancelled_at=campaign.cancelled_at, targeted_users=campaign.targeted_users, targeted_devices=campaign.targeted_devices,
-            sent_count=campaign.sent_count, failed_count=campaign.failed_count, push_provider_configured=self.provider_configured,
+            sent_count=campaign.sent_count, failed_count=campaign.failed_count,
+            failure_reason=campaign.failure_reason, opened_count=opened_count,
+            push_provider_configured=self.provider_configured,
         )
