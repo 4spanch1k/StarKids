@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Boom Bala PostgreSQL backup
+
+[Timer]
+OnCalendar=*-*-* 02:30:00 UTC
+Persistent=true
+RandomizedDelaySec=15m
+Unit=boom-bala-postgres-backup.service
+
+[Install]
+WantedBy=timers.target

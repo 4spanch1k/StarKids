@@ -54,11 +54,11 @@ class ProductionGuardTests(unittest.TestCase):
                 Settings(_env_file=None)
 
     def test_app_env_accepts_only_explicit_values(self) -> None:
-        for value in ('prod', 'staging', 'local', 'whatever'):
+        for value in ('prod', 'local', 'whatever'):
             with self.subTest(value=value), self.assertRaises(ValidationError):
                 Settings(app_env=value, _env_file=None)
 
-        for value in ('development', 'test', 'production'):
+        for value in ('development', 'test', 'staging', 'production'):
             with self.subTest(value=value):
                 settings = Settings(app_env=value, _env_file=None)
                 self.assertEqual(settings.normalized_app_env, value)
@@ -122,6 +122,23 @@ class ProductionGuardTests(unittest.TestCase):
         with self.assertRaises(ProductionConfigurationError):
             validate_runtime_configuration(
                 production_settings(freedompay_testing_mode=True)
+            )
+
+    def test_staging_allows_freedompay_testing_mode_but_remains_fail_closed(self) -> None:
+        settings = production_settings(
+            app_env='staging',
+            freedompay_testing_mode=True,
+            backend_cors_origins='https://ops-staging.boombala.kz',
+            freedompay_result_url=(
+                'https://api-staging.boombala.kz/api/v1/public/payments/freedom/result'
+            ),
+        )
+        status = validate_runtime_configuration(settings)
+        self.assertEqual(status.environment, 'staging')
+
+        with self.assertRaises(ProductionConfigurationError):
+            validate_runtime_configuration(
+                settings.model_copy(update={'freedompay_mock_mode': True})
             )
 
     def test_placeholder_firebase_values_are_reported_as_disabled(self) -> None:

@@ -4,10 +4,13 @@ FastAPI backend for mobile and admin products.
 
 ## Required environment
 
-`APP_ENV` is mandatory and must be exactly one of `development`, `test`, or
-`production`. The backend fails during startup for a missing or unknown value;
-it never falls back to development authentication. Use `APP_ENV=development`
-only for an explicit local environment and `APP_ENV=test` for test commands.
+`APP_ENV` is mandatory and must be exactly one of `development`, `test`,
+`staging`, or `production`. The backend fails during startup for a missing or
+unknown value; it never falls back to development authentication. Use
+`APP_ENV=development` only for an explicit local environment,
+`APP_ENV=test` for test commands, and `APP_ENV=staging` for the VPS sandbox
+deployment. Staging keeps production-like fail-closed validation while allowing
+`FREEDOMPAY_TESTING_MODE=true`; mock payments remain forbidden.
 
 ## Responsibilities
 
@@ -41,5 +44,5 @@ sudo systemctl enable --now boom-bala-expire-mobile-payments.timer
 systemctl status boom-bala-expire-mobile-payments.timer
 ```
 
-The service reads the same backend environment file as the API from
-`/etc/boom-bala/backend.env`; it does not contain credentials or secrets.
+The service reads the same protected environment file as the API from
+`/etc/boom-bala/staging.env`; it does not contain credentials or secrets.

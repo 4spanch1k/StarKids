@@ -5,6 +5,6 @@ After=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/boom-bala/backend
-EnvironmentFile=/etc/boom-bala/backend.env
+EnvironmentFile=/etc/boom-bala/staging.env
 ExecStart=/opt/boom-bala/backend/.venv/bin/python scripts/process_push_campaigns.py
 User=boom-bala

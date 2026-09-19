@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     # This value is intentionally required.  A missing or misspelled
     # environment must stop startup instead of silently enabling local auth
     # and bootstrap defaults.
-    app_env: Literal['development', 'test', 'production']
+    app_env: Literal['development', 'test', 'staging', 'production']
     backend_host: str = '0.0.0.0'
     backend_port: int = 8000
     backend_cors_origins: str = 'http://localhost:5173'
@@ -137,6 +137,10 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.normalized_app_env == 'production'
+
+    @property
+    def is_staging(self) -> bool:
+        return self.normalized_app_env == 'staging'
 
     @property
     def development_seed_enabled(self) -> bool:
