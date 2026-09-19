@@ -4,6 +4,7 @@ class LocalStorage {
   static const _preferredBranchKey = 'preferred_branch_id';
   static const _localeKey = 'app_locale';
   static const _themeModeKey = 'app_theme_mode';
+  static const _pendingPaymentIdKey = 'pending_payment_id';
   static const _ticketQrPayloadPrefix = 'ticket_qr_payload:';
 
   // ─── Branch ───────────────────────────────────────────────────────────────
@@ -42,6 +43,21 @@ class LocalStorage {
   Future<String?> readThemeMode() async {
     final preferences = await SharedPreferences.getInstance();
     return preferences.getString(_themeModeKey);
+  }
+
+  Future<void> savePendingPaymentId(String paymentId) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(_pendingPaymentIdKey, paymentId);
+  }
+
+  Future<String?> readPendingPaymentId() async {
+    final preferences = await SharedPreferences.getInstance();
+    return preferences.getString(_pendingPaymentIdKey);
+  }
+
+  Future<void> clearPendingPaymentId() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.remove(_pendingPaymentIdKey);
   }
 
   // ─── Issued ticket QR cache ─────────────────────────────────────────────

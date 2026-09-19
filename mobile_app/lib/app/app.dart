@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -12,6 +14,8 @@ import '../core/design_system/widgets/sk_splash_view.dart';
 import '../features/auth/presentation/controllers/mobile_auth_controller.dart';
 import '../features/auth/presentation/pages/email_auth_gate_page.dart';
 import '../features/onboarding/presentation/pages/onboarding_page.dart';
+import '../features/tickets/domain/ticket_purchase.dart';
+import '../features/tickets/presentation/controllers/payment_return_coordinator.dart';
 
 final String _requestedLaunchRoute =
     WidgetsBinding.instance.platformDispatcher.defaultRouteName;
@@ -20,11 +24,68 @@ const String _configuredLaunchRoute = String.fromEnvironment(
   defaultValue: '',
 );
 
-class StarKidsApp extends StatelessWidget {
+class StarKidsApp extends StatefulWidget {
   const StarKidsApp({super.key});
 
   static final navigatorKey = GlobalKey<NavigatorState>();
   static final scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
+  @override
+  State<StarKidsApp> createState() => _StarKidsAppState();
+}
+
+class _StarKidsAppState extends State<StarKidsApp> {
+  StreamSubscription<PaymentReturnEvent>? _paymentReturnSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _paymentReturnSubscription =
+        ServiceRegistry.paymentReturnCoordinator.events.listen(
+      _handlePaymentReturn,
+    );
+    unawaited(ServiceRegistry.paymentReturnCoordinator.start());
+  }
+
+  @override
+  void dispose() {
+    unawaited(_paymentReturnSubscription?.cancel());
+    super.dispose();
+  }
+
+  void _handlePaymentReturn(PaymentReturnEvent event) {
+    if (!mounted ||
+        ServiceRegistry.paymentReturnCoordinator.hasCheckoutListener) {
+      return;
+    }
+
+    final navigator = StarKidsApp.navigatorKey.currentState;
+    if (event.isPaid) {
+      navigator?.pushNamedAndRemoveUntil(
+        AppRoutes.tickets,
+        (route) => false,
+      );
+      return;
+    }
+
+    final messenger = StarKidsApp.scaffoldMessengerKey.currentState;
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(
+          event.errorMessage ??
+              switch (event.status?.status) {
+                TicketPaymentStatusValue.failed ||
+                TicketPaymentStatusValue.canceled ||
+                TicketPaymentStatusValue.expired =>
+                  event.status?.failureReason ??
+                      'Оплата не прошла. Можно попробовать еще раз.',
+                _ =>
+                  'Платеж еще обрабатывается. Повторите проверку чуть позже.',
+              },
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,15 +120,15 @@ class StarKidsApp extends StatelessWidget {
                 : 'auth-gate',
           ),
           title: 'Boom Bala',
-          navigatorKey: navigatorKey,
+          navigatorKey: StarKidsApp.navigatorKey,
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),
           themeMode: settings.themeMode,
-          scaffoldMessengerKey: scaffoldMessengerKey,
+          scaffoldMessengerKey: StarKidsApp.scaffoldMessengerKey,
           builder: (ctx, child) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              final navigator = navigatorKey.currentState;
+              final navigator = StarKidsApp.navigatorKey.currentState;
               if (navigator != null) {
                 NotificationNavigationCoordinator.instance.attach(
                   navigator: navigator,

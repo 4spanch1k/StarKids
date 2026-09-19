@@ -18,6 +18,7 @@ import '../../../../core/utils/result.dart';
 import '../../../branches/domain/branch_option.dart';
 import '../../domain/branch_ticket_config.dart';
 import '../../domain/ticket_purchase.dart';
+import '../controllers/payment_return_coordinator.dart';
 
 Future<bool> showTicketPurchaseFlowSheet(BuildContext context) async {
   final result = await showStarKidsModalBottomSheet<bool>(
@@ -66,6 +67,7 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
   String? _quoteErrorMessage;
   String? _checkoutIdempotencyKey;
   TicketPaymentStart? _activePayment;
+  StreamSubscription<PaymentReturnEvent>? _paymentReturnSubscription;
   TicketCheckoutQuote? _quote;
   var _isQuoteLoading = false;
   var _useBonuses = false;
@@ -107,7 +109,19 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
   @override
   void initState() {
     super.initState();
+    ServiceRegistry.paymentReturnCoordinator.attachCheckoutListener();
+    _paymentReturnSubscription =
+        ServiceRegistry.paymentReturnCoordinator.events.listen(
+      _handlePaymentReturn,
+    );
     _loadTicketConfig();
+  }
+
+  @override
+  void dispose() {
+    ServiceRegistry.paymentReturnCoordinator.detachCheckoutListener();
+    unawaited(_paymentReturnSubscription?.cancel());
+    super.dispose();
   }
 
   Future<void> _selectBranch() async {
@@ -336,11 +350,46 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
       return;
     }
 
+    await ServiceRegistry.paymentReturnCoordinator.registerPayment(
+      payment.paymentId,
+    );
+
     setState(() {
       _paymentPhase = _TicketPaymentPhase.opened;
       _paymentMessage =
           'Страница оплаты открыта. После завершения вернитесь и проверьте статус.';
       _activePayment = payment;
+      // A retry of the same init remains idempotent until the payment page is
+      // opened. A later explicit checkout must receive a fresh key.
+      _checkoutIdempotencyKey = null;
+    });
+  }
+
+  void _handlePaymentReturn(PaymentReturnEvent event) {
+    if (!mounted || _activePayment?.paymentId != event.paymentId) return;
+
+    if (event.isPaid) {
+      setState(() {
+        _paymentPhase = _TicketPaymentPhase.paid;
+        _paymentMessage =
+            'Оплата подтверждена сервером. Билет добавлен в «Мои билеты».';
+      });
+      unawaited(ServiceRegistry.loyaltyController.load());
+      Navigator.of(context).pop(true);
+      return;
+    }
+
+    setState(() {
+      _paymentPhase = _TicketPaymentPhase.opened;
+      _paymentMessage = event.errorMessage ??
+          switch (event.status?.status) {
+            TicketPaymentStatusValue.failed ||
+            TicketPaymentStatusValue.canceled ||
+            TicketPaymentStatusValue.expired =>
+              event.status?.failureReason ??
+                  'Оплата не прошла. Можно попробовать еще раз.',
+            _ => 'Платеж еще обрабатывается. Повторите проверку чуть позже.',
+          };
     });
   }
 

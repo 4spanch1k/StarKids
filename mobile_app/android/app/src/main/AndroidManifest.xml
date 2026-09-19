@@ -24,6 +24,9 @@
               android:resource="@style/NormalTheme"
               />
             <meta-data
+              android:name="flutter_deeplinking_enabled"
+              android:value="false" />
+            <meta-data
               android:name="com.google.firebase.messaging.default_notification_channel_id"
               android:resource="@string/boom_bala_notification_channel_id" />
             <intent-filter>
