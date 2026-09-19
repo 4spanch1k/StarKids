@@ -7,7 +7,7 @@ api-staging.boombala.kz {
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		X-Frame-Options "DENY"
-		Permissions-Policy "camera=(self), geolocation=(), microphone=()"
+		Permissions-Policy "camera=(), geolocation=(), microphone=()"
 	}
 	reverse_proxy 127.0.0.1:8000
 }
@@ -20,7 +20,7 @@ ops-staging.boombala.kz {
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		X-Frame-Options "DENY"
-		Permissions-Policy "camera=(), geolocation=(), microphone=()"
+		Permissions-Policy "camera=(self), geolocation=(), microphone=()"
 	}
 	try_files {path} /index.html
 	file_server

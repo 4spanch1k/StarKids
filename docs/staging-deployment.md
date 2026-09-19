@@ -186,19 +186,21 @@ curl --fail --silent --show-error \
 Expected health response is HTTP 200 with `{"status":"ok"}`. Then perform a
 single FreedomPay sandbox purchase with the result URL from the template and
 verify the existing callback, payment, ticket, and QR flow. A mobile staging
-release uses the centralized environment config:
+release uses the centralized environment config, but is blocked until Legal
+supplies an approved HTTPS privacy URL and consent version. Do not substitute
+the ops domain or another placeholder. Server and admin staging deployment do
+not depend on this mobile release blocker. Once Legal has approved both values,
+export them and run:
 
 ```bash
-cd /opt/boom-bala/mobile_app
+: "${MOBILE_PRIVACY_POLICY_URL:?set the approved HTTPS privacy URL}"
+: "${MOBILE_PRIVACY_CONSENT_VERSION:?set the approved consent version}"
 flutter build apk --release \
   --dart-define=MOBILE_APP_ENV=production \
   --dart-define=MOBILE_API_BASE_URL=https://api-staging.boombala.kz/api/v1/mobile \
-  --dart-define=MOBILE_PRIVACY_POLICY_URL=https://ops-staging.boombala.kz/privacy \
-  --dart-define=MOBILE_PRIVACY_CONSENT_VERSION=<APPROVED_VERSION>
+  --dart-define=MOBILE_PRIVACY_POLICY_URL="${MOBILE_PRIVACY_POLICY_URL}" \
+  --dart-define=MOBILE_PRIVACY_CONSENT_VERSION="${MOBILE_PRIVACY_CONSENT_VERSION}"
 ```
-
-The app's release validation requires HTTPS and an approved privacy policy
-value; supply the reviewed legal URL/version rather than a placeholder.
 
 ## 10. Rollback basics
 

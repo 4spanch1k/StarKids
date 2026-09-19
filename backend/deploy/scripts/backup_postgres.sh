@@ -1,24 +1,51 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${DATABASE_URL:?DATABASE_URL must be provided by the protected environment file}"
+database_url_to_libpq() {
+	local database_url="${1:?database URL is required}"
+	case "${database_url}" in
+		postgresql+psycopg://*)
+			printf 'postgresql://%s\n' "${database_url#postgresql+psycopg://}"
+			;;
+		postgresql://*)
+			printf '%s\n' "${database_url}"
+			;;
+		*)
+			printf '%s\n' 'DATABASE_URL must use postgresql:// or postgresql+psycopg://' >&2
+			return 1
+			;;
+	esac
+}
 
-backup_dir="${BACKUP_DIR:-/var/backups/boom-bala/postgres}"
-retention_days="${BACKUP_RETENTION_DAYS:-14}"
-timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
-backup_file="${backup_dir}/boom-bala-${timestamp}.sql.gz"
-temporary_file="${backup_file}.tmp"
+run_backup() {
+	: "${DATABASE_URL:?DATABASE_URL must be provided by the protected environment file}"
 
-mkdir -p "${backup_dir}"
-trap 'rm -f "${temporary_file}"' EXIT
+	local libpq_database_url
+	libpq_database_url="$(database_url_to_libpq "${DATABASE_URL}")"
 
-# DATABASE_URL is injected by systemd from /etc/boom-bala/staging.env; the
-# repository never contains a password or a pgpass file.
-pg_dump --no-owner --no-privileges --dbname="${DATABASE_URL}" \
-  | gzip -9 > "${temporary_file}"
-mv "${temporary_file}" "${backup_file}"
+	local backup_dir="${BACKUP_DIR:-/var/backups/boom-bala/postgres}"
+	local retention_days="${BACKUP_RETENTION_DAYS:-14}"
+	local timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+	local backup_file="${backup_dir}/boom-bala-${timestamp}.sql.gz"
+	local temporary_file="${backup_file}.tmp"
 
-find "${backup_dir}" -type f -name 'boom-bala-*.sql.gz' \
-  -mtime "+${retention_days}" -delete
+	mkdir -p "${backup_dir}"
+	trap 'rm -f "${temporary_file:-}"' EXIT
 
-printf 'PostgreSQL backup written: %s\n' "${backup_file}"
+	# DATABASE_URL is injected by systemd from /etc/boom-bala/staging.env; the
+	# repository never contains a password or a pgpass file. SQLAlchemy's
+	# +psycopg driver suffix is removed because libpq does not understand it.
+	pg_dump --no-owner --no-privileges --dbname="${libpq_database_url}" \
+	  | gzip -9 > "${temporary_file}"
+	mv "${temporary_file}" "${backup_file}"
+	trap - EXIT
+
+	find "${backup_dir}" -type f -name 'boom-bala-*.sql.gz' \
+	  -mtime "+${retention_days}" -delete
+
+	printf 'PostgreSQL backup written: %s\n' "${backup_file}"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+	run_backup
+fi
