@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -66,22 +68,24 @@ void main() {
     expect(find.text('Введите пароль.'), findsOneWidget);
   });
 
-  testWidgets('bootstrap shell leaves splash after initialization completes', (
+  testWidgets('bootstrap shell renders app while initialization is pending', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(1280, 2400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
+    final initialization = Completer<void>();
     await tester.pumpWidget(
-      StarKidsBootstrapApp(
-        initialize: () async {},
-      ),
+      StarKidsBootstrapApp(initialize: () => initialization.future),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
 
     expect(find.text('Boom Bala'), findsOneWidget);
     expect(find.text('Вход'), findsWidgets);
     expect(find.text('Email'), findsOneWidget);
+
+    initialization.complete();
+    await tester.pumpAndSettle();
   });
 }

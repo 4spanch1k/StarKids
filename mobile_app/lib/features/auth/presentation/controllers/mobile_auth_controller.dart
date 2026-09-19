@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/utils/result.dart';
@@ -28,13 +30,17 @@ class MobileAuthFlowException implements Exception {
 class MobileAuthController extends ChangeNotifier {
   MobileAuthController({
     required MobileAuthRepository repository,
-  }) : _repository = repository;
+    Duration restoreTimeout = const Duration(seconds: 2),
+    Duration syncTimeout = const Duration(seconds: 8),
+  })  : _repository = repository,
+        _restoreTimeout = restoreTimeout,
+        _syncTimeout = syncTimeout;
 
   final MobileAuthRepository _repository;
+  final Duration _restoreTimeout;
+  final Duration _syncTimeout;
   Future<void> Function(MobileAuthSession session)? _beforeLogout;
   void Function()? _onLogoutAborted;
-  static const _bootstrapTimeout = Duration(seconds: 8);
-
   MobileAuthStatus _status = MobileAuthStatus.idle;
   MobileAuthSession? _session;
   OtpChallenge? _pendingChallenge;
@@ -162,7 +168,7 @@ class MobileAuthController extends ChangeNotifier {
     try {
       debugPrint('[AUTH] session storage read started');
       final restoredSession = await _repository.restoreSession().timeout(
-            _bootstrapTimeout,
+            _restoreTimeout,
           );
       debugPrint(
         '[AUTH] session storage result: hasSession=${restoredSession != null}',
@@ -177,41 +183,19 @@ class MobileAuthController extends ChangeNotifier {
         return;
       }
 
-      debugPrint('[AUTH] current-user sync started');
-      final syncResult = await _repository
-          .syncSession(restoredSession)
-          .timeout(_bootstrapTimeout);
-      if (syncResult is Success<MobileAuthSession?>) {
-        _session = syncResult.data;
-        _status = _session == null
-            ? MobileAuthStatus.unauthenticated
-            : MobileAuthStatus.authenticated;
-        debugPrint(
-          _session == null
-              ? '[AUTH] current-user sync returned no session'
-              : '[AUTH] current-user sync success',
-        );
-        debugPrint(
-          _session == null
-              ? '[AUTH] state -> unauthenticated'
-              : '[AUTH] state -> authenticated',
-        );
-        return;
-      }
-
-      debugPrint(
-        '[AUTH] current-user sync failed: '
-        '${(syncResult as Failure<MobileAuthSession?>).message}',
-      );
-      await _safeClearSession();
-      _session = null;
-      _pendingChallenge = null;
-      _errorMessage = null;
-      _status = MobileAuthStatus.unauthenticated;
-      debugPrint('[AUTH] state -> unauthenticated');
+      // A locally restored session is enough to render the app. Backend
+      // validation is deliberately a soft sync so a timeout, offline device,
+      // or transient 5xx cannot log a returning user out or hold the splash.
+      _session = restoredSession;
+      _status = MobileAuthStatus.authenticated;
+      debugPrint('[AUTH] local session restored; state -> authenticated');
+      notifyListeners();
+      unawaited(_softSyncSession(restoredSession));
     } catch (error) {
       debugPrint('[AUTH] bootstrap failed: $error');
-      await _safeClearSession();
+      // A storage read failure is not proof that credentials are invalid.
+      // Keep the safe unauthenticated state and let the user retry/login;
+      // never erase persisted credentials on an infrastructure error.
       _session = null;
       _pendingChallenge = null;
       _errorMessage = null;
@@ -220,8 +204,50 @@ class MobileAuthController extends ChangeNotifier {
     } finally {
       _isRefreshingProfile = false;
       _isLoggingOut = false;
-      debugPrint('[AUTH] bootstrap finally loading=false');
+      debugPrint('[AUTH] bootstrap finished');
       notifyListeners();
+    }
+  }
+
+  Future<void> _softSyncSession(MobileAuthSession restoredSession) async {
+    debugPrint('[AUTH] background current-user sync started');
+    try {
+      final syncResult =
+          await _repository.syncSession(restoredSession).timeout(_syncTimeout);
+
+      // A logout or a fresh login supersedes this background request.
+      if (_session?.accessToken != restoredSession.accessToken) {
+        return;
+      }
+
+      if (syncResult is Success<MobileAuthSession?>) {
+        final syncedSession = syncResult.data;
+        if (syncedSession == null) {
+          // The repository returns null only for a confirmed invalid session
+          // (for example, refresh-token 401). Other transport failures are
+          // represented as Failure and preserve the current session.
+          _session = null;
+          _status = MobileAuthStatus.unauthenticated;
+          _pendingChallenge = null;
+          notifyListeners();
+          debugPrint('[AUTH] background sync confirmed invalid session');
+          return;
+        }
+
+        _session = syncedSession;
+        _status = MobileAuthStatus.authenticated;
+        notifyListeners();
+        debugPrint('[AUTH] background current-user sync success');
+        return;
+      }
+
+      debugPrint(
+        '[AUTH] background current-user sync unavailable: '
+        '${(syncResult as Failure<MobileAuthSession?>).message}',
+      );
+    } catch (error) {
+      // Keep the locally restored session on timeout, offline, and 5xx.
+      debugPrint('[AUTH] background current-user sync skipped: $error');
     }
   }
 
@@ -407,15 +433,6 @@ class MobileAuthController extends ChangeNotifier {
           'Не удалось войти. Проверьте интернет и попробуйте снова.';
       _status = MobileAuthStatus.error;
       notifyListeners();
-    }
-  }
-
-  Future<void> _safeClearSession() async {
-    try {
-      debugPrint('[AUTH] clear session');
-      await _repository.clearSession().timeout(_bootstrapTimeout);
-    } catch (error) {
-      debugPrint('[AUTH] clear session failed: $error');
     }
   }
 

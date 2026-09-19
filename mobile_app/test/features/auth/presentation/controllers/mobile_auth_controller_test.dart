@@ -34,6 +34,7 @@ void main() {
       final controller = MobileAuthController(repository: repository);
 
       await controller.bootstrap();
+      await Future<void>.delayed(Duration.zero);
 
       expect(controller.status, MobileAuthStatus.authenticated);
       expect(controller.session?.user?.id, 'user-1');
@@ -55,12 +56,14 @@ void main() {
       final controller = MobileAuthController(repository: repository);
 
       await controller.bootstrap();
+      await Future<void>.delayed(Duration.zero);
 
       expect(controller.status, MobileAuthStatus.unauthenticated);
       expect(controller.session, isNull);
     });
 
-    test('bootstrap clears restored session when sync fails', () async {
+    test('bootstrap keeps restored session when backend is unavailable',
+        () async {
       final repository = _FakeMobileAuthRepository(
         restoredSession: MobileAuthSession(
           user: null,
@@ -78,9 +81,38 @@ void main() {
 
       await controller.bootstrap();
 
-      expect(repository.wasCleared, isTrue);
-      expect(controller.status, MobileAuthStatus.unauthenticated);
-      expect(controller.session, isNull);
+      expect(repository.wasCleared, isFalse);
+      expect(controller.status, MobileAuthStatus.authenticated);
+      expect(controller.session, isNotNull);
+    });
+
+    test('bootstrap returns with restored session before a slow sync completes',
+        () async {
+      final restoredSession = MobileAuthSession(
+        user: null,
+        phone: '+77071234567',
+        accessToken: 'slow-access',
+        refreshToken: 'slow-refresh',
+        tokenType: 'bearer',
+        verifiedAt: DateTime(2026, 4, 8),
+      );
+      final syncCompleter = Completer<Result<MobileAuthSession?>>();
+      final repository = _FakeMobileAuthRepository(
+        restoredSession: restoredSession,
+        syncSessionFuture: syncCompleter.future,
+      );
+      final controller = MobileAuthController(
+        repository: repository,
+        syncTimeout: const Duration(milliseconds: 10),
+      );
+
+      await controller.bootstrap();
+
+      expect(controller.status, MobileAuthStatus.authenticated);
+      expect(controller.session?.accessToken, 'slow-access');
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(controller.session?.accessToken, 'slow-access');
+      syncCompleter.complete(const Failure<MobileAuthSession?>('offline'));
     });
 
     test('bootstrap without stored session resolves unauthenticated', () async {
@@ -94,7 +126,7 @@ void main() {
       expect(controller.session, isNull);
     });
 
-    test('bootstrap clears session when sync throws', () async {
+    test('bootstrap keeps restored session when sync throws', () async {
       final repository = _FakeMobileAuthRepository(
         restoredSession: MobileAuthSession(
           user: null,
@@ -110,12 +142,13 @@ void main() {
 
       await controller.bootstrap();
 
-      expect(repository.wasCleared, isTrue);
-      expect(controller.status, MobileAuthStatus.unauthenticated);
-      expect(controller.session, isNull);
+      expect(repository.wasCleared, isFalse);
+      expect(controller.status, MobileAuthStatus.authenticated);
+      expect(controller.session, isNotNull);
     });
 
-    test('bootstrap clears session when storage restore throws', () async {
+    test('bootstrap does not clear session when storage restore throws',
+        () async {
       final repository = _FakeMobileAuthRepository(
         restoreSessionError: StateError('storage failed'),
       );
@@ -123,7 +156,30 @@ void main() {
 
       await controller.bootstrap();
 
-      expect(repository.wasCleared, isTrue);
+      expect(repository.wasCleared, isFalse);
+      expect(controller.status, MobileAuthStatus.unauthenticated);
+      expect(controller.session, isNull);
+    });
+
+    test('confirmed invalid refresh logs out after background sync', () async {
+      final repository = _FakeMobileAuthRepository(
+        restoredSession: MobileAuthSession(
+          user: null,
+          phone: '+77071234567',
+          accessToken: 'expired-access',
+          refreshToken: 'expired-refresh',
+          tokenType: 'bearer',
+          verifiedAt: DateTime(2026, 4, 8),
+        ),
+        syncSessionResult: const Success<MobileAuthSession?>(null),
+      );
+      final controller = MobileAuthController(repository: repository);
+
+      await controller.bootstrap();
+      expect(controller.status, MobileAuthStatus.authenticated);
+
+      await Future<void>.delayed(Duration.zero);
+
       expect(controller.status, MobileAuthStatus.unauthenticated);
       expect(controller.session, isNull);
     });
@@ -348,6 +404,7 @@ class _FakeMobileAuthRepository implements MobileAuthRepository {
     Result<void>? logoutResult,
     Object? restoreSessionError,
     Object? syncSessionError,
+    Future<Result<MobileAuthSession?>>? syncSessionFuture,
   })  : _syncSessionResult = syncSessionResult ??
             (restoredSession == null
                 ? const Success<MobileAuthSession?>(null)
@@ -358,7 +415,8 @@ class _FakeMobileAuthRepository implements MobileAuthRepository {
         _exchangeResult = exchangeResult,
         _logoutResult = logoutResult ?? const Success<void>(null),
         _restoreSessionError = restoreSessionError,
-        _syncSessionError = syncSessionError;
+        _syncSessionError = syncSessionError,
+        _syncSessionFuture = syncSessionFuture;
 
   final MobileAuthSession? restoredSession;
   final Result<MobileAuthSession?> _syncSessionResult;
@@ -369,6 +427,7 @@ class _FakeMobileAuthRepository implements MobileAuthRepository {
   final Result<void> _logoutResult;
   final Object? _restoreSessionError;
   final Object? _syncSessionError;
+  final Future<Result<MobileAuthSession?>>? _syncSessionFuture;
 
   String? requestedPhone;
   String? verifiedCode;
@@ -484,6 +543,11 @@ class _FakeMobileAuthRepository implements MobileAuthRepository {
   @override
   Future<Result<MobileAuthSession?>> syncSession(
       MobileAuthSession session) async {
+    final future = _syncSessionFuture;
+    if (future != null) {
+      syncedAccessToken = session.accessToken;
+      return future;
+    }
     final error = _syncSessionError;
     if (error != null) {
       throw error;
