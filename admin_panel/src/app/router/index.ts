@@ -5,7 +5,6 @@ import {
   adminCrudRouteNames,
   buildAdminCrudRouteGroup,
 } from '@/app/router/adminCrudRoutes';
-import AuditLogsPage from '@/pages/audit-logs/AuditLogsPage.vue';
 import BirthdayPackagesPage from '@/pages/birthday-packages/BirthdayPackagesPage.vue';
 import BranchesPage from '@/pages/branches/BranchesPage.vue';
 import ContentPage from '@/pages/content/ContentPage.vue';
@@ -20,6 +19,7 @@ import MenuPage from '@/pages/menu/MenuPage.vue';
 import NewsPage from '@/pages/news/NewsPage.vue';
 import PromotionsPage from '@/pages/promotions/PromotionsPage.vue';
 import PushCampaignsPage from '@/pages/push-campaigns/PushCampaignsPage.vue';
+import ReconciliationPage from '@/pages/reconciliation/ReconciliationPage.vue';
 import TicketsPage from '@/pages/tickets/TicketsPage.vue';
 import TicketScannerPage from '@/pages/ticket-scanner/TicketScannerPage.vue';
 import LoyaltyRulesPage from '@/pages/loyalty/LoyaltyRulesPage.vue';
@@ -151,7 +151,12 @@ const routes: RouteRecordRaw[] = [
         component: PushCampaignsPage,
         meta: { allowedRoles: ['super_admin', 'content_manager'] },
       },
-      { path: 'audit-logs', name: 'audit-logs', component: AuditLogsPage },
+      {
+        path: 'reconciliation',
+        name: 'reconciliation',
+        component: ReconciliationPage,
+        meta: { allowedRoles: ['super_admin'] },
+      },
     ],
   },
 ];

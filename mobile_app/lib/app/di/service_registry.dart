@@ -61,6 +61,7 @@ import '../../features/tickets/data/api_issued_ticket_repository.dart';
 import '../../features/tickets/domain/ticket_config_repository.dart';
 import '../../features/tickets/domain/issued_ticket_repository.dart';
 import '../../features/tickets/domain/ticket_purchase_repository.dart';
+import '../../features/tickets/presentation/controllers/payment_return_coordinator.dart';
 import '../../features/visits/data/api_current_visit_repository.dart';
 import '../../features/visits/domain/current_visit_repository.dart';
 import '../config/app_environment.dart';
@@ -107,6 +108,10 @@ abstract final class ServiceRegistry {
       ApiTicketPurchaseRepository(
     apiClient: apiClient,
     sessionStorage: mobileAuthSessionStorage,
+  );
+  static final paymentReturnCoordinator = PaymentReturnCoordinator(
+    purchaseRepository: ticketPurchaseRepository,
+    localStorage: localStorage,
   );
   static IssuedTicketRepository issuedTicketRepository =
       ApiIssuedTicketRepository(

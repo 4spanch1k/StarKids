@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../../app/di/service_registry.dart';
+import '../../../../core/storage/local_storage.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/glass_app_bar.dart';
@@ -20,11 +21,13 @@ class TicketDetailPage extends StatefulWidget {
     required this.ticketId,
     this.initialTicket,
     this.repository,
+    this.localStorage,
   });
 
   final String ticketId;
   final IssuedTicket? initialTicket;
   final IssuedTicketRepository? repository;
+  final LocalStorage? localStorage;
 
   @override
   State<TicketDetailPage> createState() => _TicketDetailPageState();
@@ -33,18 +36,40 @@ class TicketDetailPage extends StatefulWidget {
 class _TicketDetailPageState extends State<TicketDetailPage> {
   late final IssuedTicketRepository _repository =
       widget.repository ?? ServiceRegistry.issuedTicketRepository;
+  late final LocalStorage _localStorage =
+      widget.localStorage ?? ServiceRegistry.localStorage;
   IssuedTicket? _ticket;
   bool _isLoading = true;
   String? _errorMessage;
   String? _qrPayload;
   String? _qrErrorMessage;
   bool _isQrLoading = false;
+  bool _qrCacheAllowed = true;
 
   @override
   void initState() {
     super.initState();
     _ticket = widget.initialTicket;
+    _qrCacheAllowed = widget.initialTicket?.isIssued ?? true;
+    if (widget.initialTicket?.isIssued != false) {
+      unawaited(_restoreCachedQr());
+    }
     _loadTicket();
+  }
+
+  Future<void> _restoreCachedQr() async {
+    try {
+      final payload = await _localStorage.readTicketQrPayload(widget.ticketId);
+      if (!mounted || !_qrCacheAllowed || payload == null || payload.isEmpty) {
+        return;
+      }
+      setState(() {
+        _qrPayload = payload;
+        _qrErrorMessage = null;
+      });
+    } catch (_) {
+      // A cache read is best-effort; the backend request remains authoritative.
+    }
   }
 
   Future<void> _loadTicket() async {
@@ -58,8 +83,17 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
       setState(() {
         _ticket = ticket;
         _isLoading = false;
+        _qrCacheAllowed = ticket.isIssued;
+        if (!ticket.isIssued) {
+          _qrPayload = null;
+          _qrErrorMessage = null;
+        }
       });
-      if (ticket.isIssued) unawaited(_loadQrPayload());
+      if (ticket.isIssued) {
+        unawaited(_loadQrPayload());
+      } else {
+        unawaited(_clearCachedQr());
+      }
     } on IssuedTicketApiException catch (error) {
       if (!mounted) return;
       setState(() {
@@ -76,7 +110,7 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
   }
 
   Future<void> _loadQrPayload() async {
-    if (_isQrLoading || _ticket?.isIssued != true) return;
+    if (_isQrLoading || !_qrCacheAllowed || _ticket?.isIssued != true) return;
     setState(() {
       _isQrLoading = true;
       _qrErrorMessage = null;
@@ -89,6 +123,7 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
         _qrPayload = payload;
         _isQrLoading = false;
       });
+      unawaited(_saveCachedQr(payload));
     } on IssuedTicketApiException catch (error) {
       if (!mounted) return;
       setState(() {
@@ -101,6 +136,23 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
         _isQrLoading = false;
         _qrErrorMessage = 'Не удалось загрузить QR-код. Попробуйте еще раз.';
       });
+    }
+  }
+
+  Future<void> _saveCachedQr(String payload) async {
+    try {
+      await _localStorage.saveTicketQrPayload(widget.ticketId, payload);
+    } catch (_) {
+      // Rendering the backend payload must not depend on cache persistence.
+    }
+  }
+
+  Future<void> _clearCachedQr() async {
+    try {
+      await _localStorage.clearTicketQrPayload(widget.ticketId);
+    } catch (_) {
+      // Cache cleanup must not turn a successful terminal status refresh into
+      // a UI error. The next terminal refresh will retry the cleanup.
     }
   }
 

@@ -69,6 +69,57 @@ void main() {
     );
   });
 
+  test('development allows the pending legal configuration', () {
+    expect(
+      () => AppEnvironment.validatePrivacyConfiguration(
+        environment: 'development',
+        releaseMode: false,
+        configuredUrl: '',
+        consentVersion: 'v1-pending-legal',
+      ),
+      returnsNormally,
+    );
+  });
+
+  test('production requires an approved privacy policy URL and version', () {
+    expect(
+      () => AppEnvironment.validatePrivacyConfiguration(
+        environment: 'production',
+        releaseMode: true,
+        configuredUrl: '',
+        consentVersion: 'v1-pending-legal',
+      ),
+      throwsA(isA<StateError>()),
+    );
+    expect(
+      () => AppEnvironment.validatePrivacyConfiguration(
+        environment: 'production',
+        releaseMode: true,
+        configuredUrl: 'https://boom-bala.kz/privacy',
+        consentVersion: 'v1-pending-legal',
+      ),
+      throwsA(isA<StateError>()),
+    );
+    expect(
+      () => AppEnvironment.validatePrivacyConfiguration(
+        environment: 'production',
+        releaseMode: true,
+        configuredUrl: 'https://boom-bala.kz/privacy',
+        consentVersion: '2026-01',
+      ),
+      returnsNormally,
+    );
+    expect(
+      () => AppEnvironment.validatePrivacyConfiguration(
+        environment: 'production',
+        releaseMode: true,
+        configuredUrl: 'https://example.com/privacy',
+        consentVersion: '2026-01',
+      ),
+      throwsA(isA<StateError>()),
+    );
+  });
+
   test('iOS Google Sign-In requires native client and reversed URL config', () {
     expect(
       AppEnvironment.isGoogleSignInConfigured(

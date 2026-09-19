@@ -120,16 +120,20 @@
       </div>
 
       <section v-if="result" class="scanner-result" :class="resultToneClass" aria-live="assertive">
-        <div class="scanner-result__icon" aria-hidden="true">{{ resultIcon }}</div>
+        <div class="scanner-result__icon" :aria-label="resultTitle" role="img">{{ resultIcon }}</div>
         <div class="scanner-result__copy">
-          <p class="scanner-eyebrow">{{ result.outcome }}</p>
+          <p class="scanner-eyebrow scanner-result__outcome">{{ resultOutcomeLabel }}</p>
           <h2>{{ resultTitle }}</h2>
           <template v-if="result.ticket">
-            <strong>{{ result.ticket.title }}</strong>
-            <span>{{ result.ticket.ticketNumber }} · {{ result.ticket.branchName }}</span>
-            <span v-if="result.ticket.redeemedAt">Время входа: {{ formatDateTime(result.ticket.redeemedAt) }}</span>
+            <strong class="scanner-result__ticket-number">{{ result.ticket.ticketNumber }}</strong>
+            <span class="scanner-result__ticket-type">{{ result.ticket.title }}</span>
+            <span class="scanner-result__detail">Филиал: {{ result.ticket.branchName }}</span>
+            <span class="scanner-result__detail">Статус: {{ formatTicketStatus(result.ticket.status) }}</span>
+            <span v-if="result.ticket.redeemedAt" class="scanner-result__detail">
+              Время входа: {{ formatDateTime(result.ticket.redeemedAt) }}
+            </span>
           </template>
-          <span v-if="result.errorMessage">{{ result.errorMessage }}</span>
+          <span v-if="result.errorMessage" class="scanner-result__reason">{{ result.errorMessage }}</span>
         </div>
         <button type="button" class="admin-button admin-button--primary" :disabled="isRedeeming" @click="scanNext">
           Сканировать следующий
@@ -186,12 +190,18 @@ const selectedBranch = computed(() => branches.value.find((branch) => branch.id 
 const isOperator = computed(() => sessionStore.operatorRole === 'operator');
 const resultToneClass = computed(() => {
   if (result.value?.outcome === 'redeemed') return 'scanner-result--success';
+  if (result.value?.outcome === 'already_used') return 'scanner-result--warning';
   return 'scanner-result--failure';
+});
+const resultOutcomeLabel = computed(() => {
+  if (result.value?.outcome === 'redeemed') return 'Успешно';
+  if (result.value?.outcome === 'already_used') return 'Проверка завершена';
+  return 'Вход не подтверждён';
 });
 const resultTitle = computed(() => {
   switch (result.value?.outcome) {
     case 'redeemed':
-      return 'ВХОД РАЗРЕШЁН';
+      return 'Билет принят';
     case 'already_used':
       return 'Билет уже использован';
     case 'invalid_qr':
@@ -212,7 +222,12 @@ const resultTitle = computed(() => {
       return 'Нет связи. Вход не подтверждён.';
   }
 });
-const resultIcon = computed(() => (result.value?.outcome === 'redeemed' ? '✓' : '!'));
+const resultIcon = computed(() => {
+  if (result.value?.outcome === 'redeemed') return '✓';
+  if (result.value?.outcome === 'already_used') return '⚠';
+  return '!';
+});
+let nextScanTimer: number | undefined;
 
 onMounted(() => {
   void loadBranches();
@@ -229,6 +244,7 @@ watch(selectedBranchId, (branchId) => {
 });
 
 onBeforeUnmount(() => {
+  if (nextScanTimer !== undefined) window.clearTimeout(nextScanTimer);
   void stopScanner();
 });
 
@@ -357,6 +373,7 @@ async function handleDetected(decodedText: string) {
   try {
     const response = await redeemTicket({ qrPayload: decodedText, branchId: selectedBranchId.value });
     result.value = { outcome: response.outcome, ticket: response, errorMessage: '' };
+    notifyRedemptionOutcome(response.outcome);
   } catch (error) {
     result.value = {
       outcome: resolveRedemptionOutcome(error),
@@ -365,20 +382,71 @@ async function handleDetected(decodedText: string) {
     };
   } finally {
     isRedeeming.value = false;
+    scheduleNextScan();
   }
 }
 
 async function scanNext() {
+  if (nextScanTimer !== undefined) {
+    window.clearTimeout(nextScanTimer);
+    nextScanTimer = undefined;
+  }
   result.value = null;
   scanLocked = false;
   await startScanner();
 }
 
+function scheduleNextScan() {
+  if (nextScanTimer !== undefined) window.clearTimeout(nextScanTimer);
+  nextScanTimer = window.setTimeout(() => {
+    nextScanTimer = undefined;
+    if (!isRedeeming.value && !isScannerActive.value && result.value) {
+      void scanNext();
+    }
+  }, 3500);
+}
+
+function notifyRedemptionOutcome(outcome: RedemptionOutcome) {
+  if (outcome !== 'redeemed') return;
+  navigator.vibrate?.([80, 40, 120]);
+}
+
 function resolveScannerError(error: unknown) {
-  if (resolveRedemptionOutcome(error) === 'network_error') {
-    return 'Нет связи. Вход не подтверждён.';
+  switch (resolveRedemptionOutcome(error)) {
+    case 'invalid_qr':
+      return 'QR-код не распознан или его подпись недействительна.';
+    case 'ticket_not_found':
+      return 'Билет не найден.';
+    case 'wrong_branch':
+      return 'Билет относится к другому филиалу.';
+    case 'wrong_date':
+      return 'Билет действителен на другую дату.';
+    case 'invalid_status':
+      return 'Билет недействителен или уже закрыт.';
+    case 'invalid_ticket_data':
+      return 'В данных билета не хватает информации для входа.';
+    case 'invalid_payment':
+      return 'Оплата билета не подтверждена.';
+    case 'network_error':
+      return 'Нет связи. Вход не подтверждён.';
+    default:
+      return resolveAdminRequestError(error, 'Вход не подтверждён.');
   }
-  return '';
+}
+
+function formatTicketStatus(status: string) {
+  switch (status.toLowerCase()) {
+    case 'used':
+      return 'Погашен · USED';
+    case 'issued':
+      return 'Действует';
+    case 'canceled':
+      return 'Отменён';
+    case 'refunded':
+      return 'Возвращён';
+    default:
+      return status;
+  }
 }
 
 function formatDateTime(value: string) {
@@ -513,6 +581,11 @@ function formatDateTime(value: string) {
   background: var(--color-success-soft);
 }
 
+.scanner-result--warning {
+  border-color: rgba(154, 103, 0, 0.3);
+  background: #fff8e1;
+}
+
 .scanner-result--failure {
   border-color: rgba(180, 35, 24, 0.22);
   background: var(--color-danger-soft);
@@ -529,6 +602,21 @@ function formatDateTime(value: string) {
   font-weight: 800;
 }
 
+.scanner-result--success .scanner-result__icon {
+  color: var(--color-success);
+  background: rgba(16, 124, 65, 0.14);
+}
+
+.scanner-result--warning .scanner-result__icon {
+  color: #9a6700;
+  background: rgba(154, 103, 0, 0.14);
+}
+
+.scanner-result--failure .scanner-result__icon {
+  color: var(--color-danger);
+  background: rgba(180, 35, 24, 0.12);
+}
+
 .scanner-result__copy {
   display: grid;
   gap: 5px;
@@ -538,9 +626,38 @@ function formatDateTime(value: string) {
   font-size: 16px;
 }
 
-.scanner-result__copy > span {
+.scanner-result__outcome {
+  margin-bottom: 0;
+}
+
+.scanner-result--success h2 {
+  color: var(--color-success);
+  font-size: 28px;
+}
+
+.scanner-result--warning h2 {
+  color: #9a6700;
+}
+
+.scanner-result--failure h2 {
+  color: var(--color-danger);
+}
+
+.scanner-result__ticket-number {
+  font-size: 20px !important;
+  letter-spacing: 0.02em;
+}
+
+.scanner-result__ticket-type,
+.scanner-result__detail,
+.scanner-result__reason {
   color: var(--color-muted);
   font-size: 13px;
+}
+
+.scanner-result__reason {
+  color: var(--color-danger);
+  font-weight: 700;
 }
 
 @media (max-width: 900px) {

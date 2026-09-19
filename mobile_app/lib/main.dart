@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 
 import 'app/bootstrap/star_kids_bootstrap_app.dart';
+import 'app/config/app_environment.dart';
 import 'app/di/service_registry.dart';
 import 'app/router/notification_navigation_coordinator.dart';
 import 'firebase_options.dart';
@@ -20,24 +23,33 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   debugPrint('[BOOT] main started');
 
+  // Production/release builds must carry an approved, externally hosted
+  // privacy policy instead of the development-only pending-legal marker.
+  AppEnvironment.validateReleaseConfiguration();
+
   NotificationNavigationCoordinator.instance.configureCampaignOpenTracker(
     ServiceRegistry.campaignOpenTracker.track,
   );
 
-  // Firebase is configured for the approved Android/iOS production app ids.
-  // Runtime initialization remains best-effort so core app flows still start
-  // if a device or deployment has no usable Firebase runtime configuration.
-  await _initFirebaseSafely();
-  debugPrint('[BOOT] Firebase init completed or skipped');
-
   runApp(const StarKidsBootstrapApp(initialize: ServiceRegistry.bootstrap));
+
+  // Firebase and its notification listeners are non-critical for the first
+  // frame. Start them after Flutter has mounted so a broken/unreachable
+  // Firebase runtime cannot hold the splash screen hostage.
+  unawaited(
+    _initFirebaseSafely().timeout(
+      const Duration(seconds: 8),
+      onTimeout: () => debugPrint('[BOOT] Firebase init timed out; continuing'),
+    ),
+  );
 }
 
 Future<void> _initFirebaseSafely() async {
   try {
     final options = DefaultFirebaseOptions.currentPlatform;
     if (!DefaultFirebaseOptions.isConfigured) {
-      debugPrint('[BOOT] Firebase init skipped: no configuration for this target');
+      debugPrint(
+          '[BOOT] Firebase init skipped: no configuration for this target');
       return;
     }
 

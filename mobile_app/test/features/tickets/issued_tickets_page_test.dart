@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:star_kids_mobile/features/tickets/domain/issued_ticket.dart';
 import 'package:star_kids_mobile/features/tickets/domain/issued_ticket_repository.dart';
@@ -9,6 +10,10 @@ import 'package:star_kids_mobile/features/tickets/presentation/pages/tickets_pag
 import '../../helpers/test_app_harness.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   testWidgets('empty IssuedTicket response shows empty state and buy CTA', (
     tester,
   ) async {
@@ -117,6 +122,11 @@ void main() {
     expect(repository.requestedQrTicketId, '8');
     expect(find.text('Покажите QR сотруднику на входе.'), findsOneWidget);
     expect(find.text('BB-0008'), findsOneWidget);
+    final preferences = await SharedPreferences.getInstance();
+    expect(
+      preferences.getString('ticket_qr_payload:8'),
+      'bb_ticket:v1:8:backend-signature',
+    );
   });
 
   testWidgets('QR error keeps ticket data visible and exposes retry',
@@ -140,14 +150,62 @@ void main() {
     expect(find.text('Повторить'), findsOneWidget);
     expect(find.byType(QrImageView), findsNothing);
   });
+
+  testWidgets('cached QR remains visible when the QR request is offline',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'ticket_qr_payload:10': 'bb_ticket:v1:10:cached-signature',
+    });
+    final ticket =
+        _ticket('10', 'BB-0010', 'Детский билет', DateTime(2026, 9, 12));
+    final repository = _FakeIssuedTicketRepository(
+      tickets: [ticket],
+      failQr: true,
+    );
+
+    await tester.pumpWidget(
+      buildTestApp(
+        child: TicketDetailPage(ticketId: '10', repository: repository),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(QrImageView), findsOneWidget);
+    expect(find.text('Не удалось загрузить QR-код. Попробуйте еще раз.'),
+        findsNothing);
+  });
+
+  testWidgets('terminal ticket status removes cached QR', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'ticket_qr_payload:11': 'bb_ticket:v1:11:cached-signature',
+    });
+    final ticket = _ticket(
+      '11',
+      'BB-0011',
+      'Детский билет',
+      DateTime(2026, 9, 12),
+      status: 'used',
+    );
+
+    await tester.pumpWidget(
+      buildTestApp(
+        child: TicketDetailPage(
+          ticketId: '11',
+          initialTicket: ticket,
+          repository: _FakeIssuedTicketRepository(tickets: [ticket]),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(QrImageView), findsNothing);
+    final preferences = await SharedPreferences.getInstance();
+    expect(preferences.getString('ticket_qr_payload:11'), isNull);
+  });
 }
 
-IssuedTicket _ticket(
-  String id,
-  String number,
-  String title,
-  DateTime visitDate,
-) {
+IssuedTicket _ticket(String id, String number, String title, DateTime visitDate,
+    {String status = 'issued'}) {
   return IssuedTicket(
     ticketId: id,
     ticketNumber: number,
@@ -157,7 +215,7 @@ IssuedTicket _ticket(
     branchName: 'Boom Bala — Main',
     visitDate: visitDate,
     priceTenge: 3700,
-    status: 'issued',
+    status: status,
     issuedAt: DateTime(2026, 8, 31),
   );
 }

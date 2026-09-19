@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -11,8 +13,9 @@ import '../core/design_system/sk_theme.dart';
 import '../core/design_system/widgets/sk_splash_view.dart';
 import '../features/auth/presentation/controllers/mobile_auth_controller.dart';
 import '../features/auth/presentation/pages/email_auth_gate_page.dart';
-import '../features/onboarding/presentation/controllers/onboarding_controller.dart';
 import '../features/onboarding/presentation/pages/onboarding_page.dart';
+import '../features/tickets/domain/ticket_purchase.dart';
+import '../features/tickets/presentation/controllers/payment_return_coordinator.dart';
 
 final String _requestedLaunchRoute =
     WidgetsBinding.instance.platformDispatcher.defaultRouteName;
@@ -21,11 +24,68 @@ const String _configuredLaunchRoute = String.fromEnvironment(
   defaultValue: '',
 );
 
-class StarKidsApp extends StatelessWidget {
+class StarKidsApp extends StatefulWidget {
   const StarKidsApp({super.key});
 
   static final navigatorKey = GlobalKey<NavigatorState>();
   static final scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
+  @override
+  State<StarKidsApp> createState() => _StarKidsAppState();
+}
+
+class _StarKidsAppState extends State<StarKidsApp> {
+  StreamSubscription<PaymentReturnEvent>? _paymentReturnSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _paymentReturnSubscription =
+        ServiceRegistry.paymentReturnCoordinator.events.listen(
+      _handlePaymentReturn,
+    );
+    unawaited(ServiceRegistry.paymentReturnCoordinator.start());
+  }
+
+  @override
+  void dispose() {
+    unawaited(_paymentReturnSubscription?.cancel());
+    super.dispose();
+  }
+
+  void _handlePaymentReturn(PaymentReturnEvent event) {
+    if (!mounted ||
+        ServiceRegistry.paymentReturnCoordinator.hasCheckoutListener) {
+      return;
+    }
+
+    final navigator = StarKidsApp.navigatorKey.currentState;
+    if (event.isPaid) {
+      navigator?.pushNamedAndRemoveUntil(
+        AppRoutes.tickets,
+        (route) => false,
+      );
+      return;
+    }
+
+    final messenger = StarKidsApp.scaffoldMessengerKey.currentState;
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(
+          event.errorMessage ??
+              switch (event.status?.status) {
+                TicketPaymentStatusValue.failed ||
+                TicketPaymentStatusValue.canceled ||
+                TicketPaymentStatusValue.expired =>
+                  event.status?.failureReason ??
+                      'Оплата не прошла. Можно попробовать еще раз.',
+                _ =>
+                  'Платеж еще обрабатывается. Повторите проверку чуть позже.',
+              },
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,34 +104,37 @@ class StarKidsApp extends StatelessWidget {
         final authController = ServiceRegistry.mobileAuthController;
         final settings = ServiceRegistry.appSettingsController;
         final onboarding = ServiceRegistry.onboardingController;
-        final isBootstrapping =
-            authController.status == MobileAuthStatus.loading &&
-                authController.session == null;
+        final isBootstrapping = authController.session == null &&
+            (authController.status == MobileAuthStatus.idle ||
+                authController.status == MobileAuthStatus.loading);
         final isAuthenticated = authController.isAuthenticated;
-        final isOnboardingResolved =
-            onboarding.isComplete || onboarding.isRequired;
         debugPrint(
           '[APP] rendering '
           '${isAuthenticated ? 'home' : isBootstrapping ? 'loading' : 'auth'}',
         );
 
         return MaterialApp(
-          key: ValueKey(isAuthenticated ? 'authenticated-app' : 'auth-gate'),
+          key: ValueKey(
+            isAuthenticated
+                ? 'authenticated-app-${onboarding.isRequired}'
+                : 'auth-gate',
+          ),
           title: 'Boom Bala',
-          navigatorKey: navigatorKey,
+          navigatorKey: StarKidsApp.navigatorKey,
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),
           themeMode: settings.themeMode,
-          scaffoldMessengerKey: scaffoldMessengerKey,
+          scaffoldMessengerKey: StarKidsApp.scaffoldMessengerKey,
           builder: (ctx, child) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              final navigator = navigatorKey.currentState;
+              final navigator = StarKidsApp.navigatorKey.currentState;
               if (navigator != null) {
                 NotificationNavigationCoordinator.instance.attach(
                   navigator: navigator,
-                  authenticated: isAuthenticated && onboarding.isComplete,
-                  scaffoldMessenger: scaffoldMessengerKey.currentState,
+                  authenticated: isAuthenticated && !onboarding.isRequired,
+                  scaffoldMessenger:
+                      StarKidsApp.scaffoldMessengerKey.currentState,
                 );
               }
             });
@@ -96,17 +159,10 @@ class StarKidsApp extends StatelessWidget {
               ? isBootstrapping
                   ? const _AuthGateLoadingPage()
                   : const EmailAuthGatePage()
-              : !isOnboardingResolved
-                  ? onboarding.status == OnboardingStatus.error
-                      ? _OnboardingBootstrapErrorPage(
-                          message: onboarding.errorMessage,
-                          onRetry: onboarding.retry,
-                        )
-                      : const _AuthGateLoadingPage()
-                  : onboarding.isRequired
-                      ? const OnboardingPage()
-                      : null,
-          initialRoute: isAuthenticated && onboarding.isComplete
+              : onboarding.isRequired
+                  ? const OnboardingPage()
+                  : null,
+          initialRoute: isAuthenticated && !onboarding.isRequired
               ? _authenticatedInitialRoute(requestedLaunchRoute)
               : null,
           onGenerateRoute: isAuthenticated ? AppRouter.onGenerateRoute : null,
@@ -141,41 +197,5 @@ class _AuthGateLoadingPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const SkSplashView();
-  }
-}
-
-class _OnboardingBootstrapErrorPage extends StatelessWidget {
-  const _OnboardingBootstrapErrorPage({
-    required this.message,
-    required this.onRetry,
-  });
-
-  final String? message;
-  final Future<void> Function() onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Не удалось загрузить профиль семьи.'),
-              if (message != null) ...[
-                const SizedBox(height: 8),
-                Text(message!, textAlign: TextAlign.center),
-              ],
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: onRetry,
-                child: const Text('Повторить'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
