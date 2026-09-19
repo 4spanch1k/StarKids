@@ -16,4 +16,4 @@ class AdminAuthConfigurationTests(unittest.TestCase):
 
     def test_unknown_environment_is_rejected_before_auth(self) -> None:
         with self.assertRaises(ValidationError):
-            Settings(app_env='staging', jwt_secret_key='replace-me')
+            Settings(app_env='sandbox', jwt_secret_key='replace-me')

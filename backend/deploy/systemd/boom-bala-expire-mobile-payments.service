@@ -8,5 +8,5 @@ Type=oneshot
 User=boom-bala
 Group=boom-bala
 WorkingDirectory=/opt/boom-bala/backend
-EnvironmentFile=/etc/boom-bala/backend.env
+EnvironmentFile=/etc/boom-bala/staging.env
 ExecStart=/opt/boom-bala/backend/.venv/bin/python /opt/boom-bala/backend/scripts/expire_mobile_payments.py

@@ -71,9 +71,9 @@ def validate_runtime_configuration(settings: Settings) -> RuntimeConfigurationSt
             )
         return status
 
-    if not settings.is_production:
+    if not (settings.is_production or settings.is_staging):
         raise ProductionConfigurationError(
-            'APP_ENV must be one of: development, test, production'
+            'APP_ENV must be one of: development, test, staging, production'
         )
 
     errors: list[str] = []
@@ -96,7 +96,7 @@ def validate_runtime_configuration(settings: Settings) -> RuntimeConfigurationSt
 
     if settings.freedompay_mock_mode:
         errors.append('FREEDOMPAY_MOCK_MODE must be false')
-    if settings.freedompay_testing_mode:
+    if settings.is_production and settings.freedompay_testing_mode:
         errors.append('FREEDOMPAY_TESTING_MODE must be false')
     if not settings.is_freedompay_configured:
         errors.append(

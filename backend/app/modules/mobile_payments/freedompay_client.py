@@ -38,9 +38,9 @@ class FreedomPayClient:
 
     def init_payment(self, params: dict[str, object]) -> FreedomPayInitResult:
         if self._settings.freedompay_mock_mode:
-            if self._settings.is_production:
+            if self._settings.is_production or self._settings.is_staging:
                 raise FreedomPayGatewayError(
-                    'Freedom Pay mock mode is disabled in production.'
+                    'Freedom Pay mock mode is disabled in staging and production.'
                 )
             return self._mock_init_payment(params)
 

@@ -118,10 +118,13 @@ class MobilePaymentService:
         payload: FreedomPaymentInitRequest,
     ) -> FreedomPaymentInitResponse:
         self.expire_stale_payments()
-        if self._settings.is_production and self._settings.freedompay_mock_mode:
+        if (
+            (self._settings.is_production or self._settings.is_staging)
+            and self._settings.freedompay_mock_mode
+        ):
             raise DomainHTTPException(
                 code='freedompay_mock_disabled',
-                message='Freedom Pay mock mode is disabled in production.',
+                message='Freedom Pay mock mode is disabled in staging and production.',
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         if not self._settings.is_freedompay_configured and not self._settings.freedompay_mock_mode:

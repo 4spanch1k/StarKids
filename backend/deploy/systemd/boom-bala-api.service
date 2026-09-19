@@ -1,0 +1,26 @@
+[Unit]
+Description=Boom Bala FastAPI staging API
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=boom-bala
+Group=boom-bala
+WorkingDirectory=/opt/boom-bala/backend
+EnvironmentFile=/etc/boom-bala/staging.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/boom-bala/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=60s
+TimeoutStopSec=30s
+UMask=027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/boom-bala/media
+
+[Install]
+WantedBy=multi-user.target
