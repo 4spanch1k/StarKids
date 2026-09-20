@@ -13,6 +13,25 @@ import 'package:star_kids_mobile/features/requests/domain/request_status.dart';
 import 'package:star_kids_mobile/features/requests/domain/request_type.dart';
 
 void main() {
+  test('hydrate applies onboarding profile before the next network refresh', () {
+    final controller = ProfileController(
+      profileRepository: _EmptyProfileRepository(),
+      requestHistoryRepository: _EmptyRequestHistoryRepository(),
+    );
+
+    controller.hydrate(
+      const UserProfile(
+        id: 'user-onboarding',
+        firstName: 'Алия',
+        onboardingCompleted: true,
+      ),
+    );
+
+    expect(controller.status, ProfileViewStatus.success);
+    expect(controller.profile?.id, 'user-onboarding');
+    expect(controller.firstNameDraft, 'Алия');
+  });
+
   test(
     'authoritative reload replaces drafts when the account changes',
     () async {
@@ -155,6 +174,27 @@ class _SequenceProfileRepository implements ProfileRepository {
     required String contentType,
   }) async =>
       fetchProfile();
+
+  @override
+  Future<Result<void>> deleteAvatar() async => const Success<void>(null);
+}
+
+class _EmptyProfileRepository implements ProfileRepository {
+  @override
+  Future<Result<UserProfile>> fetchProfile() async =>
+      const Failure<UserProfile>('not implemented');
+
+  @override
+  Future<Result<UserProfile>> updateProfile(ProfileUpdatePayload payload) async =>
+      const Failure<UserProfile>('not implemented');
+
+  @override
+  Future<Result<UserProfile>> uploadAvatar({
+    required List<int> bytes,
+    required String fileName,
+    required String contentType,
+  }) async =>
+      const Failure<UserProfile>('not implemented');
 
   @override
   Future<Result<void>> deleteAvatar() async => const Success<void>(null);

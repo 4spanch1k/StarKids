@@ -37,6 +37,7 @@ class ProfileController extends ChangeNotifier {
   String? _requestsErrorMessage;
   int _loadGeneration = 0;
   int _requestPreviewGeneration = 0;
+  bool _preserveHydratedProfileForNextLoad = false;
 
   ProfileViewStatus get status => _status;
   UserProfile? get profile => _profile;
@@ -52,6 +53,23 @@ class ProfileController extends ChangeNotifier {
   List<RequestHistoryItem> get previewRequests => _previewRequests;
   int get totalRequests => _totalRequests;
   String? get requestsErrorMessage => _requestsErrorMessage;
+
+  /// Hydrates the shared profile state from the atomic onboarding response.
+  ///
+  /// The profile page may be opened immediately after onboarding completes,
+  /// before its normal network refresh finishes. Applying the authoritative
+  /// response here avoids showing the previous/empty draft in that window.
+  void hydrate(UserProfile profile) {
+    _loadGeneration++;
+    _preserveHydratedProfileForNextLoad = true;
+    _profile = profile;
+    _applyProfileToDrafts(profile);
+    _status = ProfileViewStatus.success;
+    _errorMessage = null;
+    _isSaving = false;
+    _isUploadingAvatar = false;
+    notifyListeners();
+  }
 
   String? get firstNameError {
     final name = _firstNameDraft.trim();
@@ -96,10 +114,14 @@ class ProfileController extends ChangeNotifier {
 
   Future<void> load() async {
     final generation = ++_loadGeneration;
+    final preserveHydratedProfile = _preserveHydratedProfileForNextLoad;
+    _preserveHydratedProfileForNextLoad = false;
     _requestPreviewGeneration++;
     _status = ProfileViewStatus.loading;
     _errorMessage = null;
-    _profile = null;
+    if (!preserveHydratedProfile) {
+      _profile = null;
+    }
     _isSaving = false;
     _isUploadingAvatar = false;
     _previewRequests = const [];

@@ -15,6 +15,18 @@ void main() {
     gender: ChildGender.female,
   );
 
+  test('hydrate applies children returned by onboarding completion', () {
+    final controller = ChildrenController(
+      repository: _FakeChildrenRepository(children: const []),
+    );
+
+    controller.hydrate([child]);
+
+    expect(controller.status, ChildrenStatus.success);
+    expect(controller.children, [child]);
+    expect(controller.formError, isNull);
+  });
+
   test('successful delete removes the child and exposes empty state', () async {
     final repository = _FakeChildrenRepository(children: [child]);
     final controller = ChildrenController(repository: repository);
