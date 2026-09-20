@@ -15,6 +15,18 @@ void main() {
     gender: ChildGender.female,
   );
 
+  test('hydrate applies children returned by onboarding completion', () {
+    final controller = ChildrenController(
+      repository: _FakeChildrenRepository(children: const []),
+    );
+
+    controller.hydrate([child]);
+
+    expect(controller.status, ChildrenStatus.success);
+    expect(controller.children, [child]);
+    expect(controller.formError, isNull);
+  });
+
   test('successful delete removes the child and exposes empty state', () async {
     final repository = _FakeChildrenRepository(children: [child]);
     final controller = ChildrenController(repository: repository);
@@ -70,6 +82,41 @@ void main() {
 
     expect(controller.children, [child]);
   });
+
+  test(
+    'account reset clears children and blocks an in-flight old-account load',
+    () async {
+      final repository = _DeferredChildrenRepository();
+      final controller = ChildrenController(repository: repository);
+
+      controller.hydrate([child]);
+      final staleLoad = controller.load();
+
+      controller.resetForAccountChange();
+
+      expect(controller.children, isEmpty);
+      expect(controller.status, ChildrenStatus.loading);
+      expect(controller.formStatus, ChildFormStatus.idle);
+      expect(controller.formError, isNull);
+      expect(controller.deleteErrorMessage, isNull);
+
+      repository.completeFetch(
+        0,
+        [
+          Child(
+            id: 'child-old',
+            name: 'Старые данные',
+            birthDate: DateTime(2018, 1, 1),
+            gender: ChildGender.male,
+          ),
+        ],
+      );
+      await staleLoad;
+
+      expect(controller.children, isEmpty);
+      expect(controller.status, ChildrenStatus.loading);
+    },
+  );
 
   test('stale child mutation cannot overwrite a newer load', () async {
     final repository = _DeferredChildrenRepository();

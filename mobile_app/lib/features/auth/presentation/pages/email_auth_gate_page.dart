@@ -429,7 +429,7 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
                                   const _RedesignSessionHint(),
                                   const SizedBox(height: SK.s8),
                                   Text(
-                                    'Продолжая, вы соглашаетесь с правилами Boom Bala.',
+                                    'После входа вы сможете настроить профиль семьи.',
                                     textAlign: TextAlign.center,
                                     style: SKTextStyles.small.copyWith(
                                       fontSize: 11,
@@ -495,7 +495,7 @@ class _RedesignAuthHeader extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              'Almaty · Al-Farabi',
+              'Семейный развлекательный центр',
               style: SKTextStyles.small.copyWith(
                 fontSize: 12,
                 color: c.textTertiary,

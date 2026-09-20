@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'di/service_registry.dart';
+import 'account_state_coordinator.dart';
 import 'router/app_router.dart';
 import 'router/app_routes.dart';
 import 'router/notification_navigation_coordinator.dart';
@@ -12,6 +13,7 @@ import '../core/design_system/sk_color_scheme.dart';
 import '../core/design_system/sk_theme.dart';
 import '../core/design_system/widgets/sk_splash_view.dart';
 import '../features/auth/presentation/controllers/mobile_auth_controller.dart';
+import '../features/auth/domain/mobile_auth_session.dart';
 import '../features/auth/presentation/pages/email_auth_gate_page.dart';
 import '../features/onboarding/presentation/pages/onboarding_page.dart';
 import '../features/tickets/domain/ticket_purchase.dart';
@@ -36,10 +38,19 @@ class StarKidsApp extends StatefulWidget {
 
 class _StarKidsAppState extends State<StarKidsApp> {
   StreamSubscription<PaymentReturnEvent>? _paymentReturnSubscription;
+  late final AccountStateCoordinator _accountStateCoordinator;
 
   @override
   void initState() {
     super.initState();
+    _accountStateCoordinator = AccountStateCoordinator(
+      authListenable: ServiceRegistry.mobileAuthController,
+      readIdentity: () => _accountIdentity(
+        ServiceRegistry.mobileAuthController.session,
+      ),
+      profileController: ServiceRegistry.profileController,
+      childrenController: ServiceRegistry.childrenController,
+    );
     _paymentReturnSubscription =
         ServiceRegistry.paymentReturnCoordinator.events.listen(
       _handlePaymentReturn,
@@ -49,8 +60,13 @@ class _StarKidsAppState extends State<StarKidsApp> {
 
   @override
   void dispose() {
+    _accountStateCoordinator.dispose();
     unawaited(_paymentReturnSubscription?.cancel());
     super.dispose();
+  }
+
+  String? _accountIdentity(MobileAuthSession? session) {
+    return session?.user?.id ?? session?.email ?? session?.phone;
   }
 
   void _handlePaymentReturn(PaymentReturnEvent event) {

@@ -48,7 +48,8 @@ void main() {
     await tester.enterText(find.byType(TextField), 'Айжан');
     await tester.tap(find.text('Далее'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ListTile, '0'));
+    expect(find.text('Сколько у вас детей?'), findsNothing);
+    expect(find.text('Сделать позже'), findsOneWidget);
     await tester.tap(find.text('Далее'));
     await tester.pumpAndSettle();
     await tester.tap(find.byType(CheckboxListTile));
@@ -57,6 +58,35 @@ void main() {
 
     expect(find.text('Home'), findsOneWidget);
     expect(onboarding.status, OnboardingStatus.complete);
+  });
+
+  testWidgets('parent name remains required while children stay optional', (
+    tester,
+  ) async {
+    final auth = MobileAuthController(repository: _UnusedAuthRepository());
+    final onboarding = OnboardingController(
+      authController: auth,
+      repository: _FakeOnboardingRepository(),
+    );
+    await auth.loginWithEmail(email: 'b@example.com', password: 'password');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: OnboardingPage(controller: onboarding),
+        builder: (context, child) => SKTheme(
+          dark: false,
+          colors: SKColorScheme.light(),
+          child: child!,
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Продолжить'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Далее'));
+    await tester.pump();
+    expect(find.text('Введите ваше имя.'), findsOneWidget);
+    expect(find.text('Как вас зовут?'), findsOneWidget);
   });
 }
 

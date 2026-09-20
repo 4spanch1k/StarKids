@@ -22,6 +22,7 @@ class ChildrenController extends ChangeNotifier {
   String? _formError;
   String? _deleteErrorMessage;
   int _operationGeneration = 0;
+  bool _preserveHydratedChildrenForNextLoad = false;
 
   ChildrenStatus get status => _status;
   List<Child> get children => _children;
@@ -33,14 +34,51 @@ class ChildrenController extends ChangeNotifier {
 
   bool get isSaving => _formStatus == ChildFormStatus.saving;
 
+  /// Hydrates children returned by the atomic onboarding completion response.
+  ///
+  /// This is intentionally a local state update, not a second persistence
+  /// operation. The backend response is already authoritative for the current
+  /// authenticated account.
+  void hydrate(List<Child> children) {
+    _operationGeneration++;
+    _preserveHydratedChildrenForNextLoad = true;
+    _children = List<Child>.unmodifiable(children);
+    _status = _children.isEmpty ? ChildrenStatus.empty : ChildrenStatus.success;
+    _errorMessage = null;
+    _formStatus = ChildFormStatus.idle;
+    _formError = null;
+    _deleteErrorMessage = null;
+    notifyListeners();
+  }
+
+  /// Clears all account-scoped state when the authenticated identity changes.
+  ///
+  /// The generation bump prevents a response started for the previous
+  /// account from repopulating this shared controller after logout/switch.
+  void resetForAccountChange() {
+    _operationGeneration++;
+    _preserveHydratedChildrenForNextLoad = false;
+    _children = const [];
+    _status = ChildrenStatus.loading;
+    _errorMessage = null;
+    _formStatus = ChildFormStatus.idle;
+    _formError = null;
+    _deleteErrorMessage = null;
+    notifyListeners();
+  }
+
   /// Returns children whose birthday is today.
   List<Child> get todaysBirthdays =>
       _children.where((c) => c.isBirthdayToday).toList();
 
   Future<void> load() async {
     final generation = ++_operationGeneration;
+    final preserveHydratedChildren = _preserveHydratedChildrenForNextLoad;
+    _preserveHydratedChildrenForNextLoad = false;
     _status = ChildrenStatus.loading;
-    _children = const [];
+    if (!preserveHydratedChildren) {
+      _children = const [];
+    }
     _errorMessage = null;
     _formStatus = ChildFormStatus.idle;
     _formError = null;
