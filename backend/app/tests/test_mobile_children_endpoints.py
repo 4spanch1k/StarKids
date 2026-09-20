@@ -16,6 +16,8 @@ from app.main import app
 from app.modules.mobile_children.dependencies import get_mobile_children_service
 from app.modules.mobile_children.service import MobileChildrenService
 from app.db.repositories.mobile_child_repository import MobileChildRepository
+from app.db.repositories.customer_pass_repository import CustomerPassRepository
+from app.db.repositories.mobile_payment_repository import MobilePaymentRepository
 
 
 class MobileChildrenEndpointTests(unittest.TestCase):
@@ -53,7 +55,9 @@ class MobileChildrenEndpointTests(unittest.TestCase):
 
         def _override_children_service(session: _Session = Depends(_get_db)):
             return MobileChildrenService(
-                child_repository=MobileChildRepository(session)
+                child_repository=MobileChildRepository(session),
+                customer_pass_repository=CustomerPassRepository(session),
+                payment_repository=MobilePaymentRepository(session),
             )
 
         app.dependency_overrides[get_db_session] = override_get_db_session

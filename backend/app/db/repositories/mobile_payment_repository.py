@@ -116,6 +116,28 @@ class MobilePaymentRepository(Repository):
             statement = statement.with_for_update()
         return self.db.scalar(statement)
 
+    def has_blocking_pass_payment_for_child(self, *, mobile_user_id: str, child_id: str) -> bool:
+        """Return whether a live pass purchase reserves this child.
+
+        The child id is deliberately read from the persisted pass snapshot,
+        not from mutable plan data. JSON filtering is kept in Python here so
+        this guard has the same semantics on SQLite and PostgreSQL.
+        """
+        statement = select(MobilePayment).where(
+            MobilePayment.mobile_user_id == mobile_user_id,
+            MobilePayment.payable_entity_type == 'pass_purchase',
+            MobilePayment.status.in_({'created', 'pending', 'paid'}),
+        )
+        for payment in self.db.scalars(statement):
+            snapshot = dict(payment.init_payload or {}).get('passSnapshot')
+            if not isinstance(snapshot, dict) or str(snapshot.get('childId')) != child_id:
+                continue
+            if payment.status in {'created', 'pending'}:
+                return True
+            if payment.status == 'paid' and payment.pass_issuance_required:
+                return True
+        return False
+
     def get_by_id(self, payment_id: str) -> MobilePayment | None:
         return self.db.scalar(select(MobilePayment).where(MobilePayment.id == payment_id))
 

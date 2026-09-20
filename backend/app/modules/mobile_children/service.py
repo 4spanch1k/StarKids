@@ -5,6 +5,8 @@ from fastapi import status
 from ...core.exceptions.http import DomainHTTPException
 from ...db.models.mobile_user import MobileUser
 from ...db.repositories.mobile_child_repository import MobileChildRepository
+from ...db.repositories.customer_pass_repository import CustomerPassRepository
+from ...db.repositories.mobile_payment_repository import MobilePaymentRepository
 from .schemas import (
     ChildCreateRequest,
     ChildListResponse,
@@ -14,8 +16,16 @@ from .schemas import (
 
 
 class MobileChildrenService:
-    def __init__(self, *, child_repository: MobileChildRepository) -> None:
+    def __init__(
+        self,
+        *,
+        child_repository: MobileChildRepository,
+        customer_pass_repository: CustomerPassRepository,
+        payment_repository: MobilePaymentRepository,
+    ) -> None:
         self._repo = child_repository
+        self._customer_passes = customer_pass_repository
+        self._payments = payment_repository
 
     def list_children(self, user: MobileUser) -> ChildListResponse:
         children = self._repo.list_for_user(user.id)
@@ -59,11 +69,24 @@ class MobileChildrenService:
         return ChildResponse.from_model(child)
 
     def delete_child(self, user: MobileUser, child_id: str) -> None:
-        child = self._repo.get_by_id_and_user(child_id, user.id)
+        child = self._repo.get_by_id_and_user(child_id, user.id, for_update=True)
         if child is None:
             raise DomainHTTPException(
                 code='child_not_found',
                 message='Child not found.',
                 status_code=status.HTTP_404_NOT_FOUND,
+            )
+        has_pass = (
+            self._customer_passes.exists_for_child(child.id)
+            or self._payments.has_blocking_pass_payment_for_child(
+                mobile_user_id=user.id,
+                child_id=child.id,
+            )
+        )
+        if has_pass:
+            raise DomainHTTPException(
+                code='child_has_pass',
+                message='Нельзя удалить ребёнка, пока с ним связан абонемент или незавершённая покупка абонемента.',
+                status_code=status.HTTP_409_CONFLICT,
             )
         self._repo.delete(child)

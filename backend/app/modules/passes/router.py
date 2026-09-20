@@ -5,7 +5,6 @@ from ...core.exceptions.http import NotFoundException
 from ...db.models.customer_pass import CustomerPass
 from ..admin_auth.dependencies import require_admin_roles
 from ..admin_auth.schemas import AdminCurrentUserResponse
-from ..admin_tickets.branch_scope import require_operator_branch_scope
 from ..mobile_auth.dependencies import AuthenticatedMobileContext, get_current_mobile_auth_context
 from ..mobile_payments.dependencies import get_mobile_payment_service
 from ..mobile_payments.schemas import FreedomPaymentInitResponse
@@ -118,18 +117,10 @@ def admin_update_plan(
 
 @admin_router.get('/passes', response_model=CustomerPassListResponse)
 def admin_list_passes(
-    current_admin_user: AdminCurrentUserResponse = Depends(require_admin_roles('super_admin', 'operator', 'content_manager')),
+    current_admin_user: AdminCurrentUserResponse = Depends(require_admin_roles('super_admin')),
     service: PassService = Depends(get_pass_service),
 ) -> CustomerPassListResponse:
     records = service.passes.list_all()
-    branch_scope = require_operator_branch_scope(
-        admin_user=current_admin_user, branch_repository=service.branches
-    )
-    if branch_scope is not None:
-        records = [
-            record for record in records
-            if record[0].branch_id_snapshot is None or record[0].branch_id_snapshot == branch_scope
-        ]
     items = [service.response(pass_record, child, branch) for pass_record, child, branch in records]
     return CustomerPassListResponse(items=items, total=len(items))
 
@@ -137,16 +128,11 @@ def admin_list_passes(
 @admin_router.get('/passes/{pass_id}', response_model=CustomerPassResponse)
 def admin_get_pass(
     pass_id: str,
-    current_admin_user: AdminCurrentUserResponse = Depends(require_admin_roles('super_admin', 'operator', 'content_manager')),
+    current_admin_user: AdminCurrentUserResponse = Depends(require_admin_roles('super_admin')),
     service: PassService = Depends(get_pass_service),
 ) -> CustomerPassResponse:
     record = service.passes.db.get(CustomerPass, pass_id)
     if record is None:
-        raise NotFoundException(code='pass_not_found', message='Pass was not found.')
-    branch_scope = require_operator_branch_scope(
-        admin_user=current_admin_user, branch_repository=service.branches
-    )
-    if branch_scope is not None and record.branch_id_snapshot not in (None, branch_scope):
         raise NotFoundException(code='pass_not_found', message='Pass was not found.')
     child = service.children.get_by_id_and_user(record.child_id, record.mobile_user_id)
     branch = service.branches.get_by_id(record.branch_id_snapshot) if record.branch_id_snapshot else None

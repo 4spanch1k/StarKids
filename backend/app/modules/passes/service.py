@@ -110,9 +110,15 @@ class PassService:
             )
 
     def validate_purchase(
-        self, *, user_id: str, child_id: str, plan_id: str, branch_id: str
+        self,
+        *,
+        user_id: str,
+        child_id: str,
+        plan_id: str,
+        branch_id: str,
+        for_update: bool = False,
     ) -> tuple[MobileChild, PassPlan, Branch]:
-        child = self.children.get_by_id_and_user(child_id, user_id)
+        child = self.children.get_by_id_and_user(child_id, user_id, for_update=for_update)
         if child is None:
             raise NotFoundException(code='child_not_found', message='Child was not found.')
         plan = self.plans.get(plan_id)
@@ -136,6 +142,17 @@ class PassService:
         snapshot = dict(payment.init_payload or {}).get('passSnapshot')
         if not isinstance(snapshot, dict):
             raise DomainHTTPException(code='pass_snapshot_missing', message='Pass payment snapshot is missing.', status_code=409)
+        child = self.children.get_by_id_and_user(
+            str(snapshot.get('childId') or ''),
+            payment.mobile_user_id,
+            for_update=True,
+        )
+        if child is None:
+            raise DomainHTTPException(
+                code='pass_child_not_found',
+                message='Pass child is no longer available for entitlement issuance.',
+                status_code=409,
+            )
         activated_at = payment.paid_at or self.now_provider()
         if activated_at.tzinfo is None:
             activated_at = activated_at.replace(tzinfo=UTC)

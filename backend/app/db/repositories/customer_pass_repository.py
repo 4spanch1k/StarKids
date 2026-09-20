@@ -37,6 +37,11 @@ class CustomerPassRepository(Repository):
         )
         return list(self.db.execute(statement).all())
 
+    def exists_for_child(self, child_id: str) -> bool:
+        return self.db.scalar(
+            select(CustomerPass.id).where(CustomerPass.child_id == child_id).limit(1)
+        ) is not None
+
     def add(self, customer_pass: CustomerPass) -> CustomerPass:
         self.db.add(customer_pass)
         return customer_pass
