@@ -8,12 +8,18 @@ from ...db.repositories.branch_ticket_repository import BranchTicketRepository
 from ...db.repositories.issued_ticket_repository import IssuedTicketRepository
 from ...db.repositories.mobile_payment_repository import MobilePaymentRepository
 from ...db.repositories.visit_repository import VisitRepository
+from ...db.repositories.customer_pass_repository import CustomerPassRepository
+from ...db.repositories.mobile_child_repository import MobileChildRepository
+from ...db.repositories.pass_plan_repository import PassPlanRepository
+from ...db.repositories.pass_redemption_repository import PassRedemptionRepository
 from .freedompay_client import FreedomPayClient, FreedomPayClientProtocol
 from .issued_ticket_service import IssuedTicketService
 from .ticket_qr_service import TicketQrService
 from .service import MobilePaymentService
 from ..loyalty.dependencies import get_loyalty_service
 from ..loyalty.service import LoyaltyService
+from ..passes.qr_service import PassQrService
+from ..passes.service import PassService
 
 
 def get_freedompay_client(settings: Settings = Depends(get_settings)) -> FreedomPayClientProtocol:
@@ -26,6 +32,15 @@ def get_mobile_payment_service(
     freedompay_client: FreedomPayClientProtocol = Depends(get_freedompay_client),
     loyalty_service: LoyaltyService = Depends(get_loyalty_service),
 ) -> MobilePaymentService:
+    pass_service = PassService(
+        plan_repository=PassPlanRepository(session),
+        customer_pass_repository=CustomerPassRepository(session),
+        redemption_repository=PassRedemptionRepository(session),
+        child_repository=MobileChildRepository(session),
+        branch_repository=BranchRepository(session),
+        visit_repository=VisitRepository(session),
+        qr_service=PassQrService(settings.ticket_qr_secret),
+    )
     return MobilePaymentService(
         settings=settings,
         payment_repository=MobilePaymentRepository(session),
@@ -36,4 +51,5 @@ def get_mobile_payment_service(
         ticket_qr_service=TicketQrService(settings.ticket_qr_secret or ''),
         visit_repository=VisitRepository(session),
         loyalty_service=loyalty_service,
+        pass_service=pass_service,
     )

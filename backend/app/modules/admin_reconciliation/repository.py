@@ -17,6 +17,7 @@ class AdminReconciliationRepository(Repository):
                 .where(
                     MobilePayment.ticket_issuance_required.is_(True)
                     | MobilePayment.loyalty_settlement_required.is_(True)
+                    | MobilePayment.pass_issuance_required.is_(True)
                 )
                 .order_by(MobilePayment.created_at.asc(), MobilePayment.id.asc())
             )

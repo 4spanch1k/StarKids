@@ -58,6 +58,37 @@ class MobilePaymentRepository(Repository):
         self.db.refresh(payment)
         return payment
 
+    def create_pass_payment(
+        self,
+        *,
+        mobile_user_id: str,
+        branch_id: str,
+        payable_entity_id: str,
+        local_order_id: str,
+        idempotency_key: str,
+        amount_tenge: int,
+        init_payload: dict[str, object],
+        expires_at: datetime | None = None,
+    ) -> MobilePayment:
+        return self.create_ticket_payment(
+            mobile_user_id=mobile_user_id,
+            branch_id=branch_id,
+            payable_entity_type='pass_purchase',
+            payable_entity_id=payable_entity_id,
+            local_order_id=local_order_id,
+            idempotency_key=idempotency_key,
+            amount_tenge=amount_tenge,
+            currency='KZT',
+            quantity=1,
+            visit_date=None,
+            ticket_items=[],
+            init_payload=init_payload,
+            gross_amount_tenge=amount_tenge,
+            bonus_amount=0,
+            cash_amount_tenge=amount_tenge,
+            expires_at=expires_at,
+        )
+
     def list_expired_pending(self, *, now: datetime) -> list[MobilePayment]:
         statement = (
             select(MobilePayment)
@@ -356,6 +387,18 @@ class MobilePaymentRepository(Repository):
                     MobilePayment.ticket_issuance_required.is_(True),
                     MobilePayment.loyalty_settlement_required.is_(True),
                 ),
+            )
+            .order_by(MobilePayment.paid_at.asc(), MobilePayment.created_at.asc())
+        )
+        return list(self.db.scalars(statement).all())
+
+    def list_paid_pass_payments(self) -> list[MobilePayment]:
+        statement = (
+            select(MobilePayment)
+            .where(
+                MobilePayment.payable_entity_type == 'pass_purchase',
+                MobilePayment.status == 'paid',
+                MobilePayment.pass_issuance_required.is_(True),
             )
             .order_by(MobilePayment.paid_at.asc(), MobilePayment.created_at.asc())
         )

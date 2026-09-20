@@ -15,17 +15,32 @@ from app.db.repositories.issued_ticket_repository import IssuedTicketRepository
 from app.db.repositories.loyalty_repository import LoyaltyRepository
 from app.db.repositories.mobile_payment_repository import MobilePaymentRepository
 from app.db.repositories.visit_repository import VisitRepository
+from app.db.repositories.customer_pass_repository import CustomerPassRepository
+from app.db.repositories.mobile_child_repository import MobileChildRepository
+from app.db.repositories.pass_plan_repository import PassPlanRepository
+from app.db.repositories.pass_redemption_repository import PassRedemptionRepository
 from app.modules.loyalty.service import LoyaltyService
 from app.modules.mobile_payments.dependencies import get_freedompay_client
 from app.modules.mobile_payments.issued_ticket_service import IssuedTicketService
 from app.modules.mobile_payments.service import MobilePaymentService
 from app.modules.mobile_payments.ticket_qr_service import TicketQrService
+from app.modules.passes.qr_service import PassQrService
+from app.modules.passes.service import PassService
 
 
 def main() -> None:
     settings = get_settings()
     session = SessionLocal()
     try:
+        pass_service = PassService(
+            plan_repository=PassPlanRepository(session),
+            customer_pass_repository=CustomerPassRepository(session),
+            redemption_repository=PassRedemptionRepository(session),
+            child_repository=MobileChildRepository(session),
+            branch_repository=BranchRepository(session),
+            visit_repository=VisitRepository(session),
+            qr_service=PassQrService(settings.ticket_qr_secret),
+        )
         service = MobilePaymentService(
             settings=settings,
             payment_repository=MobilePaymentRepository(session),
@@ -36,6 +51,7 @@ def main() -> None:
             ticket_qr_service=TicketQrService(settings.ticket_qr_secret or ''),
             visit_repository=VisitRepository(session),
             loyalty_service=LoyaltyService(LoyaltyRepository(session)),
+            pass_service=pass_service,
         )
         print(f'expired mobile payments: {service.expire_stale_payments()}')
         print(f'reconciled paid payments: {service.settle_paid_loyalty()}')
