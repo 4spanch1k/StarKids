@@ -51,6 +51,22 @@ class ChildrenController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Clears all account-scoped state when the authenticated identity changes.
+  ///
+  /// The generation bump prevents a response started for the previous
+  /// account from repopulating this shared controller after logout/switch.
+  void resetForAccountChange() {
+    _operationGeneration++;
+    _preserveHydratedChildrenForNextLoad = false;
+    _children = const [];
+    _status = ChildrenStatus.loading;
+    _errorMessage = null;
+    _formStatus = ChildFormStatus.idle;
+    _formError = null;
+    _deleteErrorMessage = null;
+    notifyListeners();
+  }
+
   /// Returns children whose birthday is today.
   List<Child> get todaysBirthdays =>
       _children.where((c) => c.isBirthdayToday).toList();

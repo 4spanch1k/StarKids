@@ -71,6 +71,29 @@ class ProfileController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Clears all account-scoped state when the authenticated identity changes.
+  ///
+  /// Incrementing both generations makes responses from the previous account
+  /// harmless even when their requests are still in flight.
+  void resetForAccountChange() {
+    _loadGeneration++;
+    _requestPreviewGeneration++;
+    _preserveHydratedProfileForNextLoad = false;
+    _profile = null;
+    _firstNameDraft = '';
+    _lastNameDraft = '';
+    _emailDraft = '';
+    _status = ProfileViewStatus.loading;
+    _errorMessage = null;
+    _isSaving = false;
+    _isUploadingAvatar = false;
+    _previewRequests = const [];
+    _totalRequests = 0;
+    _requestsStatus = ProfileRequestsStatus.loading;
+    _requestsErrorMessage = null;
+    notifyListeners();
+  }
+
   String? get firstNameError {
     final name = _firstNameDraft.trim();
     if (name.isEmpty) return null;
