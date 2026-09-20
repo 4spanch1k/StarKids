@@ -87,6 +87,92 @@ class PushCampaignServiceTests(unittest.TestCase):
             self.assertEqual(result.targeted_users, 1)
             self.assertEqual(result.targeted_devices, 1)
 
+    def test_birthday_presets_use_supplied_now_and_exclude_non_matches(self) -> None:
+        now = datetime(2026, 9, 6, 12, tzinfo=UTC)
+        with self.SessionLocal() as session:
+            for days_before in (7, 14, 30):
+                target = birthday_target_date(now, days_before)
+                self._user(session, birthday=date(2020, target.month, target.day))
+            self._user(session)  # Users without children are never birthday targets.
+            self._user(session, birthday=date(2020, 9, 21))
+            session.commit()
+            service = PushCampaignService(session, FakeDelivery())
+
+            for days_before in (7, 14, 30):
+                result = service.preview(
+                    PushCampaignAudience(
+                        type='birthday_in_days',
+                        days_before_birthday=days_before,
+                    ),
+                    now=now,
+                )
+                self.assertEqual(result.targeted_users, 1)
+                self.assertEqual(result.targeted_devices, 1)
+
+    def test_birthday_audience_counts_unique_users_and_all_eligible_devices(self) -> None:
+        now = datetime(2026, 9, 6, 12, tzinfo=UTC)
+        with self.SessionLocal() as session:
+            target = birthday_target_date(now, 14)
+            user = self._user(session, birthday=date(2020, target.month, target.day))
+            second_session = MobileSession(
+                id=uuid4().hex,
+                mobile_user_id=user.id,
+                refresh_token_hash='hash-second-device',
+                expires_at=datetime(2030, 1, 1, tzinfo=UTC),
+            )
+            session.add(second_session)
+            session.flush()
+            session.add(
+                MobileNotificationDevice(
+                    id=uuid4().hex,
+                    mobile_user_id=user.id,
+                    mobile_session_id=second_session.id,
+                    platform='android',
+                    push_token='second-device',
+                    permission_status='granted',
+                    notifications_enabled=True,
+                )
+            )
+            session.commit()
+            service = PushCampaignService(session, FakeDelivery())
+
+            result = service.preview(
+                PushCampaignAudience(type='birthday_in_days', days_before_birthday=14),
+                now=now,
+            )
+
+            self.assertEqual(result.targeted_users, 1)
+            self.assertEqual(result.targeted_devices, 2)
+
+    def test_scheduled_snapshot_resolves_birthday_cohort_at_snapshot_time(self) -> None:
+        snapshot_now = datetime(2026, 9, 6, 12, tzinfo=UTC)
+        with self.SessionLocal() as session:
+            target = birthday_target_date(snapshot_now, 14)
+            self._user(session, birthday=date(2020, target.month, target.day))
+            campaign = PushCampaign(
+                id=uuid4().hex,
+                internal_name='scheduled-birthday',
+                title='Скоро день рождения',
+                body='Посмотрите варианты праздника.',
+                audience_type='birthday_in_days',
+                audience_config={'days_before_birthday': 14},
+                destination='birthdays',
+                destination_payload={},
+                status='scheduled',
+                scheduled_at=snapshot_now - timedelta(minutes=1),
+                created_by_admin_id='admin-1',
+            )
+            session.add(campaign)
+            session.commit()
+            service = PushCampaignService(session, FakeDelivery())
+
+            service._start_snapshot(campaign.id, now=snapshot_now)
+
+            deliveries = session.query(PushCampaignDelivery).filter_by(campaign_id=campaign.id).all()
+            self.assertEqual(len(deliveries), 1)
+            self.assertEqual(campaign.targeted_users, 1)
+            self.assertEqual(campaign.targeted_devices, 1)
+
     def test_visit_segment_audience_requires_and_round_trips_segment(self) -> None:
         audience = PushCampaignAudience(type='visit_segment', visit_segment='returning')
         self.assertEqual(audience.model_dump(exclude_none=True), {'type': 'visit_segment', 'visit_segment': 'returning'})

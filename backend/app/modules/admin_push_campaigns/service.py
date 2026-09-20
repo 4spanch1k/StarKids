@@ -172,28 +172,32 @@ class PushCampaignService:
                     logger.warning('push campaign skipped: FCM is not configured campaign_id=%s', campaign_id)
                     self._mark_failed(self._get(campaign_id), 'push_provider_not_configured')
                     continue
-                self._start_snapshot(campaign_id)
+                self._start_snapshot(campaign_id, now=now)
                 self._deliver_campaign(campaign_id)
             except Exception:  # noqa: BLE001
                 logger.exception('push campaign processing failed campaign_id=%s', campaign_id)
                 self.session.rollback()
         return len(ids)
 
-    def _start_snapshot(self, campaign_id: str) -> None:
+    def _start_snapshot(self, campaign_id: str, *, now: datetime | None = None) -> None:
+        effective_now = now or datetime.now(UTC)
         campaign = self.session.scalar(select(PushCampaign).where(PushCampaign.id == campaign_id).with_for_update())
         if campaign is None:
             raise NotFoundException(code='campaign_not_found', message='Кампания не найдена.')
         if campaign.status in {'sent', 'partially_failed', 'cancelled'}:
             return
-        if campaign.status == 'scheduled' and campaign.scheduled_at and campaign.scheduled_at > datetime.now(UTC):
+        if campaign.status == 'scheduled' and campaign.scheduled_at and campaign.scheduled_at > effective_now:
             raise DomainHTTPException(code='campaign_not_due', message='Кампания ещё не наступила.', status_code=409)
         existing = self.session.scalar(select(func.count()).select_from(PushCampaignDelivery).where(PushCampaignDelivery.campaign_id == campaign.id))
         campaign.status = 'processing'
         campaign.failure_reason = None
-        campaign.started_at = campaign.started_at or datetime.now(UTC)
+        campaign.started_at = campaign.started_at or effective_now
         if not existing:
             audience = PushCampaignAudience(type=campaign.audience_type, **campaign.audience_config)
-            _, devices = self._resolve_audience(audience)
+            # Resolve at snapshot/send time, not when the campaign was created.
+            # This keeps scheduled birthday cohorts aligned with the current
+            # Asia/Almaty calendar date.
+            _, devices = self._resolve_audience(audience, now=effective_now)
             for user_id, device in devices:
                 self.session.add(PushCampaignDelivery(campaign_id=campaign.id, mobile_user_id=user_id, device_id=device.id, token_snapshot=device.push_token))
             campaign.targeted_users = len({u for u, _ in devices})
@@ -287,12 +291,13 @@ class PushCampaignService:
         *,
         now: datetime | None = None,
     ) -> tuple[list[str], list[tuple[str, MobileNotificationDevice]]]:
+        effective_now = now or datetime.now(UTC)
         query = select(MobileUser.id, MobileNotificationDevice).join(MobileNotificationDevice, MobileNotificationDevice.mobile_user_id == MobileUser.id).where(
             MobileUser.is_active.is_(True), MobileNotificationDevice.notifications_enabled.is_(True),
             MobileNotificationDevice.permission_status.not_in(['denied', 'unavailable']),
         )
         if audience.type == 'birthday_in_days':
-            target = birthday_target_date(datetime.now(UTC), audience.days_before_birthday or 0)
+            target = birthday_target_date(effective_now, audience.days_before_birthday or 0)
             month_match = extract('month', MobileChild.birth_date) == target.month
             day_match = extract('day', MobileChild.birth_date) == target.day
             if target.month == 2 and target.day == 28:
@@ -305,7 +310,7 @@ class PushCampaignService:
             # moment of preview/snapshot. Device eligibility remains owned by
             # this existing campaign query.
             query = query.where(
-                MobileUser.id.in_(visit_segment_user_ids(audience.visit_segment or 'never_visited', now))
+                MobileUser.id.in_(visit_segment_user_ids(audience.visit_segment or 'never_visited', effective_now))
             )
         rows = self.session.execute(query.distinct()).all()
         devices = [(row[0], row[1]) for row in rows]
