@@ -49,7 +49,11 @@ Future<void> _initFirebaseSafely() async {
     final options = DefaultFirebaseOptions.currentPlatform;
     if (!DefaultFirebaseOptions.isConfigured) {
       debugPrint(
-          '[BOOT] Firebase init skipped: no configuration for this target');
+        '[BOOT] Firebase init skipped: no configuration for this target',
+      );
+      // Resolve the handshake even on unsupported/unconfigured targets so the
+      // controller can settle on its safe unavailable state.
+      ServiceRegistry.pushTokenController.onPushProviderReady();
       return;
     }
 
@@ -78,6 +82,11 @@ Future<void> _initFirebaseSafely() async {
       debugPrint('[FCM] Opened via notification tap: ${message.data}');
       NotificationNavigationCoordinator.instance.handlePayload(message.data);
     });
+
+    // Firebase is initialized and its message listeners are active. The push
+    // controller can now subscribe to token refresh and retry registration for
+    // an authenticated, completed-onboarding account.
+    ServiceRegistry.pushTokenController.onPushProviderReady();
 
     // Check if the app was launched from a terminated state via notification tap.
     final initialMessage = await FirebaseMessaging.instance.getInitialMessage();

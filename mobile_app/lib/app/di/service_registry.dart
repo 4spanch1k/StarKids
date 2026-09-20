@@ -150,6 +150,12 @@ abstract final class ServiceRegistry {
     notificationSettingsRepository: notificationSettingsRepository,
     fcmTokenGateway: fcmTokenGateway,
     pushTokenRepository: pushTokenRepository,
+    // Firebase initializes after the first frame. Registration is also gated
+    // on completed onboarding so a new account never gets an OS permission
+    // prompt in the middle of family setup.
+    providerReady: false,
+    registrationAllowed: () => onboardingController.isComplete,
+    registrationGateListenable: onboardingController,
   );
   static final PublicContentRepository publicContentRepository =
       ApiPublicContentRepository(apiClient: apiClient);

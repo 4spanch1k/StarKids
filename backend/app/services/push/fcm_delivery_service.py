@@ -101,19 +101,34 @@ class FcmPushDeliveryService(PushDeliveryPort):
         )
         try:
             provider_message_id = messaging.send(message, app=self._app)
-            logger.info('FCM push sent to token=%s...', device_token[:8])
+            logger.info('FCM push accepted by provider')
             return PushDeliveryResult.ok(device_token, provider_message_id=provider_message_id)
         except messaging.UnregisteredError:
-            logger.warning('FCM token unregistered: %s...', device_token[:8])
+            # firebase-admin documents this response as a terminal token
+            # invalidation. The caller disables the corresponding device row;
+            # no token material is written to logs.
+            logger.warning('FCM rejected an unregistered device token')
             return PushDeliveryResult.failed(
                 device_token,
                 error_code='unregistered',
                 error_message='Device token is no longer valid.',
             )
-        except Exception as exc:  # noqa: BLE001
-            logger.error('FCM send failed: %s', exc)
+        except messaging.SenderIdMismatchError:
+            # Sender-id mismatch is a provider/configuration problem, not a
+            # device token lifecycle signal. Keep it retryable and fail closed.
+            logger.error('FCM sender identity mismatch')
             return PushDeliveryResult.failed(
                 device_token,
                 error_code='send_error',
-                error_message=str(exc),
+                error_message='FCM sender configuration mismatch.',
+            )
+        except Exception as exc:  # noqa: BLE001
+            # Provider exception text can contain request metadata. Keep logs
+            # category-only and let the durable delivery row carry a generic,
+            # bounded error for retry/ops inspection.
+            logger.error('FCM send failed category=%s', type(exc).__name__)
+            return PushDeliveryResult.failed(
+                device_token,
+                error_code='send_error',
+                error_message='FCM provider error.',
             )

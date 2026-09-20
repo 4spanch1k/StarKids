@@ -1,9 +1,10 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.exc import IntegrityError
 
 from ..models.mobile_notification_device import MobileNotificationDevice
+from ..models.mobile_session import MobileSession
 from .base import Repository
 
 
@@ -11,12 +12,33 @@ class MobileNotificationDeviceRepository(Repository):
     def get_active_devices_for_user(
         self,
         mobile_user_id: str,
+        *,
+        now: datetime | None = None,
     ) -> list[MobileNotificationDevice]:
+        """Return devices whose owning session is still valid.
+
+        Client-side logout cleanup is best-effort; the session join is the
+        server-side privacy boundary for every direct user push path.
+        """
+        effective_now = now or datetime.now(UTC)
         return list(
             self.db.scalars(
-                select(MobileNotificationDevice).where(
+                select(MobileNotificationDevice)
+                .join(
+                    MobileSession,
+                    and_(
+                        MobileSession.id == MobileNotificationDevice.mobile_session_id,
+                        MobileSession.mobile_user_id == MobileNotificationDevice.mobile_user_id,
+                    ),
+                )
+                .where(
                     MobileNotificationDevice.mobile_user_id == mobile_user_id,
                     MobileNotificationDevice.notifications_enabled.is_(True),
+                    MobileNotificationDevice.permission_status.not_in(
+                        ['denied', 'unavailable']
+                    ),
+                    MobileSession.revoked_at.is_(None),
+                    MobileSession.expires_at > effective_now,
                 )
             ).all()
         )

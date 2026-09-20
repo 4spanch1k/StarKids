@@ -5,7 +5,7 @@ from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.orm import Session
 
 from ...core.config.settings import get_settings
@@ -13,12 +13,14 @@ from ...db.models.birthday_reminder import BirthdayReminder
 from ...db.models.birthday_request import BirthdayRequest
 from ...db.models.mobile_child import MobileChild
 from ...db.models.mobile_notification_device import MobileNotificationDevice
+from ...db.models.mobile_session import MobileSession
 from ...db.models.mobile_user import MobileUser
 from ..admin_push_campaigns.service import (
     birthday_matches_target,
     birthday_occurrence_for_year,
     PushCampaignService,
 )
+from ..admin_push_campaigns.schemas import PushCampaignResponse
 from ..leads.constants import ACTIVE_BIRTHDAY_LEAD_STATUSES
 
 logger = logging.getLogger(__name__)
@@ -93,6 +95,7 @@ class BirthdayReminderService:
                     target_date=target_date,
                     days_before=window,
                     children=children,
+                    now=current,
                 )
         return processed
 
@@ -115,6 +118,7 @@ class BirthdayReminderService:
         target_date: date,
         days_before: int,
         children: list[MobileChild],
+        now: datetime,
     ) -> int:
         # The deterministic leader row serializes two workers handling twins. The
         # durable campaign link is then visible to the second worker before it
@@ -168,7 +172,7 @@ class BirthdayReminderService:
             if not pending:
                 self.session.commit()
                 return len(records)
-            if not self._has_active_device(user_id):
+            if not self._has_active_device(user_id, now=now):
                 for record in pending:
                     self._skip(record, 'no_active_device')
                 self.session.commit()
@@ -197,7 +201,7 @@ class BirthdayReminderService:
         # Delivery is deliberately outside the reminder transaction. If the
         # process dies here, the durable campaign link lets the next run resume.
         response = self.push_campaigns.process_existing(campaign_id)
-        self._finalize_records(campaign_id, response.status)
+        self._finalize_records(campaign_id, response)
         return len(records)
 
     def _suppressing_leads_by_child(
@@ -245,13 +249,30 @@ class BirthdayReminderService:
             for status, requested_date in leads
         )
 
-    def _has_active_device(self, user_id: str) -> bool:
+    def _has_active_device(
+        self,
+        user_id: str,
+        *,
+        now: datetime | None = None,
+    ) -> bool:
+        effective_now = now or datetime.now(UTC)
         return self.session.scalar(
             select(MobileNotificationDevice.id)
+            .join(
+                MobileSession,
+                and_(
+                    MobileSession.id == MobileNotificationDevice.mobile_session_id,
+                    MobileSession.mobile_user_id == MobileNotificationDevice.mobile_user_id,
+                ),
+            )
             .where(
                 MobileNotificationDevice.mobile_user_id == user_id,
                 MobileNotificationDevice.notifications_enabled.is_(True),
-                MobileNotificationDevice.permission_status.not_in(['denied', 'unavailable']),
+                MobileNotificationDevice.permission_status.not_in(
+                    ['denied', 'unavailable']
+                ),
+                MobileSession.revoked_at.is_(None),
+                MobileSession.expires_at > effective_now,
             )
             .limit(1)
         ) is not None
@@ -270,15 +291,30 @@ class BirthdayReminderService:
             reason,
         )
 
-    def _finalize_records(self, campaign_id: str, campaign_status: str) -> None:
-        if campaign_status not in {'sent', 'failed', 'cancelled'}:
+    def _finalize_records(
+        self,
+        campaign_id: str,
+        response: PushCampaignResponse,
+    ) -> None:
+        campaign_status = response.status
+        partially_delivered = (
+            campaign_status == 'partially_failed' and response.sent_count > 0
+        )
+        if campaign_status not in {'sent', 'failed', 'cancelled', 'partially_failed'}:
             return
         now = datetime.now(UTC)
-        values = {'status': 'sent' if campaign_status == 'sent' else 'failed', 'updated_at': now}
-        if campaign_status == 'sent':
+        delivered = campaign_status == 'sent' or partially_delivered
+        values = {'status': 'sent' if delivered else 'failed', 'updated_at': now}
+        if delivered:
             values['sent_at'] = now
         else:
-            values['skip_reason'] = 'campaign_failed' if campaign_status == 'failed' else 'campaign_cancelled'
+            values['skip_reason'] = (
+                'campaign_cancelled'
+                if campaign_status == 'cancelled'
+                else 'campaign_partial_without_delivery'
+                if campaign_status == 'partially_failed'
+                else 'campaign_failed'
+            )
         self.session.execute(
             update(BirthdayReminder)
             .where(BirthdayReminder.push_campaign_id == campaign_id, BirthdayReminder.status == 'pending')
@@ -286,9 +322,11 @@ class BirthdayReminderService:
         )
         self.session.commit()
         logger.info(
-            'birthday reminder finalized campaign_id=%s status=%s',
+            'birthday reminder finalized campaign_id=%s status=%s sent_count=%s failed_count=%s',
             campaign_id,
             campaign_status,
+            response.sent_count,
+            response.failed_count,
         )
 
     @staticmethod
