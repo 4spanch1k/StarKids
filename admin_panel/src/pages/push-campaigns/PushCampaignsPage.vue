@@ -2,7 +2,7 @@
   <PageShell
     eyebrow="Коммуникации"
     title="Пуш-уведомления"
-    description="Сообщение отправляется всем пользователям с активным push-токеном."
+    description="Сообщение отправляется выбранной аудитории с активным push-токеном."
   >
     <p v-if="error" class="admin-inline-message admin-inline-message--error">{{ error }}</p>
     <p v-if="!providerConfigured" class="admin-inline-message admin-inline-message--error">
@@ -12,6 +12,18 @@
     <form class="admin-list-record" @submit.prevent="create">
       <input v-model.trim="form.title" class="admin-control" placeholder="Заголовок" maxlength="100" required />
       <textarea v-model.trim="form.body" class="admin-control" placeholder="Текст сообщения" maxlength="500" required />
+      <select v-model="form.audience_mode" class="admin-control" aria-label="Аудитория">
+        <option value="all">Все пользователи</option>
+        <option value="birthday">Скоро день рождения ребёнка</option>
+      </select>
+      <label v-if="form.audience_mode === 'birthday'" class="admin-field">
+        <span>День рождения ребёнка</span>
+        <select v-model.number="form.birthday_days" class="admin-control" aria-label="Дни до дня рождения">
+          <option :value="7">Через 7 дней</option>
+          <option :value="14">Через 14 дней</option>
+          <option :value="30">Через 30 дней</option>
+        </select>
+      </label>
       <select v-model="form.destination" class="admin-control" aria-label="Куда ведём">
         <option value="home">Главная</option>
         <option value="tickets">Билеты</option>
@@ -34,11 +46,11 @@
         <span>{{ form.body }}</span>
         <span>Куда ведёт: {{ destinationLabel(form.destination) }}</span>
         <span>Когда: {{ form.mode === 'now' ? 'сейчас' : formatInputDate(form.scheduled_at) }}</span>
-        <span>Аудитория: Все пользователи с активным push-токеном</span>
+        <span>Аудитория: {{ audienceLabel(currentAudience()) }}</span>
       </div>
 
       <div class="admin-page-actions">
-        <button class="admin-button admin-button--secondary" type="button" :disabled="!canSubmit || previewLoading" @click="preview">
+        <button class="admin-button admin-button--secondary" type="button" :disabled="!canPreview || previewLoading" @click="preview">
           {{ previewLoading ? 'Проверяем…' : 'Проверить аудиторию' }}
         </button>
         <button class="admin-button admin-button--primary" type="submit" :disabled="saving || !canSubmit">
@@ -46,7 +58,13 @@
         </button>
       </div>
       <p v-if="previewResult" class="admin-inline-message">
-        Сейчас доступно: {{ previewResult.targeted_users }} пользователей, {{ previewResult.targeted_devices }} устройств.
+        {{ audienceLabel(currentAudience()) }}: {{ previewResult.targeted_users }} семей · {{ previewResult.targeted_devices }} устройств.
+      </p>
+      <p v-if="previewResult && form.mode === 'now' && previewResult.targeted_users === 0" class="admin-inline-message admin-inline-message--error">
+        Сейчас подходящих семей нет.
+      </p>
+      <p v-else-if="!previewMatchesCurrentAudience" class="admin-muted">
+        Проверьте аудиторию перед отправкой.
       </p>
     </form>
 
@@ -56,7 +74,7 @@
         <div class="admin-list-record__copy">
           <strong>{{ campaign.title }}</strong>
           <span>{{ campaign.body }} · {{ destinationLabel(campaign.destination) }}</span>
-          <span>Аудитория: Все пользователи · {{ statusLabel(campaign.status) }}</span>
+          <span>Аудитория: {{ audienceLabel(campaign.audience) }} · {{ statusLabel(campaign.status) }}</span>
           <span v-if="campaign.status === 'scheduled' && campaign.scheduled_at">Отправка: {{ formatDateTime(campaign.scheduled_at) }} (Asia/Almaty)</span>
           <span v-if="campaign.failure_reason" class="admin-inline-message--error">Причина: {{ failureReasonLabel(campaign.failure_reason) }}</span>
           <small>Цель: {{ campaign.targeted_devices }} устройств · Принято FCM: {{ campaign.sent_count }} · Ошибки: {{ campaign.failed_count }} · Открытия: {{ campaign.opened_count }}</small>
@@ -79,7 +97,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import PageShell from '@/shared/ui/PageShell.vue';
 import StatePanel from '@/shared/ui/StatePanel.vue';
 import { cancelPushCampaign, createPushCampaign, fetchPushCampaignAttribution, listPushCampaigns, previewPushAudience, sendPushCampaign, type CampaignAudience, type PushCampaign, type PushCampaignAttribution } from '@/features/push-campaigns/api/pushCampaignsApi';
@@ -95,10 +113,14 @@ const sendingId = ref<string | null>(null);
 const error = ref('');
 const providerConfigured = ref(true);
 const previewResult = ref<{ targeted_users: number; targeted_devices: number } | null>(null);
+const previewAudienceKey = ref('');
 const createIdempotencyKey = ref(newIdempotencyKey());
-const form = reactive({ title: '', body: '', destination: 'home' as PushCampaign['destination'], mode: 'now' as 'now' | 'scheduled', scheduled_at: '' });
+const form = reactive({ title: '', body: '', audience_mode: 'all' as 'all' | 'birthday', birthday_days: 14, destination: 'home' as PushCampaign['destination'], mode: 'now' as 'now' | 'scheduled', scheduled_at: '' });
 
-const canSubmit = computed(() => form.title.trim().length > 0 && form.body.trim().length > 0 && (form.mode === 'now' || form.scheduled_at.length > 0));
+const audienceKey = computed(() => JSON.stringify(currentAudience()));
+const previewMatchesCurrentAudience = computed(() => previewAudienceKey.value === audienceKey.value);
+const canPreview = computed(() => form.mode === 'now' || form.scheduled_at.length > 0);
+const canSubmit = computed(() => form.title.trim().length > 0 && form.body.trim().length > 0 && (form.mode === 'now' || form.scheduled_at.length > 0) && previewMatchesCurrentAudience.value);
 
 async function load() {
   loading.value = true;
@@ -119,13 +141,20 @@ async function load() {
   }
 }
 
-function currentAudience(): CampaignAudience { return { type: 'all_users' }; }
+function currentAudience(): CampaignAudience {
+  return form.audience_mode === 'birthday'
+    ? { type: 'birthday_in_days', days_before_birthday: form.birthday_days }
+    : { type: 'all_users' };
+}
 
 async function preview() {
   previewLoading.value = true;
   error.value = '';
+  const audience = currentAudience();
+  const requestedAudienceKey = JSON.stringify(audience);
   try {
-    previewResult.value = await previewPushAudience(currentAudience());
+    previewResult.value = await previewPushAudience(audience);
+    previewAudienceKey.value = requestedAudienceKey;
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось проверить аудиторию';
   } finally {
@@ -135,7 +164,10 @@ async function preview() {
 
 async function create() {
   if (!canSubmit.value) return;
-  if (form.mode === 'now' && !window.confirm('Отправить уведомление всем пользователям с активным push-токеном?')) return;
+  const confirmation = previewResult.value?.targeted_users === 0 && form.mode === 'now'
+    ? 'Сейчас подходящих семей нет. Всё равно поставить уведомление в отправку?'
+    : `Отправить уведомление аудитории «${audienceLabel(currentAudience())}»?`;
+  if (form.mode === 'now' && !window.confirm(confirmation)) return;
   saving.value = true;
   error.value = '';
   try {
@@ -149,9 +181,10 @@ async function create() {
       send_now: form.mode === 'now',
       idempotency_key: createIdempotencyKey.value,
     });
-    Object.assign(form, { title: '', body: '', destination: 'home', mode: 'now', scheduled_at: '' });
+    Object.assign(form, { title: '', body: '', audience_mode: 'all', birthday_days: 14, destination: 'home', mode: 'now', scheduled_at: '' });
     createIdempotencyKey.value = newIdempotencyKey();
     previewResult.value = null;
+    previewAudienceKey.value = '';
     await load();
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось создать кампанию';
@@ -187,6 +220,15 @@ function destinationLabel(destination: PushCampaign['destination']): string {
   return ({ home: 'Главная', tickets: 'Билеты', birthdays: 'Праздники', promotions: 'Акции', profile: 'Профиль' } as Record<PushCampaign['destination'], string>)[destination];
 }
 
+function audienceLabel(audience: CampaignAudience): string {
+  if (audience.type === 'birthday_in_days') {
+    return `День рождения ребёнка через ${audience.days_before_birthday} дней`;
+  }
+  if (audience.type === 'visit_segment') return 'Сегмент посещений';
+  if (audience.type === 'user') return 'Выбранный пользователь';
+  return 'Все пользователи';
+}
+
 function statusLabel(status: string): string {
   return ({ draft: 'Черновик', scheduled: 'Запланировано', processing: 'Отправляется', sent: 'Отправлено', partially_failed: 'Частично отправлено', failed: 'Ошибка отправки', cancelled: 'Отменено' } as Record<string, string>)[status] ?? status;
 }
@@ -204,6 +246,17 @@ function formatInputDate(value: string): string { return value ? `${value.replac
 function toAlmatyIso(value: string): string { return new Date(`${value}:00+05:00`).toISOString(); }
 
 function newIdempotencyKey(): string { return `push-${globalThis.crypto.randomUUID()}`; }
+
+watch(() => form.audience_mode, (mode) => {
+  if (mode === 'birthday') form.destination = 'birthdays';
+  previewResult.value = null;
+  previewAudienceKey.value = '';
+});
+
+watch(() => form.birthday_days, () => {
+  previewResult.value = null;
+  previewAudienceKey.value = '';
+});
 
 onMounted(load);
 </script>
