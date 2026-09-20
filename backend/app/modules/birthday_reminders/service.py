@@ -5,7 +5,7 @@ from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.orm import Session
 
 from ...core.config.settings import get_settings
@@ -13,6 +13,7 @@ from ...db.models.birthday_reminder import BirthdayReminder
 from ...db.models.birthday_request import BirthdayRequest
 from ...db.models.mobile_child import MobileChild
 from ...db.models.mobile_notification_device import MobileNotificationDevice
+from ...db.models.mobile_session import MobileSession
 from ...db.models.mobile_user import MobileUser
 from ..admin_push_campaigns.service import (
     birthday_matches_target,
@@ -94,6 +95,7 @@ class BirthdayReminderService:
                     target_date=target_date,
                     days_before=window,
                     children=children,
+                    now=current,
                 )
         return processed
 
@@ -116,6 +118,7 @@ class BirthdayReminderService:
         target_date: date,
         days_before: int,
         children: list[MobileChild],
+        now: datetime,
     ) -> int:
         # The deterministic leader row serializes two workers handling twins. The
         # durable campaign link is then visible to the second worker before it
@@ -169,7 +172,7 @@ class BirthdayReminderService:
             if not pending:
                 self.session.commit()
                 return len(records)
-            if not self._has_active_device(user_id):
+            if not self._has_active_device(user_id, now=now):
                 for record in pending:
                     self._skip(record, 'no_active_device')
                 self.session.commit()
@@ -246,13 +249,30 @@ class BirthdayReminderService:
             for status, requested_date in leads
         )
 
-    def _has_active_device(self, user_id: str) -> bool:
+    def _has_active_device(
+        self,
+        user_id: str,
+        *,
+        now: datetime | None = None,
+    ) -> bool:
+        effective_now = now or datetime.now(UTC)
         return self.session.scalar(
             select(MobileNotificationDevice.id)
+            .join(
+                MobileSession,
+                and_(
+                    MobileSession.id == MobileNotificationDevice.mobile_session_id,
+                    MobileSession.mobile_user_id == MobileNotificationDevice.mobile_user_id,
+                ),
+            )
             .where(
                 MobileNotificationDevice.mobile_user_id == user_id,
                 MobileNotificationDevice.notifications_enabled.is_(True),
-                MobileNotificationDevice.permission_status.not_in(['denied', 'unavailable']),
+                MobileNotificationDevice.permission_status.not_in(
+                    ['denied', 'unavailable']
+                ),
+                MobileSession.revoked_at.is_(None),
+                MobileSession.expires_at > effective_now,
             )
             .limit(1)
         ) is not None

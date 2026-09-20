@@ -29,13 +29,13 @@ class PushTokenController extends ChangeNotifier with WidgetsBindingObserver {
     bool Function()? registrationAllowed,
     Listenable? registrationGateListenable,
     bool providerReady = true,
-  }) : _authController = authController,
-       _notificationSettingsRepository = notificationSettingsRepository,
-       _fcmTokenGateway = fcmTokenGateway,
-       _pushTokenRepository = pushTokenRepository,
-       _registrationAllowed = registrationAllowed ?? (() => true),
-       _registrationGateListenable = registrationGateListenable,
-       _providerReady = providerReady;
+  })  : _authController = authController,
+        _notificationSettingsRepository = notificationSettingsRepository,
+        _fcmTokenGateway = fcmTokenGateway,
+        _pushTokenRepository = pushTokenRepository,
+        _registrationAllowed = registrationAllowed ?? (() => true),
+        _registrationGateListenable = registrationGateListenable,
+        _providerReady = providerReady;
 
   final MobileAuthController _authController;
   final NotificationSettingsRepository _notificationSettingsRepository;
@@ -52,6 +52,10 @@ class PushTokenController extends ChangeNotifier with WidgetsBindingObserver {
   bool _providerReady;
   bool _registrationInFlight = false;
   bool _tokenRegistrationInFlight = false;
+  int _accountGeneration = 0;
+  String? _accountIdentity;
+  bool _reconciliationPending = false;
+  String? _pendingRefreshToken;
 
   PushRegistrationStatus get status => _status;
 
@@ -71,6 +75,7 @@ class PushTokenController extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     _bootstrapped = true;
+    _observeCurrentAccount();
     _authController.addListener(_onAuthStateChanged);
     _registrationGateListenable?.addListener(_onRegistrationGateChanged);
     WidgetsBinding.instance.addObserver(this);
@@ -91,14 +96,17 @@ class PushTokenController extends ChangeNotifier with WidgetsBindingObserver {
       return;
     }
     _ensureTokenRefreshSubscription();
-    unawaited(_tryRegisterIfReady());
+    _reconciliationPending = true;
+    _scheduleReconciliation();
   }
 
   /// Re-attempt registration after a previous [PushRegistrationStatus.failed].
   Future<void> retryRegistration() async {
     if (_status == PushRegistrationStatus.registering) {
+      _reconciliationPending = true;
       return;
     }
+    _observeCurrentAccount();
     await _tryRegisterIfReady();
   }
 
@@ -107,11 +115,11 @@ class PushTokenController extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> prepareForLogout(MobileAuthSession session) async {
     if (_logoutInProgress) return;
     _logoutInProgress = true;
-    final token = _registeredToken;
-    _registeredToken = null;
-    if (token == null) return;
+    _invalidateAccountState();
 
     try {
+      // The server-side session is the source of truth.  Always attempt the
+      // delete, even after a process restart where no local token is cached.
       await _pushTokenRepository.removeToken(accessToken: session.accessToken);
     } catch (_) {
       // A subsequent authenticated registration atomically rebinds this token
@@ -122,8 +130,10 @@ class PushTokenController extends ChangeNotifier with WidgetsBindingObserver {
   /// Re-enables registration if the auth logout request itself failed.
   void cancelPendingLogout() {
     _logoutInProgress = false;
+    _observeCurrentAccount();
+    _reconciliationPending = true;
     if (_authController.isAuthenticated) {
-      unawaited(_tryRegisterIfReady());
+      _scheduleReconciliation();
     }
   }
 
@@ -155,7 +165,7 @@ class PushTokenController extends ChangeNotifier with WidgetsBindingObserver {
       return;
     }
     _tokenRefreshSubscription = _fcmTokenGateway.onTokenRefresh.listen(
-      (newToken) => _registerToken(newToken),
+      _handleTokenRefresh,
     );
   }
 
@@ -163,13 +173,16 @@ class PushTokenController extends ChangeNotifier with WidgetsBindingObserver {
     if (_providerReady &&
         _authController.isAuthenticated &&
         _registrationAllowed()) {
-      unawaited(_tryRegisterIfReady());
+      _reconciliationPending = true;
+      _scheduleReconciliation();
     }
   }
 
   Future<void> _onAuthStateChanged() async {
+    _observeCurrentAccount();
     if (_authController.isAuthenticated) {
-      await _tryRegisterIfReady();
+      _reconciliationPending = true;
+      _scheduleReconciliation();
     } else {
       await _handleLogout();
     }
@@ -179,6 +192,8 @@ class PushTokenController extends ChangeNotifier with WidgetsBindingObserver {
     if (_logoutInProgress) {
       _logoutInProgress = false;
       _registeredToken = null;
+      _pendingRefreshToken = null;
+      _reconciliationPending = false;
       _setStatus(PushRegistrationStatus.unauthenticated);
       return;
     }
@@ -210,6 +225,7 @@ class PushTokenController extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> _tryRegisterIfReady() async {
     if (_registrationInFlight) {
+      _reconciliationPending = true;
       return;
     }
     if (!_providerReady) {
@@ -224,19 +240,33 @@ class PushTokenController extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     _registrationInFlight = true;
+    _reconciliationPending = false;
     try {
+      _observeCurrentAccount();
       final session = _authController.session;
       if (session == null) {
         _setStatus(PushRegistrationStatus.unauthenticated);
         return;
       }
+      final generation = _accountGeneration;
+      final identity = _accountIdentity;
 
-      var permissionStatus = await _notificationSettingsRepository
-          .loadPermissionStatus();
+      var permissionStatus =
+          await _notificationSettingsRepository.loadPermissionStatus();
+
+      if (!_isCurrentAccount(generation, identity)) {
+        _reconciliationPending = true;
+        return;
+      }
 
       if (permissionStatus == NotificationPermissionStatus.unknown) {
-        permissionStatus = await _notificationSettingsRepository
-            .requestPermission();
+        permissionStatus =
+            await _notificationSettingsRepository.requestPermission();
+      }
+
+      if (!_isCurrentAccount(generation, identity)) {
+        _reconciliationPending = true;
+        return;
       }
 
       if (permissionStatus == NotificationPermissionStatus.denied) {
@@ -256,6 +286,10 @@ class PushTokenController extends ChangeNotifier with WidgetsBindingObserver {
       _setStatus(PushRegistrationStatus.registering);
 
       final token = await _fcmTokenGateway.getToken();
+      if (!_isCurrentAccount(generation, identity)) {
+        _reconciliationPending = true;
+        return;
+      }
       if (token == null) {
         _setStatus(PushRegistrationStatus.unavailable);
         return;
@@ -265,26 +299,54 @@ class PushTokenController extends ChangeNotifier with WidgetsBindingObserver {
         token,
         accessToken: session.accessToken,
         permissionStatus: permissionStatus,
+        expectedGeneration: generation,
+        expectedIdentity: identity,
       );
     } finally {
       _registrationInFlight = false;
+      _drainReconciliation();
     }
+  }
+
+  void _handleTokenRefresh(String token) {
+    _observeCurrentAccount();
+    if (_registrationInFlight || _tokenRegistrationInFlight) {
+      _pendingRefreshToken = token;
+      _reconciliationPending = true;
+      return;
+    }
+    unawaited(
+      _registerToken(
+        token,
+        expectedGeneration: _accountGeneration,
+        expectedIdentity: _accountIdentity,
+      ),
+    );
   }
 
   Future<void> _registerToken(
     String token, {
     String? accessToken,
     NotificationPermissionStatus? permissionStatus,
+    int? expectedGeneration,
+    String? expectedIdentity,
   }) async {
-    if (_logoutInProgress ||
+    final generation = expectedGeneration ?? _accountGeneration;
+    final identity = expectedIdentity ?? _accountIdentity;
+    if (!_isCurrentAccount(generation, identity) ||
         !_providerReady ||
-        !_registrationAllowed() ||
-        _tokenRegistrationInFlight) {
+        !_registrationAllowed()) {
+      return;
+    }
+    if (_tokenRegistrationInFlight) {
+      _pendingRefreshToken = token;
+      _reconciliationPending = true;
       return;
     }
     _tokenRegistrationInFlight = true;
     try {
-      final resolvedToken = accessToken ?? _authController.session?.accessToken;
+      final resolvedToken =
+          _authController.session?.accessToken ?? accessToken;
       if (resolvedToken == null) {
         _setStatus(PushRegistrationStatus.unauthenticated);
         return;
@@ -292,12 +354,19 @@ class PushTokenController extends ChangeNotifier with WidgetsBindingObserver {
 
       _setStatus(PushRegistrationStatus.registering);
 
-      var resolvedPermissionStatus =
-          permissionStatus ??
+      var resolvedPermissionStatus = permissionStatus ??
           await _notificationSettingsRepository.loadPermissionStatus();
+      if (!_isCurrentAccount(generation, identity)) {
+        _reconciliationPending = true;
+        return;
+      }
       if (resolvedPermissionStatus == NotificationPermissionStatus.unknown) {
-        resolvedPermissionStatus = await _notificationSettingsRepository
-            .requestPermission();
+        resolvedPermissionStatus =
+            await _notificationSettingsRepository.requestPermission();
+      }
+      if (!_isCurrentAccount(generation, identity)) {
+        _reconciliationPending = true;
+        return;
       }
       if (resolvedPermissionStatus == NotificationPermissionStatus.denied) {
         _setStatus(PushRegistrationStatus.permissionDenied);
@@ -320,6 +389,10 @@ class PushTokenController extends ChangeNotifier with WidgetsBindingObserver {
         accessToken: resolvedToken,
       );
 
+      if (!_isCurrentAccount(generation, identity)) {
+        _reconciliationPending = true;
+        return;
+      }
       if (success) {
         _registeredToken = token;
         _setStatus(PushRegistrationStatus.registered);
@@ -328,7 +401,88 @@ class PushTokenController extends ChangeNotifier with WidgetsBindingObserver {
       }
     } finally {
       _tokenRegistrationInFlight = false;
+      final pendingToken = _pendingRefreshToken;
+      _pendingRefreshToken = null;
+      if (pendingToken != null && _canRegisterCurrentAccount()) {
+        // The latest refresh value is the reconciliation requested by the
+        // queued event; do not immediately start a second initial-token pass.
+        _reconciliationPending = false;
+        unawaited(
+          _registerToken(
+            pendingToken,
+            expectedGeneration: _accountGeneration,
+            expectedIdentity: _accountIdentity,
+          ),
+        );
+      }
+      _drainReconciliation();
     }
+  }
+
+  String? _identityForSession(MobileAuthSession? session) {
+    final userId = session?.user?.id;
+    if (userId != null && userId.isNotEmpty) return userId;
+    final email = session?.email;
+    if (email != null && email.isNotEmpty) return email;
+    final phone = session?.phone;
+    if (phone != null && phone.isNotEmpty) return phone;
+    return null;
+  }
+
+  void _observeCurrentAccount() {
+    final identity = _identityForSession(_authController.session);
+    if (identity == _accountIdentity) return;
+    _accountIdentity = identity;
+    _accountGeneration += 1;
+    _registeredToken = null;
+    _pendingRefreshToken = null;
+    _reconciliationPending = true;
+    if (identity != null && _authController.isAuthenticated) {
+      _setStatus(PushRegistrationStatus.idle);
+    }
+  }
+
+  void _invalidateAccountState() {
+    _accountGeneration += 1;
+    _accountIdentity = null;
+    _registeredToken = null;
+    _pendingRefreshToken = null;
+    _reconciliationPending = false;
+  }
+
+  bool _isCurrentAccount(int generation, String? identity) {
+    return generation == _accountGeneration &&
+        identity == _accountIdentity &&
+        identity == _identityForSession(_authController.session) &&
+        _authController.isAuthenticated &&
+        !_logoutInProgress;
+  }
+
+  bool _canRegisterCurrentAccount() {
+    return _bootstrapped &&
+        _providerReady &&
+        !_logoutInProgress &&
+        _authController.isAuthenticated &&
+        _registrationAllowed();
+  }
+
+  void _scheduleReconciliation() {
+    if (!_canRegisterCurrentAccount()) return;
+    if (_registrationInFlight || _tokenRegistrationInFlight) {
+      _reconciliationPending = true;
+      return;
+    }
+    unawaited(_tryRegisterIfReady());
+  }
+
+  void _drainReconciliation() {
+    if (!_reconciliationPending ||
+        _registrationInFlight ||
+        _tokenRegistrationInFlight) {
+      return;
+    }
+    _reconciliationPending = false;
+    _scheduleReconciliation();
   }
 
   void _setStatus(PushRegistrationStatus newStatus) {

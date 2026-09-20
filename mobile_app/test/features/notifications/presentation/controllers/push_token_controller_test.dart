@@ -363,6 +363,122 @@ void main() {
         expect(controller.status, PushRegistrationStatus.registered);
       },
     );
+
+    test('prepareForLogout removes token even when local token is absent',
+        () async {
+      final session = _buildSession('access-token-without-local-token');
+      final authController = _buildAuthController(session: session);
+      final pushRepo = _RecordingPushTokenRepository(success: true);
+      final controller = PushTokenController(
+        authController: authController,
+        notificationSettingsRepository:
+            const _FakeNotificationSettingsRepository(
+          loadStatus: NotificationPermissionStatus.granted,
+        ),
+        fcmTokenGateway: _FakeFcmTokenGateway(token: null),
+        pushTokenRepository: pushRepo,
+      );
+
+      await controller.prepareForLogout(session);
+
+      expect(
+          pushRepo.removedAccessTokens, ['access-token-without-local-token']);
+      controller.dispose();
+    });
+
+    test(
+        'late registration result after logout cannot restore registered state',
+        () async {
+      final session =
+          _buildSessionForUser('access-token-late-logout', 'user-a');
+      final authController = _buildAuthController(session: session);
+      final pushRepo = _BlockingPushTokenRepository();
+      final controller = _buildPushController(
+        authController: authController,
+        permissionStatus: NotificationPermissionStatus.granted,
+        fcmToken: 'token-a',
+        registerSuccess: true,
+        pushRepository: pushRepo,
+      );
+
+      final bootstrap = controller.bootstrap();
+      await Future<void>.delayed(Duration.zero);
+      authController.setSessionForTest(null);
+      pushRepo.completeNext();
+      await bootstrap;
+      await Future<void>.delayed(Duration.zero);
+
+      expect(controller.status, PushRegistrationStatus.unauthenticated);
+      expect(controller.registeredToken, isNull);
+      controller.dispose();
+    });
+
+    test(
+        'account switch during registration eventually registers the new account',
+        () async {
+      final authController = _buildAuthController(
+        session: _buildSessionForUser('access-token-a', 'user-a'),
+      );
+      final pushRepo = _BlockingPushTokenRepository();
+      final controller = _buildPushController(
+        authController: authController,
+        permissionStatus: NotificationPermissionStatus.granted,
+        fcmToken: 'token-a',
+        registerSuccess: true,
+        pushRepository: pushRepo,
+      );
+
+      final bootstrap = controller.bootstrap();
+      await Future<void>.delayed(Duration.zero);
+      authController.setSessionForTest(
+        _buildSessionForUser('access-token-b', 'user-b'),
+      );
+      pushRepo.completeNext();
+      await bootstrap;
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(pushRepo.registeredTokens, ['token-a', 'token-a']);
+      expect(pushRepo.accessTokens, ['access-token-a', 'access-token-b']);
+      expect(controller.status, PushRegistrationStatus.registered);
+      controller.dispose();
+    });
+
+    test('token refreshes during registration coalesce to the latest token',
+        () async {
+      final authController = _buildAuthController(
+        session: _buildSessionForUser('access-token-refresh', 'user-refresh'),
+      );
+      final refresh = StreamController<String>();
+      final pushRepo = _BlockingPushTokenRepository();
+      final controller = PushTokenController(
+        authController: authController,
+        notificationSettingsRepository:
+            const _FakeNotificationSettingsRepository(
+          loadStatus: NotificationPermissionStatus.granted,
+        ),
+        fcmTokenGateway: _StreamableFcmTokenGateway(
+          initialToken: 'token-initial',
+          refreshStream: refresh.stream,
+        ),
+        pushTokenRepository: pushRepo,
+      );
+
+      final bootstrap = controller.bootstrap();
+      await Future<void>.delayed(Duration.zero);
+      refresh.add('token-refresh-1');
+      refresh.add('token-refresh-2');
+      await Future<void>.delayed(Duration.zero);
+      pushRepo.completeNext();
+      await bootstrap;
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(pushRepo.registeredTokens, ['token-initial', 'token-refresh-2']);
+      expect(controller.registeredToken, 'token-refresh-2');
+      await refresh.close();
+      controller.dispose();
+    });
   });
 }
 
@@ -371,8 +487,12 @@ void main() {
 // ---------------------------------------------------------------------------
 
 MobileAuthSession _buildSession(String accessToken) {
+  return _buildSessionForUser(accessToken, 'user-1');
+}
+
+MobileAuthSession _buildSessionForUser(String accessToken, String userId) {
   return MobileAuthSession(
-    user: const MobileAuthUser(id: 'user-1', phone: '+77071234567'),
+    user: MobileAuthUser(id: userId, phone: '+77071234567'),
     phone: '+77071234567',
     accessToken: accessToken,
     refreshToken: 'refresh',
@@ -411,6 +531,7 @@ PushTokenController _buildPushController({
   required NotificationPermissionStatus permissionStatus,
   required String? fcmToken,
   required bool registerSuccess,
+  PushTokenRepository? pushRepository,
 }) {
   return PushTokenController(
     authController: authController,
@@ -418,7 +539,8 @@ PushTokenController _buildPushController({
       loadStatus: permissionStatus,
     ),
     fcmTokenGateway: _FakeFcmTokenGateway(token: fcmToken),
-    pushTokenRepository: _FakePushTokenRepository(success: registerSuccess),
+    pushTokenRepository:
+        pushRepository ?? _FakePushTokenRepository(success: registerSuccess),
   );
 }
 
@@ -520,6 +642,39 @@ class _RecordingPushTokenRepository implements PushTokenRepository {
   Future<void> removeToken({required String accessToken}) async {
     removedAccessTokens.add(accessToken);
   }
+}
+
+class _BlockingPushTokenRepository implements PushTokenRepository {
+  final List<String> registeredTokens = [];
+  final List<String> accessTokens = [];
+  final List<Completer<bool>> pending = [];
+  bool _blockedOnce = false;
+
+  @override
+  Future<bool> registerToken({
+    required String token,
+    required String platform,
+    required String permissionStatus,
+    required String accessToken,
+  }) {
+    registeredTokens.add(token);
+    accessTokens.add(accessToken);
+    if (!_blockedOnce) {
+      _blockedOnce = true;
+      final completer = Completer<bool>();
+      pending.add(completer);
+      return completer.future;
+    }
+    return Future<bool>.value(true);
+  }
+
+  void completeNext([bool value = true]) {
+    final completer = pending.removeAt(0);
+    completer.complete(value);
+  }
+
+  @override
+  Future<void> removeToken({required String accessToken}) async {}
 }
 
 class _CallbackPushTokenRepository implements PushTokenRepository {

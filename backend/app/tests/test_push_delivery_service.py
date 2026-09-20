@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
@@ -230,6 +231,68 @@ class PushServiceTests(unittest.TestCase):
 
         self.assertEqual(results, [])
         delivery.send.assert_not_called()
+
+    def test_send_to_user_skips_revoked_session_device(self) -> None:
+        with self.SessionLocal() as session:
+            user, _ = self._create_user_with_device(session, '+77070000007', 'token-revoked')
+            mobile_session = session.query(MobileSession).filter_by(
+                mobile_user_id=user.id,
+            ).one()
+            mobile_session.revoked_at = datetime.now(UTC)
+            session.commit()
+
+        delivery = MagicMock()
+        with self.SessionLocal() as session:
+            service = PushService(
+                delivery=delivery,
+                device_repository=MobileNotificationDeviceRepository(session),
+            )
+            results = service.send_to_user(user_id=user.id, title='Hi', body='')
+
+        self.assertEqual(results, [])
+        delivery.send.assert_not_called()
+
+    def test_send_to_user_skips_expired_session_device(self) -> None:
+        with self.SessionLocal() as session:
+            user, _ = self._create_user_with_device(session, '+77070000008', 'token-expired')
+            mobile_session = session.query(MobileSession).filter_by(
+                mobile_user_id=user.id,
+            ).one()
+            mobile_session.expires_at = datetime.now(UTC) - timedelta(minutes=1)
+            session.commit()
+
+        delivery = MagicMock()
+        with self.SessionLocal() as session:
+            service = PushService(
+                delivery=delivery,
+                device_repository=MobileNotificationDeviceRepository(session),
+            )
+            results = service.send_to_user(user_id=user.id, title='Hi', body='')
+
+        self.assertEqual(results, [])
+        delivery.send.assert_not_called()
+
+    def test_repository_returns_only_devices_with_active_matching_session(self) -> None:
+        with self.SessionLocal() as session:
+            user, device = self._create_user_with_device(
+                session,
+                '+77070000009',
+                'token-active-session',
+            )
+            other_session = MobileSession(
+                id='session-without-device',
+                mobile_user_id=user.id,
+                refresh_token_hash='hash-other',
+                expires_at=datetime.now(UTC) + timedelta(days=1),
+            )
+            session.add(other_session)
+            session.commit()
+            active = MobileNotificationDeviceRepository(session).get_active_devices_for_user(
+                user.id,
+                now=datetime.now(UTC),
+            )
+
+        self.assertEqual([item.id for item in active], [device.id])
 
     def test_send_to_user_disables_unregistered_device(self) -> None:
         with self.SessionLocal() as session:

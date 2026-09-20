@@ -13,6 +13,7 @@ from ...core.config.settings import get_settings
 from ...core.exceptions.http import DomainHTTPException, NotFoundException
 from ...db.models.mobile_child import MobileChild
 from ...db.models.mobile_notification_device import MobileNotificationDevice
+from ...db.models.mobile_session import MobileSession
 from ...db.models.mobile_user import MobileUser
 from ...db.models.push_campaign import PushCampaign
 from ...db.models.push_campaign_delivery import PushCampaignDelivery
@@ -292,9 +293,28 @@ class PushCampaignService:
         now: datetime | None = None,
     ) -> tuple[list[str], list[tuple[str, MobileNotificationDevice]]]:
         effective_now = now or datetime.now(UTC)
-        query = select(MobileUser.id, MobileNotificationDevice).join(MobileNotificationDevice, MobileNotificationDevice.mobile_user_id == MobileUser.id).where(
-            MobileUser.is_active.is_(True), MobileNotificationDevice.notifications_enabled.is_(True),
-            MobileNotificationDevice.permission_status.not_in(['denied', 'unavailable']),
+        query = (
+            select(MobileUser.id, MobileNotificationDevice)
+            .join(
+                MobileNotificationDevice,
+                MobileNotificationDevice.mobile_user_id == MobileUser.id,
+            )
+            .join(
+                MobileSession,
+                and_(
+                    MobileSession.id == MobileNotificationDevice.mobile_session_id,
+                    MobileSession.mobile_user_id == MobileNotificationDevice.mobile_user_id,
+                ),
+            )
+            .where(
+                MobileUser.is_active.is_(True),
+                MobileNotificationDevice.notifications_enabled.is_(True),
+                MobileNotificationDevice.permission_status.not_in(
+                    ['denied', 'unavailable']
+                ),
+                MobileSession.revoked_at.is_(None),
+                MobileSession.expires_at > effective_now,
+            )
         )
         if audience.type == 'birthday_in_days':
             target = birthday_target_date(effective_now, audience.days_before_birthday or 0)

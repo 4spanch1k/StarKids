@@ -144,6 +144,52 @@ class PushCampaignServiceTests(unittest.TestCase):
             self.assertEqual(result.targeted_users, 1)
             self.assertEqual(result.targeted_devices, 2)
 
+    def test_audience_excludes_devices_bound_to_revoked_or_expired_sessions(self) -> None:
+        now = datetime(2026, 9, 6, 12, tzinfo=UTC)
+        with self.SessionLocal() as session:
+            active_user = self._user(session)
+            target = birthday_target_date(now, 7)
+            revoked_user = self._user(
+                session,
+                birthday=date(2020, target.month, target.day),
+            )
+            expired_user = self._user(
+                session,
+                birthday=date(2020, target.month, target.day),
+            )
+            revoked_session = session.query(MobileSession).filter_by(
+                mobile_user_id=revoked_user.id,
+            ).one()
+            revoked_session.revoked_at = now - timedelta(minutes=1)
+            expired_session = session.query(MobileSession).filter_by(
+                mobile_user_id=expired_user.id,
+            ).one()
+            expired_session.expires_at = now - timedelta(minutes=1)
+            session.commit()
+
+            service = PushCampaignService(session, FakeDelivery())
+            users, devices = service._resolve_audience(
+                PushCampaignAudience(type='all_users'),
+                now=now,
+            )
+
+            self.assertEqual(users, [active_user.id])
+            self.assertEqual([user_id for user_id, _ in devices], [active_user.id])
+
+            user_preview = service.preview(
+                PushCampaignAudience(type='user', user_id=revoked_user.id),
+                now=now,
+            )
+            birthday_preview = service.preview(
+                PushCampaignAudience(
+                    type='birthday_in_days',
+                    days_before_birthday=7,
+                ),
+                now=now,
+            )
+            self.assertEqual((user_preview.targeted_users, user_preview.targeted_devices), (0, 0))
+            self.assertEqual((birthday_preview.targeted_users, birthday_preview.targeted_devices), (0, 0))
+
     def test_scheduled_snapshot_resolves_birthday_cohort_at_snapshot_time(self) -> None:
         snapshot_now = datetime(2026, 9, 6, 12, tzinfo=UTC)
         with self.SessionLocal() as session:
@@ -455,7 +501,15 @@ class PushCampaignServiceTests(unittest.TestCase):
         with self.SessionLocal() as session:
             user = self._user(session)
             first_device = session.query(MobileNotificationDevice).filter_by(mobile_user_id=user.id).one()
-            session.add(MobileNotificationDevice(id=uuid4().hex, mobile_user_id=user.id, mobile_session_id=uuid4().hex, platform='android', push_token='second-device', permission_status='granted', notifications_enabled=True))
+            second_session = MobileSession(
+                id=uuid4().hex,
+                mobile_user_id=user.id,
+                refresh_token_hash='hash-second-device',
+                expires_at=datetime(2030, 1, 1, tzinfo=UTC),
+            )
+            session.add(second_session)
+            session.flush()
+            session.add(MobileNotificationDevice(id=uuid4().hex, mobile_user_id=user.id, mobile_session_id=second_session.id, platform='android', push_token='second-device', permission_status='granted', notifications_enabled=True))
             session.commit()
             service = PushCampaignService(session, FakeDelivery())
             preview = service.preview(PushCampaignAudience(type='all_users'))
@@ -471,8 +525,12 @@ class PushCampaignServiceTests(unittest.TestCase):
         delivery = FakeDelivery(results)
         with self.SessionLocal() as session:
             user = self._user(session)
-            session.add(MobileNotificationDevice(id=uuid4().hex, mobile_user_id=user.id, mobile_session_id=uuid4().hex, platform='android', push_token='second-device', permission_status='granted', notifications_enabled=True))
-            session.add(MobileNotificationDevice(id=uuid4().hex, mobile_user_id=user.id, mobile_session_id=uuid4().hex, platform='ios', push_token='third-device', permission_status='granted', notifications_enabled=True))
+            second_session = MobileSession(id=uuid4().hex, mobile_user_id=user.id, refresh_token_hash='hash-second', expires_at=datetime(2030, 1, 1, tzinfo=UTC))
+            third_session = MobileSession(id=uuid4().hex, mobile_user_id=user.id, refresh_token_hash='hash-third', expires_at=datetime(2030, 1, 1, tzinfo=UTC))
+            session.add_all([second_session, third_session])
+            session.flush()
+            session.add(MobileNotificationDevice(id=uuid4().hex, mobile_user_id=user.id, mobile_session_id=second_session.id, platform='android', push_token='second-device', permission_status='granted', notifications_enabled=True))
+            session.add(MobileNotificationDevice(id=uuid4().hex, mobile_user_id=user.id, mobile_session_id=third_session.id, platform='ios', push_token='third-device', permission_status='granted', notifications_enabled=True))
             session.commit()
             service = PushCampaignService(session, delivery)
             with patch.object(PushCampaignService, 'provider_configured', new_callable=PropertyMock, return_value=True):
