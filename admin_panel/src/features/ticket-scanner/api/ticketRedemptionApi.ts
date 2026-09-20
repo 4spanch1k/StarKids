@@ -11,7 +11,33 @@ export type RedemptionOutcome =
   | 'wrong_date'
   | 'invalid_status'
   | 'invalid_ticket_data'
-  | 'invalid_payment';
+  | 'invalid_payment'
+  | 'already_used_today'
+  | 'expired'
+  | 'exhausted'
+  | 'cancelled'
+  | 'pass_not_found';
+
+export type AdmissionKind = 'ticket' | 'pass';
+
+export type AdmissionResponse = {
+  kind: AdmissionKind;
+  outcome: string;
+  ticketId: string | null;
+  ticketNumber: string | null;
+  passId: string | null;
+  planName: string | null;
+  childId: string | null;
+  childName: string | null;
+  remainingVisits: number | null;
+  visitLimit: number | null;
+  status: string | null;
+  expiresAt: string | null;
+  branchId: string;
+  branchName: string;
+  visitId: string | null;
+  redeemedAt: string | null;
+};
 
 export type TicketRedemptionResponse = {
   outcome: 'redeemed' | 'already_used';
@@ -60,6 +86,23 @@ export async function redeemTicket({
   return executeAuthorizedAdminRequest((accessToken) =>
     httpClient<TicketRedemptionResponse>({
       path: '/admin/tickets/redeem',
+      method: 'POST',
+      headers: buildAdminAuthHeaders(accessToken),
+      body: JSON.stringify({ qrPayload, branchId }),
+    }),
+  );
+}
+
+export async function redeemAdmission({
+  qrPayload,
+  branchId,
+}: {
+  qrPayload: string;
+  branchId: string;
+}): Promise<AdmissionResponse> {
+  return executeAuthorizedAdminRequest((accessToken) =>
+    httpClient<AdmissionResponse>({
+      path: '/admin/admission/redeem',
       method: 'POST',
       headers: buildAdminAuthHeaders(accessToken),
       body: JSON.stringify({ qrPayload, branchId }),
@@ -121,6 +164,11 @@ const REDEMPTION_OUTCOMES = new Set<RedemptionOutcome>([
   'invalid_status',
   'invalid_ticket_data',
   'invalid_payment',
+  'already_used_today',
+  'expired',
+  'exhausted',
+  'cancelled',
+  'pass_not_found',
 ]);
 
 function isRedemptionOutcome(value: string): value is RedemptionOutcome {

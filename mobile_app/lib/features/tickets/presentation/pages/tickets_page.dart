@@ -9,17 +9,27 @@ import '../../../../core/design_system/widgets/glass_card.dart';
 import '../../../../core/design_system/widgets/primary_button.dart';
 import '../../../../core/design_system/widgets/star_kids_cosmic_canvas.dart';
 import '../../../../core/design_system/widgets/star_kids_motion.dart';
+import '../../../../core/utils/result.dart';
+import '../../../passes/domain/pass.dart';
+import '../../../passes/domain/pass_repository.dart';
+import '../../../passes/presentation/pages/pass_detail_page.dart';
+import '../../../passes/presentation/sheets/pass_purchase_flow_sheet.dart';
 import '../../data/api_issued_ticket_repository.dart';
 import '../../domain/issued_ticket.dart';
 import '../../domain/issued_ticket_repository.dart';
+import '../models/tickets_page_args.dart';
 import '../sheets/ticket_purchase_flow_sheet.dart';
 import 'ticket_detail_page.dart';
 
 class TicketsPage extends StatefulWidget {
-  const TicketsPage({super.key, this.repository});
-
+  const TicketsPage(
+      {super.key,
+      this.repository,
+      this.passRepository,
+      this.initialSection = TicketsSection.tickets});
   final IssuedTicketRepository? repository;
-
+  final PassRepository? passRepository;
+  final TicketsSection initialSection;
   @override
   State<TicketsPage> createState() => _TicketsPageState();
 }
@@ -27,187 +37,327 @@ class TicketsPage extends StatefulWidget {
 class _TicketsPageState extends State<TicketsPage> {
   late final IssuedTicketRepository _repository =
       widget.repository ?? ServiceRegistry.issuedTicketRepository;
+  late final PassRepository _passRepository =
+      widget.passRepository ?? ServiceRegistry.passRepository;
+  late TicketsSection _section = widget.initialSection;
   List<IssuedTicket> _tickets = const [];
-  bool _isLoading = true;
-  String? _errorMessage;
+  List<CustomerPass> _passes = const [];
+  List<PassPlan> _plans = const [];
+  bool _ticketsLoading = true;
+  bool _passesLoading = false;
+  bool _passesLoaded = false;
+  String? _ticketsError;
+  String? _passesError;
 
   @override
   void initState() {
     super.initState();
     _loadTickets();
+    if (_section == TicketsSection.passes) _loadPasses();
   }
 
   Future<void> _loadTickets() async {
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+      _ticketsLoading = true;
+      _ticketsError = null;
     });
     try {
-      final tickets = List<IssuedTicket>.of(
-        await _repository.listIssuedTickets(),
-      );
-      if (!mounted) return;
-      tickets.sort(_compareTickets);
-      setState(() {
-        _tickets = tickets;
-        _isLoading = false;
-      });
+      final tickets =
+          List<IssuedTicket>.of(await _repository.listIssuedTickets())
+            ..sort(_compareTickets);
+      if (mounted)
+        setState(() {
+          _tickets = tickets;
+          _ticketsLoading = false;
+        });
     } on IssuedTicketApiException catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = error.message;
-      });
+      if (mounted)
+        setState(() {
+          _ticketsLoading = false;
+          _ticketsError = error.message;
+        });
     } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Не удалось загрузить билеты. Попробуйте еще раз.';
-      });
+      if (mounted)
+        setState(() {
+          _ticketsLoading = false;
+          _ticketsError = 'Не удалось загрузить билеты. Попробуйте еще раз.';
+        });
     }
+  }
+
+  Future<void> _loadPasses() async {
+    setState(() {
+      _passesLoading = true;
+      _passesError = null;
+    });
+    final results = await Future.wait([
+      _passRepository.listPasses(),
+      _passRepository.listPlans(
+          branchId: ServiceRegistry.selectedBranchController.selectedBranch.id),
+    ]);
+    if (!mounted) return;
+    final passesResult = results[0] as Result<List<CustomerPass>>;
+    final plansResult = results[1] as Result<List<PassPlan>>;
+    if (passesResult is Failure<List<CustomerPass>>) {
+      setState(() {
+        _passesLoading = false;
+        _passesLoaded = true;
+        _passesError = passesResult.message;
+      });
+      return;
+    }
+    setState(() {
+      _passes = _sortPasses((passesResult as Success<List<CustomerPass>>).data);
+      _plans =
+          plansResult is Success<List<PassPlan>> ? plansResult.data : const [];
+      _passesLoading = false;
+      _passesLoaded = true;
+      _passesError = null;
+    });
+  }
+
+  Future<void> _selectSection(TicketsSection section) async {
+    if (_section == section) return;
+    setState(() => _section = section);
+    if (section == TicketsSection.passes && !_passesLoaded) await _loadPasses();
   }
 
   Future<void> _openPurchase() async {
     final completed = await showTicketPurchaseFlowSheet(context);
-    if (!mounted || completed != true) return;
-    await _loadTickets();
+    if (mounted && completed) await _loadTickets();
+  }
+
+  Future<void> _openPassPurchase() async {
+    final completed =
+        await showPassPurchaseFlowSheet(context, repository: _passRepository);
+    if (mounted && completed) await _loadPasses();
   }
 
   Future<void> _openTicket(IssuedTicket ticket) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
+    await Navigator.of(context).push(MaterialPageRoute<void>(
         builder: (_) => TicketDetailPage(
-          ticketId: ticket.ticketId,
-          initialTicket: ticket,
-          repository: _repository,
-        ),
-      ),
-    );
+            ticketId: ticket.ticketId,
+            initialTicket: ticket,
+            repository: _repository)));
     if (mounted) await _loadTickets();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      extendBody: true,
-      appBar: GlassAppBar(
-        leading: const SizedBox(width: 44),
-        title: Text(
-          'Мои билеты',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-      ),
-      bottomNavigationBar: const StarKidsRootNavigation(current: 'tickets'),
-      body: StarKidsCosmicCanvas(
-        child: SafeArea(
-          bottom: false,
-          child: RefreshIndicator(
-            onRefresh: _loadTickets,
-            child: _body(context),
-          ),
-        ),
-      ),
-    );
+  Future<void> _openPass(CustomerPass pass) async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => PassDetailPage(
+            passId: pass.id, initialPass: pass, repository: _passRepository)));
+    if (mounted) await _loadPasses();
   }
 
-  Widget _body(BuildContext context) {
-    if (_isLoading && _tickets.isEmpty) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: const [
-          SizedBox(height: 260),
-          Center(child: CircularProgressIndicator()),
-        ],
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        extendBody: true,
+        appBar: GlassAppBar(
+            leading: const SizedBox(width: 44),
+            title: Text('Мои билеты',
+                style: Theme.of(context).textTheme.titleLarge)),
+        bottomNavigationBar: const StarKidsRootNavigation(current: 'tickets'),
+        body: StarKidsCosmicCanvas(
+            child: SafeArea(bottom: false, child: _body(context))),
       );
-    }
 
-    if (_errorMessage != null && _tickets.isEmpty) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(
-          SKSpacing.x5,
-          SKSpacing.x6,
-          SKSpacing.x5,
-          120,
-        ),
-        children: [
-          _TicketsStateCard(
-            key: const ValueKey('tickets-error'),
-            title: 'Не удалось загрузить билеты',
-            description: _errorMessage!,
-            action: SecondaryButton(
-              label: 'Повторить',
-              fullWidth: true,
-              onPressed: _loadTickets,
-            ),
-          ),
-        ],
-      );
-    }
+  Widget _body(BuildContext context) => Column(children: [
+        Padding(
+            padding: const EdgeInsets.fromLTRB(
+                SKSpacing.x5, SKSpacing.x3, SKSpacing.x5, 0),
+            child:
+                _SectionToggle(section: _section, onChanged: _selectSection)),
+        Expanded(
+            child: _section == TicketsSection.tickets
+                ? RefreshIndicator(
+                    onRefresh: _loadTickets, child: _ticketsBody(context))
+                : RefreshIndicator(
+                    onRefresh: _loadPasses, child: _passesBody(context))),
+      ]);
 
-    if (_tickets.isEmpty) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(
-          SKSpacing.x5,
-          SKSpacing.x6,
-          SKSpacing.x5,
-          120,
-        ),
-        children: [
-          _TicketsStateCard(
-            key: const ValueKey('tickets-empty'),
-            title: 'У вас пока нет билетов',
-            description:
-                'Купите билет, и он появится здесь после подтверждения оплаты.',
-            action: PrimaryButton(
-              label: 'Купить билет',
-              icon: Icons.arrow_forward_rounded,
-              onPressed: _openPurchase,
-            ),
-          ),
-        ],
-      );
-    }
-
+  Widget _ticketsBody(BuildContext context) {
+    if (_ticketsLoading && _tickets.isEmpty) return _loadingList();
+    if (_ticketsError != null && _tickets.isEmpty)
+      return _stateList(_TicketsStateCard(
+          title: 'Не удалось загрузить билеты',
+          description: _ticketsError!,
+          action: SecondaryButton(
+              label: 'Повторить', fullWidth: true, onPressed: _loadTickets)));
+    if (_tickets.isEmpty)
+      return _stateList(_TicketsStateCard(
+          title: 'У вас пока нет билетов',
+          description:
+              'Купите билет, и он появится здесь после подтверждения оплаты.',
+          action:
+              PrimaryButton(label: 'Купить билет', onPressed: _openPurchase)));
     return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(
-        SKSpacing.x5,
-        SKSpacing.x4,
-        SKSpacing.x5,
-        120,
-      ),
-      children: [
-        Row(
-          children: [
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(
+            SKSpacing.x5, SKSpacing.x4, SKSpacing.x5, 120),
+        children: [
+          Row(children: [
             Expanded(
-              child: Text(
-                'Билеты к посещению',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-            ),
+                child: Text('Билеты к посещению',
+                    style: Theme.of(context).textTheme.headlineSmall)),
             TextButton(
-              onPressed: _openPurchase,
-              child: const Text('Купить билет'),
-            ),
-          ],
-        ),
-        const SizedBox(height: SKSpacing.x4),
-        ..._tickets.asMap().entries.map(
-              (entry) => Padding(
-                padding: const EdgeInsets.only(bottom: SKSpacing.x3),
-                child: _IssuedTicketCard(
-                  key: ValueKey(entry.value.ticketId),
+                onPressed: _openPurchase, child: const Text('Купить билет'))
+          ]),
+          const SizedBox(height: SKSpacing.x4),
+          ..._tickets.asMap().entries.map((entry) => Padding(
+              padding: const EdgeInsets.only(bottom: SKSpacing.x3),
+              child: _IssuedTicketCard(
                   ticket: entry.value,
                   revealDelay: starKidsStaggerDelay(entry.key),
-                  onTap: () => _openTicket(entry.value),
-                ),
-              ),
-            ),
-      ],
-    );
+                  onTap: () => _openTicket(entry.value))))
+        ]);
   }
+
+  Widget _passesBody(BuildContext context) {
+    if (_passesLoading && _passes.isEmpty) return _loadingList();
+    if (_passesError != null && _passes.isEmpty)
+      return _stateList(_TicketsStateCard(
+          title: 'Не удалось загрузить абонементы',
+          description: _passesError!,
+          action: SecondaryButton(
+              label: 'Повторить', fullWidth: true, onPressed: _loadPasses)));
+    if (_passes.isEmpty)
+      return _stateList(_TicketsStateCard(
+          title: 'Абонементов пока нет',
+          description: _plans.isEmpty
+              ? 'Для выбранного филиала сейчас нет доступных планов.'
+              : 'Оформите абонемент для ребёнка и показывайте QR на входе.',
+          action: _plans.isEmpty
+              ? const SizedBox.shrink()
+              : PrimaryButton(
+                  label: 'Купить абонемент', onPressed: _openPassPurchase)));
+    return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(
+            SKSpacing.x5, SKSpacing.x4, SKSpacing.x5, 120),
+        children: [
+          Row(children: [
+            Expanded(
+                child: Text('Абонементы',
+                    style: Theme.of(context).textTheme.headlineSmall)),
+            TextButton(
+                onPressed: _openPassPurchase, child: const Text('Купить'))
+          ]),
+          const SizedBox(height: SKSpacing.x4),
+          ..._passes.map((pass) => Padding(
+              padding: const EdgeInsets.only(bottom: SKSpacing.x3),
+              child: _PassCard(pass: pass, onTap: () => _openPass(pass))))
+        ]);
+  }
+
+  Widget _loadingList() =>
+      ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [
+        SizedBox(height: 260),
+        Center(child: CircularProgressIndicator())
+      ]);
+  Widget _stateList(Widget child) => ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(
+          SKSpacing.x5, SKSpacing.x6, SKSpacing.x5, 120),
+      children: [child]);
+}
+
+class _SectionToggle extends StatelessWidget {
+  const _SectionToggle({required this.section, required this.onChanged});
+  final TicketsSection section;
+  final ValueChanged<TicketsSection> onChanged;
+  @override
+  Widget build(BuildContext context) =>
+      SegmentedButton<TicketsSection>(segments: const [
+        ButtonSegment(value: TicketsSection.tickets, label: Text('Билеты')),
+        ButtonSegment(value: TicketsSection.passes, label: Text('Абонементы'))
+      ], selected: {
+        section
+      }, onSelectionChanged: (value) => onChanged(value.first));
+}
+
+class _TicketsStateCard extends StatelessWidget {
+  const _TicketsStateCard(
+      {required this.title, required this.description, required this.action});
+  final String title;
+  final String description;
+  final Widget action;
+  @override
+  Widget build(BuildContext context) => SolidCard(
+      padding: const EdgeInsets.all(SKSpacing.x5),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title, style: Theme.of(context).textTheme.headlineSmall),
+        const SizedBox(height: SKSpacing.x2),
+        Text(description, style: Theme.of(context).textTheme.bodyLarge),
+        if (action is! SizedBox) ...[
+          const SizedBox(height: SKSpacing.x5),
+          action
+        ]
+      ]));
+}
+
+class _IssuedTicketCard extends StatelessWidget {
+  const _IssuedTicketCard(
+      {required this.ticket, required this.revealDelay, required this.onTap});
+  final IssuedTicket ticket;
+  final Duration revealDelay;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => StarKidsReveal(
+      delay: revealDelay,
+      child: SolidCard(
+          onTap: onTap,
+          padding: const EdgeInsets.all(SKSpacing.x4),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Expanded(
+                  child: Text(ticket.title,
+                      style: Theme.of(context).textTheme.titleLarge)),
+              Text(ticket.isIssued ? 'Действует' : ticket.status,
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelLarge
+                      ?.copyWith(color: SKTheme.of(context).colors.success))
+            ]),
+            const SizedBox(height: SKSpacing.x3),
+            Text(ticket.ticketNumber,
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: SKSpacing.x2),
+            Text(ticket.branchName),
+            Text(_formatTicketDate(ticket.visitDate)),
+            const SizedBox(height: SKSpacing.x3),
+            SecondaryButton(
+                label: 'Открыть билет', fullWidth: true, onPressed: onTap)
+          ])));
+}
+
+class _PassCard extends StatelessWidget {
+  const _PassCard({required this.pass, required this.onTap});
+  final CustomerPass pass;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => SolidCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(SKSpacing.x4),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(
+              child: Text(pass.planName,
+                  style: Theme.of(context).textTheme.titleLarge)),
+          Text(customerPassStatusLabel(pass.status),
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: pass.isActive
+                      ? SKTheme.of(context).colors.success
+                      : SKTheme.of(context).colors.textSecondary))
+        ]),
+        const SizedBox(height: SKSpacing.x2),
+        Text('Ребёнок: ${pass.childName}'),
+        Text('Осталось: ${pass.remainingVisits} из ${pass.visitLimit}'),
+        Text('До ${_formatPassDate(pass.expiresAt)}'),
+        const SizedBox(height: SKSpacing.x3),
+        SecondaryButton(
+            label: 'Открыть абонемент', fullWidth: true, onPressed: onTap)
+      ]));
 }
 
 int _compareTickets(IssuedTicket a, IssuedTicket b) {
@@ -217,99 +367,17 @@ int _compareTickets(IssuedTicket a, IssuedTicket b) {
   return a.visitDate!.compareTo(b.visitDate!);
 }
 
-class _TicketsStateCard extends StatelessWidget {
-  const _TicketsStateCard({
-    super.key,
-    required this.title,
-    required this.description,
-    required this.action,
+List<CustomerPass> _sortPasses(List<CustomerPass> passes) {
+  final result = List<CustomerPass>.of(passes);
+  result.sort((a, b) {
+    if (a.isActive != b.isActive) return a.isActive ? -1 : 1;
+    return a.expiresAt.compareTo(b.expiresAt);
   });
-
-  final String title;
-  final String description;
-  final Widget action;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    return SolidCard(
-      padding: const EdgeInsets.all(SKSpacing.x5),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: textTheme.headlineSmall),
-          const SizedBox(height: SKSpacing.x2),
-          Text(description, style: textTheme.bodyLarge),
-          const SizedBox(height: SKSpacing.x5),
-          action,
-        ],
-      ),
-    );
-  }
+  return result;
 }
 
-class _IssuedTicketCard extends StatelessWidget {
-  const _IssuedTicketCard({
-    super.key,
-    required this.ticket,
-    required this.revealDelay,
-    required this.onTap,
-  });
-
-  final IssuedTicket ticket;
-  final Duration revealDelay;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final colors = SKTheme.of(context).colors;
-    return StarKidsReveal(
-      delay: revealDelay,
-      child: SolidCard(
-        onTap: onTap,
-        padding: const EdgeInsets.all(SKSpacing.x4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(ticket.title, style: textTheme.titleLarge),
-                ),
-                Text(
-                  ticket.isIssued ? 'Действует' : ticket.status,
-                  style: textTheme.labelLarge?.copyWith(color: colors.success),
-                ),
-              ],
-            ),
-            const SizedBox(height: SKSpacing.x3),
-            Text(ticket.ticketNumber, style: textTheme.titleMedium),
-            const SizedBox(height: SKSpacing.x2),
-            Text(ticket.branchName, style: textTheme.bodyMedium),
-            const SizedBox(height: SKSpacing.x1),
-            Text(
-              _formatTicketDate(ticket.visitDate),
-              style: textTheme.bodyMedium,
-            ),
-            const SizedBox(height: SKSpacing.x1),
-            Text('${ticket.priceTenge} тг', style: textTheme.bodyMedium),
-            const SizedBox(height: SKSpacing.x3),
-            SecondaryButton(
-              label: 'Открыть билет',
-              fullWidth: true,
-              onPressed: onTap,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-String _formatTicketDate(DateTime? date) {
-  if (date == null) return 'Дата посещения не выбрана';
-  final day = date.day.toString().padLeft(2, '0');
-  final month = date.month.toString().padLeft(2, '0');
-  return '$day.$month.${date.year}';
-}
+String _formatTicketDate(DateTime? date) => date == null
+    ? 'Дата посещения не выбрана'
+    : '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
+String _formatPassDate(DateTime date) =>
+    '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';

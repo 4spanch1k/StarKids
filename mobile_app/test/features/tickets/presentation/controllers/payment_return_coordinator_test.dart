@@ -44,6 +44,59 @@ void main() {
       await LocalStorage().readPendingPaymentId(),
       isNull,
     );
+    expect(await LocalStorage().readPendingPaymentKind(), isNull);
+  });
+
+  test('persisted pass kind survives a cold-start deep link', () async {
+    final storage = LocalStorage();
+    await storage.savePendingPaymentKind(PaymentCheckoutKind.pass.name);
+    final coordinator = PaymentReturnCoordinator(
+      purchaseRepository: _FakeTicketPurchaseRepository(
+        status: const TicketPaymentStatus(
+          paymentId: 'payment-1',
+          localOrderId: 'order-1',
+          externalPaymentId: null,
+          amountTenge: 1000,
+          currency: 'KZT',
+          status: TicketPaymentStatusValue.paid,
+          failureReason: null,
+          paidAt: null,
+        ),
+      ),
+      localStorage: storage,
+    );
+    final events = <PaymentReturnEvent>[];
+    final subscription = coordinator.events.listen(events.add);
+
+    await coordinator.handleRawLink('starkids://payments/success');
+    await subscription.cancel();
+
+    expect(events.single.checkoutKind, PaymentCheckoutKind.pass);
+  });
+
+  test('legacy pending payment without kind defaults to tickets', () async {
+    final coordinator = PaymentReturnCoordinator(
+      purchaseRepository: _FakeTicketPurchaseRepository(
+        status: const TicketPaymentStatus(
+          paymentId: 'payment-1',
+          localOrderId: 'order-1',
+          externalPaymentId: null,
+          amountTenge: 1000,
+          currency: 'KZT',
+          status: TicketPaymentStatusValue.paid,
+          failureReason: null,
+          paidAt: null,
+        ),
+      ),
+      localStorage: LocalStorage(),
+    );
+    final events = <PaymentReturnEvent>[];
+    final subscription = coordinator.events.listen(events.add);
+
+    await coordinator.handleRawLink('starkids://payments/success');
+    await subscription.cancel();
+
+    expect(events.single.checkoutKind, PaymentCheckoutKind.ticket);
   });
 }
 

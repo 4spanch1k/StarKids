@@ -9,16 +9,20 @@ import '../../domain/ticket_purchase_repository.dart';
 
 enum PaymentReturnKind { success, failure }
 
+enum PaymentCheckoutKind { ticket, pass }
+
 class PaymentReturnEvent {
   const PaymentReturnEvent({
     required this.paymentId,
     required this.kind,
+    required this.checkoutKind,
     this.status,
     this.errorMessage,
   });
 
   final String paymentId;
   final PaymentReturnKind kind;
+  final PaymentCheckoutKind checkoutKind;
   final TicketPaymentStatus? status;
   final String? errorMessage;
 
@@ -74,11 +78,15 @@ class PaymentReturnCoordinator {
     }
   }
 
-  Future<void> registerPayment(String paymentId) async {
+  Future<void> registerPayment(
+    String paymentId, {
+    PaymentCheckoutKind checkoutKind = PaymentCheckoutKind.ticket,
+  }) async {
     final normalized = paymentId.trim();
     if (normalized.isEmpty) return;
     _activePaymentId = normalized;
     await _localStorage.savePendingPaymentId(normalized);
+    await _localStorage.savePendingPaymentKind(checkoutKind.name);
   }
 
   void attachCheckoutListener() {
@@ -121,18 +129,24 @@ class PaymentReturnCoordinator {
         : _activePaymentId ?? await _localStorage.readPendingPaymentId();
     if (paymentId == null || paymentId.trim().isEmpty) return;
 
-    final event = await _resolveStatus(paymentId.trim(), kind);
+    final checkoutKind = _activePaymentId == paymentId
+        ? await _readCheckoutKind()
+        : _parseCheckoutKind(await _localStorage.readPendingPaymentKind());
+
+    final event = await _resolveStatus(paymentId.trim(), kind, checkoutKind);
     _events.add(event);
 
     if (event.status?.isFinal == true) {
       if (_activePaymentId == paymentId) _activePaymentId = null;
       await _localStorage.clearPendingPaymentId();
+      await _localStorage.clearPendingPaymentKind();
     }
   }
 
   Future<PaymentReturnEvent> _resolveStatus(
     String paymentId,
     PaymentReturnKind kind,
+    PaymentCheckoutKind checkoutKind,
   ) async {
     for (var attempt = 0; attempt < 6; attempt++) {
       final result = await _purchaseRepository.getPaymentStatus(paymentId);
@@ -140,6 +154,7 @@ class PaymentReturnCoordinator {
         return PaymentReturnEvent(
           paymentId: paymentId,
           kind: kind,
+          checkoutKind: checkoutKind,
           errorMessage: result.message,
         );
       }
@@ -149,6 +164,7 @@ class PaymentReturnCoordinator {
         return PaymentReturnEvent(
           paymentId: paymentId,
           kind: kind,
+          checkoutKind: checkoutKind,
           status: status,
         );
       }
@@ -156,5 +172,15 @@ class PaymentReturnCoordinator {
     }
 
     throw StateError('Payment status polling ended unexpectedly');
+  }
+
+  Future<PaymentCheckoutKind> _readCheckoutKind() async {
+    return _parseCheckoutKind(await _localStorage.readPendingPaymentKind());
+  }
+
+  PaymentCheckoutKind _parseCheckoutKind(String? raw) {
+    return raw == PaymentCheckoutKind.pass.name
+        ? PaymentCheckoutKind.pass
+        : PaymentCheckoutKind.ticket;
   }
 }

@@ -352,6 +352,7 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
 
     await ServiceRegistry.paymentReturnCoordinator.registerPayment(
       payment.paymentId,
+      checkoutKind: PaymentCheckoutKind.ticket,
     );
 
     setState(() {
