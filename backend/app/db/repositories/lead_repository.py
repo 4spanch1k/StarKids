@@ -24,11 +24,16 @@ class LeadRepository(Repository):
         )
 
     def get_birthday_lead_by_idempotency_key(
-        self, *, mobile_user_id: str, idempotency_key: str
+        self, *, mobile_user_id: str | None, idempotency_key: str
     ) -> BirthdayRequest | None:
+        owner_filter = (
+            BirthdayRequest.mobile_user_id.is_(None)
+            if mobile_user_id is None
+            else BirthdayRequest.mobile_user_id == mobile_user_id
+        )
         return self.db.scalar(
             select(BirthdayRequest).where(
-                BirthdayRequest.mobile_user_id == mobile_user_id,
+                owner_filter,
                 BirthdayRequest.idempotency_key == idempotency_key,
             )
         )

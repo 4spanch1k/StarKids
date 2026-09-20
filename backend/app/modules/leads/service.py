@@ -56,7 +56,7 @@ class LeadService:
         *,
         mobile_user_id: str | None = None,
     ) -> BirthdayLeadSubmittedResponse:
-        if mobile_user_id and payload.idempotencyKey:
+        if payload.idempotencyKey:
             existing = self.repository.get_birthday_lead_by_idempotency_key(
                 mobile_user_id=mobile_user_id,
                 idempotency_key=payload.idempotencyKey,
@@ -66,16 +66,6 @@ class LeadService:
 
         child = None
         if mobile_user_id:
-            # The idempotency key identifies the v2 mobile contract. Keep the
-            # legacy authenticated payload (used by older clients) readable
-            # while requiring the structured child/date fields for new submits.
-            if payload.idempotencyKey and payload.childId is None:
-                raise DomainHTTPException(
-                    code='child_required',
-                    message='Select a child for the birthday request.',
-                    status_code=422,
-                    details=[{'field': 'childId', 'message': 'Select a child.'}],
-                )
             if payload.childId is not None:
                 child = self.child_repository.get_by_id_and_user(payload.childId, mobile_user_id)
             if payload.childId is not None and child is None:
@@ -83,13 +73,6 @@ class LeadService:
                     code='child_not_found',
                     message='Selected child was not found.',
                     details=[{'field': 'childId', 'message': 'Selected child was not found.'}],
-                )
-            if payload.idempotencyKey and payload.preferredDate is None:
-                raise DomainHTTPException(
-                    code='desired_date_required',
-                    message='Select a desired date.',
-                    status_code=422,
-                    details=[{'field': 'preferredDate', 'message': 'Select a desired date.'}],
                 )
 
         branch = self.branch_repository.get_active_by_id_or_slug(payload.branchId)
@@ -122,14 +105,6 @@ class LeadService:
                     ],
                 )
 
-        if mobile_user_id and package is None:
-            raise DomainHTTPException(
-                code='package_required',
-                message='Select a birthday package.',
-                status_code=422,
-                details=[{'field': 'packageId', 'message': 'Select a package.'}],
-            )
-
         try:
             request = self.repository.create_birthday_lead(
                 {
@@ -151,7 +126,7 @@ class LeadService:
             )
         except IntegrityError:
             self.repository.db.rollback()
-            if mobile_user_id and payload.idempotencyKey:
+            if payload.idempotencyKey:
                 existing = self.repository.get_birthday_lead_by_idempotency_key(
                     mobile_user_id=mobile_user_id,
                     idempotency_key=payload.idempotencyKey,

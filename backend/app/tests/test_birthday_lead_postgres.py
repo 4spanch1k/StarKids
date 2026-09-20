@@ -54,6 +54,7 @@ class BirthdayLeadPostgresConcurrencyTests(unittest.TestCase):
         self.child_id = f'bday-pg-child-{suffix[:12]}'
         self.branch_id = f'bday-pg-branch-{suffix[:12]}'
         self.package_id = f'bday-pg-package-{suffix[:12]}'
+        self.anonymous_key = f'bday-anon-key-{suffix[:12]}'
         with self.SessionLocal() as db:
             db.add(MobileUser(id=self.user_id, phone=f'+77{suffix[:10]}', first_name='Айжан'))
             db.flush()
@@ -65,6 +66,7 @@ class BirthdayLeadPostgresConcurrencyTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         with self.SessionLocal() as db:
+            db.execute(delete(BirthdayRequest).where(BirthdayRequest.idempotency_key == self.anonymous_key))
             db.execute(delete(BirthdayRequest).where(BirthdayRequest.mobile_user_id == self.user_id))
             db.execute(delete(BirthdayPackage).where(BirthdayPackage.id == self.package_id))
             db.execute(delete(Branch).where(Branch.id == self.branch_id))
@@ -98,4 +100,33 @@ class BirthdayLeadPostgresConcurrencyTests(unittest.TestCase):
         self.assertEqual(lead_ids[0], lead_ids[1])
         with self.SessionLocal() as db:
             rows = db.scalars(select(BirthdayRequest).where(BirthdayRequest.mobile_user_id == self.user_id)).all()
+            self.assertEqual(len(rows), 1)
+
+    def test_concurrent_anonymous_same_idempotency_key_creates_one_lead(self) -> None:
+        payload = BirthdayLeadCreate(
+            name='Айжан', phone='+77071234567', branchId=self.branch_id,
+            packageId=self.package_id, preferredDate=date.today() + timedelta(days=7),
+            guestCount=12, comment='anonymous test', idempotencyKey=self.anonymous_key,
+        )
+        barrier = Barrier(2)
+
+        def submit() -> str:
+            with self.SessionLocal() as db:
+                barrier.wait()
+                service = LeadService(
+                    repository=LeadRepository(db),
+                    branch_repository=BranchRepository(db),
+                    package_repository=BirthdayPackageRepository(db),
+                    child_repository=MobileChildRepository(db),
+                )
+                return service.create_birthday_lead(payload, mobile_user_id=None).requestId
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            lead_ids = list(executor.map(lambda _: submit(), range(2)))
+
+        self.assertEqual(lead_ids[0], lead_ids[1])
+        with self.SessionLocal() as db:
+            rows = db.scalars(
+                select(BirthdayRequest).where(BirthdayRequest.idempotency_key == self.anonymous_key)
+            ).all()
             self.assertEqual(len(rows), 1)

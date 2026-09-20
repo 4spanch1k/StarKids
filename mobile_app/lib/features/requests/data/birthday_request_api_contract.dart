@@ -3,10 +3,10 @@
 /// Request body:
 /// {
 ///   "branchId": "shymkent-mega",
-///   "packageId": "star-show",
+///   "packageId": "star-show", // optional
 ///   "name": "Айдана",
 ///   "phone": "+77070000000",
-///   "preferredDate": "2026-04-10",
+///   "preferredDate": "2026-04-10", // optional
 ///   "guestCount": 12,
 ///   "comment": "Нужен аниматор и торт"
 /// }
