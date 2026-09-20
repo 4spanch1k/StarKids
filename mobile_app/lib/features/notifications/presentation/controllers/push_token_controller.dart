@@ -26,21 +26,32 @@ class PushTokenController extends ChangeNotifier with WidgetsBindingObserver {
     required NotificationSettingsRepository notificationSettingsRepository,
     required FcmTokenGateway fcmTokenGateway,
     required PushTokenRepository pushTokenRepository,
-  })  : _authController = authController,
-        _notificationSettingsRepository = notificationSettingsRepository,
-        _fcmTokenGateway = fcmTokenGateway,
-        _pushTokenRepository = pushTokenRepository;
+    bool Function()? registrationAllowed,
+    Listenable? registrationGateListenable,
+    bool providerReady = true,
+  }) : _authController = authController,
+       _notificationSettingsRepository = notificationSettingsRepository,
+       _fcmTokenGateway = fcmTokenGateway,
+       _pushTokenRepository = pushTokenRepository,
+       _registrationAllowed = registrationAllowed ?? (() => true),
+       _registrationGateListenable = registrationGateListenable,
+       _providerReady = providerReady;
 
   final MobileAuthController _authController;
   final NotificationSettingsRepository _notificationSettingsRepository;
   final FcmTokenGateway _fcmTokenGateway;
   final PushTokenRepository _pushTokenRepository;
+  final bool Function() _registrationAllowed;
+  final Listenable? _registrationGateListenable;
 
   PushRegistrationStatus _status = PushRegistrationStatus.idle;
   String? _registeredToken;
   StreamSubscription<String>? _tokenRefreshSubscription;
   bool _bootstrapped = false;
   bool _logoutInProgress = false;
+  bool _providerReady;
+  bool _registrationInFlight = false;
+  bool _tokenRegistrationInFlight = false;
 
   PushRegistrationStatus get status => _status;
 
@@ -49,10 +60,11 @@ class PushTokenController extends ChangeNotifier with WidgetsBindingObserver {
   String? get registeredToken => _registeredToken;
 
   /// Starts listening to auth and permission changes and attempts the first
-  /// token registration if the user is already authenticated. If the platform
-  /// has not asked for notification permission yet, the permission request is
-  /// made explicitly here before obtaining a token. Safe to call multiple
-  /// times — subsequent calls are no-ops.
+  /// token registration if the user is already authenticated and the optional
+  /// registration gate is open. If the platform has not asked for
+  /// notification permission yet, the permission request is made explicitly
+  /// before obtaining a token. Safe to call multiple times — subsequent calls
+  /// are no-ops.
   Future<void> bootstrap() async {
     if (_bootstrapped) {
       return;
@@ -60,9 +72,26 @@ class PushTokenController extends ChangeNotifier with WidgetsBindingObserver {
 
     _bootstrapped = true;
     _authController.addListener(_onAuthStateChanged);
+    _registrationGateListenable?.addListener(_onRegistrationGateChanged);
     WidgetsBinding.instance.addObserver(this);
-    _subscribeToTokenRefresh();
+    _ensureTokenRefreshSubscription();
     await _tryRegisterIfReady();
+  }
+
+  /// Signals that the push provider has finished initialization.
+  ///
+  /// Firebase initialization intentionally happens after the first Flutter
+  /// frame. This handshake lets a controller that bootstrapped before Firebase
+  /// recover deterministically, while remaining a no-op when called repeatedly.
+  void onPushProviderReady() {
+    if (!_providerReady) {
+      _providerReady = true;
+    }
+    if (!_bootstrapped) {
+      return;
+    }
+    _ensureTokenRefreshSubscription();
+    unawaited(_tryRegisterIfReady());
   }
 
   /// Re-attempt registration after a previous [PushRegistrationStatus.failed].
@@ -101,6 +130,7 @@ class PushTokenController extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void dispose() {
     _authController.removeListener(_onAuthStateChanged);
+    _registrationGateListenable?.removeListener(_onRegistrationGateChanged);
     WidgetsBinding.instance.removeObserver(this);
     _tokenRefreshSubscription?.cancel();
     super.dispose();
@@ -120,11 +150,21 @@ class PushTokenController extends ChangeNotifier with WidgetsBindingObserver {
   // Internal helpers
   // ---------------------------------------------------------------------------
 
-  void _subscribeToTokenRefresh() {
-    _tokenRefreshSubscription?.cancel();
+  void _ensureTokenRefreshSubscription() {
+    if (!_providerReady || _tokenRefreshSubscription != null) {
+      return;
+    }
     _tokenRefreshSubscription = _fcmTokenGateway.onTokenRefresh.listen(
       (newToken) => _registerToken(newToken),
     );
+  }
+
+  void _onRegistrationGateChanged() {
+    if (_providerReady &&
+        _authController.isAuthenticated &&
+        _registrationAllowed()) {
+      unawaited(_tryRegisterIfReady());
+    }
   }
 
   Future<void> _onAuthStateChanged() async {
@@ -169,47 +209,66 @@ class PushTokenController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _tryRegisterIfReady() async {
-    final session = _authController.session;
-    if (session == null) {
-      _setStatus(PushRegistrationStatus.unauthenticated);
+    if (_registrationInFlight) {
       return;
     }
-
-    var permissionStatus =
-        await _notificationSettingsRepository.loadPermissionStatus();
-
-    if (permissionStatus == NotificationPermissionStatus.unknown) {
-      permissionStatus =
-          await _notificationSettingsRepository.requestPermission();
-    }
-
-    if (permissionStatus == NotificationPermissionStatus.denied) {
-      _setStatus(PushRegistrationStatus.permissionDenied);
-      return;
-    }
-
-    if (permissionStatus == NotificationPermissionStatus.unavailable) {
+    if (!_providerReady) {
       _setStatus(PushRegistrationStatus.unavailable);
       return;
     }
-    if (permissionStatus != NotificationPermissionStatus.granted) {
-      _setStatus(PushRegistrationStatus.unavailable);
+    if (!_registrationAllowed()) {
+      // Required onboarding owns the first-run permission moment. The gate
+      // listener retries as soon as onboarding completes.
+      _setStatus(PushRegistrationStatus.idle);
       return;
     }
 
-    _setStatus(PushRegistrationStatus.registering);
+    _registrationInFlight = true;
+    try {
+      final session = _authController.session;
+      if (session == null) {
+        _setStatus(PushRegistrationStatus.unauthenticated);
+        return;
+      }
 
-    final token = await _fcmTokenGateway.getToken();
-    if (token == null) {
-      _setStatus(PushRegistrationStatus.unavailable);
-      return;
+      var permissionStatus = await _notificationSettingsRepository
+          .loadPermissionStatus();
+
+      if (permissionStatus == NotificationPermissionStatus.unknown) {
+        permissionStatus = await _notificationSettingsRepository
+            .requestPermission();
+      }
+
+      if (permissionStatus == NotificationPermissionStatus.denied) {
+        _setStatus(PushRegistrationStatus.permissionDenied);
+        return;
+      }
+
+      if (permissionStatus == NotificationPermissionStatus.unavailable) {
+        _setStatus(PushRegistrationStatus.unavailable);
+        return;
+      }
+      if (permissionStatus != NotificationPermissionStatus.granted) {
+        _setStatus(PushRegistrationStatus.unavailable);
+        return;
+      }
+
+      _setStatus(PushRegistrationStatus.registering);
+
+      final token = await _fcmTokenGateway.getToken();
+      if (token == null) {
+        _setStatus(PushRegistrationStatus.unavailable);
+        return;
+      }
+
+      await _registerToken(
+        token,
+        accessToken: session.accessToken,
+        permissionStatus: permissionStatus,
+      );
+    } finally {
+      _registrationInFlight = false;
     }
-
-    await _registerToken(
-      token,
-      accessToken: session.accessToken,
-      permissionStatus: permissionStatus,
-    );
   }
 
   Future<void> _registerToken(
@@ -217,48 +276,58 @@ class PushTokenController extends ChangeNotifier with WidgetsBindingObserver {
     String? accessToken,
     NotificationPermissionStatus? permissionStatus,
   }) async {
-    if (_logoutInProgress) {
+    if (_logoutInProgress ||
+        !_providerReady ||
+        !_registrationAllowed() ||
+        _tokenRegistrationInFlight) {
       return;
     }
-    final resolvedToken = accessToken ?? _authController.session?.accessToken;
-    if (resolvedToken == null) {
-      _setStatus(PushRegistrationStatus.unauthenticated);
-      return;
-    }
+    _tokenRegistrationInFlight = true;
+    try {
+      final resolvedToken = accessToken ?? _authController.session?.accessToken;
+      if (resolvedToken == null) {
+        _setStatus(PushRegistrationStatus.unauthenticated);
+        return;
+      }
 
-    _setStatus(PushRegistrationStatus.registering);
+      _setStatus(PushRegistrationStatus.registering);
 
-    var resolvedPermissionStatus = permissionStatus ??
-        await _notificationSettingsRepository.loadPermissionStatus();
-    if (resolvedPermissionStatus == NotificationPermissionStatus.unknown) {
-      resolvedPermissionStatus =
-          await _notificationSettingsRepository.requestPermission();
-    }
-    if (resolvedPermissionStatus == NotificationPermissionStatus.denied) {
-      _setStatus(PushRegistrationStatus.permissionDenied);
-      return;
-    }
-    if (resolvedPermissionStatus == NotificationPermissionStatus.unavailable) {
-      _setStatus(PushRegistrationStatus.unavailable);
-      return;
-    }
-    if (resolvedPermissionStatus != NotificationPermissionStatus.granted) {
-      _setStatus(PushRegistrationStatus.unavailable);
-      return;
-    }
+      var resolvedPermissionStatus =
+          permissionStatus ??
+          await _notificationSettingsRepository.loadPermissionStatus();
+      if (resolvedPermissionStatus == NotificationPermissionStatus.unknown) {
+        resolvedPermissionStatus = await _notificationSettingsRepository
+            .requestPermission();
+      }
+      if (resolvedPermissionStatus == NotificationPermissionStatus.denied) {
+        _setStatus(PushRegistrationStatus.permissionDenied);
+        return;
+      }
+      if (resolvedPermissionStatus ==
+          NotificationPermissionStatus.unavailable) {
+        _setStatus(PushRegistrationStatus.unavailable);
+        return;
+      }
+      if (resolvedPermissionStatus != NotificationPermissionStatus.granted) {
+        _setStatus(PushRegistrationStatus.unavailable);
+        return;
+      }
 
-    final success = await _pushTokenRepository.registerToken(
-      token: token,
-      platform: defaultTargetPlatform.name.toLowerCase(),
-      permissionStatus: resolvedPermissionStatus.name,
-      accessToken: resolvedToken,
-    );
+      final success = await _pushTokenRepository.registerToken(
+        token: token,
+        platform: defaultTargetPlatform.name.toLowerCase(),
+        permissionStatus: resolvedPermissionStatus.name,
+        accessToken: resolvedToken,
+      );
 
-    if (success) {
-      _registeredToken = token;
-      _setStatus(PushRegistrationStatus.registered);
-    } else {
-      _setStatus(PushRegistrationStatus.failed);
+      if (success) {
+        _registeredToken = token;
+        _setStatus(PushRegistrationStatus.registered);
+      } else {
+        _setStatus(PushRegistrationStatus.failed);
+      }
+    } finally {
+      _tokenRegistrationInFlight = false;
     }
   }
 

@@ -32,6 +32,20 @@ class FakeDelivery:
         return PushDeliveryResult.ok(device_token, provider_message_id=f'message-{len(self.tokens)}')
 
 
+class PartialDelivery(FakeDelivery):
+    """One accepted device followed by a terminally invalid token."""
+
+    def send(self, *, device_token: str, title: str, body: str, data: dict[str, str] | None = None) -> PushDeliveryResult:
+        self.tokens.append(device_token)
+        if len(self.tokens) == 1:
+            return PushDeliveryResult.ok(device_token, provider_message_id='accepted')
+        return PushDeliveryResult.failed(
+            device_token,
+            error_code='unregistered',
+            error_message='Device token is no longer valid.',
+        )
+
+
 class BirthdayReminderServiceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -451,6 +465,33 @@ class BirthdayReminderServiceTests(unittest.TestCase):
             self.assertEqual(reminder.status, 'pending')
             self.assertEqual(session.query(PushCampaign).count(), 0)
             self.assertEqual(len(delivery.tokens), 0)
+
+    def test_partially_failed_campaign_marks_reminder_sent_and_disables_token(self) -> None:
+        delivery = PartialDelivery()
+        now = datetime(2026, 9, 6, 12, tzinfo=UTC)
+        with self.SessionLocal() as session:
+            user, child = self._user(session, birth_date=date(2020, 9, 20), devices=2)
+            service = self._service(session, delivery)
+            with patch('app.modules.birthday_reminders.service.get_settings', return_value=self._settings(windows='14')), \
+                 patch.object(PushCampaignService, 'provider_configured', new_callable=PropertyMock, return_value=True):
+                service.process(now=now)
+                service.process(now=now)
+
+            reminder = session.query(BirthdayReminder).filter_by(child_id=child.id).one()
+            campaign = session.query(PushCampaign).one()
+            devices = session.scalars(
+                select(MobileNotificationDevice).where(
+                    MobileNotificationDevice.mobile_user_id == user.id,
+                ).order_by(MobileNotificationDevice.created_at)
+            ).all()
+
+            self.assertEqual(reminder.status, 'sent')
+            self.assertIsNotNone(reminder.sent_at)
+            self.assertEqual(campaign.status, 'partially_failed')
+            self.assertEqual((campaign.sent_count, campaign.failed_count), (1, 1))
+            self.assertEqual(len(delivery.tokens), 2)
+            self.assertEqual(sum(device.notifications_enabled for device in devices), 1)
+            self.assertEqual(session.query(PushCampaign).count(), 1)
 
     def test_no_device_is_skipped_without_campaign(self) -> None:
         delivery = FakeDelivery()

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:star_kids_mobile/core/utils/result.dart';
@@ -275,6 +276,93 @@ void main() {
 
       expect(getTokenCallCount, 1);
     });
+
+    test('provider readiness after bootstrap retries registration', () async {
+      final authController = _buildAuthController(
+        session: _buildSession('access-token-provider-late'),
+      );
+      final gateway = _CountingFcmTokenGateway(
+        token: 'late-provider-token',
+        onGetToken: () {},
+      );
+      final controller = PushTokenController(
+        authController: authController,
+        notificationSettingsRepository:
+            const _FakeNotificationSettingsRepository(
+          loadStatus: NotificationPermissionStatus.granted,
+        ),
+        fcmTokenGateway: gateway,
+        pushTokenRepository: _FakePushTokenRepository(success: true),
+        providerReady: false,
+      );
+
+      await controller.bootstrap();
+      expect(gateway.getTokenCallCount, 0);
+      controller.onPushProviderReady();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(gateway.getTokenCallCount, 1);
+      expect(controller.status, PushRegistrationStatus.registered);
+    });
+
+    test('provider readiness before bootstrap still subscribes once', () async {
+      final authController = _buildAuthController(
+        session: _buildSession('access-token-provider-early'),
+      );
+      final gateway = _SubscriptionCountingFcmTokenGateway(
+        token: 'early-provider-token',
+      );
+      final controller = PushTokenController(
+        authController: authController,
+        notificationSettingsRepository:
+            const _FakeNotificationSettingsRepository(
+          loadStatus: NotificationPermissionStatus.granted,
+        ),
+        fcmTokenGateway: gateway,
+        pushTokenRepository: _FakePushTokenRepository(success: true),
+        providerReady: false,
+      );
+
+      controller.onPushProviderReady();
+      controller.onPushProviderReady();
+      await controller.bootstrap();
+
+      expect(gateway.subscriptionCount, 1);
+      expect(controller.status, PushRegistrationStatus.registered);
+    });
+
+    test(
+      'required onboarding defers permission request until completion',
+      () async {
+        final authController = _buildAuthController(
+          session: _buildSession('access-token-onboarding-gate'),
+        );
+        final gate = ValueNotifier(false);
+        final settings = _RecordingNotificationSettingsRepository(
+          loadStatus: NotificationPermissionStatus.unknown,
+          requestedStatus: NotificationPermissionStatus.granted,
+        );
+        final controller = PushTokenController(
+          authController: authController,
+          notificationSettingsRepository: settings,
+          fcmTokenGateway: _FakeFcmTokenGateway(token: 'gated-token'),
+          pushTokenRepository: _FakePushTokenRepository(success: true),
+          registrationAllowed: () => gate.value,
+          registrationGateListenable: gate,
+        );
+
+        await controller.bootstrap();
+        expect(settings.requestCount, 0);
+        expect(controller.status, PushRegistrationStatus.idle);
+
+        gate.value = true;
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(settings.requestCount, 1);
+        expect(controller.status, PushRegistrationStatus.registered);
+      },
+    );
   });
 }
 
@@ -473,15 +561,33 @@ class _CountingFcmTokenGateway implements FcmTokenGateway {
 
   final String? token;
   final void Function() onGetToken;
+  int getTokenCallCount = 0;
 
   @override
   Future<String?> getToken() async {
+    getTokenCallCount += 1;
     onGetToken();
     return token;
   }
 
   @override
   Stream<String> get onTokenRefresh => const Stream.empty();
+}
+
+class _SubscriptionCountingFcmTokenGateway implements FcmTokenGateway {
+  _SubscriptionCountingFcmTokenGateway({required this.token});
+
+  final String token;
+  int subscriptionCount = 0;
+
+  @override
+  Future<String?> getToken() async => token;
+
+  @override
+  Stream<String> get onTokenRefresh {
+    subscriptionCount += 1;
+    return const Stream.empty();
+  }
 }
 
 class _StubAuthRepository implements MobileAuthRepository {

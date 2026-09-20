@@ -19,6 +19,7 @@ from ..admin_push_campaigns.service import (
     birthday_occurrence_for_year,
     PushCampaignService,
 )
+from ..admin_push_campaigns.schemas import PushCampaignResponse
 from ..leads.constants import ACTIVE_BIRTHDAY_LEAD_STATUSES
 
 logger = logging.getLogger(__name__)
@@ -197,7 +198,7 @@ class BirthdayReminderService:
         # Delivery is deliberately outside the reminder transaction. If the
         # process dies here, the durable campaign link lets the next run resume.
         response = self.push_campaigns.process_existing(campaign_id)
-        self._finalize_records(campaign_id, response.status)
+        self._finalize_records(campaign_id, response)
         return len(records)
 
     def _suppressing_leads_by_child(
@@ -270,15 +271,30 @@ class BirthdayReminderService:
             reason,
         )
 
-    def _finalize_records(self, campaign_id: str, campaign_status: str) -> None:
-        if campaign_status not in {'sent', 'failed', 'cancelled'}:
+    def _finalize_records(
+        self,
+        campaign_id: str,
+        response: PushCampaignResponse,
+    ) -> None:
+        campaign_status = response.status
+        partially_delivered = (
+            campaign_status == 'partially_failed' and response.sent_count > 0
+        )
+        if campaign_status not in {'sent', 'failed', 'cancelled', 'partially_failed'}:
             return
         now = datetime.now(UTC)
-        values = {'status': 'sent' if campaign_status == 'sent' else 'failed', 'updated_at': now}
-        if campaign_status == 'sent':
+        delivered = campaign_status == 'sent' or partially_delivered
+        values = {'status': 'sent' if delivered else 'failed', 'updated_at': now}
+        if delivered:
             values['sent_at'] = now
         else:
-            values['skip_reason'] = 'campaign_failed' if campaign_status == 'failed' else 'campaign_cancelled'
+            values['skip_reason'] = (
+                'campaign_cancelled'
+                if campaign_status == 'cancelled'
+                else 'campaign_partial_without_delivery'
+                if campaign_status == 'partially_failed'
+                else 'campaign_failed'
+            )
         self.session.execute(
             update(BirthdayReminder)
             .where(BirthdayReminder.push_campaign_id == campaign_id, BirthdayReminder.status == 'pending')
@@ -286,9 +302,11 @@ class BirthdayReminderService:
         )
         self.session.commit()
         logger.info(
-            'birthday reminder finalized campaign_id=%s status=%s',
+            'birthday reminder finalized campaign_id=%s status=%s sent_count=%s failed_count=%s',
             campaign_id,
             campaign_status,
+            response.sent_count,
+            response.failed_count,
         )
 
     @staticmethod
