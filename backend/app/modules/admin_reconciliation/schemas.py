@@ -18,6 +18,7 @@ class ReconciliationItem(BaseModel):
     lastFailure: str | None
     ticketIssuancePending: bool
     loyaltySettlementPending: bool
+    passIssuancePending: bool = False
     callbackMismatch: bool
 
 

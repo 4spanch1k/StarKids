@@ -28,7 +28,7 @@ class VisitFinalizer:
         for visit, payment, branch in self.repository.list_active_with_context():
             if not should_complete_visit(
                 visit=visit,
-                payment_visit_date=payment.visit_date,
+                payment_visit_date=payment.visit_date if payment is not None else None,
                 branch=branch,
                 now=now,
             ):

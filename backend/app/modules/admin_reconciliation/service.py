@@ -15,6 +15,8 @@ class AdminReconciliationService:
                 if callback_mismatch
                 else 'ticket_issuance_pending'
                 if payment.ticket_issuance_required
+                else 'pass_issuance_pending'
+                if getattr(payment, 'pass_issuance_required', False)
                 else 'loyalty_settlement_pending'
             )
             last_failure = payment.failure_reason
@@ -34,6 +36,7 @@ class AdminReconciliationService:
                     lastFailure=last_failure,
                     ticketIssuancePending=payment.ticket_issuance_required,
                     loyaltySettlementPending=payment.loyalty_settlement_required,
+                    passIssuancePending=getattr(payment, 'pass_issuance_required', False),
                     callbackMismatch=callback_mismatch,
                 )
             )

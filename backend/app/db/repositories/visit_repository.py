@@ -13,10 +13,10 @@ COMPLETED_VISIT_STATUS = 'completed'
 class VisitRepository(Repository):
     def list_active_with_context(
         self,
-    ) -> list[tuple[Visit, MobilePayment, Branch | None]]:
+    ) -> list[tuple[Visit, MobilePayment | None, Branch | None]]:
         statement = (
             select(Visit, MobilePayment, Branch)
-            .join(MobilePayment, MobilePayment.id == Visit.mobile_payment_id)
+            .outerjoin(MobilePayment, MobilePayment.id == Visit.mobile_payment_id)
             .outerjoin(Branch, Branch.id == Visit.branch_id)
             .where(Visit.status == 'active')
             .order_by(Visit.started_at.asc(), Visit.id.asc())
@@ -28,7 +28,9 @@ class VisitRepository(Repository):
             select(Visit).where(Visit.id == visit_id).with_for_update()
         )
 
-    def get_for_payment(self, mobile_payment_id: str, *, for_update: bool = False) -> Visit | None:
+    def get_for_payment(self, mobile_payment_id: str | None, *, for_update: bool = False) -> Visit | None:
+        if mobile_payment_id is None:
+            return None
         statement = select(Visit).where(Visit.mobile_payment_id == mobile_payment_id)
         if for_update:
             statement = statement.with_for_update()

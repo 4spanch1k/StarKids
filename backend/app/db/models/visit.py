@@ -18,10 +18,13 @@ class Visit(Base):
     )
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid4().hex)
-    mobile_payment_id: Mapped[str] = mapped_column(
+    mobile_payment_id: Mapped[str | None] = mapped_column(
         String(32),
         ForeignKey('mobile_payments.id', ondelete='RESTRICT'),
-        nullable=False,
+        nullable=True,
+    )
+    child_id: Mapped[str | None] = mapped_column(
+        String(32), ForeignKey('mobile_children.id', ondelete='RESTRICT'), nullable=True, index=True
     )
     mobile_user_id: Mapped[str] = mapped_column(
         String(32),

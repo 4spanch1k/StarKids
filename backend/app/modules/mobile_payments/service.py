@@ -31,6 +31,7 @@ from .constants import (
     PAYMENT_STATUS_FAILED,
     PAYMENT_STATUS_PAID,
     PAYMENT_RESERVATION_TTL_MINUTES,
+    PAYABLE_PASS_PURCHASE,
 )
 from .freedompay_client import (
     FreedomPayClientProtocol,
@@ -61,6 +62,8 @@ from .ticket_qr_service import TicketQrService
 from .visit_lifecycle import should_complete_visit
 from ..loyalty.constants import LOYALTY_EVENT_TICKET_PURCHASE
 from ..loyalty.service import LoyaltyService
+from ..passes.schemas import PassInitRequest
+from ..passes.service import PassService
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +103,7 @@ class MobilePaymentService:
         ticket_qr_service: TicketQrService,
         visit_repository: VisitRepository,
         loyalty_service: LoyaltyService,
+        pass_service: PassService | None = None,
     ) -> None:
         self._settings = settings
         self._payment_repository = payment_repository
@@ -110,6 +114,143 @@ class MobilePaymentService:
         self._ticket_qr_service = ticket_qr_service
         self._visit_repository = visit_repository
         self._loyalty_service = loyalty_service
+        self._pass_service = pass_service
+
+    def init_freedom_pass_payment(
+        self,
+        *,
+        user: MobileUser,
+        payload: PassInitRequest,
+    ) -> FreedomPaymentInitResponse:
+        self.expire_stale_payments()
+        if self._pass_service is None:
+            raise DomainHTTPException(code='pass_unavailable', message='Pass payments are not configured.', status_code=503)
+        existing = self._payment_repository.get_by_idempotency_key_for_user(
+            mobile_user_id=user.id, idempotency_key=payload.idempotencyKey,
+        )
+        snapshot: dict[str, object]
+        branch: Branch
+        if existing is not None:
+            snapshot = self._validate_pass_idempotency(existing, payload)
+            if existing.status != 'created' or existing.payment_url:
+                return _payment_init_response(existing)
+            payment = self._payment_repository.get_by_idempotency_key_for_user(
+                mobile_user_id=user.id, idempotency_key=payload.idempotencyKey, for_update=True,
+            )
+            if payment is None:
+                raise DomainHTTPException(code='payment_init_race', message='Payment initialization could not be locked safely.', status_code=503)
+            snapshot = self._validate_pass_idempotency(payment, payload)
+            if payment.status != 'created' or payment.payment_url:
+                return _payment_init_response(payment)
+            branch = self._branch_repository.get_by_id(payment.branch_id)
+            if branch is None:
+                raise NotFoundException(code='branch_not_found', message='Branch is no longer available.')
+        else:
+            # Lock the child only while the immutable payment reservation is
+            # persisted. create_pass_payment commits, releasing the lock
+            # before the external FreedomPay request below.
+            child, plan, branch = self._pass_service.validate_purchase(
+                user_id=user.id, child_id=payload.childId,
+                plan_id=payload.passPlanId, branch_id=payload.branchId,
+                for_update=True,
+            )
+            snapshot = {
+                'childId': child.id, 'passPlanId': plan.id, 'planName': plan.name,
+                'priceTenge': plan.price_tenge, 'visitLimit': plan.visit_limit,
+                'validityDays': plan.validity_days, 'dailyLimit': plan.daily_limit,
+                'branchId': plan.branch_id, 'purchaseBranchId': branch.id,
+            }
+            try:
+                payment = self._payment_repository.create_pass_payment(
+                    mobile_user_id=user.id, branch_id=branch.id, payable_entity_id=plan.id,
+                    local_order_id=f'sk-{token_hex(12)}', idempotency_key=payload.idempotencyKey,
+                    amount_tenge=plan.price_tenge,
+                    init_payload={'passSnapshot': snapshot, 'gateway': PAYMENT_GATEWAY_FREEDOMPAY},
+                    expires_at=datetime.now(UTC) + timedelta(minutes=PAYMENT_RESERVATION_TTL_MINUTES),
+                )
+            except IntegrityError:
+                self._payment_repository.db.rollback()
+                payment = self._payment_repository.get_by_idempotency_key_for_user(
+                    mobile_user_id=user.id, idempotency_key=payload.idempotencyKey, for_update=True,
+                )
+                if payment is None:
+                    raise
+                snapshot = self._validate_pass_idempotency(payment, payload)
+                if payment.status != 'created' or payment.payment_url:
+                    return _payment_init_response(payment)
+                branch = self._branch_repository.get_by_id(payment.branch_id)
+                if branch is None:
+                    raise NotFoundException(code='branch_not_found', message='Branch is no longer available.')
+            else:
+                payment = self._payment_repository.get_by_idempotency_key_for_user(
+                    mobile_user_id=user.id, idempotency_key=payload.idempotencyKey, for_update=True,
+                )
+                if payment is None:
+                    raise DomainHTTPException(code='payment_init_race', message='Payment initialization could not be locked safely.', status_code=503)
+
+        self._ensure_freedompay_available()
+        gateway_request = self._build_freedompay_init_request(payment=payment, user=user, branch=branch)
+        gateway_request['pg_description'] = f"Boom Bala {snapshot['planName']}"
+        try:
+            gateway_result = self._freedompay_client.init_payment(gateway_request)
+        except FreedomPayGatewayError as exc:
+            self._payment_repository.mark_failed(payment, status=PAYMENT_STATUS_FAILED, callback_payload={}, failure_reason=str(exc))
+            raise DomainHTTPException(code='freedompay_init_failed', message='Could not initialize payment in Freedom Pay.', status_code=503) from exc
+        persisted_payload = dict(payment.init_payload or {})
+        persisted_payload['passSnapshot'] = dict(snapshot)
+        persisted_payload['gatewayRequest'] = _sanitize_gateway_payload(gateway_request)
+        persisted_payload['gatewayResponse'] = _sanitize_gateway_payload(gateway_result.raw_payload)
+        payment = self._payment_repository.mark_pending(
+            payment, external_payment_id=gateway_result.external_payment_id,
+            payment_url=gateway_result.payment_url,
+            init_payload=persisted_payload,
+        )
+        return _payment_init_response(payment, payment_url=gateway_result.payment_url)
+
+    @staticmethod
+    def _idempotency_conflict() -> None:
+        raise DomainHTTPException(
+            code='idempotency_key_conflict',
+            message='Idempotency key is already bound to another purchase.',
+            status_code=status.HTTP_409_CONFLICT,
+        )
+
+    @classmethod
+    def _assert_idempotency_type(cls, payment: MobilePayment, expected_type: str) -> None:
+        if payment.payable_entity_type != expected_type:
+            cls._idempotency_conflict()
+
+    @classmethod
+    def _validate_pass_idempotency(
+        cls,
+        payment: MobilePayment,
+        payload: PassInitRequest,
+    ) -> dict[str, object]:
+        cls._assert_idempotency_type(payment, PAYABLE_PASS_PURCHASE)
+        snapshot = dict(payment.init_payload or {}).get('passSnapshot')
+        if not isinstance(snapshot, dict):
+            cls._idempotency_conflict()
+        expected = {
+            'childId': str(payload.childId),
+            'passPlanId': str(payload.passPlanId),
+            'purchaseBranchId': str(payload.branchId),
+        }
+        if any(str(snapshot.get(key)) != value for key, value in expected.items()):
+            cls._idempotency_conflict()
+        if str(payment.payable_entity_id) != str(snapshot.get('passPlanId')):
+            cls._idempotency_conflict()
+        if str(payment.branch_id) != str(snapshot.get('purchaseBranchId')):
+            cls._idempotency_conflict()
+        return snapshot
+
+    def _ensure_freedompay_available(self) -> None:
+        if (
+            (self._settings.is_production or self._settings.is_staging)
+            and self._settings.freedompay_mock_mode
+        ):
+            raise DomainHTTPException(code='freedompay_mock_disabled', message='Freedom Pay mock mode is disabled in staging and production.', status_code=503)
+        if not self._settings.is_freedompay_configured and not self._settings.freedompay_mock_mode:
+            raise DomainHTTPException(code='freedompay_not_configured', message='Freedom Pay is not configured on the backend.', status_code=503)
 
     def init_freedom_ticket_payment(
         self,
@@ -118,6 +259,35 @@ class MobilePaymentService:
         payload: FreedomPaymentInitRequest,
     ) -> FreedomPaymentInitResponse:
         self.expire_stale_payments()
+        if payload.visitDate < business_today():
+            raise DomainHTTPException(
+                code='invalid_visit_date',
+                message='Visit date must be today or later.',
+            )
+
+        existing_payment = self._payment_repository.get_by_idempotency_key_for_user(
+            mobile_user_id=user.id,
+            idempotency_key=payload.idempotencyKey,
+        )
+        if existing_payment is not None:
+            self._assert_idempotency_type(existing_payment, PAYABLE_BRANCH_TICKET_ORDER)
+            if existing_payment.status != 'created' or existing_payment.payment_url:
+                return _payment_init_response(existing_payment)
+            payment = self._payment_repository.get_by_idempotency_key_for_user(
+                mobile_user_id=user.id,
+                idempotency_key=payload.idempotencyKey,
+                for_update=True,
+            )
+            if payment is None:
+                raise DomainHTTPException(
+                    code='payment_init_race',
+                    message='Payment initialization could not be locked safely.',
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
+            self._assert_idempotency_type(payment, PAYABLE_BRANCH_TICKET_ORDER)
+            if payment.status != 'created' or payment.payment_url:
+                return _payment_init_response(payment)
+
         if (
             (self._settings.is_production or self._settings.is_staging)
             and self._settings.freedompay_mock_mode
@@ -133,33 +303,6 @@ class MobilePaymentService:
                 message='Freedom Pay is not configured on the backend.',
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
-
-        if payload.visitDate < business_today():
-            raise DomainHTTPException(
-                code='invalid_visit_date',
-                message='Visit date must be today or later.',
-            )
-
-        existing_payment = self._payment_repository.get_by_idempotency_key_for_user(
-            mobile_user_id=user.id,
-            idempotency_key=payload.idempotencyKey,
-        )
-        if existing_payment is not None:
-            if existing_payment.status != 'created' or existing_payment.payment_url:
-                return _payment_init_response(existing_payment)
-            payment = self._payment_repository.get_by_idempotency_key_for_user(
-                mobile_user_id=user.id,
-                idempotency_key=payload.idempotencyKey,
-                for_update=True,
-            )
-            if payment is None:
-                raise DomainHTTPException(
-                    code='payment_init_race',
-                    message='Payment initialization could not be locked safely.',
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                )
-            if payment.status != 'created' or payment.payment_url:
-                return _payment_init_response(payment)
 
         branch, ticket_items = self._resolve_ticket_items(payload)
         quote = self._calculate_quote(
@@ -207,6 +350,7 @@ class MobilePaymentService:
             )
             if payment is None:
                 raise
+            self._assert_idempotency_type(payment, PAYABLE_BRANCH_TICKET_ORDER)
             if payment.status != 'created' or payment.payment_url:
                 return _payment_init_response(payment)
         else:
@@ -397,6 +541,14 @@ class MobilePaymentService:
                     'Paid payment reconciliation failed payment_id=%s',
                     payment.id,
                 )
+        if self._pass_service is not None:
+            for payment in self._payment_repository.list_paid_pass_payments():
+                try:
+                    self._issue_paid_payment_pass(payment.id)
+                    reconciled += 1
+                except Exception:
+                    self._payment_repository.db.rollback()
+                    logger.exception('Paid pass reconciliation failed payment_id=%s', payment.id)
         return reconciled
 
     def list_paid_tickets(self, mobile_user_id: str) -> PurchasedTicketsResponse:
@@ -419,7 +571,11 @@ class MobilePaymentService:
         visit = self._visit_repository.get_active_for_user(mobile_user_id)
         if visit is None:
             return None
-        payment = self._payment_repository.get_by_id(visit.mobile_payment_id)
+        payment = (
+            self._payment_repository.get_by_id(visit.mobile_payment_id)
+            if visit.mobile_payment_id is not None
+            else None
+        )
         branch = self._branch_repository.get_by_id(visit.branch_id)
         now = datetime.now(UTC)
         if should_complete_visit(
@@ -430,9 +586,10 @@ class MobilePaymentService:
         ):
             # Re-read under a row lock before completing so a concurrent
             # redemption/current-visit request cannot overwrite the state.
-            locked = self._visit_repository.get_for_payment(
-                visit.mobile_payment_id,
-                for_update=True,
+            locked = (
+                self._visit_repository.get_for_payment(visit.mobile_payment_id, for_update=True)
+                if visit.mobile_payment_id is not None
+                else self._visit_repository.get_by_id_for_update(visit.id)
             )
             if locked is not None and locked.status == 'active':
                 locked.status = 'completed'
@@ -687,6 +844,8 @@ class MobilePaymentService:
                 failure_reason=None,
                 commit=False,
             )
+            is_ticket_payment = processed_payment is not None and processed_payment.payable_entity_type == PAYABLE_BRANCH_TICKET_ORDER
+            is_pass_payment = processed_payment is not None and processed_payment.payable_entity_type == PAYABLE_PASS_PURCHASE
             should_reconcile_paid_payment = (
                 processed_payment is not None
                 and processed_payment.status == PAYMENT_STATUS_PAID
@@ -694,11 +853,17 @@ class MobilePaymentService:
                     status_before_callback != PAYMENT_STATUS_PAID
                     or processed_payment.ticket_issuance_required
                     or processed_payment.loyalty_settlement_required
+                    or processed_payment.pass_issuance_required
                 )
             )
             if should_reconcile_paid_payment:
-                processed_payment.loyalty_settlement_required = True
-                processed_payment.ticket_issuance_required = True
+                if is_ticket_payment:
+                    processed_payment.loyalty_settlement_required = True
+                    processed_payment.ticket_issuance_required = True
+                elif is_pass_payment:
+                    processed_payment.pass_issuance_required = True
+                else:
+                    processed_payment.failure_reason = 'Unsupported payable entity type; fulfillment requires reconciliation.'
                 self._payment_repository.db.add(processed_payment)
             else:
                 # Keep the callback audit transaction durable even when this
@@ -709,6 +874,22 @@ class MobilePaymentService:
         except Exception:
             self._payment_repository.db.rollback()
             raise
+
+        if processed_payment.payable_entity_type == PAYABLE_PASS_PURCHASE:
+            try:
+                self._issue_paid_payment_pass(processed_payment.id)
+            except Exception:
+                self._payment_repository.db.rollback()
+                logger.exception('Payment paid but pass issuance is pending payment_id=%s', processed_payment.id)
+            return
+
+        if processed_payment.payable_entity_type != PAYABLE_BRANCH_TICKET_ORDER:
+            logger.error(
+                'Paid payment has unsupported payable entity type payment_id=%s type=%s',
+                processed_payment.id,
+                processed_payment.payable_entity_type,
+            )
+            return
 
         ticket_delivery_ready = False
         try:
@@ -772,13 +953,23 @@ class MobilePaymentService:
             payment.status = PAYMENT_STATUS_PAID
             payment.paid_at = datetime.now(UTC)
             payment.failure_reason = None
-            payment.loyalty_settlement_required = True
-            payment.ticket_issuance_required = True
+            if payment.payable_entity_type == PAYABLE_PASS_PURCHASE:
+                payment.pass_issuance_required = True
+            else:
+                payment.loyalty_settlement_required = True
+                payment.ticket_issuance_required = True
             self._payment_repository.db.add(payment)
             self._payment_repository.db.commit()
         except Exception:
             self._payment_repository.db.rollback()
             raise
+        if payment.payable_entity_type == PAYABLE_PASS_PURCHASE:
+            try:
+                self._issue_paid_payment_pass(payment.id)
+            except Exception:
+                self._payment_repository.db.rollback()
+                logger.exception('Zero-cash pass payment paid but issuance is pending payment_id=%s', payment.id)
+            return _payment_init_response(payment, payment_url='')
         ticket_delivery_ready = False
         try:
             self._issue_paid_payment_tickets(payment.id)
@@ -815,6 +1006,19 @@ class MobilePaymentService:
         except Exception:
             self._payment_repository.db.rollback()
             raise
+
+    def _issue_paid_payment_pass(self, payment_id: str) -> bool:
+        payment = self._payment_repository.get_by_id_for_update(payment_id)
+        if payment is None or payment.status != PAYMENT_STATUS_PAID:
+            return False
+        if payment.payable_entity_type != PAYABLE_PASS_PURCHASE:
+            return False
+        if not payment.pass_issuance_required and self._pass_service is not None:
+            return self._pass_service.passes.get_by_payment_for_update(payment.id) is not None
+        if self._pass_service is None:
+            raise DomainHTTPException(code='pass_unavailable', message='Pass issuance is not configured.', status_code=503)
+        self._pass_service.issue_for_paid_payment(payment)
+        return True
 
     def _settle_paid_payment_loyalty(self, payment_id: str) -> bool:
         payment = self._payment_repository.get_by_id_for_update(payment_id)

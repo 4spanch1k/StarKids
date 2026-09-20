@@ -23,6 +23,9 @@ from app.db.models import (  # noqa: F401
     loyalty_rule,
     loyalty_transaction,
     loyalty_settings,
+    pass_plan,
+    customer_pass,
+    pass_redemption,
 )
 
 config = context.config

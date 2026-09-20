@@ -36,9 +36,16 @@ def visit_validity_cutoff(*, visit_date: date, branch: Branch) -> datetime:
 
 
 def should_complete_visit(*, visit: Visit, payment_visit_date: date | None, branch: Branch | None, now: datetime) -> bool:
-    if visit.status != 'active' or payment_visit_date is None or branch is None:
+    if visit.status != 'active' or branch is None:
         return False
     normalized_now = now if now.tzinfo is not None else now.replace(tzinfo=UTC)
+    if payment_visit_date is None:
+        # Pass admission is not tied to a payment visit_date. Its operational
+        # validity is the branch's business day on which the visit started.
+        payment_visit_date = normalized_now.astimezone(BUSINESS_TIMEZONE).date()
+        if visit.started_at is not None:
+            started = visit.started_at if visit.started_at.tzinfo else visit.started_at.replace(tzinfo=UTC)
+            payment_visit_date = started.astimezone(BUSINESS_TIMEZONE).date()
     return normalized_now.astimezone(BUSINESS_TIMEZONE) >= visit_validity_cutoff(
         visit_date=payment_visit_date,
         branch=branch,

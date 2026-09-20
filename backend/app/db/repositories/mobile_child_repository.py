@@ -18,13 +18,20 @@ class MobileChildRepository(Repository):
             )
         )
 
-    def get_by_id_and_user(self, child_id: str, user_id: str) -> MobileChild | None:
-        return self.db.scalar(
-            select(MobileChild).where(
-                MobileChild.id == child_id,
-                MobileChild.user_id == user_id,
-            )
+    def get_by_id_and_user(
+        self,
+        child_id: str,
+        user_id: str,
+        *,
+        for_update: bool = False,
+    ) -> MobileChild | None:
+        statement = select(MobileChild).where(
+            MobileChild.id == child_id,
+            MobileChild.user_id == user_id,
         )
+        if for_update:
+            statement = statement.with_for_update()
+        return self.db.scalar(statement)
 
     def create(
         self,

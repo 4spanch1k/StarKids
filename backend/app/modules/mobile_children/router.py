@@ -67,6 +67,7 @@ def update_child(
     responses={
         401: {'model': ErrorResponse},
         404: {'model': ErrorResponse},
+        409: {'model': ErrorResponse},
     },
 )
 def delete_child(
