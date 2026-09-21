@@ -52,6 +52,22 @@ Use a dedicated test account and test payment configuration:
 - expired payment releases any reserved bonus amount;
 - production configuration rejects mock OTP/payment and non-PostgreSQL DB URLs.
 
+## Pass V1 — development done
+
+Pass V1 development and admission scope are complete. The following checks
+remain release/staging verification in the target environment:
+
+- [ ] FreedomPay sandbox payment completes with the real provider.
+- [ ] Provider callback marks the payment `PAID` authoritatively.
+- [ ] `CustomerPass` is issued exactly once after the callback.
+- [ ] A physical device displays the backend-signed pass QR.
+- [ ] A physical scanner accepts the pass QR at the correct branch.
+- [ ] Remaining visits decrement once for the first redemption.
+- [ ] A same-day duplicate scan returns `already_used_today` without another Visit.
+- [ ] Failed/cancelled provider payment retry creates a fresh payment.
+- [ ] PostgreSQL migration `20260920_0043` is applied in the target environment.
+- [ ] Production secrets and runtime configuration are verified outside git.
+
 ## Refund boundary
 
 There is no provider-backed refund execution in this repository. Do not mark a
