@@ -23,6 +23,8 @@ JOURNEY_KEY = 'first_to_second_visit_v1'
 MIN_DAYS = 4
 WINDOW_DAYS = 30
 BUSINESS_TZ = ZoneInfo('Asia/Almaty')
+# ``business_date`` is the project's Asia/Almaty calendar-date helper. The
+# journey's day windows are calendar days, not Monday-to-Friday workdays.
 
 
 @dataclass(frozen=True)
@@ -186,17 +188,24 @@ class FirstSecondVisitService:
             first_visit_id=first_visit_id,
             first_visit_at=first_visit_at,
         )
-        self.session.add(execution)
         try:
-            self.session.flush()
+            # The execution uniqueness constraint is expected to race when two
+            # workers discover the same family. Keep that conflict inside a
+            # SAVEPOINT so work already done in this outer batch transaction
+            # (conversions and campaign sync) remains commit-able.
+            with self.session.begin_nested():
+                self.session.add(execution)
+                self.session.flush()
         except IntegrityError:
-            self.session.rollback()
-            return self.session.scalar(
+            existing = self.session.scalar(
                 select(LifecycleJourneyExecution).where(
                     LifecycleJourneyExecution.journey_key == JOURNEY_KEY,
                     LifecycleJourneyExecution.mobile_user_id == user_id,
                 )
             )
+            if existing is None:
+                raise
+            return existing
         if group == 'treatment':
             campaign = self.push_campaigns.create_system_first_to_second_visit_campaign(user_id=user_id)
             execution.push_campaign_id = campaign.id
