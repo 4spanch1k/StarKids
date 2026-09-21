@@ -14,6 +14,7 @@ import '../../../children/domain/child.dart';
 import '../../../children/presentation/controllers/children_controller.dart';
 import '../../domain/pass.dart';
 import '../../domain/pass_repository.dart';
+import '../../../tickets/domain/ticket_purchase.dart';
 import '../../../tickets/presentation/controllers/payment_return_coordinator.dart';
 
 Future<bool> showPassPurchaseFlowSheet(
@@ -35,8 +36,10 @@ Future<bool> showPassPurchaseFlowSheet(
 enum _PassPaymentPhase { idle, starting, opened, checking, paid, failed }
 
 class _PassPurchaseFlowSheet extends StatefulWidget {
-  const _PassPurchaseFlowSheet(
-      {required this.repository, required this.scrollController});
+  const _PassPurchaseFlowSheet({
+    required this.repository,
+    required this.scrollController,
+  });
   final PassRepository repository;
   final ScrollController scrollController;
   @override
@@ -51,6 +54,9 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
   PassQuote? _quote;
   String? _error;
   String? _paymentMessage;
+  String? _childrenError;
+  String? _baselineError;
+  String? _plansError;
   _PassPaymentPhase _phase = _PassPaymentPhase.idle;
   String? _idempotencyKey;
   String? _selectionKey;
@@ -59,6 +65,8 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
   var _loading = true;
   var _quoteLoading = false;
   var _plansLoading = false;
+  var _baselineReady = false;
+  var _quoteRequestVersion = 0;
   final Set<String> _existingPassIds = <String>{};
 
   bool get _busy =>
@@ -69,8 +77,9 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
   void initState() {
     super.initState();
     ServiceRegistry.paymentReturnCoordinator.attachCheckoutListener();
-    _subscription =
-        ServiceRegistry.paymentReturnCoordinator.events.listen(_handleReturn);
+    _subscription = ServiceRegistry.paymentReturnCoordinator.events.listen(
+      _handleReturn,
+    );
     _load();
   }
 
@@ -82,12 +91,28 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
   }
 
   Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _childrenError = null;
+      _baselineError = null;
+      _plansError = null;
+      _error = null;
+    });
     final childrenController = ServiceRegistry.childrenController;
     if (childrenController.status != ChildrenStatus.success &&
         childrenController.status != ChildrenStatus.empty) {
       await childrenController.load();
     }
     if (!mounted) return;
+    if (childrenController.status == ChildrenStatus.error) {
+      setState(() {
+        _loading = false;
+        _childrenError =
+            childrenController.errorMessage ??
+            'Не удалось загрузить детей. Попробуйте ещё раз.';
+      });
+      return;
+    }
     _children = List<Child>.of(childrenController.children);
     if (_children.isNotEmpty) _selectedChild = _children.first;
     if (_children.isEmpty) {
@@ -98,9 +123,21 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
       return;
     }
     final existing = await widget.repository.listPasses();
-    if (existing is Success<List<CustomerPass>>) {
-      _existingPassIds.addAll(existing.data.map((pass) => pass.id));
+    if (existing is Failure<List<CustomerPass>>) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _baselineReady = false;
+        _baselineError = existing.message;
+      });
+      return;
     }
+    _existingPassIds
+      ..clear()
+      ..addAll(
+        (existing as Success<List<CustomerPass>>).data.map((pass) => pass.id),
+      );
+    _baselineReady = true;
     await _loadPlans();
   }
 
@@ -116,7 +153,7 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
       setState(() {
         _plansLoading = false;
         _loading = false;
-        _error = result.message;
+        _plansError = result.message;
       });
       return;
     }
@@ -124,10 +161,12 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
     setState(() {
       _plansLoading = false;
       _loading = false;
-      _error = null;
+      _plansError = null;
     });
     if (_plans.isNotEmpty) {
       _selectedPlan = _plans.first;
+      _selectionKey =
+          '${_selectedChild!.id}:${_selectedPlan!.id}:${ServiceRegistry.selectedBranchController.selectedBranch.id}';
       await _refreshQuote();
     }
   }
@@ -142,6 +181,7 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
       _idempotencyKey = null;
       _selectionKey = nextKey;
     }
+    _quoteRequestVersion++;
     setState(() {
       _selectedChild = nextChild;
       _selectedPlan = nextPlan;
@@ -156,13 +196,26 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
     final child = _selectedChild;
     final plan = _selectedPlan;
     if (child == null || plan == null) return;
+    final requestedChildId = child.id;
+    final requestedPlanId = plan.id;
+    final requestedBranchId =
+        ServiceRegistry.selectedBranchController.selectedBranch.id;
+    final requestVersion = ++_quoteRequestVersion;
     setState(() => _quoteLoading = true);
     final result = await widget.repository.quote(
-      childId: child.id,
-      passPlanId: plan.id,
-      branchId: ServiceRegistry.selectedBranchController.selectedBranch.id,
+      childId: requestedChildId,
+      passPlanId: requestedPlanId,
+      branchId: requestedBranchId,
     );
     if (!mounted) return;
+    final currentBranchId =
+        ServiceRegistry.selectedBranchController.selectedBranch.id;
+    if (requestVersion != _quoteRequestVersion ||
+        _selectedChild?.id != requestedChildId ||
+        _selectedPlan?.id != requestedPlanId ||
+        currentBranchId != requestedBranchId) {
+      return;
+    }
     if (result is Failure<PassQuote>) {
       setState(() {
         _quoteLoading = false;
@@ -181,7 +234,19 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
   Future<void> _startPayment() async {
     final child = _selectedChild;
     final plan = _selectedPlan;
-    if (child == null || plan == null || _quote == null || _busy) return;
+    final quote = _quote;
+    final branchId = ServiceRegistry.selectedBranchController.selectedBranch.id;
+    if (child == null || plan == null || _busy || !_baselineReady) return;
+    if (quote == null ||
+        quote.childId != child.id ||
+        quote.plan.id != plan.id ||
+        quote.branchId != branchId) {
+      setState(() {
+        _error = 'Обновляем стоимость для выбранного абонемента…';
+      });
+      await _refreshQuote();
+      return;
+    }
     _idempotencyKey ??= _newIdempotencyKey();
     setState(() {
       _phase = _PassPaymentPhase.starting;
@@ -191,7 +256,7 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
     final result = await widget.repository.startPayment(
       childId: child.id,
       passPlanId: plan.id,
-      branchId: ServiceRegistry.selectedBranchController.selectedBranch.id,
+      branchId: branchId,
       idempotencyKey: _idempotencyKey!,
     );
     if (!mounted) return;
@@ -228,22 +293,64 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
   Future<void> _handleReturn(PaymentReturnEvent event) async {
     if (!mounted ||
         event.checkoutKind != PaymentCheckoutKind.pass ||
-        event.paymentId != _paymentId) return;
+        event.paymentId != _paymentId)
+      return;
     if (event.isPaid) {
       await _reconcilePaid();
     } else if (event.status != null && event.status!.isFinal) {
       setState(() {
         _phase = _PassPaymentPhase.failed;
-        _error = event.errorMessage ??
+        _error =
+            event.errorMessage ??
             event.status!.failureReason ??
             'Оплата не прошла.';
       });
     } else if (mounted) {
       setState(() {
-        _phase = _PassPaymentPhase.checking;
-        _paymentMessage = 'Проверяем оплату…';
+        _phase = _PassPaymentPhase.opened;
+        _paymentMessage =
+            event.errorMessage ??
+            'Платёж ещё обрабатывается. Проверьте оплату ещё раз.';
       });
     }
+  }
+
+  Future<void> _checkPaymentStatus() async {
+    final paymentId = _paymentId;
+    if (paymentId == null || _busy) return;
+    setState(() {
+      _phase = _PassPaymentPhase.checking;
+      _error = null;
+      _paymentMessage = 'Проверяем оплату…';
+    });
+    final result = await ServiceRegistry.ticketPurchaseRepository
+        .getPaymentStatus(paymentId);
+    if (!mounted) return;
+    if (result is Failure<TicketPaymentStatus>) {
+      setState(() {
+        _phase = _PassPaymentPhase.opened;
+        _paymentMessage = result.message;
+      });
+      return;
+    }
+    final status = (result as Success<TicketPaymentStatus>).data;
+    if (status.status == TicketPaymentStatusValue.paid) {
+      await _reconcilePaid();
+      return;
+    }
+    if (status.isFinal) {
+      setState(() {
+        _phase = _PassPaymentPhase.failed;
+        _error = status.failureReason ?? 'Оплата не прошла.';
+        _paymentMessage = null;
+      });
+      return;
+    }
+    setState(() {
+      _phase = _PassPaymentPhase.opened;
+      _paymentMessage =
+          'Платёж ещё обрабатывается. Попробуйте проверить ещё раз.';
+    });
   }
 
   Future<void> _reconcilePaid() async {
@@ -256,10 +363,12 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
       if (result is Success<List<CustomerPass>>) {
         final passes = result.data;
         final found = passes
-            .where((pass) =>
-                !_existingPassIds.contains(pass.id) &&
-                pass.childId == _selectedChild?.id &&
-                pass.passPlanId == _selectedPlan?.id)
+            .where(
+              (pass) =>
+                  !_existingPassIds.contains(pass.id) &&
+                  pass.childId == _selectedChild?.id &&
+                  pass.passPlanId == _selectedPlan?.id,
+            )
             .toList();
         if (found.isNotEmpty) {
           if (mounted) Navigator.of(context).pop(true);
@@ -283,98 +392,183 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
   Widget build(BuildContext context) {
     if (_loading || _plansLoading)
       return const Padding(
-          padding: EdgeInsets.all(SKSpacing.x6),
-          child: Center(child: CircularProgressIndicator()));
+        padding: EdgeInsets.all(SKSpacing.x6),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    if (_childrenError != null)
+      return Padding(
+        padding: const EdgeInsets.all(SKSpacing.x5),
+        child: _LoadErrorCard(message: _childrenError!, onRetry: _load),
+      );
     if (_children.isEmpty)
-      return _NoChildren(onOpenProfile: () {
-        Navigator.of(context).pop();
-        Navigator.of(context).pushNamed(AppRoutes.profile);
-      });
+      return _NoChildren(
+        onOpenProfile: () {
+          Navigator.of(context).pop();
+          Navigator.of(context).pushNamed(AppRoutes.profile);
+        },
+      );
+    if (_baselineError != null)
+      return Padding(
+        padding: const EdgeInsets.all(SKSpacing.x5),
+        child: _LoadErrorCard(message: _baselineError!, onRetry: _load),
+      );
+    if (_plansError != null)
+      return Padding(
+        padding: const EdgeInsets.all(SKSpacing.x5),
+        child: _LoadErrorCard(message: _plansError!, onRetry: _load),
+      );
     if (_error != null && _plans.isEmpty)
       return Padding(
-          padding: const EdgeInsets.all(SKSpacing.x5), child: Text(_error!));
+        padding: const EdgeInsets.all(SKSpacing.x5),
+        child: Text(_error!),
+      );
     if (_plans.isEmpty)
       return const Padding(
-          padding: EdgeInsets.all(SKSpacing.x5),
-          child:
-              Text('Сейчас нет доступных абонементов для выбранного филиала.'));
+        padding: EdgeInsets.all(SKSpacing.x5),
+        child: Text('Сейчас нет доступных абонементов для выбранного филиала.'),
+      );
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-          SKSpacing.x5, SKSpacing.x2, SKSpacing.x5, SKSpacing.x6),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text('Выберите ребёнка',
-            style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: SKSpacing.x2),
-        DropdownButtonFormField<Child>(
+        SKSpacing.x5,
+        SKSpacing.x2,
+        SKSpacing.x5,
+        SKSpacing.x6,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Выберите ребёнка',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: SKSpacing.x2),
+          DropdownButtonFormField<Child>(
             value: _selectedChild,
             items: _children
-                .map((child) =>
-                    DropdownMenuItem(value: child, child: Text(child.name)))
+                .map(
+                  (child) =>
+                      DropdownMenuItem(value: child, child: Text(child.name)),
+                )
                 .toList(),
             onChanged: (child) {
               if (child != null) _updateSelection(child: child);
-            }),
-        const SizedBox(height: SKSpacing.x4),
-        Text('Выберите абонемент',
-            style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: SKSpacing.x2),
-        ..._plans.map((plan) => Padding(
-            padding: const EdgeInsets.only(bottom: SKSpacing.x2),
-            child: _PlanCard(
+            },
+          ),
+          const SizedBox(height: SKSpacing.x4),
+          Text(
+            'Выберите абонемент',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: SKSpacing.x2),
+          ..._plans.map(
+            (plan) => Padding(
+              padding: const EdgeInsets.only(bottom: SKSpacing.x2),
+              child: _PlanCard(
                 plan: plan,
                 selected: _selectedPlan?.id == plan.id,
-                onTap: () => _updateSelection(plan: plan)))),
-        if (_quoteLoading) const LinearProgressIndicator(),
-        if (_quote != null)
-          Padding(
+                onTap: () => _updateSelection(plan: plan),
+              ),
+            ),
+          ),
+          if (_quoteLoading) const LinearProgressIndicator(),
+          if (_quote != null)
+            Padding(
               padding: const EdgeInsets.only(top: SKSpacing.x3),
-              child: Text('К оплате: ${_quote!.amountTenge} тг',
-                  style: Theme.of(context).textTheme.titleLarge)),
-        if (_error != null)
-          Padding(
+              child: Text(
+                'К оплате: ${_formatTenge(_quote!.amountTenge)}',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+          if (_error != null)
+            Padding(
               padding: const EdgeInsets.only(top: SKSpacing.x2),
-              child: Text(_error!,
-                  style:
-                      TextStyle(color: Theme.of(context).colorScheme.error))),
-        if (_paymentMessage != null)
-          Padding(
+              child: Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+          if (_paymentMessage != null)
+            Padding(
               padding: const EdgeInsets.only(top: SKSpacing.x2),
-              child: Text(_paymentMessage!)),
-        const SizedBox(height: SKSpacing.x4),
-        PrimaryButton(
+              child: Text(_paymentMessage!),
+            ),
+          const SizedBox(height: SKSpacing.x4),
+          PrimaryButton(
             label: _phase == _PassPaymentPhase.paid
                 ? 'Готово'
+                : _phase == _PassPaymentPhase.opened
+                ? 'Проверить оплату'
                 : _busy
-                    ? 'Проверяем…'
-                    : 'Перейти к оплате',
+                ? 'Проверяем…'
+                : 'Перейти к оплате',
             onPressed: _phase == _PassPaymentPhase.paid
                 ? () => Navigator.of(context).pop(true)
-                : (_quote == null || _busy ? null : _startPayment)),
-      ]),
+                : _phase == _PassPaymentPhase.opened
+                ? _checkPaymentStatus
+                : (_quote == null || _busy ? null : _startPayment),
+          ),
+        ],
+      ),
     );
   }
 }
 
 class _PlanCard extends StatelessWidget {
-  const _PlanCard(
-      {required this.plan, required this.selected, required this.onTap});
+  const _PlanCard({
+    required this.plan,
+    required this.selected,
+    required this.onTap,
+  });
   final PassPlan plan;
   final bool selected;
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) => SolidCard(
-      onTap: onTap,
-      padding: const EdgeInsets.all(SKSpacing.x4),
-      child: Row(children: [
+    onTap: onTap,
+    padding: const EdgeInsets.all(SKSpacing.x4),
+    child: Row(
+      children: [
         Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(plan.name, style: Theme.of(context).textTheme.titleLarge),
-          Text('${plan.visitLimit} посещения · ${plan.validityDays} дней'),
-          Text('${plan.priceTenge} тг')
-        ])),
-        Icon(selected ? Icons.radio_button_checked : Icons.radio_button_off)
-      ]));
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(plan.name, style: Theme.of(context).textTheme.titleLarge),
+              Text('${plan.visitLimit} посещения · ${plan.validityDays} дней'),
+              if (plan.dailyLimit == 1) const Text('До 1 посещения в день'),
+              Text(_formatTenge(plan.priceTenge)),
+            ],
+          ),
+        ),
+        Icon(selected ? Icons.radio_button_checked : Icons.radio_button_off),
+      ],
+    ),
+  );
+}
+
+class _LoadErrorCard extends StatelessWidget {
+  const _LoadErrorCard({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Text(message),
+      const SizedBox(height: SKSpacing.x4),
+      SecondaryButton(label: 'Повторить', fullWidth: true, onPressed: onRetry),
+    ],
+  );
+}
+
+String _formatTenge(int value) {
+  final digits = value.toString();
+  final grouped = digits.replaceAllMapped(
+    RegExp(r'(?<=\d)(?=(\d{3})+$)'),
+    (_) => ' ',
+  );
+  return '$grouped ₸';
 }
 
 class _NoChildren extends StatelessWidget {
@@ -382,11 +576,17 @@ class _NoChildren extends StatelessWidget {
   final VoidCallback onOpenProfile;
   @override
   Widget build(BuildContext context) => Padding(
-      padding: const EdgeInsets.all(SKSpacing.x5),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text('Чтобы оформить абонемент, добавьте ребёнка.',
-            style: Theme.of(context).textTheme.titleLarge),
+    padding: const EdgeInsets.all(SKSpacing.x5),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Чтобы оформить абонемент, добавьте ребёнка.',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
         const SizedBox(height: SKSpacing.x3),
-        PrimaryButton(label: 'Добавить ребёнка', onPressed: onOpenProfile)
-      ]));
+        PrimaryButton(label: 'Добавить ребёнка', onPressed: onOpenProfile),
+      ],
+    ),
+  );
 }

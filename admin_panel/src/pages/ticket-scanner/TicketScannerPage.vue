@@ -192,6 +192,7 @@ const result = ref<{
   outcome: string;
   ticket: TicketRedemptionResponse | null;
   pass: AdmissionResponse | null;
+  kindHint: AdmissionKindHint;
   errorMessage: string;
 } | null>(null);
 let scanner: Html5Qrcode | null = null;
@@ -214,7 +215,9 @@ const resultTitle = computed(() => {
     case 'redeemed':
       return result.value?.pass ? 'Абонемент принят' : 'Билет принят';
     case 'already_used':
-      return result.value?.pass ? 'Абонемент уже использован сегодня' : 'Билет уже использован';
+      return result.value?.pass || result.value?.kindHint === 'pass'
+        ? 'Абонемент уже использован сегодня'
+        : 'Билет уже использован';
     case 'already_used_today':
       return 'Абонемент уже использован сегодня';
     case 'invalid_qr':
@@ -222,11 +225,15 @@ const resultTitle = computed(() => {
     case 'ticket_not_found':
       return 'Билет не найден';
     case 'wrong_branch':
-      return result.value?.pass ? 'Абонемент другого филиала' : 'Билет другого филиала';
+      return result.value?.pass || result.value?.kindHint === 'pass'
+        ? 'Абонемент недоступен в этом филиале'
+        : 'Билет относится к другому филиалу';
     case 'wrong_date':
       return 'Билет на другую дату';
     case 'invalid_status':
-      return result.value?.pass ? 'Абонемент недействителен' : 'Билет недействителен';
+      return result.value?.pass || result.value?.kindHint === 'pass'
+        ? 'Абонемент недействителен'
+        : 'Билет недействителен';
     case 'expired':
       return 'Абонемент истёк';
     case 'exhausted':
@@ -247,6 +254,14 @@ const resultIcon = computed(() => {
   return '!';
 });
 let nextScanTimer: number | undefined;
+
+type AdmissionKindHint = 'ticket' | 'pass' | 'unknown';
+
+function admissionKindHint(qrPayload: string): AdmissionKindHint {
+  if (qrPayload.startsWith('bb_ticket:v1:')) return 'ticket';
+  if (qrPayload.startsWith('bb_pass:v1:')) return 'pass';
+  return 'unknown';
+}
 
 onMounted(() => {
   void loadBranches();
@@ -388,6 +403,7 @@ async function handleDetected(decodedText: string) {
   if (scanLocked || isRedeeming.value || !selectedBranchId.value) return;
   scanLocked = true;
   isRedeeming.value = true;
+  const kindHint = admissionKindHint(decodedText);
   await stopScanner();
   try {
     const response = await redeemAdmission({ qrPayload: decodedText, branchId: selectedBranchId.value });
@@ -402,12 +418,15 @@ async function handleDetected(decodedText: string) {
             branchId: response.branchId,
             branchName: response.branchName,
             visitDate: null,
-            status: response.status ?? 'issued',
+            status: response.outcome === 'redeemed' || response.outcome === 'already_used'
+              ? 'used'
+              : response.status ?? 'issued',
             redeemedAt: response.redeemedAt,
             visitId: response.visitId,
           }
         : null,
       pass: response.kind === 'pass' ? response : null,
+      kindHint: response.kind,
       errorMessage: '',
     };
     notifyRedemptionOutcome(response.outcome);
@@ -416,7 +435,8 @@ async function handleDetected(decodedText: string) {
       outcome: resolveRedemptionOutcome(error),
       ticket: null,
       pass: null,
-      errorMessage: resolveScannerError(error),
+      kindHint,
+      errorMessage: resolveScannerError(error, kindHint),
     };
   } finally {
     isRedeeming.value = false;
@@ -449,7 +469,7 @@ function notifyRedemptionOutcome(outcome: string) {
   navigator.vibrate?.([80, 40, 120]);
 }
 
-function resolveScannerError(error: unknown) {
+function resolveScannerError(error: unknown, kindHint: AdmissionKindHint = 'unknown') {
   const outcome = resolveRedemptionOutcome(error);
   switch (outcome) {
     case 'invalid_qr':
@@ -457,7 +477,9 @@ function resolveScannerError(error: unknown) {
     case 'ticket_not_found':
       return 'Билет не найден.';
     case 'wrong_branch':
-      return 'Билет относится к другому филиалу.';
+      return kindHint === 'pass'
+        ? 'Абонемент недоступен в этом филиале.'
+        : 'Билет относится к другому филиалу.';
     case 'wrong_date':
       return 'Билет действителен на другую дату.';
     case 'invalid_status':
