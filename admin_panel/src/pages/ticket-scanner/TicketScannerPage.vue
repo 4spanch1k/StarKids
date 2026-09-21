@@ -144,7 +144,12 @@
           </template>
           <span v-if="result.errorMessage" class="scanner-result__reason">{{ result.errorMessage }}</span>
         </div>
-        <button type="button" class="admin-button admin-button--primary" :disabled="isRedeeming" @click="scanNext">
+        <button
+          v-if="!isRedeeming"
+          type="button"
+          class="admin-button admin-button--primary"
+          @click="scanNext"
+        >
           Сканировать следующий
         </button>
       </section>
@@ -201,19 +206,23 @@ let scanLocked = false;
 const selectedBranch = computed(() => branches.value.find((branch) => branch.id === selectedBranchId.value));
 const isOperator = computed(() => sessionStore.operatorRole === 'operator');
 const resultToneClass = computed(() => {
+  if (result.value?.outcome === 'checking') return 'scanner-result--checking';
   if (result.value?.outcome === 'redeemed') return 'scanner-result--success';
   if (result.value?.outcome === 'already_used' || result.value?.outcome === 'already_used_today') return 'scanner-result--warning';
   return 'scanner-result--failure';
 });
 const resultOutcomeLabel = computed(() => {
+  if (result.value?.outcome === 'checking') return 'Проверяем';
   if (result.value?.outcome === 'redeemed') return 'Успешно';
   if (result.value?.outcome === 'already_used' || result.value?.outcome === 'already_used_today') return 'Проверка завершена';
   return 'Вход не подтверждён';
 });
 const resultTitle = computed(() => {
   switch (result.value?.outcome) {
+    case 'checking':
+      return 'QR считан. Проверяем…';
     case 'redeemed':
-      return result.value?.pass ? 'Абонемент принят' : 'Билет принят';
+      return 'Вход подтверждён';
     case 'already_used':
       return result.value?.pass || result.value?.kindHint === 'pass'
         ? 'Абонемент уже использован сегодня'
@@ -249,6 +258,7 @@ const resultTitle = computed(() => {
   }
 });
 const resultIcon = computed(() => {
+  if (result.value?.outcome === 'checking') return '…';
   if (result.value?.outcome === 'redeemed') return '✓';
   if (result.value?.outcome === 'already_used' || result.value?.outcome === 'already_used_today') return '⚠';
   return '!';
@@ -404,6 +414,13 @@ async function handleDetected(decodedText: string) {
   scanLocked = true;
   isRedeeming.value = true;
   const kindHint = admissionKindHint(decodedText);
+  result.value = {
+    outcome: 'checking',
+    ticket: null,
+    pass: null,
+    kindHint,
+    errorMessage: '',
+  };
   await stopScanner();
   try {
     const response = await redeemAdmission({ qrPayload: decodedText, branchId: selectedBranchId.value });
@@ -652,6 +669,11 @@ function formatDateTime(value: string) {
   background: var(--color-success-soft);
 }
 
+.scanner-result--checking {
+  border-color: rgba(39, 91, 160, 0.24);
+  background: rgba(39, 91, 160, 0.07);
+}
+
 .scanner-result--warning {
   border-color: rgba(154, 103, 0, 0.3);
   background: #fff8e1;
@@ -676,6 +698,11 @@ function formatDateTime(value: string) {
 .scanner-result--success .scanner-result__icon {
   color: var(--color-success);
   background: rgba(16, 124, 65, 0.14);
+}
+
+.scanner-result--checking .scanner-result__icon {
+  color: var(--color-accent);
+  background: rgba(39, 91, 160, 0.12);
 }
 
 .scanner-result--warning .scanner-result__icon {
@@ -704,6 +731,10 @@ function formatDateTime(value: string) {
 .scanner-result--success h2 {
   color: var(--color-success);
   font-size: 28px;
+}
+
+.scanner-result--checking h2 {
+  color: var(--color-accent);
 }
 
 .scanner-result--warning h2 {
