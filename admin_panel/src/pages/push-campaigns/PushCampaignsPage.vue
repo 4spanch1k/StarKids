@@ -8,6 +8,12 @@
     <p v-if="!providerConfigured" class="admin-inline-message admin-inline-message--error">
       FCM не настроен: отправка завершится понятным статусом ошибки, без имитации доставки.
     </p>
+    <article v-if="journeyReport" class="admin-list-record" aria-label="Повторные посещения">
+      <strong>Первый визит → второй визит</strong>
+      <span>Участников: {{ journeyReport.eligible_families }} · Control: {{ journeyReport.control_size }} · Treatment: {{ journeyReport.treatment_size }}</span>
+      <span>Treatment: принято FCM {{ journeyReport.treatment_delivered }} · открыли {{ journeyReport.treatment_opened }}</span>
+      <span>Второй визит: Control {{ percent(journeyReport.control_second_visit_rate) }} · Treatment {{ percent(journeyReport.treatment_second_visit_rate) }} · uplift {{ uplift(journeyReport.absolute_uplift_percentage_points) }}</span>
+    </article>
 
     <form class="admin-list-record" @submit.prevent="create">
       <input v-model.trim="form.title" class="admin-control" placeholder="Заголовок" maxlength="100" required />
@@ -100,7 +106,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import PageShell from '@/shared/ui/PageShell.vue';
 import StatePanel from '@/shared/ui/StatePanel.vue';
-import { cancelPushCampaign, createPushCampaign, fetchPushCampaignAttribution, listPushCampaigns, previewPushAudience, sendPushCampaign, type CampaignAudience, type PushCampaign, type PushCampaignAttribution } from '@/features/push-campaigns/api/pushCampaignsApi';
+import { cancelPushCampaign, createPushCampaign, fetchFirstSecondVisitReport, fetchPushCampaignAttribution, listPushCampaigns, previewPushAudience, sendPushCampaign, type CampaignAudience, type FirstSecondVisitReport, type PushCampaign, type PushCampaignAttribution } from '@/features/push-campaigns/api/pushCampaignsApi';
 
 const campaigns = ref<PushCampaign[]>([]);
 const attributions = reactive<Record<string, PushCampaignAttribution>>({});
@@ -112,6 +118,7 @@ const previewLoading = ref(false);
 const sendingId = ref<string | null>(null);
 const error = ref('');
 const providerConfigured = ref(true);
+const journeyReport = ref<FirstSecondVisitReport | null>(null);
 const previewResult = ref<{ targeted_users: number; targeted_devices: number } | null>(null);
 const previewAudienceKey = ref('');
 const createIdempotencyKey = ref(newIdempotencyKey());
@@ -128,6 +135,7 @@ async function load() {
   attributionError.value = false;
   try {
     campaigns.value = await listPushCampaigns();
+    journeyReport.value = await fetchFirstSecondVisitReport();
     providerConfigured.value = campaigns.value.every((campaign) => campaign.push_provider_configured);
     const reports = await Promise.all(campaigns.value.map(async (campaign) => [campaign.id, await fetchPushCampaignAttribution(campaign.id)] as const));
     Object.keys(attributions).forEach((id) => delete attributions[id]);
@@ -246,6 +254,8 @@ function formatInputDate(value: string): string { return value ? `${value.replac
 function toAlmatyIso(value: string): string { return new Date(`${value}:00+05:00`).toISOString(); }
 
 function newIdempotencyKey(): string { return `push-${globalThis.crypto.randomUUID()}`; }
+function percent(value: number | null): string { return value === null ? '—' : `${(value * 100).toFixed(1)}%`; }
+function uplift(value: number | null): string { return value === null ? '—' : `${value >= 0 ? '+' : ''}${value.toFixed(1)} п.п.`; }
 
 watch(() => form.audience_mode, (mode) => {
   if (mode === 'birthday') form.destination = 'birthdays';
