@@ -35,6 +35,18 @@ Future<bool> showPassPurchaseFlowSheet(
 
 enum _PassPaymentPhase { idle, starting, opened, checking, paid, failed }
 
+class _PassCheckoutSelection {
+  const _PassCheckoutSelection({
+    required this.childId,
+    required this.passPlanId,
+    required this.branchId,
+  });
+
+  final String childId;
+  final String passPlanId;
+  final String branchId;
+}
+
 class _PassPurchaseFlowSheet extends StatefulWidget {
   const _PassPurchaseFlowSheet({
     required this.repository,
@@ -61,6 +73,9 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
   String? _idempotencyKey;
   String? _selectionKey;
   String? _paymentId;
+  String? _paymentUrl;
+  _PassCheckoutSelection? _activeCheckoutSelection;
+  var _paymentUrlOpenFailed = false;
   StreamSubscription<PaymentReturnEvent>? _subscription;
   var _loading = true;
   var _quoteLoading = false;
@@ -72,6 +87,9 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
   bool get _busy =>
       _phase == _PassPaymentPhase.starting ||
       _phase == _PassPaymentPhase.checking;
+
+  bool get _selectionLocked =>
+      _activeCheckoutSelection != null && _phase != _PassPaymentPhase.failed;
 
   @override
   void initState() {
@@ -107,8 +125,7 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
     if (childrenController.status == ChildrenStatus.error) {
       setState(() {
         _loading = false;
-        _childrenError =
-            childrenController.errorMessage ??
+        _childrenError = childrenController.errorMessage ??
             'Не удалось загрузить детей. Попробуйте ещё раз.';
       });
       return;
@@ -172,6 +189,7 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
   }
 
   void _updateSelection({Child? child, PassPlan? plan}) {
+    if (_selectionLocked) return;
     final nextChild = child ?? _selectedChild;
     final nextPlan = plan ?? _selectedPlan;
     final nextKey = nextChild == null || nextPlan == null
@@ -237,42 +255,78 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
     final quote = _quote;
     final branchId = ServiceRegistry.selectedBranchController.selectedBranch.id;
     if (child == null || plan == null || _busy || !_baselineReady) return;
-    if (quote == null ||
-        quote.childId != child.id ||
-        quote.plan.id != plan.id ||
-        quote.branchId != branchId) {
+    final selection = _activeCheckoutSelection ??
+        _PassCheckoutSelection(
+          childId: child.id,
+          passPlanId: plan.id,
+          branchId: branchId,
+        );
+    final currentSelectionMatches = child.id == selection.childId &&
+        plan.id == selection.passPlanId &&
+        branchId == selection.branchId;
+    if (!currentSelectionMatches ||
+        quote == null ||
+        quote.childId != selection.childId ||
+        quote.plan.id != selection.passPlanId ||
+        quote.branchId != selection.branchId) {
       setState(() {
         _error = 'Обновляем стоимость для выбранного абонемента…';
       });
       await _refreshQuote();
       return;
     }
+    _activeCheckoutSelection = selection;
     _idempotencyKey ??= _newIdempotencyKey();
     setState(() {
       _phase = _PassPaymentPhase.starting;
       _paymentMessage = null;
       _error = null;
+      _paymentUrlOpenFailed = false;
     });
     final result = await widget.repository.startPayment(
-      childId: child.id,
-      passPlanId: plan.id,
-      branchId: branchId,
+      childId: selection.childId,
+      passPlanId: selection.passPlanId,
+      branchId: selection.branchId,
       idempotencyKey: _idempotencyKey!,
     );
     if (!mounted) return;
     if (result is Failure<PassPaymentStart>) {
       setState(() {
-        _phase = _PassPaymentPhase.failed;
-        _error = result.message;
+        // The request may have reached the backend before the response was
+        // lost. Keep the logical checkout and idempotency key for retry.
+        _phase = _PassPaymentPhase.idle;
+        _paymentId = null;
+        _paymentUrl = null;
+        _paymentUrlOpenFailed = false;
+        _paymentMessage = result.message;
       });
       return;
     }
     final payment = (result as Success<PassPaymentStart>).data;
     _paymentId = payment.paymentId;
-    if (payment.status == 'paid') {
+    final status = payment.status.trim().toLowerCase();
+    if (status == 'paid') {
+      await ServiceRegistry.paymentReturnCoordinator.completeRegisteredPayment(
+        payment.paymentId,
+      );
       await _reconcilePaid();
       return;
     }
+    if (status == 'failed' || status == 'canceled' || status == 'expired') {
+      await _handleTerminalFailure(
+        payment.paymentId,
+        'Оплата не прошла. Можно попробовать ещё раз.',
+      );
+      return;
+    }
+    if (status != 'pending' || payment.paymentUrl.trim().isEmpty) {
+      await _handleTerminalFailure(
+        payment.paymentId,
+        'Не удалось продолжить оплату. Попробуйте начать заново.',
+      );
+      return;
+    }
+    _paymentUrl = payment.paymentUrl;
     await ServiceRegistry.paymentReturnCoordinator.registerPayment(
       payment.paymentId,
       checkoutKind: PaymentCheckoutKind.pass,
@@ -282,34 +336,73 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
       _paymentMessage =
           'Откройте страницу оплаты. После оплаты вернитесь в Boom Bala.';
     });
-    final opened = await ServiceRegistry.paymentUrlLauncher(payment.paymentUrl);
-    if (!opened && mounted)
-      setState(() {
-        _phase = _PassPaymentPhase.failed;
-        _error = 'Не удалось открыть страницу оплаты.';
-      });
+    await _openPaymentUrl();
+  }
+
+  Future<void> _openPaymentUrl() async {
+    final paymentUrl = _paymentUrl;
+    if (paymentUrl == null || paymentUrl.trim().isEmpty) {
+      await _handleTerminalFailure(
+        _paymentId ?? '',
+        'Не удалось открыть страницу оплаты.',
+      );
+      return;
+    }
+    final opened = await ServiceRegistry.paymentUrlLauncher(paymentUrl);
+    if (!mounted) return;
+    setState(() {
+      _phase = _PassPaymentPhase.opened;
+      _paymentUrlOpenFailed = !opened;
+      _paymentMessage = opened
+          ? 'Откройте страницу оплаты. После оплаты вернитесь в Boom Bala.'
+          : 'Не удалось открыть страницу оплаты. Повторите попытку.';
+    });
+  }
+
+  Future<void> _handleTerminalFailure(String paymentId, String message) async {
+    if (paymentId.trim().isNotEmpty) {
+      await ServiceRegistry.paymentReturnCoordinator
+          .completeRegisteredPayment(paymentId);
+    }
+    if (!mounted) return;
+    _paymentId = null;
+    _paymentUrl = null;
+    _activeCheckoutSelection = null;
+    _idempotencyKey = null;
+    _paymentUrlOpenFailed = false;
+    _quoteRequestVersion++;
+    setState(() {
+      _phase = _PassPaymentPhase.failed;
+      _error = message;
+      _paymentMessage = null;
+      _quote = null;
+    });
+    // A terminal provider result ends the logical checkout. The next
+    // explicit attempt must use a fresh authoritative quote as well as a new
+    // idempotency key.
+    unawaited(_refreshQuote());
   }
 
   Future<void> _handleReturn(PaymentReturnEvent event) async {
     if (!mounted ||
         event.checkoutKind != PaymentCheckoutKind.pass ||
-        event.paymentId != _paymentId)
-      return;
+        event.paymentId != _paymentId) return;
     if (event.isPaid) {
+      await ServiceRegistry.paymentReturnCoordinator.completeRegisteredPayment(
+        event.paymentId,
+      );
       await _reconcilePaid();
     } else if (event.status != null && event.status!.isFinal) {
-      setState(() {
-        _phase = _PassPaymentPhase.failed;
-        _error =
-            event.errorMessage ??
+      await _handleTerminalFailure(
+        event.paymentId,
+        event.errorMessage ??
             event.status!.failureReason ??
-            'Оплата не прошла.';
-      });
+            'Оплата не прошла.',
+      );
     } else if (mounted) {
       setState(() {
         _phase = _PassPaymentPhase.opened;
-        _paymentMessage =
-            event.errorMessage ??
+        _paymentMessage = event.errorMessage ??
             'Платёж ещё обрабатывается. Проверьте оплату ещё раз.';
       });
     }
@@ -335,15 +428,17 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
     }
     final status = (result as Success<TicketPaymentStatus>).data;
     if (status.status == TicketPaymentStatusValue.paid) {
+      await ServiceRegistry.paymentReturnCoordinator.completeRegisteredPayment(
+        paymentId,
+      );
       await _reconcilePaid();
       return;
     }
     if (status.isFinal) {
-      setState(() {
-        _phase = _PassPaymentPhase.failed;
-        _error = status.failureReason ?? 'Оплата не прошла.';
-        _paymentMessage = null;
-      });
+      await _handleTerminalFailure(
+        paymentId,
+        status.failureReason ?? 'Оплата не прошла.',
+      );
       return;
     }
     setState(() {
@@ -354,6 +449,16 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
   }
 
   Future<void> _reconcilePaid() async {
+    final checkoutSelection = _activeCheckoutSelection;
+    if (checkoutSelection == null) {
+      if (mounted) {
+        setState(() {
+          _phase = _PassPaymentPhase.failed;
+          _error = 'Не удалось определить состав покупки. Попробуйте ещё раз.';
+        });
+      }
+      return;
+    }
     setState(() {
       _phase = _PassPaymentPhase.checking;
       _paymentMessage = 'Оплата подтверждена. Выпускаем абонемент…';
@@ -366,8 +471,8 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
             .where(
               (pass) =>
                   !_existingPassIds.contains(pass.id) &&
-                  pass.childId == _selectedChild?.id &&
-                  pass.passPlanId == _selectedPlan?.id,
+                  pass.childId == checkoutSelection.childId &&
+                  pass.passPlanId == checkoutSelection.passPlanId,
             )
             .toList();
         if (found.isNotEmpty) {
@@ -450,9 +555,11 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
                       DropdownMenuItem(value: child, child: Text(child.name)),
                 )
                 .toList(),
-            onChanged: (child) {
-              if (child != null) _updateSelection(child: child);
-            },
+            onChanged: _selectionLocked
+                ? null
+                : (child) {
+                    if (child != null) _updateSelection(child: child);
+                  },
           ),
           const SizedBox(height: SKSpacing.x4),
           Text(
@@ -466,7 +573,9 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
               child: _PlanCard(
                 plan: plan,
                 selected: _selectedPlan?.id == plan.id,
-                onTap: () => _updateSelection(plan: plan),
+                onTap: _selectionLocked
+                    ? null
+                    : () => _updateSelection(plan: plan),
               ),
             ),
           ),
@@ -497,15 +606,21 @@ class _PassPurchaseFlowSheetState extends State<_PassPurchaseFlowSheet> {
             label: _phase == _PassPaymentPhase.paid
                 ? 'Готово'
                 : _phase == _PassPaymentPhase.opened
-                ? 'Проверить оплату'
-                : _busy
-                ? 'Проверяем…'
-                : 'Перейти к оплате',
+                    ? _paymentUrlOpenFailed
+                        ? 'Открыть оплату'
+                        : 'Проверить оплату'
+                    : _busy
+                        ? 'Проверяем…'
+                        : _activeCheckoutSelection != null
+                            ? 'Повторить оплату'
+                            : 'Перейти к оплате',
             onPressed: _phase == _PassPaymentPhase.paid
                 ? () => Navigator.of(context).pop(true)
                 : _phase == _PassPaymentPhase.opened
-                ? _checkPaymentStatus
-                : (_quote == null || _busy ? null : _startPayment),
+                    ? (_paymentUrlOpenFailed
+                        ? _openPaymentUrl
+                        : _checkPaymentStatus)
+                    : (_quote == null || _busy ? null : _startPayment),
           ),
         ],
       ),
@@ -521,28 +636,31 @@ class _PlanCard extends StatelessWidget {
   });
   final PassPlan plan;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) => SolidCard(
-    onTap: onTap,
-    padding: const EdgeInsets.all(SKSpacing.x4),
-    child: Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(plan.name, style: Theme.of(context).textTheme.titleLarge),
-              Text('${plan.visitLimit} посещения · ${plan.validityDays} дней'),
-              if (plan.dailyLimit == 1) const Text('До 1 посещения в день'),
-              Text(_formatTenge(plan.priceTenge)),
-            ],
-          ),
+        onTap: onTap,
+        padding: const EdgeInsets.all(SKSpacing.x4),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(plan.name,
+                      style: Theme.of(context).textTheme.titleLarge),
+                  Text(
+                      '${plan.visitLimit} посещения · ${plan.validityDays} дней'),
+                  if (plan.dailyLimit == 1) const Text('До 1 посещения в день'),
+                  Text(_formatTenge(plan.priceTenge)),
+                ],
+              ),
+            ),
+            Icon(
+                selected ? Icons.radio_button_checked : Icons.radio_button_off),
+          ],
         ),
-        Icon(selected ? Icons.radio_button_checked : Icons.radio_button_off),
-      ],
-    ),
-  );
+      );
 }
 
 class _LoadErrorCard extends StatelessWidget {
@@ -553,13 +671,14 @@ class _LoadErrorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Text(message),
-      const SizedBox(height: SKSpacing.x4),
-      SecondaryButton(label: 'Повторить', fullWidth: true, onPressed: onRetry),
-    ],
-  );
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(message),
+          const SizedBox(height: SKSpacing.x4),
+          SecondaryButton(
+              label: 'Повторить', fullWidth: true, onPressed: onRetry),
+        ],
+      );
 }
 
 String _formatTenge(int value) {
@@ -576,17 +695,17 @@ class _NoChildren extends StatelessWidget {
   final VoidCallback onOpenProfile;
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.all(SKSpacing.x5),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          'Чтобы оформить абонемент, добавьте ребёнка.',
-          style: Theme.of(context).textTheme.titleLarge,
+        padding: const EdgeInsets.all(SKSpacing.x5),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Чтобы оформить абонемент, добавьте ребёнка.',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: SKSpacing.x3),
+            PrimaryButton(label: 'Добавить ребёнка', onPressed: onOpenProfile),
+          ],
         ),
-        const SizedBox(height: SKSpacing.x3),
-        PrimaryButton(label: 'Добавить ребёнка', onPressed: onOpenProfile),
-      ],
-    ),
-  );
+      );
 }

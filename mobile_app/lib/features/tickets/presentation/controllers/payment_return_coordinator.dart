@@ -89,6 +89,24 @@ class PaymentReturnCoordinator {
     await _localStorage.savePendingPaymentKind(checkoutKind.name);
   }
 
+  /// Completes a payment that was registered for return handling.
+  ///
+  /// Both deep-link polling and an in-app status check can reach a terminal
+  /// provider state. Only clear persisted state when it still belongs to this
+  /// payment; a newer checkout must never be removed as a side effect.
+  Future<void> completeRegisteredPayment(String paymentId) async {
+    final normalized = paymentId.trim();
+    if (normalized.isEmpty) return;
+    if (_activePaymentId == normalized) {
+      _activePaymentId = null;
+    }
+    final persistedPaymentId = await _localStorage.readPendingPaymentId();
+    if (persistedPaymentId == normalized) {
+      await _localStorage.clearPendingPaymentId();
+      await _localStorage.clearPendingPaymentKind();
+    }
+  }
+
   void attachCheckoutListener() {
     _checkoutListenerAttached = true;
   }
@@ -137,9 +155,7 @@ class PaymentReturnCoordinator {
     _events.add(event);
 
     if (event.status?.isFinal == true) {
-      if (_activePaymentId == paymentId) _activePaymentId = null;
-      await _localStorage.clearPendingPaymentId();
-      await _localStorage.clearPendingPaymentKind();
+      await completeRegisteredPayment(paymentId);
     }
   }
 
