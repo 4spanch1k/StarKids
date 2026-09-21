@@ -155,5 +155,10 @@ PassPaymentStart passPaymentStartFromJson(Map<String, dynamic> json) =>
       externalPaymentId: json['externalPaymentId'] as String?,
       paymentUrl: '${json['paymentUrl'] ?? ''}',
       status: json['status'] as String? ?? 'pending',
-      amountTenge: (json['amountTenge'] as num?)?.toInt() ?? 0,
+      // Pass init reuses FreedomPaymentInitResponse. Its authoritative
+      // amount fields are grossAmountTenge/cashAmountTenge; there is no
+      // amountTenge field on that response.
+      amountTenge: (json['cashAmountTenge'] as num?)?.toInt() ??
+          (json['grossAmountTenge'] as num?)?.toInt() ??
+          0,
     );

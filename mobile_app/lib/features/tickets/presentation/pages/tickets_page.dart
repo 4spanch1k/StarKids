@@ -48,6 +48,7 @@ class _TicketsPageState extends State<TicketsPage> {
   bool _passesLoaded = false;
   String? _ticketsError;
   String? _passesError;
+  String? _plansError;
 
   @override
   void initState() {
@@ -89,6 +90,7 @@ class _TicketsPageState extends State<TicketsPage> {
     setState(() {
       _passesLoading = true;
       _passesError = null;
+      _plansError = null;
     });
     final results = await Future.wait([
       _passRepository.listPasses(),
@@ -108,8 +110,13 @@ class _TicketsPageState extends State<TicketsPage> {
     }
     setState(() {
       _passes = _sortPasses((passesResult as Success<List<CustomerPass>>).data);
-      _plans =
-          plansResult is Success<List<PassPlan>> ? plansResult.data : const [];
+      if (plansResult is Success<List<PassPlan>>) {
+        _plans = plansResult.data;
+        _plansError = null;
+      } else {
+        _plans = const [];
+        _plansError = (plansResult as Failure<List<PassPlan>>).message;
+      }
       _passesLoading = false;
       _passesLoaded = true;
       _passesError = null;
@@ -218,6 +225,12 @@ class _TicketsPageState extends State<TicketsPage> {
       return _stateList(_TicketsStateCard(
           title: 'Не удалось загрузить абонементы',
           description: _passesError!,
+          action: SecondaryButton(
+              label: 'Повторить', fullWidth: true, onPressed: _loadPasses)));
+    if (_plansError != null && _passes.isEmpty)
+      return _stateList(_TicketsStateCard(
+          title: 'Не удалось загрузить планы',
+          description: _plansError!,
           action: SecondaryButton(
               label: 'Повторить', fullWidth: true, onPressed: _loadPasses)));
     if (_passes.isEmpty)

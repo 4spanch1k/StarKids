@@ -48,4 +48,18 @@ void main() {
     await storage.clearPassQrPayload('pass-1');
     expect(await storage.readPassQrPayload('pass-1'), isNull);
   });
+
+  test('pass payment init reads the shared backend amount fields', () {
+    final payment = passPaymentStartFromJson({
+      'paymentId': 'payment-1',
+      'localOrderId': 'order-1',
+      'externalPaymentId': 'external-1',
+      'paymentUrl': 'https://customer.freedompay.kz/pay/1',
+      'status': 'pending',
+      'grossAmountTenge': 10000,
+      'cashAmountTenge': 10000,
+    });
+
+    expect(payment.amountTenge, 10000);
+  });
 }
