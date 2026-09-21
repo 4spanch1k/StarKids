@@ -58,11 +58,27 @@ class BirthdayRevenueReportService:
         paid = [lead for lead in rows if (lead.paid_amount_tenge or 0) > 0 and lead.paid_at is not None]
         revenue = sum(lead.paid_amount_tenge or 0 for lead in paid)
         size = len(cycles)
+        # Rates measure family birthday-cycle outcomes, not raw lead rows. A
+        # retry or a second lead for the same cycle must never make a cohort
+        # rate exceed 100%.
+        lead_cycle_ids = {
+            cycle.id
+            for cycle in cycles
+            if leads_by_cycle.get(cycle.id)
+        }
+        paid_cycle_ids = {
+            cycle.id
+            for cycle in cycles
+            if any(
+                (lead.paid_amount_tenge or 0) > 0 and lead.paid_at is not None
+                for lead in leads_by_cycle.get(cycle.id, [])
+            )
+        }
         return {
             'eligible': size, 'leads': len(rows), 'contacted': sum(lead.contacted_at is not None for lead in rows),
             'qualified': sum(lead.qualified_at is not None for lead in rows), 'booked': sum(lead.booked_at is not None for lead in rows),
             'paid': len(paid), 'completed': sum(lead.completed_at is not None for lead in rows), 'lost': sum(lead.status == 'lost' for lead in rows),
-            'paid_revenue_tenge': revenue, 'paid_rate': len(paid) / size if size else None, 'lead_rate': len(rows) / size if size else None,
+            'paid_revenue_tenge': revenue, 'paid_rate': len(paid_cycle_ids) / size if size else None, 'lead_rate': len(lead_cycle_ids) / size if size else None,
             'revenue_per_eligible': revenue / size if size else 0.0, 'average_paid_order_tenge': revenue / len(paid) if paid else None,
         }
 

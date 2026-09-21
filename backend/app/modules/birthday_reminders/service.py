@@ -112,7 +112,10 @@ class BirthdayReminderService:
         rows = self.session.execute(
             select(MobileChild, MobileUser.id)
             .join(MobileUser, MobileUser.id == MobileChild.user_id)
-            .where(MobileUser.is_active.is_(True))
+            .where(
+                MobileUser.is_active.is_(True),
+                MobileUser.onboarding_completed_at.is_not(None),
+            )
         ).all()
         return [
             (child, user_id)

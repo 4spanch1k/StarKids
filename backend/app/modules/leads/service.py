@@ -100,6 +100,26 @@ class LeadService:
                     details=[{'field': 'childId', 'message': 'Selected child was not found.'}],
                 )
 
+        # A validated campaign is still useful direct attribution even when
+        # the parent changes the selected child. Only attach the cycle when
+        # that child represents the campaign's birthday occurrence; otherwise
+        # degrade to campaign-level source attribution rather than losing the
+        # sale or recording a false cycle outcome.
+        attributed_cycle_id = None
+        if campaign is not None and cycle is not None:
+            campaign_child_id = (campaign.destination_payload or {}).get('birthdayChildId')
+            if (
+                child is not None
+                and child.birth_date is not None
+                and (not campaign_child_id or campaign_child_id == child.id)
+                and birthday_occurrence_for_year(child.birth_date, cycle.birthday_year) == cycle.target_date
+            ):
+                attributed_cycle_id = cycle.id
+        elif campaign is None:
+            attributed_cycle_id = self._match_cycle(
+                mobile_user_id=mobile_user_id, child=child, requested_date=payload.preferredDate
+            )
+
         branch = self.branch_repository.get_active_by_id_or_slug(payload.branchId)
         if branch is None:
             raise NotFoundException(
@@ -147,9 +167,7 @@ class LeadService:
                     'child_birth_date_snapshot': child.birth_date if child is not None else None,
                     'package_name_snapshot': package.name if package is not None else None,
                     'package_price_snapshot': package.price_from if package is not None else None,
-                    'birthday_cycle_id': cycle.id if cycle is not None else self._match_cycle(
-                        mobile_user_id=mobile_user_id, child=child, requested_date=payload.preferredDate
-                    ),
+                    'birthday_cycle_id': attributed_cycle_id,
                     'source_campaign_id': campaign.id if campaign is not None else None,
                     'source': 'birthday_crm' if campaign is not None else 'mobile_app',
                 }

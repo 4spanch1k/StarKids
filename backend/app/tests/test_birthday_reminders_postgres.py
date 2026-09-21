@@ -71,7 +71,12 @@ class BirthdayReminderPostgresConcurrencyTests(unittest.TestCase):
         child_id = f'birthday-pg-child-{suffix[:12]}'
         token = f'birthday-pg-token-{suffix}'
         with self.SessionLocal() as db:
-            db.add(MobileUser(id=user_id, phone=f'+77{suffix[:10]}', is_active=True))
+            db.add(MobileUser(
+                id=user_id,
+                phone=f'+77{suffix[:10]}',
+                is_active=True,
+                onboarding_completed_at=datetime.now(UTC),
+            ))
             db.flush()
             db.add(MobileSession(id=session_id, mobile_user_id=user_id, refresh_token_hash='hash', expires_at=datetime.now(UTC) + timedelta(days=1)))
             db.flush()
