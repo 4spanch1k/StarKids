@@ -67,7 +67,7 @@ class PushCampaignResponse(BaseModel):
     body: str
     audience: PushCampaignAudience
     destination: Destination
-    origin: Literal['manual', 'system_birthday']
+    origin: Literal['manual', 'system_birthday', 'system_first_to_second_visit']
     status: str
     scheduled_at: datetime | None
     started_at: datetime | None
@@ -103,3 +103,17 @@ class PushCampaignAttributionResponse(BaseModel):
     attributed_birthday_leads: int
     attribution_window_days: int
     attribution_model: Literal['last_touch']
+
+
+class FirstSecondVisitReportResponse(BaseModel):
+    journey_key: str
+    eligible_families: int
+    control_size: int
+    treatment_size: int
+    treatment_delivered: int
+    treatment_opened: int
+    control_conversions: int
+    treatment_conversions: int
+    control_second_visit_rate: float | None
+    treatment_second_visit_rate: float | None
+    absolute_uplift_percentage_points: float | None

@@ -16,9 +16,11 @@ from .schemas import (
     PushCampaignAttributionResponse,
     PushCampaignResponse,
     PushCampaignUpdateRequest,
+    FirstSecondVisitReportResponse,
 )
 from .service import PUSH_CAMPAIGN_ALLOWED_ROLES, PushCampaignService
 from .attribution_service import PushCampaignAttributionService
+from ..first_second_visit.service import FirstSecondVisitService
 
 router = APIRouter(
     dependencies=[Depends(require_admin_roles(*PUSH_CAMPAIGN_ALLOWED_ROLES))]
@@ -33,9 +35,20 @@ def get_attribution_service(session: Session = Depends(get_db_session)) -> PushC
     return PushCampaignAttributionService(session)
 
 
+def get_lifecycle_service(
+    session: Session = Depends(get_db_session), delivery: PushDeliveryPort = Depends(get_push_delivery)
+) -> FirstSecondVisitService:
+    return FirstSecondVisitService(session, PushCampaignService(session, delivery))
+
+
 @router.get('/push-campaigns', response_model=list[PushCampaignResponse])
 def list_campaigns(service: PushCampaignService = Depends(get_service)) -> list[PushCampaignResponse]:
     return service.list()
+
+
+@router.get('/push-campaigns/first-to-second-visit/report', response_model=FirstSecondVisitReportResponse)
+def first_second_visit_report(service: FirstSecondVisitService = Depends(get_lifecycle_service)) -> FirstSecondVisitReportResponse:
+    return FirstSecondVisitReportResponse(**service.report().__dict__)
 
 
 @router.get('/push-campaigns/{campaign_id}', response_model=PushCampaignResponse, responses={404: {'model': ErrorResponse}})

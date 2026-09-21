@@ -26,6 +26,7 @@ from app.db.models import (  # noqa: F401
     pass_plan,
     customer_pass,
     pass_redemption,
+    lifecycle_journey_execution,
 )
 
 config = context.config

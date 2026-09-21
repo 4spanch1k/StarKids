@@ -40,6 +40,7 @@ from .birthday_reminder import BirthdayReminder
 from .pass_plan import PassPlan
 from .customer_pass import CustomerPass
 from .pass_redemption import PassRedemption
+from .lifecycle_journey_execution import LifecycleJourneyExecution
 
 __all__ = [
     'Base',
@@ -84,4 +85,5 @@ __all__ = [
     'PassPlan',
     'CustomerPass',
     'PassRedemption',
+    'LifecycleJourneyExecution',
 ]

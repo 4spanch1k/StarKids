@@ -15,9 +15,11 @@ from ...db.models.mobile_child import MobileChild
 from ...db.models.mobile_notification_device import MobileNotificationDevice
 from ...db.models.mobile_session import MobileSession
 from ...db.models.mobile_user import MobileUser
+from ...db.models.lifecycle_journey_execution import LifecycleJourneyExecution
 from ...db.models.push_campaign import PushCampaign
 from ...db.models.push_campaign_delivery import PushCampaignDelivery
 from ...db.models.push_campaign_open import PushCampaignOpen
+from ...db.models.visit import Visit
 from ...services.push.delivery_port import PushDeliveryPort
 from ..visit_segmentation import visit_segment_user_ids
 from .schemas import (
@@ -112,10 +114,10 @@ class PushCampaignService:
 
     def update(self, campaign_id: str, payload: PushCampaignUpdateRequest) -> PushCampaignResponse:
         campaign = self._get(campaign_id)
-        if campaign.origin == 'system_birthday':
+        if campaign.origin in {'system_birthday', 'system_first_to_second_visit'}:
             raise DomainHTTPException(
                 code='system_campaign_not_editable',
-                message='Системную birthday-кампанию нельзя редактировать.',
+                message='Системную кампанию нельзя редактировать.',
                 status_code=409,
             )
         if campaign.status not in {'draft', 'scheduled'}:
@@ -189,6 +191,40 @@ class PushCampaignService:
             return
         if campaign.status == 'scheduled' and campaign.scheduled_at and campaign.scheduled_at > effective_now:
             raise DomainHTTPException(code='campaign_not_due', message='Кампания ещё не наступила.', status_code=409)
+        if campaign.origin == 'system_first_to_second_visit':
+            execution = self.session.scalar(
+                select(LifecycleJourneyExecution)
+                .where(LifecycleJourneyExecution.push_campaign_id == campaign.id)
+                .with_for_update()
+            )
+            visit_count = self.session.scalar(
+                select(func.count()).select_from(Visit).where(
+                    Visit.mobile_user_id == (execution.mobile_user_id if execution is not None else '__missing__'),
+                    Visit.status.in_(['active', 'completed']),
+                )
+            ) or 0
+            first_visit_at = execution.first_visit_at if execution is not None else None
+            window_ok = bool(first_visit_at is not None)
+            if window_ok:
+                first_local = first_visit_at.astimezone(BUSINESS_TZ).date()
+                now_local = effective_now.astimezone(BUSINESS_TZ).date()
+                age_days = (now_local - first_local).days
+                window_ok = 4 <= age_days < 30
+            user_eligible = bool(
+                execution is not None and self.session.scalar(
+                    select(func.count()).select_from(MobileUser).where(
+                        MobileUser.id == execution.mobile_user_id,
+                        MobileUser.is_active.is_(True),
+                        MobileUser.onboarding_completed_at.is_not(None),
+                    )
+                )
+            )
+            if execution is None or visit_count != 1 or not window_ok or not user_eligible:
+                campaign.status = 'cancelled'
+                campaign.failure_reason = 'journey_no_longer_eligible'
+                campaign.cancelled_at = effective_now
+                self.session.commit()
+                return
         existing = self.session.scalar(select(func.count()).select_from(PushCampaignDelivery).where(PushCampaignDelivery.campaign_id == campaign.id))
         campaign.status = 'processing'
         campaign.failure_reason = None
@@ -356,6 +392,24 @@ class PushCampaignService:
             status='draft',
             created_by_admin_id=None,
             origin='system_birthday',
+        )
+        self.session.add(campaign)
+        self.session.flush()
+        return campaign
+
+    def create_system_first_to_second_visit_campaign(self, *, user_id: str) -> PushCampaign:
+        """Create the immutable treatment campaign for one journey execution."""
+        campaign = PushCampaign(
+            internal_name='first-to-second-visit-v1',
+            title='Снова в Boom Bala?',
+            body='Готовы снова в Boom Bala? Новые впечатления уже ждут.',
+            audience_type='user',
+            audience_config={'user_id': user_id},
+            destination='tickets',
+            destination_payload={},
+            status='processing',
+            created_by_admin_id=None,
+            origin='system_first_to_second_visit',
         )
         self.session.add(campaign)
         self.session.flush()

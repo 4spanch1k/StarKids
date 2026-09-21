@@ -16,7 +16,7 @@ class PushCampaign(Base):
             name='ck_push_campaigns_audience_type',
         ),
         CheckConstraint(
-            "origin IN ('manual', 'system_birthday')",
+            "origin IN ('manual', 'system_birthday', 'system_first_to_second_visit')",
             name='ck_push_campaigns_origin',
         ),
         CheckConstraint(
