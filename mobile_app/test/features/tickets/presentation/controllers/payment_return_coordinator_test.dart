@@ -44,7 +44,115 @@ void main() {
       await LocalStorage().readPendingPaymentId(),
       isNull,
     );
+    expect(await LocalStorage().readPendingPaymentKind(), isNull);
   });
+
+  test('persisted pass kind survives a cold-start deep link', () async {
+    final storage = LocalStorage();
+    await storage.savePendingPaymentKind(PaymentCheckoutKind.pass.name);
+    final coordinator = PaymentReturnCoordinator(
+      purchaseRepository: _FakeTicketPurchaseRepository(
+        status: const TicketPaymentStatus(
+          paymentId: 'payment-1',
+          localOrderId: 'order-1',
+          externalPaymentId: null,
+          amountTenge: 1000,
+          currency: 'KZT',
+          status: TicketPaymentStatusValue.paid,
+          failureReason: null,
+          paidAt: null,
+        ),
+      ),
+      localStorage: storage,
+    );
+    final events = <PaymentReturnEvent>[];
+    final subscription = coordinator.events.listen(events.add);
+
+    await coordinator.handleRawLink('starkids://payments/success');
+    await subscription.cancel();
+
+    expect(events.single.checkoutKind, PaymentCheckoutKind.pass);
+  });
+
+  test('legacy pending payment without kind defaults to tickets', () async {
+    final coordinator = PaymentReturnCoordinator(
+      purchaseRepository: _FakeTicketPurchaseRepository(
+        status: const TicketPaymentStatus(
+          paymentId: 'payment-1',
+          localOrderId: 'order-1',
+          externalPaymentId: null,
+          amountTenge: 1000,
+          currency: 'KZT',
+          status: TicketPaymentStatusValue.paid,
+          failureReason: null,
+          paidAt: null,
+        ),
+      ),
+      localStorage: LocalStorage(),
+    );
+    final events = <PaymentReturnEvent>[];
+    final subscription = coordinator.events.listen(events.add);
+
+    await coordinator.handleRawLink('starkids://payments/success');
+    await subscription.cancel();
+
+    expect(events.single.checkoutKind, PaymentCheckoutKind.ticket);
+  });
+
+  test('completeRegisteredPayment clears only the matching persisted payment',
+      () async {
+    final storage = LocalStorage();
+    final coordinator = PaymentReturnCoordinator(
+      purchaseRepository: _FakeTicketPurchaseRepository(
+        status: _status(TicketPaymentStatusValue.paid, paymentId: 'payment-x'),
+      ),
+      localStorage: storage,
+    );
+
+    await storage.savePendingPaymentId('payment-x');
+    await storage.savePendingPaymentKind(PaymentCheckoutKind.pass.name);
+    await coordinator.completeRegisteredPayment('payment-x');
+
+    expect(await storage.readPendingPaymentId(), isNull);
+    expect(await storage.readPendingPaymentKind(), isNull);
+  });
+
+  test('completeRegisteredPayment does not clear a newer pending payment',
+      () async {
+    final storage = LocalStorage();
+    final coordinator = PaymentReturnCoordinator(
+      purchaseRepository: _FakeTicketPurchaseRepository(
+        status: _status(TicketPaymentStatusValue.paid, paymentId: 'payment-x'),
+      ),
+      localStorage: storage,
+    );
+
+    await storage.savePendingPaymentId('payment-y');
+    await storage.savePendingPaymentKind(PaymentCheckoutKind.ticket.name);
+    await coordinator.completeRegisteredPayment('payment-x');
+
+    expect(await storage.readPendingPaymentId(), 'payment-y');
+    expect(
+      await storage.readPendingPaymentKind(),
+      PaymentCheckoutKind.ticket.name,
+    );
+  });
+}
+
+TicketPaymentStatus _status(
+  TicketPaymentStatusValue status, {
+  required String paymentId,
+}) {
+  return TicketPaymentStatus(
+    paymentId: paymentId,
+    localOrderId: 'order-$paymentId',
+    externalPaymentId: null,
+    amountTenge: 1000,
+    currency: 'KZT',
+    status: status,
+    failureReason: null,
+    paidAt: null,
+  );
 }
 
 class _FakeTicketPurchaseRepository implements TicketPurchaseRepository {

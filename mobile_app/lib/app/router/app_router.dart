@@ -17,6 +17,7 @@ import '../../features/promotions/presentation/pages/promotion_detail_page.dart'
 import '../../features/tickets/presentation/pages/tickets_page.dart';
 import '../../features/tickets/presentation/models/ticket_detail_page_args.dart';
 import '../../features/tickets/presentation/pages/ticket_detail_page.dart';
+import '../../features/tickets/presentation/models/tickets_page_args.dart';
 import '../../features/request_history/presentation/pages/request_history_page.dart';
 import '../../features/requests/presentation/models/request_page_args.dart';
 import '../../features/requests/presentation/pages/request_page.dart';
@@ -46,7 +47,14 @@ abstract final class AppRouter {
         }
         return _page(PromotionDetailPage(args: args), settings);
       case AppRoutes.tickets:
-        return _page(const TicketsPage(), settings);
+        return _page(
+          TicketsPage(
+            initialSection: settings.arguments is TicketsPageArgs
+                ? (settings.arguments as TicketsPageArgs).initialSection
+                : TicketsSection.tickets,
+          ),
+          settings,
+        );
       case AppRoutes.ticketDetail:
         final args = settings.arguments;
         if (args is! TicketDetailPageArgs || args.ticketId.trim().isEmpty) {

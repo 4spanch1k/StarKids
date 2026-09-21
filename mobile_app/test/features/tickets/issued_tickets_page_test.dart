@@ -6,6 +6,10 @@ import 'package:star_kids_mobile/features/tickets/domain/issued_ticket.dart';
 import 'package:star_kids_mobile/features/tickets/domain/issued_ticket_repository.dart';
 import 'package:star_kids_mobile/features/tickets/presentation/pages/ticket_detail_page.dart';
 import 'package:star_kids_mobile/features/tickets/presentation/pages/tickets_page.dart';
+import 'package:star_kids_mobile/features/tickets/presentation/models/tickets_page_args.dart';
+import 'package:star_kids_mobile/features/passes/domain/pass.dart';
+import 'package:star_kids_mobile/features/passes/domain/pass_repository.dart';
+import 'package:star_kids_mobile/core/utils/result.dart';
 
 import '../../helpers/test_app_harness.dart';
 
@@ -202,6 +206,27 @@ void main() {
     final preferences = await SharedPreferences.getInstance();
     expect(preferences.getString('ticket_qr_payload:11'), isNull);
   });
+
+  testWidgets('plan API error is distinct from an empty plan catalog', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      buildTestApp(
+        child: TicketsPage(
+          initialSection: TicketsSection.passes,
+          repository: _FakeIssuedTicketRepository(),
+          passRepository: _FakePassRepository(planError: 'Планы недоступны.'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Не удалось загрузить планы'), findsOneWidget);
+    expect(find.text('Планы недоступны.'), findsOneWidget);
+    expect(find.text('Повторить'), findsOneWidget);
+    expect(find.text('Для выбранного филиала сейчас нет доступных планов.'),
+        findsNothing);
+  });
 }
 
 IssuedTicket _ticket(String id, String number, String title, DateTime visitDate,
@@ -252,4 +277,45 @@ class _FakeIssuedTicketRepository implements IssuedTicketRepository {
     if (failQr) throw StateError('QR unavailable');
     return 'bb_ticket:v1:$ticketId:backend-signature';
   }
+}
+
+class _FakePassRepository implements PassRepository {
+  _FakePassRepository({this.planError});
+
+  final String? planError;
+
+  @override
+  Future<Result<List<PassPlan>>> listPlans({String? branchId}) async {
+    if (planError != null) return Failure<List<PassPlan>>(planError!);
+    return const Success<List<PassPlan>>([]);
+  }
+
+  @override
+  Future<Result<List<CustomerPass>>> listPasses() async =>
+      const Success<List<CustomerPass>>([]);
+
+  @override
+  Future<Result<CustomerPass>> getPass(String passId) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<String>> getPassQrPayload(String passId) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<PassQuote>> quote({
+    required String childId,
+    required String passPlanId,
+    required String branchId,
+  }) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<PassPaymentStart>> startPayment({
+    required String childId,
+    required String passPlanId,
+    required String branchId,
+    required String idempotencyKey,
+  }) =>
+      throw UnimplementedError();
 }

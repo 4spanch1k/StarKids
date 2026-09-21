@@ -18,6 +18,7 @@ import '../features/auth/presentation/pages/email_auth_gate_page.dart';
 import '../features/onboarding/presentation/pages/onboarding_page.dart';
 import '../features/tickets/domain/ticket_purchase.dart';
 import '../features/tickets/presentation/controllers/payment_return_coordinator.dart';
+import '../features/tickets/presentation/models/tickets_page_args.dart';
 
 final String _requestedLaunchRoute =
     WidgetsBinding.instance.platformDispatcher.defaultRouteName;
@@ -80,6 +81,11 @@ class _StarKidsAppState extends State<StarKidsApp> {
       navigator?.pushNamedAndRemoveUntil(
         AppRoutes.tickets,
         (route) => false,
+        arguments: TicketsPageArgs(
+          initialSection: event.checkoutKind == PaymentCheckoutKind.pass
+              ? TicketsSection.passes
+              : TicketsSection.tickets,
+        ),
       );
       return;
     }

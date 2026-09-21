@@ -323,6 +323,9 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
 
     final payment = (result as Success<TicketPaymentStart>).data;
     if (payment.status == TicketPaymentStatusValue.paid) {
+      await ServiceRegistry.paymentReturnCoordinator.completeRegisteredPayment(
+        payment.paymentId,
+      );
       setState(() {
         _paymentPhase = _TicketPaymentPhase.paid;
         _paymentMessage =
@@ -352,6 +355,7 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
 
     await ServiceRegistry.paymentReturnCoordinator.registerPayment(
       payment.paymentId,
+      checkoutKind: PaymentCheckoutKind.ticket,
     );
 
     setState(() {
@@ -420,6 +424,11 @@ class _TicketPurchaseFlowSheetState extends State<_TicketPurchaseFlowSheet> {
     }
 
     final paymentStatus = (result as Success<TicketPaymentStatus>).data;
+    if (paymentStatus.isFinal) {
+      await ServiceRegistry.paymentReturnCoordinator.completeRegisteredPayment(
+        payment.paymentId,
+      );
+    }
     setState(() {
       switch (paymentStatus.status) {
         case TicketPaymentStatusValue.paid:

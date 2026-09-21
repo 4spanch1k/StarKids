@@ -1,8 +1,8 @@
 <template>
   <PageShell
     eyebrow="Операционный вход"
-    title="Сканер билетов"
-    description="Проверяйте подписанный QR-код перед входом. Без связи билет не считается подтверждённым."
+    title="Сканер входа"
+    description="Проверяйте QR-код билета или абонемента перед входом. Без связи вход не считается подтверждённым."
   >
     <section class="scanner-grid">
       <div class="scanner-panel scanner-panel--controls">
@@ -133,6 +133,15 @@
               Время входа: {{ formatDateTime(result.ticket.redeemedAt) }}
             </span>
           </template>
+          <template v-if="result.pass">
+            <strong class="scanner-result__ticket-number">{{ result.pass.planName || 'Абонемент' }}</strong>
+            <span v-if="result.pass.childName" class="scanner-result__detail">Ребёнок: {{ result.pass.childName }}</span>
+            <span v-if="result.pass.remainingVisits !== null" class="scanner-result__detail">
+              Осталось посещений: {{ result.pass.remainingVisits }}{{ result.pass.visitLimit !== null ? ` из ${result.pass.visitLimit}` : '' }}
+            </span>
+            <span v-if="result.pass.branchName" class="scanner-result__detail">Филиал: {{ result.pass.branchName }}</span>
+            <span v-if="result.pass.expiresAt" class="scanner-result__detail">Действует до: {{ formatDateTime(result.pass.expiresAt) }}</span>
+          </template>
           <span v-if="result.errorMessage" class="scanner-result__reason">{{ result.errorMessage }}</span>
         </div>
         <button type="button" class="admin-button admin-button--primary" :disabled="isRedeeming" @click="scanNext">
@@ -150,9 +159,10 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { useSessionStore } from '@/features/auth/stores/useSessionStore';
 import {
   redeemTicket,
+  redeemAdmission,
   resolveRedemptionOutcome,
-  type RedemptionOutcome,
   type TicketRedemptionResponse,
+  type AdmissionResponse,
   lookupTickets,
   redeemTicketManually,
 } from '@/features/ticket-scanner/api/ticketRedemptionApi';
@@ -179,8 +189,10 @@ const lookupError = ref('');
 const lookupResults = ref<Awaited<ReturnType<typeof lookupTickets>>>([]);
 const manualRedeemingTicketId = ref('');
 const result = ref<{
-  outcome: RedemptionOutcome | 'network_error';
+  outcome: string;
   ticket: TicketRedemptionResponse | null;
+  pass: AdmissionResponse | null;
+  kindHint: AdmissionKindHint;
   errorMessage: string;
 } | null>(null);
 let scanner: Html5Qrcode | null = null;
@@ -190,30 +202,44 @@ const selectedBranch = computed(() => branches.value.find((branch) => branch.id 
 const isOperator = computed(() => sessionStore.operatorRole === 'operator');
 const resultToneClass = computed(() => {
   if (result.value?.outcome === 'redeemed') return 'scanner-result--success';
-  if (result.value?.outcome === 'already_used') return 'scanner-result--warning';
+  if (result.value?.outcome === 'already_used' || result.value?.outcome === 'already_used_today') return 'scanner-result--warning';
   return 'scanner-result--failure';
 });
 const resultOutcomeLabel = computed(() => {
   if (result.value?.outcome === 'redeemed') return 'Успешно';
-  if (result.value?.outcome === 'already_used') return 'Проверка завершена';
+  if (result.value?.outcome === 'already_used' || result.value?.outcome === 'already_used_today') return 'Проверка завершена';
   return 'Вход не подтверждён';
 });
 const resultTitle = computed(() => {
   switch (result.value?.outcome) {
     case 'redeemed':
-      return 'Билет принят';
+      return result.value?.pass ? 'Абонемент принят' : 'Билет принят';
     case 'already_used':
-      return 'Билет уже использован';
+      return result.value?.pass || result.value?.kindHint === 'pass'
+        ? 'Абонемент уже использован сегодня'
+        : 'Билет уже использован';
+    case 'already_used_today':
+      return 'Абонемент уже использован сегодня';
     case 'invalid_qr':
       return 'Неверный QR';
     case 'ticket_not_found':
       return 'Билет не найден';
     case 'wrong_branch':
-      return 'Билет другого филиала';
+      return result.value?.pass || result.value?.kindHint === 'pass'
+        ? 'Абонемент недоступен в этом филиале'
+        : 'Билет относится к другому филиалу';
     case 'wrong_date':
       return 'Билет на другую дату';
     case 'invalid_status':
-      return 'Билет недействителен';
+      return result.value?.pass || result.value?.kindHint === 'pass'
+        ? 'Абонемент недействителен'
+        : 'Билет недействителен';
+    case 'expired':
+      return 'Абонемент истёк';
+    case 'exhausted':
+      return 'Посещения абонемента закончились';
+    case 'cancelled':
+      return 'Абонемент отменён';
     case 'invalid_ticket_data':
       return 'Ошибка данных билета';
     case 'invalid_payment':
@@ -224,10 +250,18 @@ const resultTitle = computed(() => {
 });
 const resultIcon = computed(() => {
   if (result.value?.outcome === 'redeemed') return '✓';
-  if (result.value?.outcome === 'already_used') return '⚠';
+  if (result.value?.outcome === 'already_used' || result.value?.outcome === 'already_used_today') return '⚠';
   return '!';
 });
 let nextScanTimer: number | undefined;
+
+type AdmissionKindHint = 'ticket' | 'pass' | 'unknown';
+
+function admissionKindHint(qrPayload: string): AdmissionKindHint {
+  if (qrPayload.startsWith('bb_ticket:v1:')) return 'ticket';
+  if (qrPayload.startsWith('bb_pass:v1:')) return 'pass';
+  return 'unknown';
+}
 
 onMounted(() => {
   void loadBranches();
@@ -369,16 +403,40 @@ async function handleDetected(decodedText: string) {
   if (scanLocked || isRedeeming.value || !selectedBranchId.value) return;
   scanLocked = true;
   isRedeeming.value = true;
+  const kindHint = admissionKindHint(decodedText);
   await stopScanner();
   try {
-    const response = await redeemTicket({ qrPayload: decodedText, branchId: selectedBranchId.value });
-    result.value = { outcome: response.outcome, ticket: response, errorMessage: '' };
+    const response = await redeemAdmission({ qrPayload: decodedText, branchId: selectedBranchId.value });
+    result.value = {
+      outcome: response.outcome,
+      ticket: response.kind === 'ticket'
+        ? {
+            outcome: response.outcome as TicketRedemptionResponse['outcome'],
+            ticketId: response.ticketId ?? '',
+            ticketNumber: response.ticketNumber ?? '',
+            title: 'Билет',
+            branchId: response.branchId,
+            branchName: response.branchName,
+            visitDate: null,
+            status: response.outcome === 'redeemed' || response.outcome === 'already_used'
+              ? 'used'
+              : response.status ?? 'issued',
+            redeemedAt: response.redeemedAt,
+            visitId: response.visitId,
+          }
+        : null,
+      pass: response.kind === 'pass' ? response : null,
+      kindHint: response.kind,
+      errorMessage: '',
+    };
     notifyRedemptionOutcome(response.outcome);
   } catch (error) {
     result.value = {
       outcome: resolveRedemptionOutcome(error),
       ticket: null,
-      errorMessage: resolveScannerError(error),
+      pass: null,
+      kindHint,
+      errorMessage: resolveScannerError(error, kindHint),
     };
   } finally {
     isRedeeming.value = false;
@@ -406,19 +464,22 @@ function scheduleNextScan() {
   }, 3500);
 }
 
-function notifyRedemptionOutcome(outcome: RedemptionOutcome) {
+function notifyRedemptionOutcome(outcome: string) {
   if (outcome !== 'redeemed') return;
   navigator.vibrate?.([80, 40, 120]);
 }
 
-function resolveScannerError(error: unknown) {
-  switch (resolveRedemptionOutcome(error)) {
+function resolveScannerError(error: unknown, kindHint: AdmissionKindHint = 'unknown') {
+  const outcome = resolveRedemptionOutcome(error);
+  switch (outcome) {
     case 'invalid_qr':
       return 'QR-код не распознан или его подпись недействительна.';
     case 'ticket_not_found':
       return 'Билет не найден.';
     case 'wrong_branch':
-      return 'Билет относится к другому филиалу.';
+      return kindHint === 'pass'
+        ? 'Абонемент недоступен в этом филиале.'
+        : 'Билет относится к другому филиалу.';
     case 'wrong_date':
       return 'Билет действителен на другую дату.';
     case 'invalid_status':
@@ -427,6 +488,16 @@ function resolveScannerError(error: unknown) {
       return 'В данных билета не хватает информации для входа.';
     case 'invalid_payment':
       return 'Оплата билета не подтверждена.';
+    case 'already_used_today':
+      return 'Абонемент уже использован сегодня.';
+    case 'expired':
+      return 'Срок действия абонемента истёк.';
+    case 'exhausted':
+      return 'Посещения по абонементу закончились.';
+    case 'cancelled':
+      return 'Абонемент отменён.';
+    case 'pass_not_found':
+      return 'Абонемент не найден.';
     case 'network_error':
       return 'Нет связи. Вход не подтверждён.';
     default:

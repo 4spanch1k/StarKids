@@ -49,6 +49,8 @@ import '../../features/promotions/domain/promotion_repository.dart';
 import '../../features/profile/data/api_profile_repository.dart';
 import '../../features/profile/domain/profile_repository.dart';
 import '../../features/profile/presentation/controllers/profile_controller.dart';
+import '../../features/passes/data/api_pass_repository.dart';
+import '../../features/passes/domain/pass_repository.dart';
 import '../../features/request_history/data/api_request_history_repository.dart';
 import '../../features/request_history/domain/request_history_repository.dart';
 import '../../features/requests/data/api_birthday_request_repository.dart';
@@ -115,6 +117,10 @@ abstract final class ServiceRegistry {
   );
   static IssuedTicketRepository issuedTicketRepository =
       ApiIssuedTicketRepository(
+    apiClient: apiClient,
+    sessionStorage: mobileAuthSessionStorage,
+  );
+  static final PassRepository passRepository = ApiPassRepository(
     apiClient: apiClient,
     sessionStorage: mobileAuthSessionStorage,
   );
