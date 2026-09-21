@@ -251,7 +251,12 @@ class PushCampaignService:
                 break
             result = self.delivery.send(
                 device_token=delivery.token_snapshot, title=campaign.title, body=campaign.body,
-                data={'type': 'campaign', 'campaignId': campaign.id, 'destination': campaign.destination},
+                data={
+                    'type': 'campaign',
+                    'campaignId': campaign.id,
+                    'destination': campaign.destination,
+                    **{k: str(v) for k, v in (campaign.destination_payload or {}).items() if v is not None},
+                },
             )
             self._record_delivery(delivery.id, result)
         self._finish_campaign(campaign_id)
@@ -379,6 +384,7 @@ class PushCampaignService:
         internal_name: str,
         title: str,
         body: str,
+        destination_payload: dict[str, object] | None = None,
     ) -> PushCampaign:
         """Create an immutable user-scoped campaign in the caller transaction."""
         campaign = PushCampaign(
@@ -388,7 +394,7 @@ class PushCampaignService:
             audience_type='user',
             audience_config={'user_id': user_id},
             destination='birthdays',
-            destination_payload={},
+            destination_payload=destination_payload or {},
             status='draft',
             created_by_admin_id=None,
             origin='system_birthday',

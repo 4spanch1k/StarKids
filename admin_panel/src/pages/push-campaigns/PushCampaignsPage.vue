@@ -14,6 +14,13 @@
       <span>Treatment: принято FCM {{ journeyReport.treatment_delivered }} · открыли {{ journeyReport.treatment_opened }}</span>
       <span>Второй визит: Control {{ percent(journeyReport.control_second_visit_rate) }} · Treatment {{ percent(journeyReport.treatment_second_visit_rate) }} · uplift {{ uplift(journeyReport.absolute_uplift_percentage_points) }}</span>
     </article>
+    <article v-if="birthdayRevenueReport" class="admin-list-record" aria-label="Birthday Revenue CRM">
+      <strong>Birthday Revenue CRM</strong>
+      <span>Циклы: {{ birthdayRevenueReport.eligible_cycles }} · Control: {{ birthdayRevenueReport.control_cycles }} · Treatment: {{ birthdayRevenueReport.treatment_cycles }}</span>
+      <span>D-30: {{ birthdayRevenueReport.windows['30']?.campaigns ?? 0 }} кампаний · доставлено {{ birthdayRevenueReport.windows['30']?.delivered ?? 0 }} · открыто {{ birthdayRevenueReport.windows['30']?.opened ?? 0 }}</span>
+      <span>D-14: {{ birthdayRevenueReport.windows['14']?.campaigns ?? 0 }} кампаний · доставлено {{ birthdayRevenueReport.windows['14']?.delivered ?? 0 }} · открыто {{ birthdayRevenueReport.windows['14']?.opened ?? 0 }} · D-7: {{ birthdayRevenueReport.windows['7']?.campaigns ?? 0 }} · доставлено {{ birthdayRevenueReport.windows['7']?.delivered ?? 0 }} · открыто {{ birthdayRevenueReport.windows['7']?.opened ?? 0 }}</span>
+      <span>Paid revenue: Control {{ money(birthdayRevenueReport.control.paid_revenue_tenge) }} · Treatment {{ money(birthdayRevenueReport.treatment.paid_revenue_tenge) }} · uplift {{ uplift(birthdayRevenueReport.absolute_uplift_percentage_points) }}</span>
+    </article>
 
     <form class="admin-list-record" @submit.prevent="create">
       <input v-model.trim="form.title" class="admin-control" placeholder="Заголовок" maxlength="100" required />
@@ -106,7 +113,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import PageShell from '@/shared/ui/PageShell.vue';
 import StatePanel from '@/shared/ui/StatePanel.vue';
-import { cancelPushCampaign, createPushCampaign, fetchFirstSecondVisitReport, fetchPushCampaignAttribution, listPushCampaigns, previewPushAudience, sendPushCampaign, type CampaignAudience, type FirstSecondVisitReport, type PushCampaign, type PushCampaignAttribution } from '@/features/push-campaigns/api/pushCampaignsApi';
+import { cancelPushCampaign, createPushCampaign, fetchBirthdayRevenueReport, fetchFirstSecondVisitReport, fetchPushCampaignAttribution, listPushCampaigns, previewPushAudience, sendPushCampaign, type BirthdayRevenueReport, type CampaignAudience, type FirstSecondVisitReport, type PushCampaign, type PushCampaignAttribution } from '@/features/push-campaigns/api/pushCampaignsApi';
 
 const campaigns = ref<PushCampaign[]>([]);
 const attributions = reactive<Record<string, PushCampaignAttribution>>({});
@@ -119,6 +126,7 @@ const sendingId = ref<string | null>(null);
 const error = ref('');
 const providerConfigured = ref(true);
 const journeyReport = ref<FirstSecondVisitReport | null>(null);
+const birthdayRevenueReport = ref<BirthdayRevenueReport | null>(null);
 const previewResult = ref<{ targeted_users: number; targeted_devices: number } | null>(null);
 const previewAudienceKey = ref('');
 const createIdempotencyKey = ref(newIdempotencyKey());
@@ -136,6 +144,7 @@ async function load() {
   try {
     campaigns.value = await listPushCampaigns();
     journeyReport.value = await fetchFirstSecondVisitReport();
+    birthdayRevenueReport.value = await fetchBirthdayRevenueReport();
     providerConfigured.value = campaigns.value.every((campaign) => campaign.push_provider_configured);
     const reports = await Promise.all(campaigns.value.map(async (campaign) => [campaign.id, await fetchPushCampaignAttribution(campaign.id)] as const));
     Object.keys(attributions).forEach((id) => delete attributions[id]);
@@ -256,6 +265,7 @@ function toAlmatyIso(value: string): string { return new Date(`${value}:00+05:00
 function newIdempotencyKey(): string { return `push-${globalThis.crypto.randomUUID()}`; }
 function percent(value: number | null): string { return value === null ? '—' : `${(value * 100).toFixed(1)}%`; }
 function uplift(value: number | null): string { return value === null ? '—' : `${value >= 0 ? '+' : ''}${value.toFixed(1)} п.п.`; }
+function money(value: number | null | undefined): string { return value == null ? '—' : `${Math.round(value).toLocaleString('ru-RU')} ₸`; }
 
 watch(() => form.audience_mode, (mode) => {
   if (mode === 'birthday') form.destination = 'birthdays';

@@ -52,6 +52,8 @@ class LeadInboxRecord:
     completed_at: datetime | None
     lost_at: datetime | None
     closed_at: datetime | None
+    birthday_cycle_id: str | None = None
+    source_campaign_id: str | None = None
 
 
 class LeadInboxRepository(Repository):
@@ -296,6 +298,8 @@ class LeadInboxRepository(Repository):
             child_id=birthday_request.child_id,
             child_name=birthday_request.child_name_snapshot,
             child_birth_date=birthday_request.child_birth_date_snapshot,
+            birthday_cycle_id=birthday_request.birthday_cycle_id,
+            source_campaign_id=birthday_request.source_campaign_id,
             admin_note=birthday_request.admin_note,
             agreed_amount_tenge=birthday_request.agreed_amount_tenge,
             expected_amount_tenge=(

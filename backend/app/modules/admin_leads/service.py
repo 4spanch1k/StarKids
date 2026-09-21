@@ -134,6 +134,8 @@ class AdminLeadInboxService:
             lostAt=record.lost_at,
             closedAt=record.closed_at,
             paidAt=record.paid_at,
+            birthdayCycleId=record.birthday_cycle_id,
+            sourceCampaignId=record.source_campaign_id,
         )
 
     def get_birthday_operations_summary(

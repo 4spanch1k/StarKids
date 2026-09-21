@@ -13,6 +13,8 @@ class BirthdayRequestBodyDto {
     required this.comment,
     this.childId,
     this.idempotencyKey,
+    this.sourceCampaignId,
+    this.birthdayCycleId,
   });
 
   final String branchId;
@@ -24,6 +26,8 @@ class BirthdayRequestBodyDto {
   final String? comment;
   final String? childId;
   final String? idempotencyKey;
+  final String? sourceCampaignId;
+  final String? birthdayCycleId;
 
   factory BirthdayRequestBodyDto.fromDomain(BirthdayRequestPayload payload) {
     return BirthdayRequestBodyDto(
@@ -36,6 +40,8 @@ class BirthdayRequestBodyDto {
       comment: payload.comment,
       childId: payload.childId,
       idempotencyKey: payload.idempotencyKey,
+      sourceCampaignId: payload.sourceCampaignId,
+      birthdayCycleId: payload.birthdayCycleId,
     );
   }
 
@@ -52,6 +58,10 @@ class BirthdayRequestBodyDto {
       if (childId != null) BirthdayRequestApiContract.childId: childId,
       if (idempotencyKey != null)
         BirthdayRequestApiContract.idempotencyKey: idempotencyKey,
+      if (sourceCampaignId != null)
+        BirthdayRequestApiContract.sourceCampaignId: sourceCampaignId,
+      if (birthdayCycleId != null)
+        BirthdayRequestApiContract.birthdayCycleId: birthdayCycleId,
     };
   }
 
@@ -126,8 +136,7 @@ class BirthdayRequestApiError {
     }
 
     return BirthdayRequestApiError(
-      message:
-          (json[BirthdayRequestApiContract.message] as String?) ??
+      message: (json[BirthdayRequestApiContract.message] as String?) ??
           'Не удалось отправить заявку. Попробуйте еще раз.',
       fieldErrors: fieldErrors,
     );

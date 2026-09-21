@@ -9,6 +9,8 @@ class BirthdayRequestPayload {
     this.packageId,
     this.comment,
     this.idempotencyKey,
+    this.sourceCampaignId,
+    this.birthdayCycleId,
   });
 
   final String branchId;
@@ -20,4 +22,6 @@ class BirthdayRequestPayload {
   final String? childId;
   final String? comment;
   final String? idempotencyKey;
+  final String? sourceCampaignId;
+  final String? birthdayCycleId;
 }

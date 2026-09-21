@@ -31,6 +31,8 @@ class BirthdayLeadCreate(BaseModel):
     comment: str | None = Field(default=None, max_length=1000)
     packageId: str | None = Field(default=None, min_length=1, max_length=32)
     childId: str | None = Field(default=None, min_length=1, max_length=32)
+    sourceCampaignId: str | None = Field(default=None, min_length=1, max_length=32)
+    birthdayCycleId: str | None = Field(default=None, min_length=1, max_length=32)
     idempotencyKey: str | None = Field(default=None, min_length=8, max_length=128)
 
     @field_validator('preferredDate')

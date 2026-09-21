@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config.settings import Settings
 from app.db.models.birthday_reminder import BirthdayReminder
+from app.db.models.birthday_revenue_cycle import BirthdayRevenueCycle
 from app.db.models.mobile_child import MobileChild
 from app.db.models.mobile_notification_device import MobileNotificationDevice
 from app.db.models.mobile_session import MobileSession
@@ -59,6 +60,12 @@ class BirthdayReminderPostgresConcurrencyTests(unittest.TestCase):
     def test_two_workers_create_one_reminder_and_campaign(self) -> None:
         suffix = uuid4().hex
         user_id = f'birthday-pg-user-{suffix[:12]}'
+        # Pick a deterministic treatment bucket so this concurrency proof
+        # exercises the one-campaign path while still verifying the durable
+        # assignment is created once.
+        while int(__import__('hashlib').sha256(f'birthday-revenue-v1:{user_id}:2026-09-20'.encode()).hexdigest()[:8], 16) % 100 < 20:
+            suffix = uuid4().hex
+            user_id = f'birthday-pg-user-{suffix[:12]}'
         session_id = f'birthday-pg-session-{suffix[:12]}'
         device_id = f'birthday-pg-device-{suffix[:12]}'
         child_id = f'birthday-pg-child-{suffix[:12]}'
@@ -84,7 +91,7 @@ class BirthdayReminderPostgresConcurrencyTests(unittest.TestCase):
                 ).process(now=now)
 
         try:
-            with patch('app.modules.birthday_reminders.service.get_settings', return_value=Settings(app_env='test', birthday_reminders_enabled=True, birthday_reminder_windows='14')):
+            with patch('app.modules.birthday_reminders.service.get_settings', return_value=Settings(app_env='test', birthday_reminders_enabled=True, birthday_reminder_windows='30,14,7')):
                 with ThreadPoolExecutor(max_workers=2) as executor:
                     list(executor.map(lambda _: worker(), (1, 2)))
             with self.SessionLocal() as db:
@@ -93,6 +100,8 @@ class BirthdayReminderPostgresConcurrencyTests(unittest.TestCase):
                 self.assertEqual(len(reminders), 1)
                 self.assertEqual(reminders[0].status, 'sent')
                 self.assertEqual(len(campaigns), 1)
+                cycles = db.scalars(select(BirthdayRevenueCycle).where(BirthdayRevenueCycle.mobile_user_id == user_id)).all()
+                self.assertEqual(len(cycles), 1)
                 deliveries = db.scalars(select(PushCampaignDelivery).where(PushCampaignDelivery.campaign_id == campaigns[0].id)).all()
                 self.assertEqual(len(deliveries), 1)
                 self.assertEqual(deliveries[0].attempt_count, 1)
@@ -100,6 +109,7 @@ class BirthdayReminderPostgresConcurrencyTests(unittest.TestCase):
             with self.SessionLocal() as db:
                 campaign_ids = db.scalars(select(PushCampaign.id).where(PushCampaign.origin == 'system_birthday')).all()
                 db.execute(delete(BirthdayReminder).where(BirthdayReminder.child_id == child_id))
+                db.execute(delete(BirthdayRevenueCycle).where(BirthdayRevenueCycle.mobile_user_id == user_id))
                 if campaign_ids:
                     db.execute(delete(PushCampaignDelivery).where(PushCampaignDelivery.campaign_id.in_(campaign_ids)))
                     db.execute(delete(PushCampaign).where(PushCampaign.id.in_(campaign_ids)))

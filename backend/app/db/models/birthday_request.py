@@ -69,6 +69,12 @@ class BirthdayRequest(Base):
     child_id: Mapped[str | None] = mapped_column(
         String(32), ForeignKey('mobile_children.id', ondelete='SET NULL'), nullable=True, index=True
     )
+    birthday_cycle_id: Mapped[str | None] = mapped_column(
+        String(32), ForeignKey('birthday_revenue_cycles.id', ondelete='SET NULL'), nullable=True, index=True
+    )
+    source_campaign_id: Mapped[str | None] = mapped_column(
+        String(32), ForeignKey('push_campaigns.id', ondelete='SET NULL'), nullable=True, index=True
+    )
     customer_name: Mapped[str] = mapped_column(String(120))
     phone: Mapped[str] = mapped_column(String(32))
     child_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
