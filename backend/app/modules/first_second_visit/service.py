@@ -185,8 +185,8 @@ class FirstSecondVisitService:
             mobile_user_id=user_id,
             experiment_group=group,
             eligible_at=now,
-            first_visit_id=first_visit_id,
-            first_visit_at=first_visit_at,
+            anchor_visit_id=first_visit_id,
+            anchor_visit_at=first_visit_at,
         )
         try:
             # The execution uniqueness constraint is expected to race when two
@@ -224,12 +224,12 @@ class FirstSecondVisitService:
                 select(Visit).where(
                     Visit.mobile_user_id == execution.mobile_user_id,
                     Visit.status.in_(['active', 'completed']),
-                    Visit.started_at > execution.first_visit_at,
+                    Visit.started_at > execution.anchor_visit_at,
                     Visit.started_at <= now,
                 ).order_by(Visit.started_at.asc(), Visit.id.asc()).limit(1)
             )
             if conversion is not None:
-                conversion_age = (business_date(conversion.started_at) - business_date(execution.first_visit_at)).days
+                conversion_age = (business_date(conversion.started_at) - business_date(execution.anchor_visit_at)).days
                 if 0 <= conversion_age <= WINDOW_DAYS:
                     execution.converted_at = conversion.started_at
                     execution.conversion_visit_id = conversion.id

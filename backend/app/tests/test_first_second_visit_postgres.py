@@ -129,8 +129,8 @@ class FirstSecondVisitPostgresConcurrencyTests(unittest.TestCase):
             # A has already been assigned and is waiting for conversion sync.
             db.add(LifecycleJourneyExecution(
                 journey_key='first_to_second_visit_v1', mobile_user_id=a_user_id, experiment_group='control',
-                eligible_at=now - timedelta(days=6), first_visit_id=a_first_visit_id,
-                first_visit_at=now - timedelta(days=10),
+                eligible_at=now - timedelta(days=6), anchor_visit_id=a_first_visit_id,
+                anchor_visit_at=now - timedelta(days=10),
             ))
             db.commit()
 
@@ -154,8 +154,8 @@ class FirstSecondVisitPostgresConcurrencyTests(unittest.TestCase):
                 rival.flush()
                 rival.add(LifecycleJourneyExecution(
                     journey_key='first_to_second_visit_v1', mobile_user_id=b_user_id,
-                    experiment_group='treatment', eligible_at=now, first_visit_id=b_first_visit_id,
-                    first_visit_at=now - timedelta(days=5), push_campaign_id=rival_campaign.id,
+                    experiment_group='treatment', eligible_at=now, anchor_visit_id=b_first_visit_id,
+                    anchor_visit_at=now - timedelta(days=5), push_campaign_id=rival_campaign.id,
                 ))
                 rival.commit()
             rival_inserted.set()

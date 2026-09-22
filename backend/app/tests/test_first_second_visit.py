@@ -170,7 +170,7 @@ class FirstSecondVisitTests(unittest.TestCase):
                 service = self._service(session); service.process(now=now)
             second = self._visit(session, user, now - timedelta(days=2)); session.commit()
             service.process(now=now)
-            execution = session.scalar(select(LifecycleJourneyExecution).where(LifecycleJourneyExecution.first_visit_id == first.id))
+            execution = session.scalar(select(LifecycleJourneyExecution).where(LifecycleJourneyExecution.anchor_visit_id == first.id))
             self.assertEqual(execution.conversion_visit_id, second.id)
             self.assertIsNotNone(execution.converted_at)
 
@@ -181,7 +181,7 @@ class FirstSecondVisitTests(unittest.TestCase):
             first = self._visit(session, user, now - timedelta(days=40)); second = self._visit(session, user, now - timedelta(days=5))
             execution = LifecycleJourneyExecution(
                 journey_key='first_to_second_visit_v1', mobile_user_id=user.id, experiment_group='control',
-                eligible_at=now - timedelta(days=39), first_visit_id=first.id, first_visit_at=first.started_at,
+                eligible_at=now - timedelta(days=39), anchor_visit_id=first.id, anchor_visit_at=first.started_at,
             )
             session.add(execution); session.commit()
             self._service(session).process(now=now)

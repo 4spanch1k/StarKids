@@ -9,7 +9,7 @@ export type CampaignAudience =
   | { type: 'visit_segment'; visit_segment: VisitAudienceSegment };
 export type PushCampaign = {
   id: string; internal_name: string; title: string; body: string; audience: CampaignAudience;
-  destination: 'home' | 'tickets' | 'birthdays' | 'promotions' | 'profile'; origin: 'manual' | 'system_birthday' | 'system_first_to_second_visit'; status: string;
+  destination: 'home' | 'tickets' | 'birthdays' | 'promotions' | 'profile'; origin: 'manual' | 'system_birthday' | 'system_first_to_second_visit' | 'system_reactivation'; status: string;
   scheduled_at: string | null; started_at: string | null; sent_at: string | null; cancelled_at: string | null;
   targeted_users: number; targeted_devices: number; sent_count: number; failed_count: number;
   failure_reason: string | null; opened_count: number;
@@ -48,6 +48,12 @@ export type BirthdayRevenueReport = {
   lost_reasons: Record<string, number>; absolute_uplift_percentage_points: number | null;
   revenue_per_eligible_difference: number;
 };
+export type ReactivationReport = {
+  journey_key: string; eligible_families: number; control_size: number; treatment_size: number;
+  treatment_delivered: number; treatment_opened: number; control_conversions: number; treatment_conversions: number;
+  control_reactivation_rate: number | null; treatment_reactivation_rate: number | null;
+  absolute_uplift_percentage_points: number | null;
+};
 export type CampaignInput = { internal_name: string; title: string; body: string; audience: CampaignAudience; destination: PushCampaign['destination']; scheduled_at?: string | null; send_now?: boolean; idempotency_key?: string };
 
 export function listPushCampaigns() { return executeAuthorizedAdminRequest((token) => httpClient<PushCampaign[]>({ path: '/api/v1/admin/push-campaigns', headers: buildAdminAuthHeaders(token) })); }
@@ -58,3 +64,4 @@ export function previewPushAudience(audience: CampaignAudience) { return execute
 export function fetchPushCampaignAttribution(id: string) { return executeAuthorizedAdminRequest((token) => httpClient<PushCampaignAttribution>({ path: `/api/v1/admin/push-campaigns/${id}/attribution`, headers: buildAdminAuthHeaders(token) })); }
 export function fetchFirstSecondVisitReport() { return executeAuthorizedAdminRequest((token) => httpClient<FirstSecondVisitReport>({ path: '/api/v1/admin/push-campaigns/first-to-second-visit/report', headers: buildAdminAuthHeaders(token) })); }
 export function fetchBirthdayRevenueReport() { return executeAuthorizedAdminRequest((token) => httpClient<BirthdayRevenueReport>({ path: '/api/v1/admin/push-campaigns/birthday-revenue/report', headers: buildAdminAuthHeaders(token) })); }
+export function fetchReactivationReport() { return executeAuthorizedAdminRequest((token) => httpClient<ReactivationReport>({ path: '/api/v1/admin/push-campaigns/reactivation/report', headers: buildAdminAuthHeaders(token) })); }

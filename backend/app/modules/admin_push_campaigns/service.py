@@ -114,7 +114,7 @@ class PushCampaignService:
 
     def update(self, campaign_id: str, payload: PushCampaignUpdateRequest) -> PushCampaignResponse:
         campaign = self._get(campaign_id)
-        if campaign.origin in {'system_birthday', 'system_first_to_second_visit'}:
+        if campaign.origin in {'system_birthday', 'system_first_to_second_visit', 'system_reactivation'}:
             raise DomainHTTPException(
                 code='system_campaign_not_editable',
                 message='Системную кампанию нельзя редактировать.',
@@ -173,7 +173,15 @@ class PushCampaignService:
             try:
                 if not self.provider_configured:
                     logger.warning('push campaign skipped: FCM is not configured campaign_id=%s', campaign_id)
-                    self._mark_failed(self._get(campaign_id), 'push_provider_not_configured')
+                    campaign = self._get(campaign_id)
+                    if campaign.origin == 'system_reactivation':
+                        # Keep the durable treatment campaign retryable. The
+                        # assignment is already persisted and must not create
+                        # another campaign after provider recovery.
+                        campaign.failure_reason = 'push_provider_not_configured'
+                        self.session.commit()
+                    else:
+                        self._mark_failed(campaign, 'push_provider_not_configured')
                     continue
                 self._start_snapshot(campaign_id, now=now)
                 self._deliver_campaign(campaign_id)
@@ -203,10 +211,10 @@ class PushCampaignService:
                     Visit.status.in_(['active', 'completed']),
                 )
             ) or 0
-            first_visit_at = execution.first_visit_at if execution is not None else None
-            window_ok = bool(first_visit_at is not None)
+            anchor_visit_at = execution.anchor_visit_at if execution is not None else None
+            window_ok = bool(anchor_visit_at is not None)
             if window_ok:
-                first_local = first_visit_at.astimezone(BUSINESS_TZ).date()
+                first_local = anchor_visit_at.astimezone(BUSINESS_TZ).date()
                 now_local = effective_now.astimezone(BUSINESS_TZ).date()
                 age_days = (now_local - first_local).days
                 window_ok = 4 <= age_days < 30
@@ -222,6 +230,52 @@ class PushCampaignService:
             if execution is None or visit_count != 1 or not window_ok or not user_eligible:
                 campaign.status = 'cancelled'
                 campaign.failure_reason = 'journey_no_longer_eligible'
+                campaign.cancelled_at = effective_now
+                self.session.commit()
+                return
+        if campaign.origin == 'system_reactivation':
+            execution = self.session.scalar(
+                select(LifecycleJourneyExecution)
+                .where(LifecycleJourneyExecution.push_campaign_id == campaign.id)
+                .with_for_update()
+            )
+            latest_visits = self.session.scalars(
+                select(Visit).where(
+                    Visit.mobile_user_id == (execution.mobile_user_id if execution is not None else '__missing__'),
+                    Visit.status.in_(['active', 'completed']),
+                ).order_by(Visit.started_at.desc(), Visit.id.desc())
+            ).all()
+            latest = latest_visits[0] if latest_visits else None
+            user_eligible = bool(
+                execution is not None and self.session.scalar(
+                    select(func.count()).select_from(MobileUser).where(
+                        MobileUser.id == execution.mobile_user_id,
+                        MobileUser.is_active.is_(True),
+                        MobileUser.onboarding_completed_at.is_not(None),
+                    )
+                )
+            )
+            age_ok = False
+            if execution is not None:
+                age_days = (
+                    effective_now.astimezone(BUSINESS_TZ).date()
+                    - execution.anchor_visit_at.astimezone(BUSINESS_TZ).date()
+                ).days
+                age_ok = 45 <= age_days < 90
+            if (
+                execution is None
+                or latest is None
+                or latest.id != execution.anchor_visit_id
+                or len(latest_visits) < 2
+                or not user_eligible
+                or not age_ok
+            ):
+                campaign.status = 'cancelled'
+                campaign.failure_reason = (
+                    'journey_already_converted'
+                    if execution is not None and latest is not None and latest.id != execution.anchor_visit_id
+                    else 'journey_no_longer_eligible'
+                )
                 campaign.cancelled_at = effective_now
                 self.session.commit()
                 return
@@ -416,6 +470,24 @@ class PushCampaignService:
             status='processing',
             created_by_admin_id=None,
             origin='system_first_to_second_visit',
+        )
+        self.session.add(campaign)
+        self.session.flush()
+        return campaign
+
+    def create_system_reactivation_campaign(self, *, user_id: str) -> PushCampaign:
+        """Create the single immutable treatment campaign for reactivation."""
+        campaign = PushCampaign(
+            internal_name='lapsed-reactivation-v1',
+            title='Давно вас не видели',
+            body='Заглядывайте снова в Boom Bala — новые впечатления уже ждут.',
+            audience_type='user',
+            audience_config={'user_id': user_id},
+            destination='tickets',
+            destination_payload={},
+            status='processing',
+            created_by_admin_id=None,
+            origin='system_reactivation',
         )
         self.session.add(campaign)
         self.session.flush()
