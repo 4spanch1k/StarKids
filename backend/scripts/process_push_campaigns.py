@@ -9,6 +9,7 @@ import logging
 from app.core.database.session import SessionLocal
 from app.modules.admin_push_campaigns.service import PushCampaignService
 from app.modules.first_second_visit.service import FirstSecondVisitService
+from app.modules.reactivation.service import ReactivationService
 from app.services.push.dependencies import get_push_delivery
 
 logging.basicConfig(level=logging.INFO)
@@ -22,8 +23,15 @@ def main() -> None:
         service = PushCampaignService(session, delivery)
         lifecycle = FirstSecondVisitService(session, service)
         eligible = lifecycle.process()
+        reactivation = ReactivationService(session, service)
+        reactivation_processed = reactivation.process()
         processed = service.process_due()
-        logger.info('processed first-to-second-visit executions=%s push campaigns=%s', eligible, processed)
+        logger.info(
+            'processed first-to-second-visit executions=%s reactivation executions=%s push campaigns=%s',
+            eligible,
+            reactivation_processed,
+            processed,
+        )
     finally:
         session.close()
 

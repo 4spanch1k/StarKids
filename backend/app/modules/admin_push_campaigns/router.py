@@ -18,11 +18,13 @@ from .schemas import (
     PushCampaignUpdateRequest,
     FirstSecondVisitReportResponse,
     BirthdayRevenueReportResponse,
+    ReactivationReportResponse,
 )
 from .service import PUSH_CAMPAIGN_ALLOWED_ROLES, PushCampaignService
 from .attribution_service import PushCampaignAttributionService
 from ..first_second_visit.service import FirstSecondVisitService
 from ..birthday_reminders.revenue_service import BirthdayRevenueReportService
+from ..reactivation.service import ReactivationService
 
 router = APIRouter(
     dependencies=[Depends(require_admin_roles(*PUSH_CAMPAIGN_ALLOWED_ROLES))]
@@ -43,6 +45,12 @@ def get_lifecycle_service(
     return FirstSecondVisitService(session, PushCampaignService(session, delivery))
 
 
+def get_reactivation_service(
+    session: Session = Depends(get_db_session), delivery: PushDeliveryPort = Depends(get_push_delivery)
+) -> ReactivationService:
+    return ReactivationService(session, PushCampaignService(session, delivery))
+
+
 @router.get('/push-campaigns', response_model=list[PushCampaignResponse])
 def list_campaigns(service: PushCampaignService = Depends(get_service)) -> list[PushCampaignResponse]:
     return service.list()
@@ -51,6 +59,11 @@ def list_campaigns(service: PushCampaignService = Depends(get_service)) -> list[
 @router.get('/push-campaigns/first-to-second-visit/report', response_model=FirstSecondVisitReportResponse)
 def first_second_visit_report(service: FirstSecondVisitService = Depends(get_lifecycle_service)) -> FirstSecondVisitReportResponse:
     return FirstSecondVisitReportResponse(**service.report().__dict__)
+
+
+@router.get('/push-campaigns/reactivation/report', response_model=ReactivationReportResponse)
+def reactivation_report(service: ReactivationService = Depends(get_reactivation_service)) -> ReactivationReportResponse:
+    return ReactivationReportResponse(**service.report().__dict__)
 
 
 @router.get('/push-campaigns/birthday-revenue/report', response_model=BirthdayRevenueReportResponse)

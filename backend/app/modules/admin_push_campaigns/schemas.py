@@ -67,7 +67,7 @@ class PushCampaignResponse(BaseModel):
     body: str
     audience: PushCampaignAudience
     destination: Destination
-    origin: Literal['manual', 'system_birthday', 'system_first_to_second_visit']
+    origin: Literal['manual', 'system_birthday', 'system_first_to_second_visit', 'system_reactivation']
     status: str
     scheduled_at: datetime | None
     started_at: datetime | None
@@ -116,6 +116,20 @@ class FirstSecondVisitReportResponse(BaseModel):
     treatment_conversions: int
     control_second_visit_rate: float | None
     treatment_second_visit_rate: float | None
+    absolute_uplift_percentage_points: float | None
+
+
+class ReactivationReportResponse(BaseModel):
+    journey_key: str
+    eligible_families: int
+    control_size: int
+    treatment_size: int
+    treatment_delivered: int
+    treatment_opened: int
+    control_conversions: int
+    treatment_conversions: int
+    control_reactivation_rate: float | None
+    treatment_reactivation_rate: float | None
     absolute_uplift_percentage_points: float | None
 
 

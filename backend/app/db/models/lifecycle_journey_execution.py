@@ -8,7 +8,7 @@ from .base import Base
 
 
 class LifecycleJourneyExecution(Base):
-    """Durable assignment and outcome for the first-to-second-visit experiment."""
+    """Durable assignment and outcome for lifecycle experiments."""
 
     __tablename__ = 'lifecycle_journey_executions'
     __table_args__ = (
@@ -26,10 +26,10 @@ class LifecycleJourneyExecution(Base):
     )
     experiment_group: Mapped[str] = mapped_column(String(16), nullable=False)
     eligible_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    first_visit_id: Mapped[str] = mapped_column(
+    anchor_visit_id: Mapped[str] = mapped_column(
         String(32), ForeignKey('visits.id', ondelete='RESTRICT'), nullable=False
     )
-    first_visit_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    anchor_visit_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     push_campaign_id: Mapped[str | None] = mapped_column(
         String(32), ForeignKey('push_campaigns.id', ondelete='SET NULL'), nullable=True
     )

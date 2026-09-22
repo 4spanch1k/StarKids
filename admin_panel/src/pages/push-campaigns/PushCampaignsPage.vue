@@ -14,6 +14,12 @@
       <span>Treatment: принято FCM {{ journeyReport.treatment_delivered }} · открыли {{ journeyReport.treatment_opened }}</span>
       <span>Второй визит: Control {{ percent(journeyReport.control_second_visit_rate) }} · Treatment {{ percent(journeyReport.treatment_second_visit_rate) }} · uplift {{ uplift(journeyReport.absolute_uplift_percentage_points) }}</span>
     </article>
+    <article v-if="reactivationReport" class="admin-list-record" aria-label="Reactivation V1">
+      <strong>Reactivation V1</strong>
+      <span>Семьи: {{ reactivationReport.eligible_families }} · Control: {{ reactivationReport.control_size }} · Treatment: {{ reactivationReport.treatment_size }}</span>
+      <span>Treatment: доставлено {{ reactivationReport.treatment_delivered }} · открыто {{ reactivationReport.treatment_opened }}</span>
+      <span>Повторный визит: Control {{ percent(reactivationReport.control_reactivation_rate) }} · Treatment {{ percent(reactivationReport.treatment_reactivation_rate) }} · uplift {{ uplift(reactivationReport.absolute_uplift_percentage_points) }}</span>
+    </article>
     <article v-if="birthdayRevenueReport" class="admin-list-record" aria-label="Birthday Revenue CRM">
       <strong>Birthday Revenue CRM</strong>
       <span>Циклы: {{ birthdayRevenueReport.eligible_cycles }} · Control: {{ birthdayRevenueReport.control_cycles }} · Treatment: {{ birthdayRevenueReport.treatment_cycles }}</span>
@@ -113,7 +119,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import PageShell from '@/shared/ui/PageShell.vue';
 import StatePanel from '@/shared/ui/StatePanel.vue';
-import { cancelPushCampaign, createPushCampaign, fetchBirthdayRevenueReport, fetchFirstSecondVisitReport, fetchPushCampaignAttribution, listPushCampaigns, previewPushAudience, sendPushCampaign, type BirthdayRevenueReport, type CampaignAudience, type FirstSecondVisitReport, type PushCampaign, type PushCampaignAttribution } from '@/features/push-campaigns/api/pushCampaignsApi';
+import { cancelPushCampaign, createPushCampaign, fetchBirthdayRevenueReport, fetchFirstSecondVisitReport, fetchPushCampaignAttribution, fetchReactivationReport, listPushCampaigns, previewPushAudience, sendPushCampaign, type BirthdayRevenueReport, type CampaignAudience, type FirstSecondVisitReport, type PushCampaign, type PushCampaignAttribution, type ReactivationReport } from '@/features/push-campaigns/api/pushCampaignsApi';
 
 const campaigns = ref<PushCampaign[]>([]);
 const attributions = reactive<Record<string, PushCampaignAttribution>>({});
@@ -127,6 +133,7 @@ const error = ref('');
 const providerConfigured = ref(true);
 const journeyReport = ref<FirstSecondVisitReport | null>(null);
 const birthdayRevenueReport = ref<BirthdayRevenueReport | null>(null);
+const reactivationReport = ref<ReactivationReport | null>(null);
 const previewResult = ref<{ targeted_users: number; targeted_devices: number } | null>(null);
 const previewAudienceKey = ref('');
 const createIdempotencyKey = ref(newIdempotencyKey());
@@ -145,6 +152,7 @@ async function load() {
     campaigns.value = await listPushCampaigns();
     journeyReport.value = await fetchFirstSecondVisitReport();
     birthdayRevenueReport.value = await fetchBirthdayRevenueReport();
+    reactivationReport.value = await fetchReactivationReport();
     providerConfigured.value = campaigns.value.every((campaign) => campaign.push_provider_configured);
     const reports = await Promise.all(campaigns.value.map(async (campaign) => [campaign.id, await fetchPushCampaignAttribution(campaign.id)] as const));
     Object.keys(attributions).forEach((id) => delete attributions[id]);
