@@ -42,6 +42,7 @@ def production_settings(**overrides: object) -> Settings:
         'freedompay_success_url': 'https://app.boombala.kz/payment/success',
         'freedompay_failure_url': 'https://app.boombala.kz/payment/failure',
         'ticket_qr_secret': 'q' * 48,
+        'redis_url': 'redis://127.0.0.1:6379/0',
     }
     values.update(overrides)
     return Settings(**values)
@@ -80,6 +81,41 @@ class ProductionGuardTests(unittest.TestCase):
             validate_runtime_configuration(
                 production_settings(jwt_secret_key='replace-me')
             )
+
+    def test_staging_and_production_require_redis_url(self) -> None:
+        for app_env in ('staging', 'production'):
+            with self.subTest(app_env=app_env), self.assertRaises(
+                ProductionConfigurationError
+            ):
+                validate_runtime_configuration(
+                    production_settings(app_env=app_env, redis_url=None)
+                )
+
+    def test_staging_and_production_reject_malformed_redis_url(self) -> None:
+        for value in (
+            'http://redis.internal:6379/0',
+            'redis://example.com:6379/0',
+            'redis://CHANGE_ME:6379/0',
+            'redis://replace-me:6379/0',
+            'redis://redis.internal:not-a-port/0',
+        ):
+            with self.subTest(redis_url=value), self.assertRaises(
+                ProductionConfigurationError
+            ):
+                validate_runtime_configuration(production_settings(redis_url=value))
+
+    def test_redis_configuration_errors_do_not_expose_credentials(self) -> None:
+        with self.assertRaises(ProductionConfigurationError) as error_context:
+            validate_runtime_configuration(
+                production_settings(redis_url='redis://:super-secret@')
+            )
+        self.assertNotIn('super-secret', str(error_context.exception))
+
+    def test_development_and_test_allow_missing_redis_url(self) -> None:
+        for app_env in ('development', 'test'):
+            settings = Settings(app_env=app_env, redis_url=None)
+            status = validate_runtime_configuration(settings)
+            self.assertEqual(status.environment, app_env)
 
     def test_production_requires_strong_ticket_qr_secret(self) -> None:
         for value in (None, 'replace-me', 'short'):
