@@ -347,19 +347,32 @@ class MobileAuthService:
             expected_type='refresh',
         )
         user = self._get_active_user(token_payload.subject)
-        session = self._get_active_session(token_payload.session_id)
+        try:
+            session = self._get_active_session_for_refresh(token_payload.session_id)
 
-        if session.mobile_user_id != user.id:
-            raise self.authentication_required_exception()
-        if not verify_token_value(
-            payload.refresh_token,
-            session.refresh_token_hash,
-            secret_key=self.settings.jwt_secret_key,
-        ):
-            raise self.authentication_required_exception()
+            if session.mobile_user_id != user.id:
+                raise self.authentication_required_exception()
+            if not verify_token_value(
+                payload.refresh_token,
+                session.refresh_token_hash,
+                secret_key=self.settings.jwt_secret_key,
+            ):
+                raise self.authentication_required_exception()
 
-        token_pair = self._rotate_session_for_user(user, session)
-        return self._build_auth_response(user, token_pair)
+            token_pair = self._generate_token_pair(user=user, session_id=session.id)
+            self.session_repository.rotate_refresh_token_in_transaction(
+                session,
+                refresh_token_hash=hash_token_value(
+                    token_pair.refresh_token,
+                    secret_key=self.settings.jwt_secret_key,
+                ),
+                expires_at=token_pair.refresh_expires_at,
+            )
+            self.session_repository.db.commit()
+            return self._build_auth_response(user, token_pair)
+        except Exception:
+            self.session_repository.db.rollback()
+            raise
 
     def get_current_user(self, access_token: str) -> MobileCurrentUserResponse:
         user = self.authenticate_access_token(access_token)
@@ -652,22 +665,6 @@ class MobileAuthService:
         )
         return token_pair
 
-    def _rotate_session_for_user(
-        self,
-        user: MobileUser,
-        session: MobileSession,
-    ) -> TokenPair:
-        token_pair = self._generate_token_pair(user=user, session_id=session.id)
-        self.session_repository.rotate_refresh_token(
-            session,
-            refresh_token_hash=hash_token_value(
-                token_pair.refresh_token,
-                secret_key=self.settings.jwt_secret_key,
-            ),
-            expires_at=token_pair.refresh_expires_at,
-        )
-        return token_pair
-
     def _generate_token_pair(
         self,
         *,
@@ -691,6 +688,14 @@ class MobileAuthService:
 
     def _get_active_session(self, session_id: str) -> MobileSession:
         session = self.session_repository.get_by_id(session_id)
+        if session is None or session.revoked_at is not None:
+            raise self.authentication_required_exception()
+        if self._normalize_datetime(session.expires_at) <= datetime.now(UTC):
+            raise self.authentication_required_exception()
+        return session
+
+    def _get_active_session_for_refresh(self, session_id: str) -> MobileSession:
+        session = self.session_repository.get_by_id_for_update(session_id)
         if session is None or session.revoked_at is not None:
             raise self.authentication_required_exception()
         if self._normalize_datetime(session.expires_at) <= datetime.now(UTC):
