@@ -66,6 +66,7 @@ class LeadInboxRepository(Repository):
         created_to: date | None = None,
         awaiting_contact: bool = False,
         sort: str = 'newest',
+        include_contact_leads: bool = True,
     ) -> list[LeadInboxRecord]:
         records = self._list_birthday_request_records(
             branch_id=branch_id,
@@ -74,7 +75,7 @@ class LeadInboxRepository(Repository):
             created_to=created_to,
             awaiting_contact=awaiting_contact,
         )
-        if branch_id is None and not awaiting_contact:
+        if include_contact_leads and branch_id is None and not awaiting_contact:
             records.extend(
                 self._list_contact_records(
                     status=status,
@@ -92,10 +93,18 @@ class LeadInboxRepository(Repository):
             )
         return sorted(records, key=lambda record: (record.created_at, record.id), reverse=True)
 
-    def get_record(self, lead_id: str) -> LeadInboxRecord | None:
-        birthday_record = self.get_birthday_request_record(lead_id)
+    def get_record(
+        self,
+        lead_id: str,
+        *,
+        branch_id: str | None = None,
+        include_contact_leads: bool = True,
+    ) -> LeadInboxRecord | None:
+        birthday_record = self.get_birthday_request_record(lead_id, branch_id=branch_id)
         if birthday_record is not None:
             return birthday_record
+        if not include_contact_leads:
+            return None
         return self.get_contact_record(lead_id)
 
     def _list_birthday_request_records(
@@ -131,33 +140,44 @@ class LeadInboxRepository(Repository):
         *,
         period_start: datetime,
         period_end: datetime,
+        branch_id: str | None = None,
     ) -> tuple[int, datetime | None, list[tuple[datetime, datetime | None]]]:
         """Return current queue aggregates and bounded period response rows.
 
         Both queries deliberately target BirthdayRequest only. Contact leads are
         not birthday revenue leads and must never affect these operational metrics.
         """
+        waiting_statement = select(
+            func.count(BirthdayRequest.id),
+            func.min(BirthdayRequest.created_at),
+        ).where(
+            BirthdayRequest.status == 'new',
+            BirthdayRequest.contacted_at.is_(None),
+        )
+        period_statement = select(BirthdayRequest.created_at, BirthdayRequest.contacted_at).where(
+            BirthdayRequest.created_at >= period_start,
+            BirthdayRequest.created_at <= period_end,
+        )
+        if branch_id is not None:
+            waiting_statement = waiting_statement.where(BirthdayRequest.branch_id == branch_id)
+            period_statement = period_statement.where(BirthdayRequest.branch_id == branch_id)
+
         waiting_count, oldest_waiting_created_at = self.db.execute(
-            select(
-                func.count(BirthdayRequest.id),
-                func.min(BirthdayRequest.created_at),
-            ).where(
-                BirthdayRequest.status == 'new',
-                BirthdayRequest.contacted_at.is_(None),
-            )
+            waiting_statement
         ).one()
-        period_rows = self.db.execute(
-            select(BirthdayRequest.created_at, BirthdayRequest.contacted_at).where(
-                BirthdayRequest.created_at >= period_start,
-                BirthdayRequest.created_at <= period_end,
-            )
-        ).all()
+        period_rows = self.db.execute(period_statement).all()
         return int(waiting_count or 0), oldest_waiting_created_at, period_rows
 
-    def get_birthday_request_record(self, lead_id: str) -> LeadInboxRecord | None:
-        row = self.db.execute(
-            self._build_record_query().where(BirthdayRequest.id == lead_id)
-        ).one_or_none()
+    def get_birthday_request_record(
+        self,
+        lead_id: str,
+        *,
+        branch_id: str | None = None,
+    ) -> LeadInboxRecord | None:
+        statement = self._build_record_query().where(BirthdayRequest.id == lead_id)
+        if branch_id is not None:
+            statement = statement.where(BirthdayRequest.branch_id == branch_id)
+        row = self.db.execute(statement).one_or_none()
         if row is None:
             return None
         return self._map_record(row)
@@ -186,10 +206,16 @@ class LeadInboxRepository(Repository):
             return None
         return self._map_contact_record(lead)
 
-    def get_birthday_request_entity(self, lead_id: str) -> BirthdayRequest | None:
-        return self.db.scalar(
-            select(BirthdayRequest).where(BirthdayRequest.id == lead_id)
-        )
+    def get_birthday_request_entity(
+        self,
+        lead_id: str,
+        *,
+        branch_id: str | None = None,
+    ) -> BirthdayRequest | None:
+        statement = select(BirthdayRequest).where(BirthdayRequest.id == lead_id)
+        if branch_id is not None:
+            statement = statement.where(BirthdayRequest.branch_id == branch_id)
+        return self.db.scalar(statement)
 
     def get_contact_lead_entity(self, lead_id: str) -> ContactLead | None:
         return self.db.scalar(

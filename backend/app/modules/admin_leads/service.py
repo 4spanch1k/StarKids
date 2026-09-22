@@ -9,6 +9,7 @@ from ...core.time.business_time import BUSINESS_TIMEZONE
 from ...core.exceptions.http import DomainHTTPException, NotFoundException
 from ...db.repositories.lead_inbox_repository import LeadInboxRecord, LeadInboxRepository
 from ..leads.constants import LEAD_TYPE_BIRTHDAY_REQUEST, LEAD_TYPE_CONTACT, LOST_REASONS
+from .branch_scope import AdminLeadAccess, LEAD_INBOX_ALLOWED_ROLES
 from .schemas import (
     AdminLeadBaseResponse,
     AdminLeadBranchSummary,
@@ -21,13 +22,6 @@ from .schemas import (
     AdminBirthdayOperationsSummaryResponse,
     LeadInboxStatus,
     OwnerDashboardPeriod,
-)
-
-LEAD_INBOX_ALLOWED_ROLES = (
-    'super_admin',
-    'operator',
-    'content_manager',
-    'sales_manager',
 )
 
 LEAD_STATUS_TRANSITIONS: dict[LeadInboxStatus, set[LeadInboxStatus]] = {
@@ -64,23 +58,39 @@ class AdminLeadInboxService:
         self.repository = repository or LeadInboxRepository()
         self.now_provider = now_provider or (lambda: datetime.now(UTC))
 
-    def list_leads(self, filters: AdminLeadListQuery) -> AdminLeadListResponse:
+    def list_leads(
+        self,
+        filters: AdminLeadListQuery,
+        *,
+        access: AdminLeadAccess,
+    ) -> AdminLeadListResponse:
         self._validate_filters(filters)
+        branch_id = access.resolve_requested_branch(filters.branchId)
         records = self.repository.list_records(
-            branch_id=filters.branchId,
+            branch_id=branch_id,
             status=filters.status,
             created_from=filters.createdFrom,
             created_to=filters.createdTo,
             awaiting_contact=filters.awaitingContact,
             sort=filters.sort,
+            include_contact_leads=access.is_global and branch_id is None,
         )
         return AdminLeadListResponse(
             items=[self._serialize_list_item(record) for record in records],
             total=len(records),
         )
 
-    def get_lead(self, lead_id: str) -> AdminLeadDetailResponse:
-        record = self.repository.get_record(lead_id)
+    def get_lead(
+        self,
+        lead_id: str,
+        *,
+        access: AdminLeadAccess,
+    ) -> AdminLeadDetailResponse:
+        record = self.repository.get_record(
+            lead_id,
+            branch_id=access.branch_id,
+            include_contact_leads=access.is_global,
+        )
         if record is None:
             raise NotFoundException(
                 code='lead_not_found',
@@ -88,8 +98,17 @@ class AdminLeadInboxService:
             )
         return self._serialize_detail(record)
 
-    def get_birthday_lead_detail(self, lead_id: str) -> AdminBirthdayLeadDetailResponse:
-        record = self.repository.get_record(lead_id)
+    def get_birthday_lead_detail(
+        self,
+        lead_id: str,
+        *,
+        access: AdminLeadAccess,
+    ) -> AdminBirthdayLeadDetailResponse:
+        record = self.repository.get_record(
+            lead_id,
+            branch_id=access.branch_id,
+            include_contact_leads=False,
+        )
         if record is None or record.type != LEAD_TYPE_BIRTHDAY_REQUEST:
             raise NotFoundException(code='birthday_lead_not_found', message='Birthday request was not found.')
         return AdminBirthdayLeadDetailResponse(
@@ -141,12 +160,15 @@ class AdminLeadInboxService:
     def get_birthday_operations_summary(
         self,
         period: OwnerDashboardPeriod,
+        *,
+        access: AdminLeadAccess,
     ) -> AdminBirthdayOperationsSummaryResponse:
         now = self._normalize_now(self.now_provider())
         period_start = self._period_start(period, now)
         waiting_count, oldest_waiting_created_at, period_rows = self.repository.list_birthday_operations_rows(
             period_start=period_start.astimezone(UTC),
             period_end=now,
+            branch_id=access.branch_id,
         )
         contacted_period_rows = [
             (created_at, contacted_at)
@@ -179,10 +201,15 @@ class AdminLeadInboxService:
         self,
         lead_id: str,
         payload: AdminLeadStatusUpdateRequest,
+        *,
+        access: AdminLeadAccess,
     ) -> AdminLeadDetailResponse:
-        birthday_request = self.repository.get_birthday_request_entity(lead_id)
+        birthday_request = self.repository.get_birthday_request_entity(
+            lead_id,
+            branch_id=access.branch_id,
+        )
         contact_lead = None
-        if birthday_request is None:
+        if birthday_request is None and access.is_global:
             contact_lead = self.repository.get_contact_lead_entity(lead_id)
         if birthday_request is None and contact_lead is None:
             raise NotFoundException(
@@ -319,7 +346,7 @@ class AdminLeadInboxService:
                 admin_note=payload.adminNote,
             )
 
-        return self.get_lead(lead_id)
+        return self.get_lead(lead_id, access=access)
 
     def _validate_filters(self, filters: AdminLeadListQuery) -> None:
         if (

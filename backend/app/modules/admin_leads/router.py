@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 from ...core.database.session import get_db_session
 from ...core.exceptions.schemas import ErrorResponse
 from ...db.repositories.lead_inbox_repository import LeadInboxRepository
-from ..admin_auth.dependencies import require_admin_roles
 from .schemas import (
     AdminBirthdayLeadDetailResponse,
     AdminBirthdayOperationsSummaryResponse,
@@ -16,11 +15,10 @@ from .schemas import (
     AdminLeadStatusUpdateRequest,
     OwnerDashboardPeriod,
 )
-from .service import AdminLeadInboxService, LEAD_INBOX_ALLOWED_ROLES
+from .branch_scope import AdminLeadAccess, get_admin_lead_access
+from .service import AdminLeadInboxService
 
-router = APIRouter(
-    dependencies=[Depends(require_admin_roles(*LEAD_INBOX_ALLOWED_ROLES))]
-)
+router = APIRouter()
 
 
 def get_admin_lead_inbox_service(
@@ -42,9 +40,10 @@ def get_admin_lead_inbox_service(
 )
 def list_admin_leads(
     filters: Annotated[AdminLeadListQuery, Depends()],
+    access: AdminLeadAccess = Depends(get_admin_lead_access),
     service: AdminLeadInboxService = Depends(get_admin_lead_inbox_service),
 ) -> AdminLeadListResponse:
-    return service.list_leads(filters)
+    return service.list_leads(filters, access=access)
 
 
 @router.get(
@@ -54,9 +53,10 @@ def list_admin_leads(
 )
 def get_birthday_operations_summary(
     period: OwnerDashboardPeriod = Query(default=OwnerDashboardPeriod.TODAY),
+    access: AdminLeadAccess = Depends(get_admin_lead_access),
     service: AdminLeadInboxService = Depends(get_admin_lead_inbox_service),
 ) -> AdminBirthdayOperationsSummaryResponse:
-    return service.get_birthday_operations_summary(period)
+    return service.get_birthday_operations_summary(period, access=access)
 
 
 @router.get(
@@ -70,9 +70,10 @@ def get_birthday_operations_summary(
 )
 def get_admin_lead(
     lead_id: str,
+    access: AdminLeadAccess = Depends(get_admin_lead_access),
     service: AdminLeadInboxService = Depends(get_admin_lead_inbox_service),
 ) -> AdminLeadDetailResponse:
-    return service.get_lead(lead_id)
+    return service.get_lead(lead_id, access=access)
 
 
 @router.get(
@@ -82,9 +83,10 @@ def get_admin_lead(
 )
 def get_admin_birthday_lead_detail(
     lead_id: str,
+    access: AdminLeadAccess = Depends(get_admin_lead_access),
     service: AdminLeadInboxService = Depends(get_admin_lead_inbox_service),
 ) -> AdminBirthdayLeadDetailResponse:
-    return service.get_birthday_lead_detail(lead_id)
+    return service.get_birthday_lead_detail(lead_id, access=access)
 
 
 @router.patch(
@@ -100,6 +102,7 @@ def get_admin_birthday_lead_detail(
 def update_admin_lead_status(
     lead_id: str,
     payload: AdminLeadStatusUpdateRequest,
+    access: AdminLeadAccess = Depends(get_admin_lead_access),
     service: AdminLeadInboxService = Depends(get_admin_lead_inbox_service),
 ) -> AdminLeadDetailResponse:
-    return service.update_lead_status(lead_id, payload)
+    return service.update_lead_status(lead_id, payload, access=access)

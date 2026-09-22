@@ -8,7 +8,12 @@ export type NavigationItem = {
 };
 
 export const primaryNavigationItems: NavigationItem[] = [
-  { name: 'leads', label: 'Заявки', to: '/leads' },
+  {
+    name: 'leads',
+    label: 'Заявки',
+    to: '/leads',
+    allowedRoles: ['super_admin', 'operator', 'sales_manager'],
+  },
   { name: 'branches', label: 'Филиалы', to: '/branches' },
   { name: 'birthday-packages', label: 'Пакеты дней рождения', to: '/birthday-packages' },
   {
