@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import CheckConstraint, DateTime, Integer, Index, String, func
+from sqlalchemy import CheckConstraint, DateTime, Integer, Index, String, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
@@ -20,6 +20,13 @@ class MobileOtpChallenge(Base):
         CheckConstraint('attempt_count >= 0', name='ck_mobile_otp_attempt_count'),
         CheckConstraint('max_attempts > 0', name='ck_mobile_otp_max_attempts'),
         Index('ix_mobile_otp_challenges_phone_created', 'phone', 'created_at'),
+        Index(
+            'uq_mobile_otp_challenges_active_phone',
+            'phone',
+            unique=True,
+            postgresql_where=text('consumed_at IS NULL'),
+            sqlite_where=text('consumed_at IS NULL'),
+        ),
     )
 
     id: Mapped[str] = mapped_column(

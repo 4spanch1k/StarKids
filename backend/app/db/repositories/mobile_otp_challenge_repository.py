@@ -36,6 +36,17 @@ class MobileOtpChallengeRepository(Repository):
         self.db.add(challenge)
         return challenge
 
+    def get_latest_active_for_phone(self, phone: str) -> MobileOtpChallenge | None:
+        return self.db.scalar(
+            select(MobileOtpChallenge)
+            .where(
+                MobileOtpChallenge.phone == phone,
+                MobileOtpChallenge.consumed_at.is_(None),
+            )
+            .order_by(MobileOtpChallenge.created_at.desc())
+            .limit(1)
+        )
+
     def get_for_update(
         self,
         verification_id: str,

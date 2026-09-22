@@ -29,15 +29,7 @@ void main() {
     expect(find.text('Boom Bala'), findsOneWidget);
     expect(find.text('Номер телефона'), findsOneWidget);
     expect(find.text('Получить код'), findsOneWidget);
-    expect(find.text('Продолжить с Google'), findsOneWidget);
-
-    const hasGoogleConfiguration =
-        String.fromEnvironment('MOBILE_CLERK_PUBLISHABLE_KEY') != '' &&
-            String.fromEnvironment('MOBILE_GOOGLE_SERVER_CLIENT_ID') != '';
-    expect(
-      find.text('Вход через Google не настроен для этой сборки.'),
-      hasGoogleConfiguration ? findsNothing : findsOneWidget,
-    );
+    expect(find.text('Продолжить с Google'), findsNothing);
 
     await tester.tap(find.text('Получить код'));
     await tester.pumpAndSettle();

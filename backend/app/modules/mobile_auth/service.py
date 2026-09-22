@@ -39,6 +39,7 @@ from ...db.repositories.mobile_session_repository import MobileSessionRepository
 from ...db.repositories.mobile_otp_challenge_repository import (
     MobileOtpChallengeRepository,
 )
+from ...db.repositories.auth_throttle_state_repository import AuthThrottleStateRepository
 from ...db.repositories.mobile_user_repository import MobileUserRepository
 from ..auth_security.dependencies import AuthRequestContext
 from ..auth_security.service import AuthProtectionService
@@ -83,47 +84,107 @@ class MobileAuthService:
             self.user_repository.session
         )
         self.settings = settings or get_settings()
-        self.auth_protection_service = auth_protection_service
+        self.auth_protection_service = auth_protection_service or AuthProtectionService(
+            throttle_repository=AuthThrottleStateRepository(self.user_repository.session),
+        )
         self.loyalty_service = loyalty_service
 
-    def request_otp(self, payload: OTPRequest) -> OTPRequestResponse:
+    def request_otp(
+        self,
+        payload: OTPRequest,
+        *,
+        context: AuthRequestContext | None = None,
+    ) -> OTPRequestResponse:
         phone = self._normalize_phone(payload.phone)
         self._ensure_otp_available()
+        context = context or AuthRequestContext(ip_address='unknown')
+        self._auth_protection_service.enforce_otp_request_limits(
+            context=context,
+            phone=phone,
+        )
         now = datetime.now(UTC)
+        expires_in_seconds = self.settings.otp_code_ttl_seconds
+        active = self.otp_challenge_repository.get_latest_active_for_phone(phone)
+        if active is not None:
+            created_at = self._normalize_datetime(active.created_at)
+            elapsed = int((now - created_at).total_seconds())
+            if elapsed < self.settings.otp_resend_cooldown_seconds:
+                raise self._auth_protection_service.otp_rate_limited_exception(
+                    self.settings.otp_resend_cooldown_seconds - elapsed,
+                )
         code = f'{secrets.randbelow(1_000_000):06d}'
         verification_id = f'otp_{secrets.token_hex(16)}'
-        self.otp_challenge_repository.invalidate_active_for_phone(
-            phone,
-            consumed_at=now,
-        )
-        self.otp_challenge_repository.create(
-            verification_id=verification_id,
-            phone=phone,
-            code_hash=hash_secret_value(
-                code,
-                secret_key=self.settings.jwt_secret_key,
-                purpose='mobile-otp',
-            ),
-            expires_at=now + timedelta(seconds=self.settings.otp_code_ttl_seconds),
-            max_attempts=self.settings.otp_max_attempts,
-        )
+        created_new_challenge = True
+        try:
+            with self.otp_challenge_repository.db.begin_nested():
+                self.otp_challenge_repository.invalidate_active_for_phone(
+                    phone,
+                    consumed_at=now,
+                )
+                self.otp_challenge_repository.create(
+                    verification_id=verification_id,
+                    phone=phone,
+                    code_hash=hash_secret_value(
+                        code,
+                        secret_key=self.settings.jwt_secret_key,
+                        purpose='mobile-otp',
+                    ),
+                    expires_at=now + timedelta(seconds=self.settings.otp_code_ttl_seconds),
+                    max_attempts=self.settings.otp_max_attempts,
+                )
+                self.otp_challenge_repository.db.flush()
+        except IntegrityError:
+            # The partial unique index serializes simultaneous requests.  The
+            # losing request returns the winner's challenge without rolling
+            # back the outer transaction.
+            existing = self.otp_challenge_repository.get_latest_active_for_phone(phone)
+            if existing is None:
+                raise
+            verification_id = existing.id
+            created_new_challenge = False
+            expires_in_seconds = max(
+                1,
+                int(
+                    (
+                        self._normalize_datetime(existing.expires_at)
+                        - datetime.now(UTC)
+                    ).total_seconds()
+                ),
+            )
+            logger.info(
+                'Concurrent OTP request coalesced: phone=***%s verification_id=%s',
+                phone[-2:],
+                verification_id,
+            )
         self.otp_challenge_repository.db.commit()
-        logger.info(
-            'Local OTP issued: verification_id=%s phone=***%s code=%s expires_in_seconds=%s',
-            verification_id,
-            phone[-2:],
-            code,
-            self.settings.otp_code_ttl_seconds,
-        )
+        if created_new_challenge:
+            logger.info(
+                'Local OTP issued: verification_id=%s phone=***%s code=%s expires_in_seconds=%s',
+                verification_id,
+                phone[-2:],
+                code,
+                expires_in_seconds,
+            )
         return OTPRequestResponse(
             verification_id=verification_id,
-            expires_in_seconds=self.settings.otp_code_ttl_seconds,
+            expires_in_seconds=expires_in_seconds,
+            resend_after_seconds=self.settings.otp_resend_cooldown_seconds,
         )
 
-    def verify_otp(self, payload: OTPVerifyRequest) -> MobileAuthResponse:
+    def verify_otp(
+        self,
+        payload: OTPVerifyRequest,
+        *,
+        context: AuthRequestContext | None = None,
+    ) -> MobileAuthResponse:
         self._ensure_runtime_configuration()
         self._ensure_otp_available()
         phone = self._normalize_phone(payload.phone)
+        context = context or AuthRequestContext(ip_address='unknown')
+        self._auth_protection_service.enforce_otp_verify_limits(
+            context=context,
+            phone=phone,
+        )
         now = datetime.now(UTC)
         challenge = self.otp_challenge_repository.get_for_update(
             payload.verification_id,
@@ -156,6 +217,10 @@ class MobileAuthService:
 
         user = self._get_or_create_active_user(phone)
         self.user_repository.record_successful_login(user)
+        self._auth_protection_service.clear_otp_limits(
+            context=context,
+            phone=phone,
+        )
         token_pair = self._create_session_for_user(user)
         return self._build_auth_response(user, token_pair)
 

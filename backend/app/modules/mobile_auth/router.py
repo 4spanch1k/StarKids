@@ -84,13 +84,14 @@ def exchange_clerk_session(
 @router.post(
     '/request-otp',
     response_model=OTPRequestResponse,
-    responses={422: {'model': ErrorResponse}},
+    responses={429: {'model': ErrorResponse}, 422: {'model': ErrorResponse}},
 )
 def request_otp(
     payload: OTPRequest,
+    context: AuthRequestContext = Depends(get_auth_request_context),
     service: MobileAuthService = Depends(get_mobile_auth_service),
 ) -> OTPRequestResponse:
-    return service.request_otp(payload)
+    return service.request_otp(payload, context=context)
 
 
 @router.post(
@@ -99,15 +100,17 @@ def request_otp(
     response_model_exclude_none=True,
     responses={
         401: {'model': ErrorResponse},
+        429: {'model': ErrorResponse},
         422: {'model': ErrorResponse},
         503: {'model': ErrorResponse},
     },
 )
 def verify_otp(
     payload: OTPVerifyRequest,
+    context: AuthRequestContext = Depends(get_auth_request_context),
     service: MobileAuthService = Depends(get_mobile_auth_service),
 ) -> MobileAuthResponse:
-    return service.verify_otp(payload)
+    return service.verify_otp(payload, context=context)
 
 
 @router.post(

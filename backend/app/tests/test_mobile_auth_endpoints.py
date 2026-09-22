@@ -91,6 +91,7 @@ class MobileAuthEndpointTests(unittest.TestCase):
         body = response.json()
         self.assertTrue(body['verification_id'].startswith('otp_'))
         self.assertEqual(body['expires_in_seconds'], 300)
+        self.assertEqual(body['resend_after_seconds'], 60)
 
     def test_verify_otp_returns_auth_response_and_persists_session(self) -> None:
         request_response = self.client.post(
@@ -187,7 +188,7 @@ class MobileAuthEndpointTests(unittest.TestCase):
             self.assertEqual(challenge.attempt_count, 5)
             self.assertIsNotNone(challenge.consumed_at)
 
-    def test_new_otp_invalidates_previous_challenge(self) -> None:
+    def test_otp_resend_is_rate_limited_during_cooldown(self) -> None:
         with patch(
             'app.modules.mobile_auth.service.secrets.randbelow',
             return_value=654321,
@@ -200,27 +201,9 @@ class MobileAuthEndpointTests(unittest.TestCase):
                 '/api/v1/mobile/auth/request-otp',
                 json={'phone': '+77071234567'},
             )
-        first_id = first.json()['verification_id']
-        second_id = second.json()['verification_id']
-
-        stale = self.client.post(
-            '/api/v1/mobile/auth/verify-otp',
-            json={
-                'phone': '+77071234567',
-                'code': '654321',
-                'verification_id': first_id,
-            },
-        )
-        current = self.client.post(
-            '/api/v1/mobile/auth/verify-otp',
-            json={
-                'phone': '+77071234567',
-                'code': '654321',
-                'verification_id': second_id,
-            },
-        )
-        self.assertEqual(stale.status_code, 401)
-        self.assertEqual(current.status_code, 200)
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 429)
+        self.assertGreaterEqual(int(second.headers['retry-after']), 1)
 
     def test_expired_otp_cannot_be_verified(self) -> None:
         with patch(

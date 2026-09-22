@@ -1,11 +1,8 @@
 import 'dart:async';
 
-import 'package:clerk_auth/clerk_auth.dart' as clerk;
-import 'package:clerk_flutter/clerk_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../../app/config/app_environment.dart';
 import '../../../../app/di/service_registry.dart';
 import '../../../../core/design_system/foundations/sk_tokens.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
@@ -13,14 +10,10 @@ import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/primary_button.dart';
 import '../../../../core/design_system/widgets/sk_fade.dart';
 import '../../../../core/design_system/widgets/sk_field.dart';
-import '../../data/google_clerk_session_token_requester.dart';
-import '../../data/google_sign_in_gateway.dart';
 import '../controllers/mobile_auth_controller.dart';
 
 class EmailAuthGatePage extends StatefulWidget {
-  const EmailAuthGatePage({super.key, this.googleSessionTokenRequester});
-
-  final GoogleClerkSessionTokenRequester? googleSessionTokenRequester;
+  const EmailAuthGatePage({super.key});
 
   @override
   State<EmailAuthGatePage> createState() => _EmailAuthGatePageState();
@@ -32,7 +25,8 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
   final _phoneController = TextEditingController();
   final _otpController = TextEditingController();
   late final AnimationController _entryController;
-  late final GoogleClerkSessionTokenRequester _googleSessionTokenRequester;
+  Timer? _resendTimer;
+  DateTime? _resendAvailableAt;
 
   AutovalidateMode _autovalidateMode = AutovalidateMode.disabled;
 
@@ -42,13 +36,6 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
   @override
   void initState() {
     super.initState();
-    _googleSessionTokenRequester = widget.googleSessionTokenRequester ??
-        NativeGoogleClerkSessionTokenRequester();
-    debugPrint(
-      '[CLERK] publishable key present='
-      '${AppEnvironment.hasClerkPublishableKey}',
-    );
-    debugPrint('[CLERK] not initialized on startup');
     _entryController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 920),
@@ -58,6 +45,7 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
   @override
   void dispose() {
     _entryController.dispose();
+    _resendTimer?.cancel();
     _phoneController.dispose();
     _otpController.dispose();
     super.dispose();
@@ -78,45 +66,24 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
     }
 
     await _authController.requestOtp(_phoneController.text);
+    _startResendCountdown();
   }
 
-  Future<void> _loginWithGoogleClerk(BuildContext clerkContext) async {
-    await _authController.loginWithGoogleClerk(
-      requestSessionToken: () => _requestGoogleClerkSessionToken(clerkContext),
-    );
-  }
-
-  Future<String> _requestGoogleClerkSessionToken(
-    BuildContext clerkContext,
-  ) async {
-    try {
-      return await _googleSessionTokenRequester.request(clerkContext);
-    } on GoogleAuthCancelledException {
-      debugPrint('[GOOGLE] sign-in cancelled');
-      throw const MobileAuthCancelledException();
-    } on GoogleAuthConfigurationException catch (error) {
-      debugPrint(
-        '[GOOGLE] configuration unavailable: ${error.message ?? 'unknown'}',
-      );
-      throw const MobileAuthFlowException(
-        'Вход через Google не настроен для этой сборки.',
-      );
-    } on GoogleAuthTokenException {
-      debugPrint('[GOOGLE] ID token missing');
-      throw const MobileAuthFlowException(
-        'Не удалось получить подтверждение Google аккаунта.',
-      );
-    } on GoogleAuthVerificationException {
-      debugPrint('[GOOGLE] Clerk session verification failed');
-      throw const MobileAuthFlowException(
-        'Не удалось подтвердить Google аккаунт.',
-      );
-    } on clerk.ClerkError catch (error) {
-      debugPrint('[GOOGLE] Clerk rejected Google token: ${error.code}');
-      throw const MobileAuthFlowException(
-        'Не удалось подтвердить Google аккаунт.',
-      );
-    }
+  void _startResendCountdown() {
+    final challenge = _authController.pendingChallenge;
+    if (challenge == null || challenge.resendAfter <= Duration.zero) return;
+    _resendAvailableAt = DateTime.now().add(challenge.resendAfter);
+    _resendTimer?.cancel();
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || _resendAvailableAt == null) {
+        timer.cancel();
+        return;
+      }
+      if (DateTime.now().isAfter(_resendAvailableAt!)) {
+        timer.cancel();
+      }
+      setState(() {});
+    });
   }
 
   void _editPhone() {
@@ -258,10 +225,12 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
                                             ),
                                             controller: _otpController,
                                             label: 'Код подтверждения',
-                                            hintText:
-                                                '6 цифр из консоли backend',
+                                            hintText: '6 цифр из SMS',
                                             icon: Icons.password_rounded,
                                             keyboardType: TextInputType.number,
+                                            autofillHints: const [
+                                              AutofillHints.oneTimeCode,
+                                            ],
                                             textInputAction:
                                                 TextInputAction.done,
                                             maxLength: 6,
@@ -296,20 +265,39 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
                                   if (isCodeStep) ...[
                                     const SizedBox(height: SK.s3),
                                     Text(
-                                      'Для local development код выводится в консоли backend. Он действует ${challenge.expiresIn.inMinutes} мин.',
+                                      'Введите код подтверждения из SMS. Он действует ${challenge.expiresIn.inMinutes} мин.',
                                       style: SKTextStyles.small.copyWith(
                                         color: c.textTertiary,
                                         height: 1.35,
                                       ),
                                     ),
                                     const SizedBox(height: SK.s3),
-                                    TextButton(
-                                      onPressed: isLoading || isVerifying
-                                          ? null
-                                          : () => _authController.resendOtp(),
-                                      child: const Text(
-                                        'Отправить код ещё раз',
-                                      ),
+                                    Builder(
+                                      builder: (context) {
+                                        final remaining = _resendAvailableAt
+                                                ?.difference(DateTime.now())
+                                                .inSeconds ??
+                                            0;
+                                        final cooldown = remaining > 0
+                                            ? remaining
+                                            : 0;
+                                        return TextButton(
+                                          onPressed: isLoading ||
+                                                  isVerifying ||
+                                                  cooldown > 0
+                                              ? null
+                                              : () async {
+                                                  await _authController
+                                                      .resendOtp();
+                                                  _startResendCountdown();
+                                                },
+                                          child: Text(
+                                            cooldown > 0
+                                                ? 'Повторить через $cooldown сек.'
+                                                : 'Отправить код ещё раз',
+                                          ),
+                                        );
+                                      },
                                     ),
                                   ],
                                   const SizedBox(height: SK.s5),
@@ -330,19 +318,6 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
                                               );
                                               await _submit();
                                             },
-                                    ),
-                                  ),
-                                  const SizedBox(height: SK.s4),
-                                  const _AuthDivider(),
-                                  const SizedBox(height: SK.s4),
-                                  SkFade(
-                                    delayMs: 500,
-                                    child: _GoogleClerkAuthButton(
-                                      isConfigured: AppEnvironment
-                                              .hasClerkPublishableKey &&
-                                          AppEnvironment.hasGoogleSignInConfig,
-                                      isLoading: isLoading,
-                                      onPressed: _loginWithGoogleClerk,
                                     ),
                                   ),
                                   const SizedBox(height: SK.s5),
@@ -498,119 +473,6 @@ class _RedesignSessionHint extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _AuthDivider extends StatelessWidget {
-  const _AuthDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    final c = SKTheme.of(context).colors;
-    return Row(
-      children: [
-        Expanded(child: Divider(color: c.hairline, height: 1)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: SK.s3),
-          child: Text(
-            'или',
-            style: SKTextStyles.small.copyWith(
-              fontSize: 12,
-              color: c.textTertiary,
-            ),
-          ),
-        ),
-        Expanded(child: Divider(color: c.hairline, height: 1)),
-      ],
-    );
-  }
-}
-
-class _GoogleAuthButton extends StatelessWidget {
-  const _GoogleAuthButton({
-    required this.isConfigured,
-    required this.isLoading,
-    required this.onPressed,
-    this.statusMessage,
-  });
-
-  final bool isConfigured;
-  final bool isLoading;
-  final VoidCallback onPressed;
-  final String? statusMessage;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = SKTheme.of(context).colors;
-    final isEnabled = isConfigured && !isLoading;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SecondaryButton(
-          label: 'Продолжить с Google',
-          icon: Icons.g_mobiledata_rounded,
-          fullWidth: true,
-          onPressed: isEnabled ? onPressed : null,
-        ),
-        if (!isConfigured || statusMessage != null) ...[
-          const SizedBox(height: SK.s2),
-          Text(
-            statusMessage ?? 'Вход через Google не настроен для этой сборки.',
-            textAlign: TextAlign.center,
-            style: SKTextStyles.small.copyWith(
-              fontSize: 11,
-              height: 1.35,
-              color: c.textDisabled,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _GoogleClerkAuthButton extends StatelessWidget {
-  const _GoogleClerkAuthButton({
-    required this.isConfigured,
-    required this.isLoading,
-    required this.onPressed,
-  });
-
-  final bool isConfigured;
-  final bool isLoading;
-  final Future<void> Function(BuildContext clerkContext) onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!isConfigured) {
-      return _GoogleAuthButton(
-        isConfigured: false,
-        isLoading: isLoading,
-        onPressed: () {},
-        statusMessage: 'Вход через Google не настроен для этой сборки.',
-      );
-    }
-
-    return ClerkAuth(
-      config: ClerkAuthConfig(
-        publishableKey: AppEnvironment.clerkPublishableKey,
-        loading: _GoogleAuthButton(
-          isConfigured: true,
-          isLoading: isLoading,
-          onPressed: () {},
-        ),
-      ),
-      child: Builder(
-        builder: (clerkContext) {
-          return _GoogleAuthButton(
-            isConfigured: true,
-            isLoading: isLoading,
-            onPressed: () => onPressed(clerkContext),
-          );
-        },
-      ),
     );
   }
 }

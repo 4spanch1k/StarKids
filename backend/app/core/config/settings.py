@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     otp_mock_mode: bool = True
     otp_code_ttl_seconds: int = Field(default=300, gt=0, le=3600)
     otp_max_attempts: int = Field(default=5, gt=0, le=20)
+    otp_resend_cooldown_seconds: int = Field(default=60, gt=0, le=3600)
+    otp_request_limit_per_phone: int = Field(default=5, gt=0, le=100)
+    otp_request_limit_per_ip: int = Field(default=20, gt=0, le=500)
+    otp_request_window_seconds: int = Field(default=3600, gt=0, le=86400)
+    otp_verify_limit_per_ip_phone: int = Field(default=10, gt=0, le=100)
+    otp_verify_window_seconds: int = Field(default=600, gt=0, le=86400)
     jwt_access_token_ttl_minutes: int = 30
     jwt_refresh_token_ttl_days: int = 14
     auth_password_min_length: int = 10
