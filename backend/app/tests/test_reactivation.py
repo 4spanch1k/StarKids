@@ -16,6 +16,7 @@ from app.db.models.mobile_notification_device import MobileNotificationDevice
 from app.db.models.mobile_session import MobileSession
 from app.db.models.mobile_user import MobileUser
 from app.db.models.push_campaign import PushCampaign
+from app.db.models.push_campaign_delivery import PushCampaignDelivery
 from app.db.models.visit import Visit
 from app.modules.admin_push_campaigns.service import PushCampaignService
 from app.modules.reactivation.service import JOURNEY_KEY, ReactivationService
@@ -256,6 +257,42 @@ class ReactivationServiceTests(unittest.TestCase):
                     service.push_campaigns.process_due()
             self.assertEqual(session.query(PushCampaign).filter_by(origin='system_reactivation').count(), 1)
             self.assertEqual(session.query(PushCampaign).filter_by(status='sent').count(), 1)
+
+    def test_delayed_day_thirty_retry_can_still_send(self) -> None:
+        enrolled_at = datetime(2026, 9, 21, 12, tzinfo=UTC)
+        with self.SessionLocal() as session:
+            user = self._user(session, user_id='day-thirty-retry-user')
+            self._visit(session, user, enrolled_at - timedelta(days=55))
+            self._visit(session, user, enrolled_at - timedelta(days=45))
+            session.commit()
+            with patch.object(ReactivationService, '_assign_group', return_value='treatment'):
+                service = self._service(session)
+                service.process(now=enrolled_at)
+                campaign = session.scalar(select(PushCampaign).where(PushCampaign.origin == 'system_reactivation'))
+                service.push_campaigns._start_snapshot(campaign.id, now=enrolled_at + timedelta(days=30))
+                self.assertEqual(session.query(PushCampaignDelivery).filter_by(campaign_id=campaign.id).count(), 1)
+                self.assertEqual(campaign.status, 'processing')
+
+    def test_delayed_day_thirty_one_retry_cancels_without_delivery_and_keeps_treatment(self) -> None:
+        enrolled_at = datetime(2026, 9, 21, 12, tzinfo=UTC)
+        with self.SessionLocal() as session:
+            user = self._user(session, user_id='day-thirty-one-retry-user')
+            self._visit(session, user, enrolled_at - timedelta(days=55))
+            self._visit(session, user, enrolled_at - timedelta(days=45))
+            session.commit()
+            with patch.object(ReactivationService, '_assign_group', return_value='treatment'):
+                service = self._service(session)
+                service.process(now=enrolled_at)
+                campaign = session.scalar(select(PushCampaign).where(PushCampaign.origin == 'system_reactivation'))
+                execution = session.scalar(select(LifecycleJourneyExecution).where(LifecycleJourneyExecution.mobile_user_id == user.id))
+                service.push_campaigns._start_snapshot(campaign.id, now=enrolled_at + timedelta(days=31))
+                self.assertEqual(campaign.status, 'cancelled')
+                self.assertEqual(campaign.failure_reason, 'journey_window_expired')
+                self.assertEqual(session.query(PushCampaignDelivery).filter_by(campaign_id=campaign.id).count(), 0)
+                self.assertEqual(execution.experiment_group, 'treatment')
+                service.push_campaigns._start_snapshot(campaign.id, now=enrolled_at + timedelta(days=32))
+            self.assertEqual(session.query(PushCampaign).filter_by(origin='system_reactivation').count(), 1)
+            self.assertEqual(session.query(PushCampaignDelivery).filter_by(campaign_id=campaign.id).count(), 0)
 
     def test_report_rates_use_execution_denominators(self) -> None:
         now = datetime(2026, 9, 21, 12, tzinfo=UTC)

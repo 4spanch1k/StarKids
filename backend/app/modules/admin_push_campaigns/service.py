@@ -21,7 +21,7 @@ from ...db.models.push_campaign_delivery import PushCampaignDelivery
 from ...db.models.push_campaign_open import PushCampaignOpen
 from ...db.models.visit import Visit
 from ...services.push.delivery_port import PushDeliveryPort
-from ..visit_segmentation import visit_segment_user_ids
+from ..visit_segmentation import business_date, visit_segment_user_ids
 from .schemas import (
     PushCampaignAudience,
     PushCampaignCreateRequest,
@@ -262,6 +262,15 @@ class PushCampaignService:
                     - execution.anchor_visit_at.astimezone(BUSINESS_TZ).date()
                 ).days
                 age_ok = 45 <= age_days < 90
+                window_age_days = (
+                    business_date(effective_now) - business_date(execution.eligible_at)
+                ).days
+                if window_age_days > 30:
+                    campaign.status = 'cancelled'
+                    campaign.failure_reason = 'journey_window_expired'
+                    campaign.cancelled_at = effective_now
+                    self.session.commit()
+                    return
             if (
                 execution is None
                 or latest is None
