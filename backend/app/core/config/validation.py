@@ -36,6 +36,18 @@ _INSECURE_ADMIN_PASSWORDS = frozenset(
 )
 _INSECURE_ADMIN_EMAILS = frozenset({'admin@starkids.kz'})
 _PLACEHOLDER_HOSTS = frozenset({'example.com', 'example.org'})
+_REDIS_PLACEHOLDER_HOSTS = frozenset(
+    {
+        'example.com',
+        'example.org',
+        'change_me',
+        'change-me',
+        'changeme',
+        'replace_me',
+        'replace-me',
+        'your-redis-host',
+    }
+)
 _INSECURE_TICKET_QR_SECRETS = frozenset(
     {'replace-me', 'change-me', 'changeme', 'secret', 'secret-key'}
 )
@@ -124,6 +136,9 @@ def validate_runtime_configuration(settings: Settings) -> RuntimeConfigurationSt
         if url
     ):
         errors.append('FreedomPay URLs must not point to localhost in production')
+    redis_error = _redis_configuration_error(settings.redis_url)
+    if redis_error:
+        errors.append(redis_error)
 
     if errors:
         raise ProductionConfigurationError('; '.join(errors))
@@ -171,6 +186,29 @@ def _is_unsafe_ticket_qr_secret(value: str | None) -> bool:
 def _is_placeholder_url(value: str) -> bool:
     parsed = urlparse(value)
     return (parsed.hostname or '').lower() in _PLACEHOLDER_HOSTS
+
+
+def _redis_configuration_error(value: str | None) -> str | None:
+    """Validate the distributed limiter URL without exposing credentials."""
+
+    raw = (value or '').strip()
+    if not raw:
+        return 'REDIS_URL is required for staging and production'
+    try:
+        parsed = urlparse(raw)
+    except ValueError:
+        return 'REDIS_URL must be a valid redis:// or rediss:// URL'
+    if parsed.scheme not in {'redis', 'rediss'} or not parsed.hostname:
+        return 'REDIS_URL must be a valid redis:// or rediss:// URL'
+    if parsed.hostname.lower() in _REDIS_PLACEHOLDER_HOSTS:
+        return 'REDIS_URL must not point to a placeholder host'
+    try:
+        port = parsed.port
+    except ValueError:
+        return 'REDIS_URL must use a valid port'
+    if port is not None and not 1 <= port <= 65535:
+        return 'REDIS_URL must use a valid port'
+    return None
 
 
 def _storage_configuration_error(settings: Settings) -> str | None:

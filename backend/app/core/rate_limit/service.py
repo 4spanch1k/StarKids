@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from ..config.settings import Settings
 from ..config.settings import get_settings
+from ..exceptions.http import DomainHTTPException
 
 try:  # pragma: no cover - import guard is exercised indirectly in tests.
     from redis import Redis
@@ -25,11 +26,48 @@ _MEMORY_BUCKETS: dict[str, deque[float]] = {}
 _MEMORY_LOCK = Lock()
 
 
+_REDIS_SLIDING_WINDOW_SCRIPT = """
+local key = KEYS[1]
+local window_seconds = tonumber(ARGV[1])
+local consume = ARGV[2] == '1'
+local member = ARGV[3]
+local clock = redis.call('TIME')
+local now = tonumber(clock[1]) + tonumber(clock[2]) / 1000000
+local window_start = now - window_seconds
+
+redis.call('ZREMRANGEBYSCORE', key, '-inf', window_start)
+local current_count = redis.call('ZCARD', key)
+if consume then
+    redis.call('ZADD', key, now, member)
+    current_count = current_count + 1
+end
+
+local oldest_timestamp = now
+if current_count > 0 then
+    local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
+    oldest_timestamp = tonumber(oldest[2])
+end
+redis.call('EXPIRE', key, window_seconds)
+return {current_count, oldest_timestamp, now}
+"""
+
+
 @dataclass(frozen=True)
 class RateLimitStatus:
     allowed: bool
     retry_after_seconds: int
     current_count: int
+
+
+class RateLimitUnavailableError(DomainHTTPException):
+    """Raised when a security-critical distributed limiter cannot decide."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            code='rate_limit_unavailable',
+            message='Rate limiting is temporarily unavailable.',
+            status_code=503,
+        )
 
 
 class RateLimitService:
@@ -39,6 +77,9 @@ class RateLimitService:
         settings: Settings | None = None,
     ) -> None:
         self._settings = settings or get_settings()
+        self._requires_distributed_backend = (
+            self._settings.is_staging or self._settings.is_production
+        )
         self._redis_client = self._build_redis_client()
 
     def peek(
@@ -78,8 +119,13 @@ class RateLimitService:
         if self._redis_client is not None:
             try:
                 self._redis_client.delete(normalized_key)
+                return
             except RedisError:
-                pass
+                if self._requires_distributed_backend:
+                    return
+
+        if self._requires_distributed_backend:
+            return
 
         with _MEMORY_LOCK:
             _MEMORY_BUCKETS.pop(normalized_key, None)
@@ -108,7 +154,11 @@ class RateLimitService:
                     block_on_limit=block_on_limit,
                 )
             except RedisError:
-                pass
+                if self._requires_distributed_backend:
+                    raise RateLimitUnavailableError from None
+
+        if self._requires_distributed_backend:
+            raise RateLimitUnavailableError
 
         return self._memory_window(
             normalized_key,
@@ -129,21 +179,19 @@ class RateLimitService:
     ) -> RateLimitStatus:
         assert self._redis_client is not None
 
-        now = time()
-        window_start = now - window_seconds
-        pipeline = self._redis_client.pipeline(transaction=False)
-        pipeline.zremrangebyscore(key, 0, window_start)
-        pipeline.zcard(key)
-        if consume:
-            pipeline.zadd(key, {f'{now}:{uuid4().hex}': now})
-        pipeline.zrange(key, 0, 0, withscores=True)
-        pipeline.expire(key, window_seconds)
-        results = pipeline.execute()
-
-        current_count = int(results[1]) + (1 if consume else 0)
-        oldest_entry = results[3 if consume else 2]
+        results = self._redis_client.eval(
+            _REDIS_SLIDING_WINDOW_SCRIPT,
+            1,
+            key,
+            window_seconds,
+            1 if consume else 0,
+            uuid4().hex if consume else '',
+        )
+        current_count = int(results[0])
+        oldest_timestamp = float(results[1])
+        now = float(results[2])
         retry_after_seconds = self._retry_after_seconds(
-            oldest_timestamp=float(oldest_entry[0][1]) if oldest_entry else now,
+            oldest_timestamp=oldest_timestamp,
             now=now,
             window_seconds=window_seconds,
         )
