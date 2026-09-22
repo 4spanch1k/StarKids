@@ -24,6 +24,11 @@ import TicketsPage from '@/pages/tickets/TicketsPage.vue';
 import TicketScannerPage from '@/pages/ticket-scanner/TicketScannerPage.vue';
 import LoyaltyRulesPage from '@/pages/loyalty/LoyaltyRulesPage.vue';
 import { useSessionStore } from '@/features/auth/stores/useSessionStore';
+import type { AdminRole } from '@/features/auth/types';
+import {
+  primaryNavigationItems,
+  secondaryNavigationItems,
+} from '@/app/router/navigation';
 
 const routes: RouteRecordRaw[] = [
   {
@@ -55,6 +60,7 @@ const routes: RouteRecordRaw[] = [
         idParam: adminCrudRouteNames.leads.idParam,
         allowCreate: false,
         allowEdit: false,
+        allowedRoles: ['super_admin', 'operator', 'sales_manager'],
       }).routes,
       ...buildAdminCrudRouteGroup({
         path: 'branches',
@@ -192,7 +198,10 @@ router.beforeEach(async (to) => {
     .map((record) => record.meta.allowedRoles)
     .find((roles): roles is string[] => Array.isArray(roles));
   if (allowedRoles && !allowedRoles.includes(sessionStore.operatorRole)) {
-    return { name: 'leads' };
+    const fallback = [...primaryNavigationItems, ...secondaryNavigationItems].find(
+      (item) => !item.allowedRoles || item.allowedRoles.includes(sessionStore.operatorRole as AdminRole),
+    );
+    return fallback ? { name: fallback.name } : { name: 'login' };
   }
 
   return true;

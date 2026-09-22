@@ -13,6 +13,8 @@ from app.db.models.branch import Branch
 from app.db.models.contact_lead import ContactLead
 from app.db.repositories.lead_inbox_repository import LeadInboxRepository
 from app.modules.admin_dashboard.schemas import OwnerDashboardPeriod
+from app.modules.admin_auth.schemas import AdminCurrentUserResponse
+from app.modules.admin_leads.branch_scope import AdminLeadAccess
 from app.modules.admin_leads.schemas import AdminLeadListQuery
 from app.modules.admin_leads.service import AdminLeadInboxService
 
@@ -128,10 +130,23 @@ class BirthdayLeadSlaVisibilityTests(unittest.TestCase):
             now_provider=lambda: self.NOW,
         )
 
+    @staticmethod
+    def _global_access() -> AdminLeadAccess:
+        return AdminLeadAccess(
+            admin_user=AdminCurrentUserResponse(
+                id='admin-super',
+                email='admin@example.com',
+                full_name='Platform Admin',
+                role='super_admin',
+                branch_id=None,
+            ),
+            branch_id=None,
+        )
+
     def test_waiting_and_first_contact_minutes_are_derived_from_timestamps(self) -> None:
         with self.SessionLocal() as session:
             service = self._service(session)
-            records = service.list_leads(AdminLeadListQuery())
+            records = service.list_leads(AdminLeadListQuery(), access=self._global_access())
             by_id = {item.id: item for item in records.items}
 
         self.assertEqual(by_id['waiting-old'].waitingForContactMinutes, 10)
@@ -144,9 +159,13 @@ class BirthdayLeadSlaVisibilityTests(unittest.TestCase):
     def test_awaiting_filter_and_oldest_sort_only_use_new_uncontacted_birthdays(self) -> None:
         with self.SessionLocal() as session:
             service = self._service(session)
-            filtered = service.list_leads(AdminLeadListQuery(awaitingContact=True))
+            filtered = service.list_leads(
+                AdminLeadListQuery(awaitingContact=True),
+                access=self._global_access(),
+            )
             sorted_records = service.list_leads(
-                AdminLeadListQuery(sort='oldest_uncontacted')
+                AdminLeadListQuery(sort='oldest_uncontacted'),
+                access=self._global_access(),
             )
 
         self.assertEqual({item.id for item in filtered.items}, {'waiting-old', 'waiting-new'})
@@ -159,7 +178,8 @@ class BirthdayLeadSlaVisibilityTests(unittest.TestCase):
     def test_operations_summary_has_current_queue_and_period_response_metrics(self) -> None:
         with self.SessionLocal() as session:
             summary = self._service(session).get_birthday_operations_summary(
-                OwnerDashboardPeriod.TODAY
+                OwnerDashboardPeriod.TODAY,
+                access=self._global_access(),
             )
 
         self.assertEqual(summary.newAwaitingContact, 2)
@@ -174,7 +194,8 @@ class BirthdayLeadSlaVisibilityTests(unittest.TestCase):
             session.query(BirthdayRequest).filter(BirthdayRequest.contacted_at.is_not(None)).delete()
             session.commit()
             summary = self._service(session).get_birthday_operations_summary(
-                OwnerDashboardPeriod.TODAY
+                OwnerDashboardPeriod.TODAY,
+                access=self._global_access(),
             )
 
         self.assertIsNone(summary.medianFirstContactMinutes)
