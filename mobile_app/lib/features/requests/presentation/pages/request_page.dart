@@ -56,6 +56,10 @@ class _RequestPageState extends State<RequestPage> {
       packageRepository: ServiceRegistry.birthdayPackageRepository,
       initialPackageId: widget.args?.initialPackageId,
       initialPackage: widget.args?.initialPackage,
+      initialChildId: widget.args?.initialChildId,
+      initialPreferredDate: widget.args?.initialPreferredDate,
+      sourceCampaignId: widget.args?.sourceCampaignId,
+      birthdayCycleId: widget.args?.birthdayCycleId,
     );
     _contactController = ContactRequestFormController(
       repository: ServiceRegistry.contactRequestRepository,
@@ -70,13 +74,21 @@ class _RequestPageState extends State<RequestPage> {
         ServiceRegistry.childrenController.status == ChildrenStatus.loading) {
       ServiceRegistry.childrenController.load();
     }
+    ServiceRegistry.childrenController.addListener(_selectInitialChild);
+    _selectInitialChild();
   }
 
   @override
   void dispose() {
     _birthdayController.dispose();
+    ServiceRegistry.childrenController.removeListener(_selectInitialChild);
     _contactController.dispose();
     super.dispose();
+  }
+
+  void _selectInitialChild() {
+    _birthdayController
+        .selectInitialChild(ServiceRegistry.childrenController.children);
   }
 
   @override

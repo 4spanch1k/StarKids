@@ -41,6 +41,13 @@ export type FirstSecondVisitReport = {
   treatment_second_visit_rate: number | null;
   absolute_uplift_percentage_points: number | null;
 };
+export type BirthdayRevenueReport = {
+  eligible_cycles: number; control_cycles: number; treatment_cycles: number;
+  windows: Record<string, { campaigns: number; delivered: number; opened: number }>;
+  control: Record<string, number | null>; treatment: Record<string, number | null>;
+  lost_reasons: Record<string, number>; absolute_uplift_percentage_points: number | null;
+  revenue_per_eligible_difference: number;
+};
 export type CampaignInput = { internal_name: string; title: string; body: string; audience: CampaignAudience; destination: PushCampaign['destination']; scheduled_at?: string | null; send_now?: boolean; idempotency_key?: string };
 
 export function listPushCampaigns() { return executeAuthorizedAdminRequest((token) => httpClient<PushCampaign[]>({ path: '/api/v1/admin/push-campaigns', headers: buildAdminAuthHeaders(token) })); }
@@ -50,3 +57,4 @@ export function cancelPushCampaign(id: string) { return executeAuthorizedAdminRe
 export function previewPushAudience(audience: CampaignAudience) { return executeAuthorizedAdminRequest((token) => httpClient<{ targeted_users: number; targeted_devices: number }>({ path: '/api/v1/admin/push-campaigns/audience-preview', method: 'POST', headers: buildAdminAuthHeaders(token), body: JSON.stringify({ audience }) })); }
 export function fetchPushCampaignAttribution(id: string) { return executeAuthorizedAdminRequest((token) => httpClient<PushCampaignAttribution>({ path: `/api/v1/admin/push-campaigns/${id}/attribution`, headers: buildAdminAuthHeaders(token) })); }
 export function fetchFirstSecondVisitReport() { return executeAuthorizedAdminRequest((token) => httpClient<FirstSecondVisitReport>({ path: '/api/v1/admin/push-campaigns/first-to-second-visit/report', headers: buildAdminAuthHeaders(token) })); }
+export function fetchBirthdayRevenueReport() { return executeAuthorizedAdminRequest((token) => httpClient<BirthdayRevenueReport>({ path: '/api/v1/admin/push-campaigns/birthday-revenue/report', headers: buildAdminAuthHeaders(token) })); }

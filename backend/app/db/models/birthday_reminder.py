@@ -18,7 +18,7 @@ class BirthdayReminder(Base):
             "status IN ('pending', 'sent', 'skipped', 'failed')",
             name='ck_birthday_reminders_status',
         ),
-        CheckConstraint('days_before IN (14, 7, 1)', name='ck_birthday_reminders_days_before'),
+        CheckConstraint('days_before IN (30, 14, 7, 1)', name='ck_birthday_reminders_days_before'),
     )
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid4().hex)
@@ -31,6 +31,9 @@ class BirthdayReminder(Base):
     )
     birthday_year: Mapped[int] = mapped_column(Integer, nullable=False)
     days_before: Mapped[int] = mapped_column(Integer, nullable=False)
+    birthday_cycle_id: Mapped[str | None] = mapped_column(
+        String(32), ForeignKey('birthday_revenue_cycles.id', ondelete='SET NULL'), nullable=True, index=True
+    )
     status: Mapped[str] = mapped_column(String(16), nullable=False, default='pending', server_default='pending', index=True)
     push_campaign_id: Mapped[str | None] = mapped_column(
         String(32), ForeignKey('push_campaigns.id', ondelete='SET NULL'), nullable=True, index=True

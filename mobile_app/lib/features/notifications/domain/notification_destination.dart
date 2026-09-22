@@ -2,6 +2,7 @@ import '../../../app/router/app_routes.dart';
 import '../../../features/news/presentation/models/news_details_page_args.dart';
 import '../../../features/promotions/presentation/models/promotion_detail_page_args.dart';
 import '../../../features/tickets/presentation/models/ticket_detail_page_args.dart';
+import '../../../features/requests/presentation/models/request_page_args.dart';
 
 enum NotificationDestinationType {
   home,
@@ -16,10 +17,20 @@ enum NotificationDestinationType {
 }
 
 class NotificationDestination {
-  const NotificationDestination({required this.type, this.entityId});
+  const NotificationDestination(
+      {required this.type,
+      this.entityId,
+      this.birthdayCycleId,
+      this.childId,
+      this.preferredDate,
+      this.campaignId});
 
   final NotificationDestinationType type;
   final String? entityId;
+  final String? birthdayCycleId;
+  final String? childId;
+  final DateTime? preferredDate;
+  final String? campaignId;
 
   String get routeName {
     switch (type) {
@@ -49,9 +60,19 @@ class NotificationDestination {
     switch (type) {
       case NotificationDestinationType.home:
       case NotificationDestinationType.tickets:
-      case NotificationDestinationType.birthdays:
       case NotificationDestinationType.promotions:
       case NotificationDestinationType.profile:
+        return null;
+      case NotificationDestinationType.birthdays:
+        if (birthdayCycleId != null ||
+            childId != null ||
+            preferredDate != null) {
+          return RequestPageArgs(
+              initialChildId: childId,
+              initialPreferredDate: preferredDate,
+              sourceCampaignId: campaignId,
+              birthdayCycleId: birthdayCycleId);
+        }
         return null;
       case NotificationDestinationType.ticketDetail:
         return id.isEmpty ? null : TicketDetailPageArgs(ticketId: id);
@@ -72,6 +93,15 @@ class NotificationDestination {
     final id = entityId?.trim();
     if (id != null && id.isNotEmpty) {
       payload['destination_id'] = id;
+    }
+    if (birthdayCycleId != null) payload['birthdayCycleId'] = birthdayCycleId!;
+    if (childId != null) payload['birthdayChildId'] = childId!;
+    if (preferredDate != null) {
+      payload['preferredDate'] =
+          '${preferredDate!.year.toString().padLeft(4, '0')}-${preferredDate!.month.toString().padLeft(2, '0')}-${preferredDate!.day.toString().padLeft(2, '0')}';
+    }
+    if (birthdayCycleId != null && campaignId != null) {
+      payload['campaignId'] = campaignId!;
     }
     return payload;
   }
@@ -105,6 +135,14 @@ class NotificationDestination {
             payload['news_id'] ??
             payload['newsId'])
         ?.toString();
+    final birthdayCycleId = payload['birthdayCycleId']?.toString();
+    final childId = payload['birthdayChildId']?.toString();
+    final campaignId = payload['campaignId']?.toString();
+    DateTime? preferredDate;
+    final rawPreferredDate = payload['preferredDate']?.toString();
+    if (rawPreferredDate != null) {
+      preferredDate = DateTime.tryParse(rawPreferredDate);
+    }
     switch (rawType) {
       case 'home':
         return const NotificationDestination(
@@ -114,8 +152,12 @@ class NotificationDestination {
             type: NotificationDestinationType.tickets);
       case 'birthdays':
       case 'birthday':
-        return const NotificationDestination(
-            type: NotificationDestinationType.birthdays);
+        return NotificationDestination(
+            type: NotificationDestinationType.birthdays,
+            birthdayCycleId: birthdayCycleId,
+            childId: childId,
+            preferredDate: preferredDate,
+            campaignId: campaignId);
       case 'promotions':
         return const NotificationDestination(
             type: NotificationDestinationType.promotions);

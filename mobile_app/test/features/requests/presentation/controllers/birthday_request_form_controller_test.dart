@@ -5,6 +5,7 @@ import 'package:star_kids_mobile/features/birthdays/domain/birthday_package_repo
 import 'package:star_kids_mobile/features/requests/domain/birthday_request_payload.dart';
 import 'package:star_kids_mobile/features/requests/domain/birthday_request_repository.dart';
 import 'package:star_kids_mobile/features/requests/domain/birthday_request_submission.dart';
+import 'package:star_kids_mobile/features/children/domain/child.dart';
 import 'package:star_kids_mobile/features/requests/presentation/controllers/birthday_request_form_controller.dart';
 
 void main() {
@@ -40,6 +41,35 @@ void main() {
     controller.resetForm();
 
     expect(controller.idempotencyKey, isNot(firstKey));
+  });
+
+  test('birthday context preselects child/date and reaches the lead payload',
+      () async {
+    final repository = _SuccessBirthdayRequestRepository();
+    final controller = BirthdayRequestFormController(
+      repository: repository,
+      packageRepository: _FakeBirthdayPackageRepository(),
+      initialChildId: 'child-1',
+      initialPreferredDate: DateTime(2026, 10, 6),
+      sourceCampaignId: 'campaign-1',
+      birthdayCycleId: 'cycle-1',
+    );
+    addTearDown(controller.dispose);
+    controller.selectInitialChild([
+      Child(
+          id: 'child-1',
+          name: 'Аяна',
+          birthDate: DateTime(2020, 10, 6),
+          gender: ChildGender.female),
+    ]);
+    controller.nameController.text = 'Амина';
+    controller.phoneController.text = '+7 707 000 00 00';
+    await controller.submit(branchId: 'branch-main');
+
+    expect(controller.selectedChild?.id, 'child-1');
+    expect(controller.desiredDate, DateTime(2026, 10, 6));
+    expect(repository.payloads.single.sourceCampaignId, 'campaign-1');
+    expect(repository.payloads.single.birthdayCycleId, 'cycle-1');
   });
 
   test('submit stays in error state when backend submission fails', () async {

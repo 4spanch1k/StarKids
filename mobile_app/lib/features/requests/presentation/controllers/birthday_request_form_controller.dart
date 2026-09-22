@@ -19,10 +19,16 @@ class BirthdayRequestFormController extends ChangeNotifier {
     required BirthdayPackageRepository packageRepository,
     String? initialPackageId,
     BirthdayPackage? initialPackage,
-  }) : _repository = repository,
-       _packageRepository = packageRepository,
-       _selectedPackageId = initialPackage?.id ?? initialPackageId,
-       _selectedPackage = initialPackage {
+    String? initialChildId,
+    DateTime? initialPreferredDate,
+    this.sourceCampaignId,
+    this.birthdayCycleId,
+  })  : _repository = repository,
+        _packageRepository = packageRepository,
+        _selectedPackageId = initialPackage?.id ?? initialPackageId,
+        _selectedPackage = initialPackage,
+        _initialChildId = initialChildId,
+        _desiredDate = initialPreferredDate {
     guestCountController.text = '10';
     if (initialPackage != null) {
       _applySuggestedGuests(initialPackage);
@@ -33,6 +39,9 @@ class BirthdayRequestFormController extends ChangeNotifier {
 
   final BirthdayRequestRepository _repository;
   final BirthdayPackageRepository _packageRepository;
+  final String? _initialChildId;
+  final String? sourceCampaignId;
+  final String? birthdayCycleId;
 
   final nameController = TextEditingController();
   final phoneController = TextEditingController();
@@ -75,6 +84,16 @@ class BirthdayRequestFormController extends ChangeNotifier {
       _status == BirthdayRequestSubmissionStatus.submitting;
 
   String get idempotencyKey => _idempotencyKey;
+
+  void selectInitialChild(Iterable<Child> children) {
+    if (_selectedChild != null || _initialChildId == null) return;
+    final match =
+        children.where((child) => child.id == _initialChildId).toList();
+    if (match.isNotEmpty) {
+      _selectedChild = match.first;
+      notifyListeners();
+    }
+  }
 
   @override
   void notifyListeners() {
@@ -152,6 +171,8 @@ class BirthdayRequestFormController extends ChangeNotifier {
         guestCount: int.tryParse(guestCountController.text.trim()) ?? 10,
         comment: _normalizeComment(commentController.text),
         idempotencyKey: _idempotencyKey,
+        sourceCampaignId: sourceCampaignId,
+        birthdayCycleId: birthdayCycleId,
       ),
     );
 
@@ -185,9 +206,8 @@ class BirthdayRequestFormController extends ChangeNotifier {
   }
 
   void resetForm({bool preserveSelectedPackage = false}) {
-    final preservedPackageId = preserveSelectedPackage
-        ? _selectedPackageId
-        : null;
+    final preservedPackageId =
+        preserveSelectedPackage ? _selectedPackageId : null;
     final preservedPackage = preserveSelectedPackage ? _selectedPackage : null;
 
     nameController.clear();

@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 import logging
+import hashlib
 from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, or_, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ...core.config.settings import get_settings
 from ...db.models.birthday_reminder import BirthdayReminder
 from ...db.models.birthday_request import BirthdayRequest
+from ...db.models.birthday_revenue_cycle import BirthdayRevenueCycle
 from ...db.models.mobile_child import MobileChild
 from ...db.models.mobile_notification_device import MobileNotificationDevice
 from ...db.models.mobile_session import MobileSession
@@ -21,11 +24,12 @@ from ..admin_push_campaigns.service import (
     PushCampaignService,
 )
 from ..admin_push_campaigns.schemas import PushCampaignResponse
+from ...db.models.push_campaign import PushCampaign
 from ..leads.constants import ACTIVE_BIRTHDAY_LEAD_STATUSES
 
 logger = logging.getLogger(__name__)
 BUSINESS_TZ = ZoneInfo('Asia/Almaty')
-ALLOWED_WINDOWS = (14, 7, 1)
+ALLOWED_WINDOWS = (30, 14, 7, 1)
 ACTIVE_LEAD_STATUSES = ACTIVE_BIRTHDAY_LEAD_STATUSES
 
 
@@ -72,6 +76,7 @@ class BirthdayReminderService:
     def __init__(self, session: Session, push_campaigns: PushCampaignService) -> None:
         self.session = session
         self.push_campaigns = push_campaigns
+        self._revenue_experiment_enabled = True
 
     def process(self, *, now: datetime | None = None) -> int:
         settings = get_settings()
@@ -79,6 +84,10 @@ class BirthdayReminderService:
             return 0
         current = now or datetime.now(UTC)
         windows = configured_windows(settings.birthday_reminder_windows)
+        # Legacy test/staging configurations that explicitly run only the old
+        # 14/7/1 reminders retain their historical send semantics. The V1
+        # experiment is enabled by the new production default containing D-30.
+        self._revenue_experiment_enabled = 30 in windows
         if not windows:
             return 0
 
@@ -103,7 +112,10 @@ class BirthdayReminderService:
         rows = self.session.execute(
             select(MobileChild, MobileUser.id)
             .join(MobileUser, MobileUser.id == MobileChild.user_id)
-            .where(MobileUser.is_active.is_(True))
+            .where(
+                MobileUser.is_active.is_(True),
+                MobileUser.onboarding_completed_at.is_not(None),
+            )
         ).all()
         return [
             (child, user_id)
@@ -158,6 +170,10 @@ class BirthdayReminderService:
 
         records = list(by_child.values())
         campaign_id = next((record.push_campaign_id for record in records if record.push_campaign_id), None)
+        cycle = None
+        if self._revenue_experiment_enabled:
+            cycle_id = next((record.birthday_cycle_id for record in records if record.birthday_cycle_id), None)
+            cycle = self.session.get(BirthdayRevenueCycle, cycle_id) if cycle_id else None
         if campaign_id is None:
             suppressing_leads = self._suppressing_leads_by_child(user_id, child_ids)
             birth_dates = {child.id: child.birth_date for child in children}
@@ -177,6 +193,16 @@ class BirthdayReminderService:
                     self._skip(record, 'no_active_device')
                 self.session.commit()
                 return len(records)
+            if self._revenue_experiment_enabled and cycle is None:
+                cycle = self._get_or_create_cycle(user_id, target_date, now)
+                for record in records:
+                    if record.birthday_cycle_id is None:
+                        record.birthday_cycle_id = cycle.id
+                if cycle.experiment_group == 'control':
+                    for record in pending:
+                        self._skip(record, 'experiment_control')
+                    self.session.commit()
+                    return len(records)
             if not self.push_campaigns.provider_configured:
                 # Keep the row retryable for an operator rerun after provider
                 # configuration is restored; never manufacture SENT state.
@@ -190,6 +216,11 @@ class BirthdayReminderService:
                 internal_name=f'birthday-reminder-{year}-{days_before}-{user_id[:12]}-{target_date.isoformat()}',
                 title=title,
                 body=body,
+                destination_payload={
+                    'birthdayCycleId': cycle.id if cycle is not None else None,
+                    'birthdayChildId': children[0].id if len(children) == 1 else None,
+                    'preferredDate': target_date.isoformat(),
+                },
             )
             campaign_id = campaign.id
             for record in pending:
@@ -200,9 +231,56 @@ class BirthdayReminderService:
 
         # Delivery is deliberately outside the reminder transaction. If the
         # process dies here, the durable campaign link lets the next run resume.
+        if campaign_id and self._suppressing_leads_by_child(user_id, child_ids):
+            current_leads = self._suppressing_leads_by_child(user_id, child_ids)
+            if any(self._has_suppressing_lead(current_leads.get(child.id, ()), child.birth_date, target_date) for child in children):
+                campaign = self.session.get(PushCampaign, campaign_id)
+                if campaign is not None and campaign.status in {'draft', 'processing'}:
+                    campaign.status = 'cancelled'
+                    campaign.failure_reason = 'birthday_lead_created'
+                    campaign.cancelled_at = datetime.now(UTC)
+                for record in records:
+                    if record.status == 'pending':
+                        self._skip(record, 'active_lead')
+                self.session.commit()
+                return len(records)
         response = self.push_campaigns.process_existing(campaign_id)
         self._finalize_records(campaign_id, response)
         return len(records)
+
+    def _get_or_create_cycle(self, user_id: str, target_date: date, now: datetime) -> BirthdayRevenueCycle:
+        existing = self.session.scalar(
+            select(BirthdayRevenueCycle).where(
+                BirthdayRevenueCycle.mobile_user_id == user_id,
+                BirthdayRevenueCycle.birthday_year == target_date.year,
+                BirthdayRevenueCycle.target_date == target_date,
+            ).with_for_update()
+        )
+        if existing is not None:
+            return existing
+        digest = hashlib.sha256(f'birthday-revenue-v1:{user_id}:{target_date.isoformat()}'.encode()).digest()
+        group = 'control' if int.from_bytes(digest[:8], 'big') % 100 < 20 else 'treatment'
+        cycle = BirthdayRevenueCycle(
+            mobile_user_id=user_id,
+            birthday_year=target_date.year,
+            target_date=target_date,
+            experiment_group=group,
+            eligible_at=now,
+        )
+        with self.session.begin_nested():
+            self.session.add(cycle)
+            try:
+                self.session.flush()
+                return cycle
+            except IntegrityError:
+                pass
+        return self.session.scalar(
+            select(BirthdayRevenueCycle).where(
+                BirthdayRevenueCycle.mobile_user_id == user_id,
+                BirthdayRevenueCycle.birthday_year == target_date.year,
+                BirthdayRevenueCycle.target_date == target_date,
+            ).with_for_update()
+        )
 
     def _suppressing_leads_by_child(
         self,
@@ -331,6 +409,8 @@ class BirthdayReminderService:
 
     @staticmethod
     def _copy(settings, days_before: int) -> tuple[str, str]:
+        if days_before == 30:
+            return settings.birthday_reminder_30_title, settings.birthday_reminder_30_body
         return (
             getattr(settings, f'birthday_reminder_{days_before}_title'),
             getattr(settings, f'birthday_reminder_{days_before}_body'),

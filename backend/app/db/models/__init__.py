@@ -37,6 +37,7 @@ from .push_campaign import PushCampaign
 from .push_campaign_delivery import PushCampaignDelivery
 from .push_campaign_open import PushCampaignOpen
 from .birthday_reminder import BirthdayReminder
+from .birthday_revenue_cycle import BirthdayRevenueCycle
 from .pass_plan import PassPlan
 from .customer_pass import CustomerPass
 from .pass_redemption import PassRedemption
@@ -82,6 +83,7 @@ __all__ = [
     'PushCampaignDelivery',
     'PushCampaignOpen',
     'BirthdayReminder',
+    'BirthdayRevenueCycle',
     'PassPlan',
     'CustomerPass',
     'PassRedemption',

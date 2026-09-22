@@ -36,7 +36,12 @@ abstract final class AppRouter {
       case AppRoutes.branchDetails:
         return _page(const BranchDetailsPage(), settings);
       case AppRoutes.birthdays:
-        return _page(const BirthdaysPage(), settings);
+        return _page(
+          settings.arguments is RequestPageArgs
+              ? RequestPage(args: settings.arguments as RequestPageArgs)
+              : const BirthdaysPage(),
+          settings,
+        );
       case AppRoutes.promotions:
         return _page(const PromotionsPage(), settings);
       case AppRoutes.promotionDetail:

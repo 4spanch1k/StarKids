@@ -49,7 +49,9 @@ class Settings(BaseSettings):
     fcm_private_key: str | None = None
     push_notifications_enabled: bool = True
     birthday_reminders_enabled: bool = False
-    birthday_reminder_windows: str = '14,7,1'
+    birthday_reminder_windows: str = '30,14,7'
+    birthday_reminder_30_title: str = 'Скоро день рождения 🎂'
+    birthday_reminder_30_body: str = 'У вашего ребёнка скоро день рождения. Посмотрите варианты праздника в Boom Bala.'
     birthday_reminder_14_title: str = 'Скоро день рождения 🎉'
     birthday_reminder_14_body: str = 'Пора планировать праздник в Boom Bala'
     birthday_reminder_7_title: str = 'До праздника всё ближе 🎈'

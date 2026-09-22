@@ -13,6 +13,7 @@ from app.core.config.settings import Settings
 from app.db.models import Base
 from app.db.models.birthday_reminder import BirthdayReminder
 from app.db.models.birthday_request import BirthdayRequest
+from app.db.models.birthday_revenue_cycle import BirthdayRevenueCycle
 from app.db.models.mobile_child import MobileChild
 from app.db.models.mobile_notification_device import MobileNotificationDevice
 from app.db.models.mobile_session import MobileSession
@@ -59,12 +60,25 @@ class BirthdayReminderServiceTests(unittest.TestCase):
 
     def setUp(self) -> None:
         with self.SessionLocal() as session:
-            for model in (BirthdayReminder, PushCampaign, BirthdayRequest, MobileNotificationDevice, MobileSession, MobileChild, MobileUser):
+            for model in (BirthdayReminder, BirthdayRevenueCycle, PushCampaign, BirthdayRequest, MobileNotificationDevice, MobileSession, MobileChild, MobileUser):
                 session.query(model).delete()
             session.commit()
 
-    def _user(self, session: Session, *, birth_date: date | None, devices: int = 1) -> tuple[MobileUser, MobileChild | None]:
-        user = MobileUser(id=uuid4().hex, phone=f'+7{uuid4().int % 10**10:010d}', is_active=True)
+    def _user(
+        self,
+        session: Session,
+        *,
+        birth_date: date | None,
+        devices: int = 1,
+        user_id: str | None = None,
+        onboarding_completed: bool = True,
+    ) -> tuple[MobileUser, MobileChild | None]:
+        user = MobileUser(
+            id=user_id or uuid4().hex,
+            phone=f'+7{uuid4().int % 10**10:010d}',
+            is_active=True,
+            onboarding_completed_at=datetime(2026, 1, 1, tzinfo=UTC) if onboarding_completed else None,
+        )
         session.add(user)
         session.flush()
         child = None
@@ -140,6 +154,37 @@ class BirthdayReminderServiceTests(unittest.TestCase):
             birthday_target_date(datetime(2026, 12, 18, 12, tzinfo=UTC), 14),
             date(2027, 1, 1),
         )
+
+    def test_revenue_cycle_assignment_is_stable_across_windows(self) -> None:
+        delivery = FakeDelivery()
+        with self.SessionLocal() as session:
+            user, _ = self._user(
+                session,
+                birth_date=date(2020, 10, 6),
+                user_id='birthday-revenue-stable-user',
+            )
+            service = self._service(session, delivery)
+            with patch('app.modules.birthday_reminders.service.get_settings', return_value=self._settings(windows='30,14,7')), \
+                 patch.object(PushCampaignService, 'provider_configured', new_callable=PropertyMock, return_value=True):
+                service.process(now=datetime(2026, 9, 6, 12, tzinfo=UTC))
+                first = session.scalar(select(BirthdayRevenueCycle).where(BirthdayRevenueCycle.mobile_user_id == user.id))
+                self.assertIsNotNone(first)
+                service.process(now=datetime(2026, 9, 22, 12, tzinfo=UTC))
+            cycles = session.scalars(select(BirthdayRevenueCycle).where(BirthdayRevenueCycle.mobile_user_id == user.id)).all()
+            self.assertEqual(len(cycles), 1)
+            self.assertEqual(cycles[0].experiment_group, first.experiment_group)
+            self.assertEqual(session.query(PushCampaign).count(), 2)
+
+    def test_unonboarded_user_is_not_revenue_crm_eligible(self) -> None:
+        delivery = FakeDelivery()
+        with self.SessionLocal() as session:
+            self._user(session, birth_date=date(2020, 9, 20), onboarding_completed=False)
+            service = self._service(session, delivery)
+            with patch('app.modules.birthday_reminders.service.get_settings', return_value=self._settings(windows='14')), \
+                 patch.object(PushCampaignService, 'provider_configured', new_callable=PropertyMock, return_value=True):
+                service.process(now=datetime(2026, 9, 6, 12, tzinfo=UTC))
+            self.assertEqual(session.query(BirthdayReminder).count(), 0)
+            self.assertEqual(session.query(BirthdayRevenueCycle).count(), 0)
 
     def test_one_parent_with_twins_gets_one_campaign(self) -> None:
         delivery = FakeDelivery()

@@ -117,3 +117,15 @@ class FirstSecondVisitReportResponse(BaseModel):
     control_second_visit_rate: float | None
     treatment_second_visit_rate: float | None
     absolute_uplift_percentage_points: float | None
+
+
+class BirthdayRevenueReportResponse(BaseModel):
+    eligible_cycles: int
+    control_cycles: int
+    treatment_cycles: int
+    windows: dict[str, dict[str, int]]
+    control: dict[str, object]
+    treatment: dict[str, object]
+    lost_reasons: dict[str, int]
+    absolute_uplift_percentage_points: float | None
+    revenue_per_eligible_difference: float

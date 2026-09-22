@@ -98,6 +98,8 @@ class AdminBirthdayLeadDetailResponse(BaseModel):
     lostAt: datetime | None = None
     closedAt: datetime | None = None
     paidAt: datetime | None = None
+    birthdayCycleId: str | None = None
+    sourceCampaignId: str | None = None
 
 
 class AdminLeadStatusUpdateRequest(BaseModel):
