@@ -43,6 +43,7 @@ def production_settings(**overrides: object) -> Settings:
         'freedompay_failure_url': 'https://app.boombala.kz/payment/failure',
         'ticket_qr_secret': 'q' * 48,
         'redis_url': 'redis://127.0.0.1:6379/0',
+        'trusted_proxy_cidrs': '127.0.0.1/32,::1/128',
     }
     values.update(overrides)
     return Settings(**values)
