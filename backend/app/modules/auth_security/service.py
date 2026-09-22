@@ -245,15 +245,13 @@ class AuthProtectionService:
                 status_snapshot.retry_after_seconds,
             )
 
-    def clear_otp_limits(
+    def clear_otp_verify_limit(
         self,
         *,
         context: AuthRequestContext,
         phone: str,
     ) -> None:
-        """Reset legitimate OTP traffic after a successful verification."""
-        self._rate_limit_service.clear(f'otp:request:phone:{phone}')
-        self._rate_limit_service.clear(f'otp:request:ip:{context.ip_address}')
+        """Reset only the brute-force verify bucket after successful proof."""
         self._rate_limit_service.clear(f'otp:verify:{context.ip_address}:{phone}')
 
     @staticmethod

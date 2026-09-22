@@ -13,6 +13,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.config.settings import Settings, get_settings
 from app.core.database.session import get_db_session
+from app.core.rate_limit.service import reset_rate_limit_state
 from app.db.models import Base
 from app.db.models.branch import Branch
 from app.db.models.branch_ticket_item import BranchTicketItem
@@ -193,6 +194,7 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
         Base.metadata.drop_all(cls.engine)
 
     def setUp(self) -> None:
+        reset_rate_limit_state()
         with self.SessionLocal() as session:
             session.query(IssuedTicket).delete()
             session.query(MobilePaymentCallback).delete()

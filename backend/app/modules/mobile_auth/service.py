@@ -217,7 +217,7 @@ class MobileAuthService:
 
         user = self._get_or_create_active_user(phone)
         self.user_repository.record_successful_login(user)
-        self._auth_protection_service.clear_otp_limits(
+        self._auth_protection_service.clear_otp_verify_limit(
             context=context,
             phone=phone,
         )

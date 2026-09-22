@@ -11,7 +11,10 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.database.session import get_db_session
+from app.core.config.settings import Settings
+from app.core.exceptions.http import DomainHTTPException
 from app.core.rate_limit.service import reset_rate_limit_state
+from app.core.rate_limit.service import RateLimitService
 from app.core.security.passwords import (
     SCRYPT_DKLEN,
     SCRYPT_N,
@@ -25,12 +28,20 @@ from app.db.models.auth_throttle_state import AuthThrottleState
 from app.db.models.mobile_session import MobileSession
 from app.db.models.mobile_otp_challenge import MobileOtpChallenge
 from app.db.models.mobile_user import MobileUser
+from app.db.repositories.auth_throttle_state_repository import AuthThrottleStateRepository
+from app.db.repositories.mobile_otp_challenge_repository import MobileOtpChallengeRepository
+from app.db.repositories.mobile_session_repository import MobileSessionRepository
+from app.db.repositories.mobile_user_repository import MobileUserRepository
 from app.main import app
+from app.modules.auth_security.dependencies import AuthRequestContext
+from app.modules.auth_security.service import AuthProtectionService
 from app.modules.mobile_auth.clerk_verifier import (
     ClerkTokenVerificationError,
     VerifiedClerkIdentity,
 )
 from app.modules.mobile_auth.dependencies import get_clerk_session_verifier
+from app.modules.mobile_auth.schemas import OTPRequest, OTPVerifyRequest
+from app.modules.mobile_auth.service import MobileAuthService
 
 
 class MobileAuthEndpointTests(unittest.TestCase):
@@ -62,6 +73,7 @@ class MobileAuthEndpointTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
+        reset_rate_limit_state()
         app.dependency_overrides.clear()
         Base.metadata.drop_all(cls.engine)
 
@@ -204,6 +216,102 @@ class MobileAuthEndpointTests(unittest.TestCase):
         self.assertEqual(first.status_code, 200)
         self.assertEqual(second.status_code, 429)
         self.assertGreaterEqual(int(second.headers['retry-after']), 1)
+
+    def test_successful_verify_preserves_request_budget(self) -> None:
+        self.addCleanup(reset_rate_limit_state)
+        settings = Settings(
+            app_env='test',
+            database_url='sqlite://',
+            otp_resend_cooldown_seconds=1,
+            otp_request_limit_per_phone=3,
+            otp_request_limit_per_ip=3,
+            otp_request_window_seconds=3600,
+            otp_verify_limit_per_ip_phone=2,
+            otp_verify_window_seconds=600,
+        )
+        with self.SessionLocal() as session:
+            rate_limits = RateLimitService(settings=settings)
+            service = MobileAuthService(
+                user_repository=MobileUserRepository(session),
+                session_repository=MobileSessionRepository(session),
+                otp_challenge_repository=MobileOtpChallengeRepository(session),
+                auth_protection_service=AuthProtectionService(
+                    throttle_repository=AuthThrottleStateRepository(session),
+                    rate_limit_service=rate_limits,
+                    settings=settings,
+                ),
+                settings=settings,
+            )
+            context = AuthRequestContext(ip_address='192.0.2.10')
+            with patch(
+                'app.modules.mobile_auth.service.secrets.randbelow',
+                return_value=654321,
+            ):
+                first = service.request_otp(
+                    OTPRequest(phone='+77071234567'),
+                    context=context,
+                )
+            service.verify_otp(
+                OTPVerifyRequest(
+                    phone='+77071234567',
+                    code='654321',
+                    verification_id=first.verification_id,
+                ),
+                context=context,
+            )
+            self.assertEqual(
+                rate_limits.peek(
+                    'otp:verify:192.0.2.10:+77071234567',
+                    limit=settings.otp_verify_limit_per_ip_phone,
+                    window_seconds=settings.otp_verify_window_seconds,
+                ).current_count,
+                0,
+            )
+            with patch(
+                'app.modules.mobile_auth.service.secrets.randbelow',
+                return_value=123456,
+            ):
+                service.request_otp(
+                    OTPRequest(phone='+77071234567'),
+                    context=context,
+                )
+                with self.assertRaises(DomainHTTPException) as raised:
+                    service.request_otp(
+                        OTPRequest(phone='+77071234567'),
+                        context=context,
+                    )
+            self.assertEqual(raised.exception.status_code, 429)
+            self.assertGreater(int(raised.exception.headers['Retry-After']), 100)
+
+    def test_successful_verify_clears_only_verify_bucket(self) -> None:
+        self.addCleanup(reset_rate_limit_state)
+        settings = Settings(app_env='test', database_url='sqlite://')
+        rate_limits = RateLimitService(settings=settings)
+        with self.SessionLocal() as session:
+            protection = AuthProtectionService(
+                throttle_repository=AuthThrottleStateRepository(session),
+                rate_limit_service=rate_limits,
+                settings=settings,
+            )
+            context = AuthRequestContext(ip_address='192.0.2.11')
+            phone = '+77071234567'
+            rate_limits.consume(
+                f'otp:request:phone:{phone}',
+                limit=settings.otp_request_limit_per_phone,
+                window_seconds=settings.otp_request_window_seconds,
+            )
+            for _ in range(settings.otp_verify_limit_per_ip_phone - 1):
+                protection.enforce_otp_verify_limits(context=context, phone=phone)
+            protection.clear_otp_verify_limit(context=context, phone=phone)
+            protection.enforce_otp_verify_limits(context=context, phone=phone)
+            self.assertEqual(
+                rate_limits.peek(
+                    f'otp:request:phone:{phone}',
+                    limit=settings.otp_request_limit_per_phone,
+                    window_seconds=settings.otp_request_window_seconds,
+                ).current_count,
+                1,
+            )
 
     def test_expired_otp_cannot_be_verified(self) -> None:
         with patch(
