@@ -1,5 +1,6 @@
 from datetime import date, datetime, timedelta, timezone
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
@@ -277,12 +278,20 @@ class MobileRequestHistoryEndpointTests(unittest.TestCase):
         )
 
     def _authenticate_mobile_user(self, phone: str) -> dict[str, object]:
+        with patch(
+            'app.modules.mobile_auth.service.secrets.randbelow',
+            return_value=123456,
+        ):
+            request_response = self.client.post(
+                '/api/v1/mobile/auth/request-otp',
+                json={'phone': phone},
+            )
         response = self.client.post(
             '/api/v1/mobile/auth/verify-otp',
             json={
                 'phone': phone,
-                'code': '1234',
-                'verification_id': f'otp_{phone[-4:]}',
+                'code': '123456',
+                'verification_id': request_response.json()['verification_id'],
             },
         )
         self.assertEqual(response.status_code, 200)

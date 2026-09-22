@@ -16,7 +16,7 @@ void main() {
     await ServiceRegistry.mobileAuthController.logout();
   });
 
-  testWidgets('unauthenticated app opens email auth gate', (
+  testWidgets('unauthenticated app opens phone OTP auth gate', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(1280, 2400);
@@ -27,31 +27,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Boom Bala'), findsOneWidget);
-    expect(find.text('Вход'), findsWidgets);
-    expect(find.text('Регистрация'), findsOneWidget);
-    expect(find.text('Email'), findsOneWidget);
-    expect(find.text('Пароль'), findsOneWidget);
+    expect(find.text('Номер телефона'), findsOneWidget);
+    expect(find.text('Получить код'), findsOneWidget);
     expect(find.text('Продолжить с Google'), findsOneWidget);
-
-    final passwordField = find.descendant(
-      of: find.byKey(const ValueKey('auth-password-field')),
-      matching: find.byType(TextField),
-    );
-    expect(tester.widget<TextField>(passwordField).obscureText, isTrue);
-
-    await tester.enterText(passwordField, 'copied-password');
-    await tester.tap(
-      find.byKey(const ValueKey('auth-password-visibility-toggle')),
-    );
-    await tester.pump();
-
-    expect(tester.widget<TextField>(passwordField).obscureText, isFalse);
-    expect(
-      tester.widget<TextField>(passwordField).controller?.text,
-      'copied-password',
-    );
-    expect(find.byTooltip('Скрыть пароль'), findsOneWidget);
-    await tester.enterText(passwordField, '');
 
     const hasGoogleConfiguration =
         String.fromEnvironment('MOBILE_CLERK_PUBLISHABLE_KEY') != '' &&
@@ -61,11 +39,10 @@ void main() {
       hasGoogleConfiguration ? findsNothing : findsOneWidget,
     );
 
-    await tester.tap(find.text('Войти').last);
+    await tester.tap(find.text('Получить код'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Введите электронную почту.'), findsOneWidget);
-    expect(find.text('Введите пароль.'), findsOneWidget);
+    expect(find.text('Введите номер телефона.'), findsOneWidget);
   });
 
   testWidgets('bootstrap shell renders app while initialization is pending', (
@@ -82,8 +59,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Boom Bala'), findsOneWidget);
-    expect(find.text('Вход'), findsWidgets);
-    expect(find.text('Email'), findsOneWidget);
+    expect(find.text('Номер телефона'), findsOneWidget);
 
     initialization.complete();
     await tester.pumpAndSettle();

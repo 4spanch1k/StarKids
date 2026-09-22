@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from datetime import timedelta
 import logging
 import re
+import secrets
 from uuid import uuid4
 
 from fastapi import status
@@ -27,11 +29,16 @@ from ...core.security.tokens import (
     create_mobile_token_pair,
     decode_mobile_token,
     hash_token_value,
+    hash_secret_value,
+    verify_secret_value,
     verify_token_value,
 )
 from ...db.models.mobile_session import MobileSession
 from ...db.models.mobile_user import MobileUser
 from ...db.repositories.mobile_session_repository import MobileSessionRepository
+from ...db.repositories.mobile_otp_challenge_repository import (
+    MobileOtpChallengeRepository,
+)
 from ...db.repositories.mobile_user_repository import MobileUserRepository
 from ..auth_security.dependencies import AuthRequestContext
 from ..auth_security.service import AuthProtectionService
@@ -65,29 +72,87 @@ class MobileAuthService:
         *,
         user_repository: MobileUserRepository | None = None,
         session_repository: MobileSessionRepository | None = None,
+        otp_challenge_repository: MobileOtpChallengeRepository | None = None,
         auth_protection_service: AuthProtectionService | None = None,
         settings: Settings | None = None,
         loyalty_service: LoyaltyService | None = None,
     ) -> None:
         self.user_repository = user_repository or MobileUserRepository()
         self.session_repository = session_repository or MobileSessionRepository()
+        self.otp_challenge_repository = otp_challenge_repository or MobileOtpChallengeRepository(
+            self.user_repository.session
+        )
         self.settings = settings or get_settings()
         self.auth_protection_service = auth_protection_service
         self.loyalty_service = loyalty_service
 
     def request_otp(self, payload: OTPRequest) -> OTPRequestResponse:
-        self._normalize_phone(payload.phone)
+        phone = self._normalize_phone(payload.phone)
         self._ensure_otp_available()
+        now = datetime.now(UTC)
+        code = f'{secrets.randbelow(1_000_000):06d}'
+        verification_id = f'otp_{secrets.token_hex(16)}'
+        self.otp_challenge_repository.invalidate_active_for_phone(
+            phone,
+            consumed_at=now,
+        )
+        self.otp_challenge_repository.create(
+            verification_id=verification_id,
+            phone=phone,
+            code_hash=hash_secret_value(
+                code,
+                secret_key=self.settings.jwt_secret_key,
+                purpose='mobile-otp',
+            ),
+            expires_at=now + timedelta(seconds=self.settings.otp_code_ttl_seconds),
+            max_attempts=self.settings.otp_max_attempts,
+        )
+        self.otp_challenge_repository.db.commit()
+        logger.info(
+            'Local OTP issued: verification_id=%s phone=***%s code=%s expires_in_seconds=%s',
+            verification_id,
+            phone[-2:],
+            code,
+            self.settings.otp_code_ttl_seconds,
+        )
         return OTPRequestResponse(
-            verification_id=f'otp_{uuid4().hex}',
-            expires_in_seconds=300,
+            verification_id=verification_id,
+            expires_in_seconds=self.settings.otp_code_ttl_seconds,
         )
 
     def verify_otp(self, payload: OTPVerifyRequest) -> MobileAuthResponse:
         self._ensure_runtime_configuration()
         self._ensure_otp_available()
         phone = self._normalize_phone(payload.phone)
-        self._ensure_valid_placeholder_challenge(payload.verification_id)
+        now = datetime.now(UTC)
+        challenge = self.otp_challenge_repository.get_for_update(
+            payload.verification_id,
+            phone=phone,
+        )
+        if challenge is None or challenge.consumed_at is not None:
+            raise self.invalid_otp_exception()
+        if self._normalize_datetime(challenge.expires_at) <= now:
+            challenge.consumed_at = now
+            self.otp_challenge_repository.db.commit()
+            raise self.invalid_otp_exception()
+        if challenge.attempt_count >= challenge.max_attempts:
+            challenge.consumed_at = now
+            self.otp_challenge_repository.db.commit()
+            raise self.invalid_otp_exception()
+        if not verify_secret_value(
+            payload.code,
+            challenge.code_hash,
+            secret_key=self.settings.jwt_secret_key,
+            purpose='mobile-otp',
+        ):
+            challenge.attempt_count += 1
+            if challenge.attempt_count >= challenge.max_attempts:
+                challenge.consumed_at = now
+            self.otp_challenge_repository.db.commit()
+            raise self.invalid_otp_exception()
+
+        challenge.consumed_at = now
+        self.otp_challenge_repository.db.commit()
 
         user = self._get_or_create_active_user(phone)
         self.user_repository.record_successful_login(user)
@@ -344,7 +409,7 @@ class MobileAuthService:
         if not self.settings.allows_mock_otp:
             raise DomainHTTPException(
                 code='otp_not_configured',
-                message='OTP mock authentication is not enabled for this environment.',
+                message='Local OTP delivery is not enabled for this environment.',
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
@@ -403,15 +468,23 @@ class MobileAuthService:
                 details=[{'field': 'password', 'message': str(exc)}],
             ) from exc
 
-    def _ensure_valid_placeholder_challenge(self, verification_id: str) -> None:
-        if not verification_id.startswith('otp_'):
-            raise self.invalid_otp_exception()
-
     def _get_or_create_active_user(self, phone: str) -> MobileUser:
         user = self.user_repository.find_by_phone(phone)
         if user is None:
-            user = self.user_repository.create(phone=phone)
-            self._apply_registration_reward(user)
+            created = False
+            try:
+                user = self.user_repository.create(phone=phone)
+                created = True
+            except IntegrityError:
+                # Two valid challenges may be verified concurrently for a new
+                # phone.  The unique phone index is the final authority; use
+                # the winner instead of turning that race into a 500.
+                self.user_repository.db.rollback()
+                user = self.user_repository.find_by_phone(phone)
+                if user is None:
+                    raise
+            if created:
+                self._apply_registration_reward(user)
             return user
         if not user.is_active:
             raise self.authentication_required_exception()

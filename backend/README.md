@@ -22,6 +22,15 @@ deployment. Staging keeps production-like fail-closed validation while allowing
 - push registration
 - integration-ready module boundaries
 
+## Local phone OTP
+
+With `APP_ENV=development` and `OTP_MOCK_MODE=true`, `/auth/request-otp`
+creates a persisted, single-use challenge and prints the six-digit code to the
+backend console. This is a local delivery adapter, not an SMS provider; keep
+the flag disabled in staging and production. Challenges expire after
+`OTP_CODE_TTL_SECONDS` (default 300 seconds) and lock after
+`OTP_MAX_ATTEMPTS` (default 5).
+
 ## Operational payment cleanup
 
 `scripts/expire_mobile_payments.py` is the idempotent reconciliation pass for

@@ -16,6 +16,7 @@ from .contact_lead import ContactLead
 from .content_block import ContentBlock
 from .faq_entry import FAQEntry
 from .mobile_session import MobileSession
+from .mobile_otp_challenge import MobileOtpChallenge
 from .mobile_notification_device import MobileNotificationDevice
 from .mobile_notification import MobileNotification
 from .mobile_payment import MobilePayment
@@ -66,6 +67,7 @@ __all__ = [
     'MobileUser',
     'MobileChild',
     'MobileSession',
+    'MobileOtpChallenge',
     'MobileNotificationDevice',
     'MobileNotification',
     'MobilePayment',

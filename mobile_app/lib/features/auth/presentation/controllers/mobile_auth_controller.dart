@@ -32,9 +32,9 @@ class MobileAuthController extends ChangeNotifier {
     required MobileAuthRepository repository,
     Duration restoreTimeout = const Duration(seconds: 2),
     Duration syncTimeout = const Duration(seconds: 8),
-  })  : _repository = repository,
-        _restoreTimeout = restoreTimeout,
-        _syncTimeout = syncTimeout;
+  }) : _repository = repository,
+       _restoreTimeout = restoreTimeout,
+       _syncTimeout = syncTimeout;
 
   final MobileAuthRepository _repository;
   final Duration _restoreTimeout;
@@ -168,8 +168,8 @@ class MobileAuthController extends ChangeNotifier {
     try {
       debugPrint('[AUTH] session storage read started');
       final restoredSession = await _repository.restoreSession().timeout(
-            _restoreTimeout,
-          );
+        _restoreTimeout,
+      );
       debugPrint(
         '[AUTH] session storage result: hasSession=${restoredSession != null}',
       );
@@ -212,8 +212,9 @@ class MobileAuthController extends ChangeNotifier {
   Future<void> _softSyncSession(MobileAuthSession restoredSession) async {
     debugPrint('[AUTH] background current-user sync started');
     try {
-      final syncResult =
-          await _repository.syncSession(restoredSession).timeout(_syncTimeout);
+      final syncResult = await _repository
+          .syncSession(restoredSession)
+          .timeout(_syncTimeout);
 
       // A logout or a fresh login supersedes this background request.
       if (_session?.accessToken != restoredSession.accessToken) {
@@ -454,8 +455,8 @@ class MobileAuthController extends ChangeNotifier {
     _status = _session != null
         ? MobileAuthStatus.authenticated
         : _pendingChallenge != null
-            ? MobileAuthStatus.otpRequested
-            : MobileAuthStatus.unauthenticated;
+        ? MobileAuthStatus.otpRequested
+        : MobileAuthStatus.unauthenticated;
     notifyListeners();
   }
 
@@ -486,11 +487,11 @@ class MobileAuthController extends ChangeNotifier {
 
   String? validateOtpCode(String? value) {
     if ((value ?? '').trim().isEmpty) {
-      return 'Введите код из SMS.';
+      return 'Введите 6-значный код из консоли backend.';
     }
 
     if (!_isValidCode((value ?? '').trim())) {
-      return 'Введите код без лишних символов.';
+      return 'Введите 6 цифр без лишних символов.';
     }
 
     return null;
@@ -547,7 +548,7 @@ class MobileAuthController extends ChangeNotifier {
   }
 
   bool _isValidCode(String code) {
-    return RegExp(r'^\d{4,8}$').hasMatch(code);
+    return RegExp(r'^\d{6}$').hasMatch(code);
   }
 
   String _normalizePhone(String value) {

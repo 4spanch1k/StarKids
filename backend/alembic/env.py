@@ -27,6 +27,7 @@ from app.db.models import (  # noqa: F401
     customer_pass,
     pass_redemption,
     lifecycle_journey_execution,
+    mobile_otp_challenge,
 )
 
 config = context.config

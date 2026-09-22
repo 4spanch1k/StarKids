@@ -13,15 +13,9 @@ import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/primary_button.dart';
 import '../../../../core/design_system/widgets/sk_fade.dart';
 import '../../../../core/design_system/widgets/sk_field.dart';
-import '../../../../core/design_system/widgets/sk_segment.dart';
 import '../../data/google_clerk_session_token_requester.dart';
 import '../../data/google_sign_in_gateway.dart';
 import '../controllers/mobile_auth_controller.dart';
-
-enum _EmailAuthMode {
-  login,
-  register,
-}
 
 class EmailAuthGatePage extends StatefulWidget {
   const EmailAuthGatePage({super.key, this.googleSessionTokenRequester});
@@ -35,16 +29,12 @@ class EmailAuthGatePage extends StatefulWidget {
 class _EmailAuthGatePageState extends State<EmailAuthGatePage>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _otpController = TextEditingController();
   late final AnimationController _entryController;
   late final GoogleClerkSessionTokenRequester _googleSessionTokenRequester;
 
-  _EmailAuthMode _mode = _EmailAuthMode.login;
   AutovalidateMode _autovalidateMode = AutovalidateMode.disabled;
-  bool _isPasswordVisible = false;
-  bool _isConfirmPasswordVisible = false;
 
   MobileAuthController get _authController =>
       ServiceRegistry.mobileAuthController;
@@ -68,9 +58,8 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
   @override
   void dispose() {
     _entryController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
+    _phoneController.dispose();
+    _otpController.dispose();
     super.dispose();
   }
 
@@ -83,18 +72,12 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
       return;
     }
 
-    if (_mode == _EmailAuthMode.register) {
-      await _authController.registerWithEmail(
-        email: _emailController.text,
-        password: _passwordController.text,
-      );
+    if (_authController.pendingChallenge != null) {
+      await _authController.verifyOtp(_otpController.text);
       return;
     }
 
-    await _authController.loginWithEmail(
-      email: _emailController.text,
-      password: _passwordController.text,
-    );
+    await _authController.requestOtp(_phoneController.text);
   }
 
   Future<void> _loginWithGoogleClerk(BuildContext clerkContext) async {
@@ -113,7 +96,8 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
       throw const MobileAuthCancelledException();
     } on GoogleAuthConfigurationException catch (error) {
       debugPrint(
-          '[GOOGLE] configuration unavailable: ${error.message ?? 'unknown'}');
+        '[GOOGLE] configuration unavailable: ${error.message ?? 'unknown'}',
+      );
       throw const MobileAuthFlowException(
         'Вход через Google не настроен для этой сборки.',
       );
@@ -135,30 +119,10 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
     }
   }
 
-  void _setMode(_EmailAuthMode mode) {
-    if (_mode == mode) {
-      return;
-    }
-
+  void _editPhone() {
     unawaited(HapticFeedback.selectionClick());
-    setState(() {
-      _mode = mode;
-      _confirmPasswordController.clear();
-      _isConfirmPasswordVisible = false;
-    });
-    _authController.clearError();
-  }
-
-  void _togglePasswordVisibility() {
-    setState(() {
-      _isPasswordVisible = !_isPasswordVisible;
-    });
-  }
-
-  void _toggleConfirmPasswordVisibility() {
-    setState(() {
-      _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
-    });
+    _otpController.clear();
+    _authController.editPhone();
   }
 
   @override
@@ -167,8 +131,11 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
       animation: _authController,
       builder: (context, _) {
         final c = SKTheme.of(context).colors;
-        final isRegister = _mode == _EmailAuthMode.register;
         final isLoading = _authController.status == MobileAuthStatus.loading;
+        final isVerifying =
+            _authController.status == MobileAuthStatus.verifying;
+        final challenge = _authController.pendingChallenge;
+        final isCodeStep = challenge != null;
         final errorMessage = _authController.errorMessage;
 
         return Scaffold(
@@ -213,8 +180,9 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
               SafeArea(
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    final keyboardInset =
-                        MediaQuery.viewInsetsOf(context).bottom;
+                    final keyboardInset = MediaQuery.viewInsetsOf(
+                      context,
+                    ).bottom;
                     final minContentHeight =
                         (constraints.maxHeight - keyboardInset)
                             .clamp(0.0, double.infinity)
@@ -230,8 +198,9 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
                         SK.s5 + keyboardInset,
                       ),
                       child: ConstrainedBox(
-                        constraints:
-                            BoxConstraints(minHeight: minContentHeight),
+                        constraints: BoxConstraints(
+                          minHeight: minContentHeight,
+                        ),
                         child: Center(
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 440),
@@ -250,29 +219,31 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
                                         ? SK.s7
                                         : SK.s8 * 1.8,
                                   ),
-                                  SkFade(
+                                  const SkFade(
                                     delayMs: 120,
-                                    child: _RedesignAuthIntro(
-                                      isRegister: isRegister,
-                                    ),
+                                    child: _RedesignAuthIntro(),
                                   ),
                                   const SizedBox(height: SK.s6),
-                                  SkFade(
-                                    delayMs: 200,
-                                    child: SkSegment<_EmailAuthMode>(
-                                      items: const [
-                                        _EmailAuthMode.login,
-                                        _EmailAuthMode.register,
+                                  if (isCodeStep)
+                                    Row(
+                                      children: [
+                                        IconButton(
+                                          onPressed: isLoading || isVerifying
+                                              ? null
+                                              : _editPhone,
+                                          icon: const Icon(Icons.arrow_back),
+                                          tooltip: 'Изменить номер',
+                                        ),
+                                        Expanded(
+                                          child: Text(
+                                            'Код для ${_authController.maskPhone(challenge.phone)}',
+                                            style: SKTextStyles.body.copyWith(
+                                              color: c.textSecondary,
+                                            ),
+                                          ),
+                                        ),
                                       ],
-                                      selected: _mode,
-                                      labelBuilder: (mode) =>
-                                          mode == _EmailAuthMode.login
-                                              ? 'Вход'
-                                              : 'Регистрация',
-                                      onSelected: _setMode,
-                                      enabled: !isLoading,
                                     ),
-                                  ),
                                   const SizedBox(height: SK.s4),
                                   if (errorMessage != null) ...[
                                     _AuthErrorBanner(message: errorMessage),
@@ -280,133 +251,82 @@ class _EmailAuthGatePageState extends State<EmailAuthGatePage>
                                   ],
                                   SkFade(
                                     delayMs: 280,
-                                    child: SkField(
-                                      key: const ValueKey('auth-email-field'),
-                                      controller: _emailController,
-                                      label: 'Email',
-                                      hintText: 'name@example.com',
-                                      icon: Icons.email_outlined,
-                                      keyboardType: TextInputType.emailAddress,
-                                      textInputAction: TextInputAction.next,
-                                      autofillHints: const [
-                                        AutofillHints.email,
-                                      ],
-                                      autocorrect: false,
-                                      validator:
-                                          _authController.validateEmailInput,
-                                    ),
+                                    child: isCodeStep
+                                        ? SkField(
+                                            key: const ValueKey(
+                                              'auth-otp-field',
+                                            ),
+                                            controller: _otpController,
+                                            label: 'Код подтверждения',
+                                            hintText:
+                                                '6 цифр из консоли backend',
+                                            icon: Icons.password_rounded,
+                                            keyboardType: TextInputType.number,
+                                            textInputAction:
+                                                TextInputAction.done,
+                                            maxLength: 6,
+                                            inputFormatters: [
+                                              FilteringTextInputFormatter
+                                                  .digitsOnly,
+                                            ],
+                                            autocorrect: false,
+                                            enableSuggestions: false,
+                                            validator:
+                                                _authController.validateOtpCode,
+                                          )
+                                        : SkField(
+                                            key: const ValueKey(
+                                              'auth-phone-field',
+                                            ),
+                                            controller: _phoneController,
+                                            label: 'Номер телефона',
+                                            hintText: '+7 777 123 45 67',
+                                            icon: Icons.phone_outlined,
+                                            keyboardType: TextInputType.phone,
+                                            textInputAction:
+                                                TextInputAction.done,
+                                            autofillHints: const [
+                                              AutofillHints.telephoneNumber,
+                                            ],
+                                            autocorrect: false,
+                                            validator: _authController
+                                                .validatePhoneInput,
+                                          ),
                                   ),
-                                  const SizedBox(height: SK.s3),
-                                  SkFade(
-                                    delayMs: 360,
-                                    child: SkField(
-                                      key:
-                                          const ValueKey('auth-password-field'),
-                                      controller: _passwordController,
-                                      label: 'Пароль',
-                                      hintText: 'Минимум 8 символов',
-                                      icon: Icons.lock_outline,
-                                      obscureText: !_isPasswordVisible,
-                                      autofillHints: [
-                                        isRegister
-                                            ? AutofillHints.newPassword
-                                            : AutofillHints.password,
-                                      ],
-                                      autocorrect: false,
-                                      enableSuggestions: false,
-                                      textInputAction: isRegister
-                                          ? TextInputAction.next
-                                          : TextInputAction.done,
-                                      validator:
-                                          _authController.validatePasswordInput,
-                                      trailing: IconButton(
-                                        key: const ValueKey(
-                                          'auth-password-visibility-toggle',
-                                        ),
-                                        onPressed: isLoading
-                                            ? null
-                                            : _togglePasswordVisibility,
-                                        tooltip: _isPasswordVisible
-                                            ? 'Скрыть пароль'
-                                            : 'Показать пароль',
-                                        icon: Icon(
-                                          _isPasswordVisible
-                                              ? Icons.visibility_off_outlined
-                                              : Icons.visibility_outlined,
-                                          color: c.textTertiary,
-                                        ),
+                                  if (isCodeStep) ...[
+                                    const SizedBox(height: SK.s3),
+                                    Text(
+                                      'Для local development код выводится в консоли backend. Он действует ${challenge.expiresIn.inMinutes} мин.',
+                                      style: SKTextStyles.small.copyWith(
+                                        color: c.textTertiary,
+                                        height: 1.35,
                                       ),
                                     ),
-                                  ),
-                                  AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 240),
-                                    child: isRegister
-                                        ? Padding(
-                                            padding: const EdgeInsets.only(
-                                              top: SK.s3,
-                                            ),
-                                            child: SkField(
-                                              key: const ValueKey(
-                                                'auth-confirm-password-field',
-                                              ),
-                                              controller:
-                                                  _confirmPasswordController,
-                                              label: 'Повтор пароля',
-                                              hintText: 'Ещё раз пароль',
-                                              icon: Icons.lock_outline,
-                                              obscureText:
-                                                  !_isConfirmPasswordVisible,
-                                              autofillHints: const [
-                                                AutofillHints.newPassword,
-                                              ],
-                                              autocorrect: false,
-                                              enableSuggestions: false,
-                                              textInputAction:
-                                                  TextInputAction.done,
-                                              validator: (value) => _authController
-                                                  .validatePasswordConfirmation(
-                                                password:
-                                                    _passwordController.text,
-                                                confirmation: value,
-                                              ),
-                                              trailing: IconButton(
-                                                key: const ValueKey(
-                                                  'auth-confirm-password-visibility-toggle',
-                                                ),
-                                                onPressed: isLoading
-                                                    ? null
-                                                    : _toggleConfirmPasswordVisibility,
-                                                tooltip:
-                                                    _isConfirmPasswordVisible
-                                                        ? 'Скрыть пароль'
-                                                        : 'Показать пароль',
-                                                icon: Icon(
-                                                  _isConfirmPasswordVisible
-                                                      ? Icons
-                                                          .visibility_off_outlined
-                                                      : Icons
-                                                          .visibility_outlined,
-                                                  color: c.textTertiary,
-                                                ),
-                                              ),
-                                            ),
-                                          )
-                                        : const SizedBox.shrink(),
-                                  ),
+                                    const SizedBox(height: SK.s3),
+                                    TextButton(
+                                      onPressed: isLoading || isVerifying
+                                          ? null
+                                          : () => _authController.resendOtp(),
+                                      child: const Text(
+                                        'Отправить код ещё раз',
+                                      ),
+                                    ),
+                                  ],
                                   const SizedBox(height: SK.s5),
                                   SkFade(
                                     delayMs: 440,
                                     child: PrimaryButton(
-                                      label: isRegister
-                                          ? 'Создать аккаунт'
-                                          : 'Войти',
+                                      label: isCodeStep
+                                          ? 'Подтвердить и войти'
+                                          : 'Получить код',
                                       icon: Icons.arrow_forward_rounded,
-                                      onPressed: isLoading
+                                      onPressed: isLoading || isVerifying
                                           ? null
                                           : () async {
                                               await Future<void>.delayed(
                                                 const Duration(
-                                                    milliseconds: 250),
+                                                  milliseconds: 250,
+                                                ),
                                               );
                                               await _submit();
                                             },
@@ -509,9 +429,7 @@ class _RedesignAuthHeader extends StatelessWidget {
 }
 
 class _RedesignAuthIntro extends StatelessWidget {
-  const _RedesignAuthIntro({required this.isRegister});
-
-  final bool isRegister;
+  const _RedesignAuthIntro();
 
   @override
   Widget build(BuildContext context) {
@@ -519,7 +437,7 @@ class _RedesignAuthIntro extends StatelessWidget {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 260),
       child: Column(
-        key: ValueKey(isRegister),
+        key: const ValueKey('phone-otp-auth'),
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text.rich(
@@ -545,9 +463,7 @@ class _RedesignAuthIntro extends StatelessWidget {
           SizedBox(
             width: 260,
             child: Text(
-              isRegister
-                  ? 'Создайте аккаунт, чтобы заявки и профиль были под рукой.'
-                  : 'Войдите, чтобы открыть заявки, профиль и любимый филиал.',
+              'Войдите по номеру телефона — профиль семьи и заявки будут под рукой.',
               style: SKTextStyles.body.copyWith(
                 height: 1.45,
                 color: c.textSecondary,
@@ -641,8 +557,7 @@ class _GoogleAuthButton extends StatelessWidget {
         if (!isConfigured || statusMessage != null) ...[
           const SizedBox(height: SK.s2),
           Text(
-            statusMessage ??
-                'Вход через Google не настроен для этой сборки.',
+            statusMessage ?? 'Вход через Google не настроен для этой сборки.',
             textAlign: TextAlign.center,
             style: SKTextStyles.small.copyWith(
               fontSize: 11,
@@ -726,20 +641,13 @@ class _AuthErrorBanner extends StatelessWidget {
               color: c.elevated,
               borderRadius: BorderRadius.circular(SKRadius.pill),
             ),
-            child: Icon(
-              Icons.error_outline_rounded,
-              size: 16,
-              color: c.danger,
-            ),
+            child: Icon(Icons.error_outline_rounded, size: 16, color: c.danger),
           ),
           const SizedBox(width: SKSpacing.x4),
           Expanded(
             child: Text(
               message,
-              style: SKTextStyles.body.copyWith(
-                color: c.danger,
-                height: 1.34,
-              ),
+              style: SKTextStyles.body.copyWith(color: c.danger, height: 1.34),
             ),
           ),
         ],
