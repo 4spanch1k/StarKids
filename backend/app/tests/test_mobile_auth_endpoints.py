@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 import hashlib
 import re
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -21,6 +21,7 @@ from app.core.security.passwords import (
     SCRYPT_P,
     SCRYPT_R,
     describe_password_hash,
+    hash_password,
     verify_password,
 )
 from app.db.models import Base
@@ -39,8 +40,16 @@ from app.modules.mobile_auth.clerk_verifier import (
     ClerkTokenVerificationError,
     VerifiedClerkIdentity,
 )
-from app.modules.mobile_auth.dependencies import get_clerk_session_verifier
-from app.modules.mobile_auth.schemas import OTPRequest, OTPVerifyRequest
+from app.modules.mobile_auth.dependencies import (
+    get_clerk_session_verifier,
+    get_mobile_auth_service,
+)
+from app.modules.mobile_auth.schemas import (
+    MobileClerkExchangeRequest,
+    MobileEmailRegistrationRequest,
+    OTPRequest,
+    OTPVerifyRequest,
+)
 from app.modules.mobile_auth.service import MobileAuthService
 
 
@@ -86,6 +95,7 @@ class MobileAuthEndpointTests(unittest.TestCase):
         self._otp_code_patch.start()
         self.addCleanup(self._otp_code_patch.stop)
         app.dependency_overrides.pop(get_clerk_session_verifier, None)
+        app.dependency_overrides.pop(get_mobile_auth_service, None)
         with self.SessionLocal() as session:
             session.query(AuthThrottleState).delete()
             session.query(MobileOtpChallenge).delete()
@@ -373,6 +383,143 @@ class MobileAuthEndpointTests(unittest.TestCase):
             self.assertEqual(session.query(MobileSession).count(), 1)
             self.assertNotEqual(saved_session.refresh_token_hash, body['refresh_token'])
             self.assertTrue(saved_session.refresh_token_hash.startswith('hmac-sha256$'))
+
+    def test_deployed_environment_disables_email_registration_before_side_effects(self) -> None:
+        for app_env in ('staging', 'production'):
+            with self.subTest(app_env=app_env):
+                holder = self._override_mobile_auth_environment(app_env)
+                response = self.client.post(
+                    '/api/v1/mobile/auth/register',
+                    json={
+                        'email': f'{app_env}@example.com',
+                        'password': 'strong-pass-123',
+                    },
+                )
+
+                self.assertEqual(response.status_code, 404)
+                self.assertEqual(
+                    response.json()['error']['code'],
+                    'legacy_mobile_auth_disabled',
+                )
+                with self.SessionLocal() as session:
+                    self.assertEqual(session.query(MobileUser).count(), 0)
+                    self.assertEqual(session.query(MobileSession).count(), 0)
+                holder['loyalty'].apply_event.assert_not_called()
+
+    def test_deployed_environment_disables_email_login_without_mutation(self) -> None:
+        for app_env in ('staging', 'production'):
+            with self.subTest(app_env=app_env):
+                email = f'{app_env}-login@example.com'
+                with self.SessionLocal() as session:
+                    session.add(
+                        MobileUser(
+                            id=f'{app_env}-login-user',
+                            email=email,
+                            password_hash=hash_password('strong-pass-123'),
+                        )
+                    )
+                    session.commit()
+
+                self._override_mobile_auth_environment(app_env)
+                response = self.client.post(
+                    '/api/v1/mobile/auth/login',
+                    json={
+                        'email': email,
+                        'password': 'strong-pass-123',
+                    },
+                    headers=self._login_headers(
+                        f'198.51.100.{20 if app_env == "staging" else 21}'
+                    ),
+                )
+
+                self.assertEqual(response.status_code, 404)
+                self.assertEqual(
+                    response.json()['error']['code'],
+                    'legacy_mobile_auth_disabled',
+                )
+                with self.SessionLocal() as session:
+                    saved_user = session.query(MobileUser).filter_by(email=email).one()
+                    self.assertIsNone(saved_user.last_login_at)
+                    self.assertEqual(session.query(MobileSession).count(), 0)
+                    self.assertEqual(session.query(AuthThrottleState).count(), 0)
+
+    def test_deployed_environment_disables_clerk_before_verifier_or_side_effects(self) -> None:
+        for app_env in ('staging', 'production'):
+            with self.subTest(app_env=app_env):
+                verifier = _FakeClerkSessionVerifier(
+                    identity=VerifiedClerkIdentity(
+                        clerk_user_id=f'{app_env}-clerk-user',
+                        email=f'{app_env}-clerk@example.com',
+                        email_verified=True,
+                    )
+                )
+                app.dependency_overrides[get_clerk_session_verifier] = (
+                    lambda verifier=verifier: verifier
+                )
+                holder = self._override_mobile_auth_environment(app_env)
+                response = self.client.post(
+                    '/api/v1/mobile/auth/clerk/exchange',
+                    json={'session_token': 'clerk-session-token'},
+                )
+
+                self.assertEqual(response.status_code, 404)
+                self.assertEqual(
+                    response.json()['error']['code'],
+                    'legacy_mobile_auth_disabled',
+                )
+                self.assertIsNone(verifier.seen_token)
+                with self.SessionLocal() as session:
+                    self.assertEqual(session.query(MobileUser).count(), 0)
+                    self.assertEqual(session.query(MobileSession).count(), 0)
+                holder['loyalty'].apply_event.assert_not_called()
+
+    def test_service_guard_rejects_legacy_auth_before_verifier(self) -> None:
+        with self.SessionLocal() as session:
+            settings = Settings(app_env='production', otp_mock_mode=False)
+            loyalty = Mock()
+            service = MobileAuthService(
+                user_repository=MobileUserRepository(session),
+                session_repository=MobileSessionRepository(session),
+                auth_protection_service=AuthProtectionService(
+                    throttle_repository=AuthThrottleStateRepository(session),
+                    settings=settings,
+                ),
+                settings=settings,
+                loyalty_service=loyalty,
+            )
+            verifier = _FakeClerkSessionVerifier(
+                identity=VerifiedClerkIdentity(
+                    clerk_user_id='direct-clerk-user',
+                    email='direct@example.com',
+                    email_verified=True,
+                )
+            )
+
+            with self.assertRaises(DomainHTTPException) as register_error:
+                service.register_with_email(
+                    MobileEmailRegistrationRequest(
+                        email='direct@example.com',
+                        password='strong-pass-123',
+                    )
+                )
+            with self.assertRaises(DomainHTTPException) as clerk_error:
+                service.exchange_clerk_session(
+                    MobileClerkExchangeRequest(session_token='direct-token'),
+                    verifier=verifier,
+                )
+
+            self.assertEqual(
+                register_error.exception.code,
+                'legacy_mobile_auth_disabled',
+            )
+            self.assertEqual(
+                clerk_error.exception.code,
+                'legacy_mobile_auth_disabled',
+            )
+            self.assertIsNone(verifier.seen_token)
+            loyalty.apply_event.assert_not_called()
+            self.assertEqual(session.query(MobileUser).count(), 0)
+            self.assertEqual(session.query(MobileSession).count(), 0)
 
     def test_clerk_exchange_creates_user_and_returns_star_kids_tokens(self) -> None:
         verifier = _FakeClerkSessionVerifier(
@@ -925,6 +1072,32 @@ class MobileAuthEndpointTests(unittest.TestCase):
     @staticmethod
     def _login_headers(ip_address: str) -> dict[str, str]:
         return {'X-Forwarded-For': ip_address}
+
+    def _override_mobile_auth_environment(self, app_env: str) -> dict[str, Mock]:
+        settings = Settings(app_env=app_env, otp_mock_mode=False)
+        holder: dict[str, Mock] = {}
+
+        def override_mobile_auth_service():
+            session = self.SessionLocal()
+            loyalty = Mock()
+            holder['loyalty'] = loyalty
+            service = MobileAuthService(
+                user_repository=MobileUserRepository(session),
+                session_repository=MobileSessionRepository(session),
+                auth_protection_service=AuthProtectionService(
+                    throttle_repository=AuthThrottleStateRepository(session),
+                    settings=settings,
+                ),
+                settings=settings,
+                loyalty_service=loyalty,
+            )
+            try:
+                yield service
+            finally:
+                session.close()
+
+        app.dependency_overrides[get_mobile_auth_service] = override_mobile_auth_service
+        return holder
 
     def _verify_phone(self, phone: str = '+77071234567'):
         request_response = self.client.post(
