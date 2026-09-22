@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../foundations/sk_tokens.dart';
 
@@ -19,6 +20,8 @@ class SkField extends StatefulWidget {
     this.autofillHints,
     this.autocorrect = true,
     this.enableSuggestions = true,
+    this.maxLength,
+    this.inputFormatters,
   });
 
   final TextEditingController controller;
@@ -35,6 +38,8 @@ class SkField extends StatefulWidget {
   final Iterable<String>? autofillHints;
   final bool autocorrect;
   final bool enableSuggestions;
+  final int? maxLength;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   State<SkField> createState() => _SkFieldState();
@@ -76,11 +81,7 @@ class _SkFieldState extends State<SkField> {
         ),
         boxShadow: focused
             ? const [
-                BoxShadow(
-                  color: SK.accentSoft,
-                  blurRadius: 0,
-                  spreadRadius: 4,
-                ),
+                BoxShadow(color: SK.accentSoft, blurRadius: 0, spreadRadius: 4),
               ]
             : null,
       ),
@@ -110,6 +111,8 @@ class _SkFieldState extends State<SkField> {
               autofillHints: widget.autofillHints,
               autocorrect: widget.autocorrect,
               enableSuggestions: widget.enableSuggestions,
+              maxLength: widget.maxLength,
+              inputFormatters: widget.inputFormatters,
               enableInteractiveSelection: true,
               contextMenuBuilder: (context, editableTextState) {
                 if (SystemContextMenu.isSupportedByField(editableTextState)) {

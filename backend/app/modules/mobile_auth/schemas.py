@@ -8,12 +8,13 @@ class OTPRequest(BaseModel):
 class OTPRequestResponse(BaseModel):
     verification_id: str
     expires_in_seconds: int
+    resend_after_seconds: int
 
 
 class OTPVerifyRequest(BaseModel):
     phone: str = Field(min_length=8, max_length=20)
-    code: str = Field(min_length=4, max_length=8, pattern=r'^\d{4,8}$')
-    verification_id: str = Field(min_length=1)
+    code: str = Field(min_length=6, max_length=6, pattern=r'^\d{6}$')
+    verification_id: str = Field(min_length=1, max_length=64)
 
 
 class MobileEmailRegistrationRequest(BaseModel):

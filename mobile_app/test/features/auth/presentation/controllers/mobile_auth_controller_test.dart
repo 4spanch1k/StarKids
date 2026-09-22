@@ -224,9 +224,9 @@ void main() {
 
       await controller.bootstrap();
       await controller.requestOtp('+7 707 123 45 67');
-      await controller.verifyOtp('1234');
+      await controller.verifyOtp('123456');
 
-      expect(repository.verifiedCode, '1234');
+      expect(repository.verifiedCode, '123456');
       expect(controller.status, MobileAuthStatus.authenticated);
       expect(controller.session?.user?.id, 'user-1');
 

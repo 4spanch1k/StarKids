@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 import hashlib
 import re
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -10,7 +11,10 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.database.session import get_db_session
+from app.core.config.settings import Settings
+from app.core.exceptions.http import DomainHTTPException
 from app.core.rate_limit.service import reset_rate_limit_state
+from app.core.rate_limit.service import RateLimitService
 from app.core.security.passwords import (
     SCRYPT_DKLEN,
     SCRYPT_N,
@@ -22,13 +26,22 @@ from app.core.security.passwords import (
 from app.db.models import Base
 from app.db.models.auth_throttle_state import AuthThrottleState
 from app.db.models.mobile_session import MobileSession
+from app.db.models.mobile_otp_challenge import MobileOtpChallenge
 from app.db.models.mobile_user import MobileUser
+from app.db.repositories.auth_throttle_state_repository import AuthThrottleStateRepository
+from app.db.repositories.mobile_otp_challenge_repository import MobileOtpChallengeRepository
+from app.db.repositories.mobile_session_repository import MobileSessionRepository
+from app.db.repositories.mobile_user_repository import MobileUserRepository
 from app.main import app
+from app.modules.auth_security.dependencies import AuthRequestContext
+from app.modules.auth_security.service import AuthProtectionService
 from app.modules.mobile_auth.clerk_verifier import (
     ClerkTokenVerificationError,
     VerifiedClerkIdentity,
 )
 from app.modules.mobile_auth.dependencies import get_clerk_session_verifier
+from app.modules.mobile_auth.schemas import OTPRequest, OTPVerifyRequest
+from app.modules.mobile_auth.service import MobileAuthService
 
 
 class MobileAuthEndpointTests(unittest.TestCase):
@@ -60,14 +73,22 @@ class MobileAuthEndpointTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
+        reset_rate_limit_state()
         app.dependency_overrides.clear()
         Base.metadata.drop_all(cls.engine)
 
     def setUp(self) -> None:
         reset_rate_limit_state()
+        self._otp_code_patch = patch(
+            'app.modules.mobile_auth.service.secrets.randbelow',
+            return_value=123456,
+        )
+        self._otp_code_patch.start()
+        self.addCleanup(self._otp_code_patch.stop)
         app.dependency_overrides.pop(get_clerk_session_verifier, None)
         with self.SessionLocal() as session:
             session.query(AuthThrottleState).delete()
+            session.query(MobileOtpChallenge).delete()
             session.query(MobileSession).delete()
             session.query(MobileUser).delete()
             session.commit()
@@ -82,6 +103,7 @@ class MobileAuthEndpointTests(unittest.TestCase):
         body = response.json()
         self.assertTrue(body['verification_id'].startswith('otp_'))
         self.assertEqual(body['expires_in_seconds'], 300)
+        self.assertEqual(body['resend_after_seconds'], 60)
 
     def test_verify_otp_returns_auth_response_and_persists_session(self) -> None:
         request_response = self.client.post(
@@ -94,7 +116,7 @@ class MobileAuthEndpointTests(unittest.TestCase):
             '/api/v1/mobile/auth/verify-otp',
             json={
                 'phone': '+77071234567',
-                'code': '1234',
+                'code': '123456',
                 'verification_id': verification_id,
             },
         )
@@ -112,6 +134,209 @@ class MobileAuthEndpointTests(unittest.TestCase):
         with self.SessionLocal() as session:
             self.assertEqual(session.query(MobileUser).count(), 1)
             self.assertEqual(session.query(MobileSession).count(), 1)
+
+    def test_otp_challenge_is_persisted_hashed_and_single_use(self) -> None:
+        with patch(
+            'app.modules.mobile_auth.service.secrets.randbelow',
+            return_value=654321,
+        ):
+            request_response = self.client.post(
+                '/api/v1/mobile/auth/request-otp',
+                json={'phone': '+77071234567'},
+            )
+        verification_id = request_response.json()['verification_id']
+
+        with self.SessionLocal() as session:
+            challenge = session.get(MobileOtpChallenge, verification_id)
+            self.assertIsNotNone(challenge)
+            self.assertNotEqual(challenge.code_hash, '654321')
+            self.assertEqual(challenge.attempt_count, 0)
+            self.assertIsNone(challenge.consumed_at)
+
+        verified = self.client.post(
+            '/api/v1/mobile/auth/verify-otp',
+            json={
+                'phone': '+77071234567',
+                'code': '654321',
+                'verification_id': verification_id,
+            },
+        )
+        self.assertEqual(verified.status_code, 200)
+
+        replay = self.client.post(
+            '/api/v1/mobile/auth/verify-otp',
+            json={
+                'phone': '+77071234567',
+                'code': '654321',
+                'verification_id': verification_id,
+            },
+        )
+        self.assertEqual(replay.status_code, 401)
+
+    def test_otp_wrong_code_consumes_challenge_after_max_attempts(self) -> None:
+        with patch(
+            'app.modules.mobile_auth.service.secrets.randbelow',
+            return_value=654321,
+        ):
+            request_response = self.client.post(
+                '/api/v1/mobile/auth/request-otp',
+                json={'phone': '+77071234567'},
+            )
+        verification_id = request_response.json()['verification_id']
+
+        for _ in range(5):
+            response = self.client.post(
+                '/api/v1/mobile/auth/verify-otp',
+                json={
+                    'phone': '+77071234567',
+                    'code': '000000',
+                    'verification_id': verification_id,
+                },
+            )
+            self.assertEqual(response.status_code, 401)
+
+        with self.SessionLocal() as session:
+            challenge = session.get(MobileOtpChallenge, verification_id)
+            self.assertEqual(challenge.attempt_count, 5)
+            self.assertIsNotNone(challenge.consumed_at)
+
+    def test_otp_resend_is_rate_limited_during_cooldown(self) -> None:
+        with patch(
+            'app.modules.mobile_auth.service.secrets.randbelow',
+            return_value=654321,
+        ):
+            first = self.client.post(
+                '/api/v1/mobile/auth/request-otp',
+                json={'phone': '+77071234567'},
+            )
+            second = self.client.post(
+                '/api/v1/mobile/auth/request-otp',
+                json={'phone': '+77071234567'},
+            )
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 429)
+        self.assertGreaterEqual(int(second.headers['retry-after']), 1)
+
+    def test_successful_verify_preserves_request_budget(self) -> None:
+        self.addCleanup(reset_rate_limit_state)
+        settings = Settings(
+            app_env='test',
+            database_url='sqlite://',
+            otp_resend_cooldown_seconds=1,
+            otp_request_limit_per_phone=3,
+            otp_request_limit_per_ip=3,
+            otp_request_window_seconds=3600,
+            otp_verify_limit_per_ip_phone=2,
+            otp_verify_window_seconds=600,
+        )
+        with self.SessionLocal() as session:
+            rate_limits = RateLimitService(settings=settings)
+            service = MobileAuthService(
+                user_repository=MobileUserRepository(session),
+                session_repository=MobileSessionRepository(session),
+                otp_challenge_repository=MobileOtpChallengeRepository(session),
+                auth_protection_service=AuthProtectionService(
+                    throttle_repository=AuthThrottleStateRepository(session),
+                    rate_limit_service=rate_limits,
+                    settings=settings,
+                ),
+                settings=settings,
+            )
+            context = AuthRequestContext(ip_address='192.0.2.10')
+            with patch(
+                'app.modules.mobile_auth.service.secrets.randbelow',
+                return_value=654321,
+            ):
+                first = service.request_otp(
+                    OTPRequest(phone='+77071234567'),
+                    context=context,
+                )
+            service.verify_otp(
+                OTPVerifyRequest(
+                    phone='+77071234567',
+                    code='654321',
+                    verification_id=first.verification_id,
+                ),
+                context=context,
+            )
+            self.assertEqual(
+                rate_limits.peek(
+                    'otp:verify:192.0.2.10:+77071234567',
+                    limit=settings.otp_verify_limit_per_ip_phone,
+                    window_seconds=settings.otp_verify_window_seconds,
+                ).current_count,
+                0,
+            )
+            with patch(
+                'app.modules.mobile_auth.service.secrets.randbelow',
+                return_value=123456,
+            ):
+                service.request_otp(
+                    OTPRequest(phone='+77071234567'),
+                    context=context,
+                )
+                with self.assertRaises(DomainHTTPException) as raised:
+                    service.request_otp(
+                        OTPRequest(phone='+77071234567'),
+                        context=context,
+                    )
+            self.assertEqual(raised.exception.status_code, 429)
+            self.assertGreater(int(raised.exception.headers['Retry-After']), 100)
+
+    def test_successful_verify_clears_only_verify_bucket(self) -> None:
+        self.addCleanup(reset_rate_limit_state)
+        settings = Settings(app_env='test', database_url='sqlite://')
+        rate_limits = RateLimitService(settings=settings)
+        with self.SessionLocal() as session:
+            protection = AuthProtectionService(
+                throttle_repository=AuthThrottleStateRepository(session),
+                rate_limit_service=rate_limits,
+                settings=settings,
+            )
+            context = AuthRequestContext(ip_address='192.0.2.11')
+            phone = '+77071234567'
+            rate_limits.consume(
+                f'otp:request:phone:{phone}',
+                limit=settings.otp_request_limit_per_phone,
+                window_seconds=settings.otp_request_window_seconds,
+            )
+            for _ in range(settings.otp_verify_limit_per_ip_phone - 1):
+                protection.enforce_otp_verify_limits(context=context, phone=phone)
+            protection.clear_otp_verify_limit(context=context, phone=phone)
+            protection.enforce_otp_verify_limits(context=context, phone=phone)
+            self.assertEqual(
+                rate_limits.peek(
+                    f'otp:request:phone:{phone}',
+                    limit=settings.otp_request_limit_per_phone,
+                    window_seconds=settings.otp_request_window_seconds,
+                ).current_count,
+                1,
+            )
+
+    def test_expired_otp_cannot_be_verified(self) -> None:
+        with patch(
+            'app.modules.mobile_auth.service.secrets.randbelow',
+            return_value=654321,
+        ):
+            request_response = self.client.post(
+                '/api/v1/mobile/auth/request-otp',
+                json={'phone': '+77071234567'},
+            )
+        verification_id = request_response.json()['verification_id']
+        with self.SessionLocal() as session:
+            challenge = session.get(MobileOtpChallenge, verification_id)
+            challenge.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+            session.commit()
+
+        response = self.client.post(
+            '/api/v1/mobile/auth/verify-otp',
+            json={
+                'phone': '+77071234567',
+                'code': '654321',
+                'verification_id': verification_id,
+            },
+        )
+        self.assertEqual(response.status_code, 401)
 
     def test_register_email_returns_auth_response_and_hashes_password_with_argon2id(self) -> None:
         response = self.client.post(
@@ -596,14 +821,7 @@ class MobileAuthEndpointTests(unittest.TestCase):
         )
 
     def test_verify_otp_keeps_legacy_token_fields_for_existing_mobile_client(self) -> None:
-        response = self.client.post(
-            '/api/v1/mobile/auth/verify-otp',
-            json={
-                'phone': '+77071234567',
-                'code': '1234',
-                'verification_id': 'otp_legacy_contract',
-            },
-        )
+        response = self._verify_phone()
 
         self.assertEqual(response.status_code, 200)
         body = response.json()
@@ -615,14 +833,7 @@ class MobileAuthEndpointTests(unittest.TestCase):
         self.assertTrue(body['refresh_token'])
 
     def test_current_user_returns_authenticated_mobile_user(self) -> None:
-        verify_response = self.client.post(
-            '/api/v1/mobile/auth/verify-otp',
-            json={
-                'phone': '+77071234567',
-                'code': '1234',
-                'verification_id': 'otp_current_user',
-            },
-        )
+        verify_response = self._verify_phone()
         auth_body = verify_response.json()
 
         response = self.client.get(
@@ -640,14 +851,7 @@ class MobileAuthEndpointTests(unittest.TestCase):
         )
 
     def test_mobile_me_alias_returns_same_authenticated_mobile_user(self) -> None:
-        verify_response = self.client.post(
-            '/api/v1/mobile/auth/verify-otp',
-            json={
-                'phone': '+77071234567',
-                'code': '1234',
-                'verification_id': 'otp_me_alias',
-            },
-        )
+        verify_response = self._verify_phone()
         auth_body = verify_response.json()
 
         current_user_response = self.client.get(
@@ -664,14 +868,7 @@ class MobileAuthEndpointTests(unittest.TestCase):
         self.assertEqual(me_response.json(), current_user_response.json())
 
     def test_refresh_rotates_refresh_token_and_keeps_session_valid(self) -> None:
-        verify_response = self.client.post(
-            '/api/v1/mobile/auth/verify-otp',
-            json={
-                'phone': '+77071234567',
-                'code': '1234',
-                'verification_id': 'otp_refresh',
-            },
-        )
+        verify_response = self._verify_phone()
         auth_body = verify_response.json()
 
         refresh_response = self.client.post(
@@ -704,14 +901,7 @@ class MobileAuthEndpointTests(unittest.TestCase):
         self.assertEqual(current_user_response.status_code, 200)
 
     def test_logout_revokes_current_session(self) -> None:
-        verify_response = self.client.post(
-            '/api/v1/mobile/auth/verify-otp',
-            json={
-                'phone': '+77071234567',
-                'code': '1234',
-                'verification_id': 'otp_logout',
-            },
-        )
+        verify_response = self._verify_phone()
         auth_body = verify_response.json()
 
         logout_response = self.client.post(
@@ -735,6 +925,21 @@ class MobileAuthEndpointTests(unittest.TestCase):
     @staticmethod
     def _login_headers(ip_address: str) -> dict[str, str]:
         return {'X-Forwarded-For': ip_address}
+
+    def _verify_phone(self, phone: str = '+77071234567'):
+        request_response = self.client.post(
+            '/api/v1/mobile/auth/request-otp',
+            json={'phone': phone},
+        )
+        self.assertEqual(request_response.status_code, 200)
+        return self.client.post(
+            '/api/v1/mobile/auth/verify-otp',
+            json={
+                'phone': phone,
+                'code': '123456',
+                'verification_id': request_response.json()['verification_id'],
+            },
+        )
 
     @staticmethod
     def _detail_map(details: list[dict[str, str]]) -> dict[str, str]:

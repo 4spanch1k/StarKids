@@ -232,7 +232,7 @@ class ProductionGuardTests(unittest.TestCase):
                 production_settings(storage_backend='s3', s3_bucket='')
             )
 
-    def test_production_otp_placeholder_is_unavailable(self) -> None:
+    def test_production_local_otp_is_unavailable(self) -> None:
         service = MobileAuthService(settings=production_settings())
 
         with self.assertRaises(DomainHTTPException) as request_context:
@@ -244,7 +244,7 @@ class ProductionGuardTests(unittest.TestCase):
             service.verify_otp(
                 OTPVerifyRequest(
                     phone='+77070000000',
-                    code='1234',
+                    code='123456',
                     verification_id='otp_arbitrary',
                 )
             )

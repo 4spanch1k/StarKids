@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
@@ -6,6 +7,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.database.session import get_db_session
+from app.core.rate_limit.service import reset_rate_limit_state
 from app.db.models import Base
 from app.db.models.mobile_notification import MobileNotification
 from app.db.models.mobile_notification_device import MobileNotificationDevice
@@ -47,6 +49,7 @@ class MobileNotificationDeviceRegistrationEndpointTests(unittest.TestCase):
         Base.metadata.drop_all(cls.engine)
 
     def setUp(self) -> None:
+        reset_rate_limit_state()
         with self.SessionLocal() as session:
             session.query(MobileNotification).delete()
             session.query(MobileNotificationDevice).delete()
@@ -259,12 +262,20 @@ class MobileNotificationDeviceRegistrationEndpointTests(unittest.TestCase):
         self.assertFalse(body[0]['is_read'])
 
     def _authenticate_mobile_user(self, phone: str) -> dict[str, object]:
+        with patch(
+            'app.modules.mobile_auth.service.secrets.randbelow',
+            return_value=123456,
+        ):
+            request_response = self.client.post(
+                '/api/v1/mobile/auth/request-otp',
+                json={'phone': phone},
+            )
         response = self.client.post(
             '/api/v1/mobile/auth/verify-otp',
             json={
                 'phone': phone,
-                'code': '1234',
-                'verification_id': f'otp_{phone[-4:]}',
+                'code': '123456',
+                'verification_id': request_response.json()['verification_id'],
             },
         )
         self.assertEqual(response.status_code, 200)

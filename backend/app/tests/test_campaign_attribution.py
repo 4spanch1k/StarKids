@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 from datetime import UTC, date, datetime, timedelta
 from uuid import uuid4
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
@@ -180,9 +181,21 @@ class CampaignOpenEndpointTests(unittest.TestCase):
             self.client.post(f'/api/v1/mobile/push-campaigns/{uuid4().hex}/open').status_code,
             401,
         )
+        with patch(
+            'app.modules.mobile_auth.service.secrets.randbelow',
+            return_value=123456,
+        ):
+            request_otp = self.client.post(
+                '/api/v1/mobile/auth/request-otp',
+                json={'phone': '+77071234567'},
+            )
         auth = self.client.post(
             '/api/v1/mobile/auth/verify-otp',
-            json={'phone': '+77071234567', 'code': '1234', 'verification_id': 'otp_endpoint'},
+            json={
+                'phone': '+77071234567',
+                'code': '123456',
+                'verification_id': request_otp.json()['verification_id'],
+            },
         )
         self.assertEqual(auth.status_code, 200)
         user_id = auth.json()['user']['id']

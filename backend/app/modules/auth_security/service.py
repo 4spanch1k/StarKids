@@ -201,6 +201,70 @@ class AuthProtectionService:
             self._ip_rate_limit_key(auth_scope, context.ip_address),
         )
 
+    def enforce_otp_request_limits(
+        self,
+        *,
+        context: AuthRequestContext,
+        phone: str,
+    ) -> None:
+        """Apply cheap, bounded abuse limits before issuing a new OTP."""
+        phone_status = self._rate_limit_service.consume(
+            f'otp:request:phone:{phone}',
+            limit=self._settings.otp_request_limit_per_phone,
+            window_seconds=self._settings.otp_request_window_seconds,
+            block_on_limit=True,
+        )
+        ip_status = self._rate_limit_service.consume(
+            f'otp:request:ip:{context.ip_address}',
+            limit=self._settings.otp_request_limit_per_ip,
+            window_seconds=self._settings.otp_request_window_seconds,
+            block_on_limit=True,
+        )
+        if phone_status.allowed and ip_status.allowed:
+            return
+        retry_after = max(
+            phone_status.retry_after_seconds,
+            ip_status.retry_after_seconds,
+        )
+        raise self.otp_rate_limited_exception(retry_after)
+
+    def enforce_otp_verify_limits(
+        self,
+        *,
+        context: AuthRequestContext,
+        phone: str,
+    ) -> None:
+        status_snapshot = self._rate_limit_service.consume(
+            f'otp:verify:{context.ip_address}:{phone}',
+            limit=self._settings.otp_verify_limit_per_ip_phone,
+            window_seconds=self._settings.otp_verify_window_seconds,
+            block_on_limit=True,
+        )
+        if not status_snapshot.allowed:
+            raise self.otp_rate_limited_exception(
+                status_snapshot.retry_after_seconds,
+            )
+
+    def clear_otp_verify_limit(
+        self,
+        *,
+        context: AuthRequestContext,
+        phone: str,
+    ) -> None:
+        """Reset only the brute-force verify bucket after successful proof."""
+        self._rate_limit_service.clear(f'otp:verify:{context.ip_address}:{phone}')
+
+    @staticmethod
+    def otp_rate_limited_exception(retry_after_seconds: int) -> DomainHTTPException:
+        retry_after = str(max(1, retry_after_seconds))
+        return DomainHTTPException(
+            code='otp_rate_limited',
+            message='Слишком много запросов. Попробуйте позже.',
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            details=[{'field': 'retry_after_seconds', 'message': retry_after}],
+            headers={'Retry-After': retry_after},
+        )
+
     @staticmethod
     def locked_exception(
         state: AuthThrottleState,
