@@ -228,6 +228,7 @@ class MobileAuthService:
         self,
         payload: MobileEmailRegistrationRequest,
     ) -> MobileAuthResponse:
+        self._ensure_legacy_mobile_auth_available()
         self._ensure_runtime_configuration()
         email = self._normalize_email(str(payload.email))
         self._validate_password_strength(payload.password)
@@ -260,6 +261,7 @@ class MobileAuthService:
         *,
         context: AuthRequestContext | None = None,
     ) -> MobileAuthResponse:
+        self._ensure_legacy_mobile_auth_available()
         self._ensure_runtime_configuration()
         context = context or AuthRequestContext(ip_address='unknown')
         email = self._normalize_email(str(payload.email))
@@ -330,6 +332,7 @@ class MobileAuthService:
         *,
         verifier: ClerkSessionVerifier,
     ) -> MobileAuthResponse:
+        self._ensure_legacy_mobile_auth_available()
         self._ensure_runtime_configuration()
         identity = self._verify_clerk_session(payload.session_token, verifier=verifier)
         user = self._get_or_create_user_from_clerk_identity(identity)
@@ -469,6 +472,19 @@ class MobileAuthService:
                 message='Authentication configuration is not safe for this environment.',
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             ) from exc
+
+    def _ensure_legacy_mobile_auth_available(self) -> None:
+        if self.settings.is_development or self.settings.is_test:
+            return
+        raise self.legacy_mobile_auth_disabled_exception()
+
+    @staticmethod
+    def legacy_mobile_auth_disabled_exception() -> DomainHTTPException:
+        return DomainHTTPException(
+            code='legacy_mobile_auth_disabled',
+            message='This authentication method is unavailable.',
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
 
     def _ensure_otp_available(self) -> None:
         if not self.settings.allows_mock_otp:

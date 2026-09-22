@@ -30,6 +30,7 @@ router = APIRouter()
     response_model=MobileAuthResponse,
     response_model_exclude_none=True,
     responses={
+        404: {'model': ErrorResponse},
         409: {'model': ErrorResponse},
         422: {'model': ErrorResponse},
         503: {'model': ErrorResponse},
@@ -47,6 +48,7 @@ def register(
     response_model=MobileAuthResponse,
     response_model_exclude_none=True,
     responses={
+        404: {'model': ErrorResponse},
         401: {'model': ErrorResponse},
         403: {'model': ErrorResponse},
         429: {'model': ErrorResponse},
@@ -67,6 +69,7 @@ def login(
     response_model=MobileAuthResponse,
     response_model_exclude_none=True,
     responses={
+        404: {'model': ErrorResponse},
         401: {'model': ErrorResponse},
         409: {'model': ErrorResponse},
         422: {'model': ErrorResponse},
