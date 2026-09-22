@@ -5,6 +5,7 @@ import re
 import unittest
 from unittest.mock import Mock, patch
 
+from fastapi import Request
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -34,7 +35,10 @@ from app.db.repositories.mobile_otp_challenge_repository import MobileOtpChallen
 from app.db.repositories.mobile_session_repository import MobileSessionRepository
 from app.db.repositories.mobile_user_repository import MobileUserRepository
 from app.main import app
-from app.modules.auth_security.dependencies import AuthRequestContext
+from app.modules.auth_security.dependencies import (
+    AuthRequestContext,
+    get_auth_request_context,
+)
 from app.modules.auth_security.service import AuthProtectionService
 from app.modules.mobile_auth.clerk_verifier import (
     ClerkTokenVerificationError,
@@ -114,6 +118,83 @@ class MobileAuthEndpointTests(unittest.TestCase):
         self.assertTrue(body['verification_id'].startswith('otp_'))
         self.assertEqual(body['expires_in_seconds'], 300)
         self.assertEqual(body['resend_after_seconds'], 60)
+
+    def test_otp_endpoint_ignores_forwarded_ip_from_untrusted_peer(self) -> None:
+        captured: list[str] = []
+
+        def override_context(request: Request) -> AuthRequestContext:
+            scope = dict(request.scope)
+            scope['client'] = ('198.51.100.40', 54321)
+            return get_auth_request_context(Request(scope, request.receive))
+
+        def capture_context(
+            _service: AuthProtectionService,
+            *,
+            context: AuthRequestContext,
+            phone: str,
+        ) -> None:
+            del phone
+            captured.append(context.ip_address)
+
+        app.dependency_overrides[get_auth_request_context] = override_context
+        self.addCleanup(app.dependency_overrides.pop, get_auth_request_context, None)
+        with patch.object(
+            AuthProtectionService,
+            'enforce_otp_request_limits',
+            new=capture_context,
+        ):
+            first = self.client.post(
+                '/api/v1/mobile/auth/request-otp',
+                json={'phone': '+77071234567'},
+                headers={'X-Forwarded-For': '1.2.3.4'},
+            )
+            second = self.client.post(
+                '/api/v1/mobile/auth/request-otp',
+                json={'phone': '+77071234568'},
+                headers={'X-Forwarded-For': '203.0.113.50'},
+            )
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(captured, ['198.51.100.40', '198.51.100.40'])
+
+    def test_otp_endpoint_uses_forwarded_ip_from_trusted_peer(self) -> None:
+        captured: list[str] = []
+
+        def override_context(request: Request) -> AuthRequestContext:
+            scope = dict(request.scope)
+            scope['client'] = ('127.0.0.1', 54321)
+            return get_auth_request_context(Request(scope, request.receive))
+
+        def capture_context(
+            _service: AuthProtectionService,
+            *,
+            context: AuthRequestContext,
+            phone: str,
+        ) -> None:
+            del phone
+            captured.append(context.ip_address)
+
+        app.dependency_overrides[get_auth_request_context] = override_context
+        self.addCleanup(app.dependency_overrides.pop, get_auth_request_context, None)
+        with patch(
+            'app.modules.auth_security.dependencies.get_settings',
+            return_value=Settings(
+                app_env='test', trusted_proxy_cidrs='127.0.0.1/32'
+            ),
+        ), patch.object(
+            AuthProtectionService,
+            'enforce_otp_request_limits',
+            new=capture_context,
+        ):
+            response = self.client.post(
+                '/api/v1/mobile/auth/request-otp',
+                json={'phone': '+77071234569'},
+                headers={'X-Forwarded-For': '203.0.113.50, 127.0.0.1'},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(captured, ['203.0.113.50'])
 
     def test_verify_otp_returns_auth_response_and_persists_session(self) -> None:
         request_response = self.client.post(

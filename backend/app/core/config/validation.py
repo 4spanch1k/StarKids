@@ -9,6 +9,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 
 from ..storage.backend import SUPPORTED_STORAGE_BACKENDS
+from .settings import parse_trusted_proxy_cidrs
 
 if TYPE_CHECKING:
     from .settings import Settings
@@ -75,6 +76,12 @@ def validate_runtime_configuration(settings: Settings) -> RuntimeConfigurationSt
     # explicit branches here as a defense in depth for callers that mutate a
     # Settings instance after construction.
     if settings.is_development or settings.is_test:
+        trusted_proxy_error = _trusted_proxy_configuration_error(
+            settings.trusted_proxy_cidrs,
+            required=False,
+        )
+        if trusted_proxy_error:
+            raise ProductionConfigurationError(trusted_proxy_error)
         if settings.requires_explicit_jwt_secret and _is_unsafe_jwt_secret(
             settings.jwt_secret_key
         ):
@@ -139,10 +146,35 @@ def validate_runtime_configuration(settings: Settings) -> RuntimeConfigurationSt
     redis_error = _redis_configuration_error(settings.redis_url)
     if redis_error:
         errors.append(redis_error)
+    trusted_proxy_error = _trusted_proxy_configuration_error(
+        settings.trusted_proxy_cidrs,
+        required=True,
+    )
+    if trusted_proxy_error:
+        errors.append(trusted_proxy_error)
 
     if errors:
         raise ProductionConfigurationError('; '.join(errors))
     return status
+
+
+def _trusted_proxy_configuration_error(
+    value: str | None,
+    *,
+    required: bool,
+) -> str | None:
+    raw = (value or '').strip()
+    if not raw:
+        if required:
+            return 'TRUSTED_PROXY_CIDRS is required for staging and production'
+        return None
+    try:
+        networks = parse_trusted_proxy_cidrs(raw)
+    except ValueError:
+        return 'TRUSTED_PROXY_CIDRS must contain valid IP networks'
+    if any(network.prefixlen == 0 for network in networks):
+        return 'TRUSTED_PROXY_CIDRS must not contain catch-all networks'
+    return None
 
 
 def log_runtime_configuration(status: RuntimeConfigurationStatus) -> None:

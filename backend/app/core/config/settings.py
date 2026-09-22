@@ -1,4 +1,5 @@
 from functools import lru_cache
+from ipaddress import IPv4Network, IPv6Network, ip_network
 from typing import Literal
 
 from pydantic import Field
@@ -13,6 +14,7 @@ class Settings(BaseSettings):
     app_env: Literal['development', 'test', 'staging', 'production']
     backend_host: str = '0.0.0.0'
     backend_port: int = 8000
+    trusted_proxy_cidrs: str = ''
     backend_cors_origins: str = 'http://localhost:5173'
     database_url: str = (
         'postgresql+psycopg://postgres:postgres@localhost:5432/star_kids'
@@ -138,6 +140,10 @@ class Settings(BaseSettings):
         return self.app_env
 
     @property
+    def trusted_proxy_networks(self) -> tuple[IPv4Network | IPv6Network, ...]:
+        return parse_trusted_proxy_cidrs(self.trusted_proxy_cidrs)
+
+    @property
     def is_development(self) -> bool:
         return self.normalized_app_env == 'development'
 
@@ -206,3 +212,23 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def parse_trusted_proxy_cidrs(
+    value: str | None,
+) -> tuple[IPv4Network | IPv6Network, ...]:
+    """Parse the explicit proxy allowlist without trusting arbitrary headers."""
+    raw = (value or '').strip()
+    if not raw:
+        return ()
+
+    networks: list[IPv4Network | IPv6Network] = []
+    for item in raw.split(','):
+        candidate = item.strip()
+        if not candidate:
+            raise ValueError('TRUSTED_PROXY_CIDRS contains an empty entry')
+        try:
+            networks.append(ip_network(candidate, strict=False))
+        except ValueError as exc:
+            raise ValueError('TRUSTED_PROXY_CIDRS contains an invalid network') from exc
+    return tuple(networks)
