@@ -81,6 +81,7 @@ class OnboardingController extends ChangeNotifier {
 
   Future<bool> complete({
     required String firstName,
+    String? lastName,
     required List<OnboardingChildDraft> children,
     required String privacyConsentVersion,
   }) async {
@@ -95,6 +96,7 @@ class OnboardingController extends ChangeNotifier {
     try {
       final result = await _repository.complete(
         firstName: firstName,
+        lastName: lastName,
         children: children,
         privacyConsentVersion: privacyConsentVersion,
       );

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:star_kids_mobile/app/router/app_routes.dart';
 import 'package:star_kids_mobile/core/design_system/sk_color_scheme.dart';
 import 'package:star_kids_mobile/core/design_system/sk_theme.dart';
 import 'package:star_kids_mobile/core/utils/result.dart';
@@ -18,76 +17,79 @@ import 'package:star_kids_mobile/features/onboarding/presentation/pages/onboardi
 import 'package:star_kids_mobile/features/profile/domain/user_profile.dart';
 
 void main() {
-  testWidgets('zero-child onboarding completes and navigates to Home', (
-    tester,
-  ) async {
-    final auth = MobileAuthController(repository: _UnusedAuthRepository());
+  testWidgets('welcome requires parent name', (tester) async {
+    final auth = await _authenticatedAuth('user-1');
     final onboarding = OnboardingController(
       authController: auth,
       repository: _FakeOnboardingRepository(),
     );
 
-    await auth.loginWithEmail(email: 'a@example.com', password: 'password');
-
-    await tester.pumpWidget(
-      MaterialApp(
-        routes: {
-          AppRoutes.home: (_) => const Scaffold(body: Text('Home')),
-        },
-        home: OnboardingPage(controller: onboarding),
-        builder: (context, child) => SKTheme(
-          dark: false,
-          colors: SKColorScheme.light(),
-          child: child!,
-        ),
-      ),
-    );
-
-    await tester.tap(find.text('Продолжить'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'Айжан');
-    await tester.tap(find.text('Далее'));
-    await tester.pumpAndSettle();
-    expect(find.text('Сколько у вас детей?'), findsNothing);
-    expect(find.text('Сделать позже'), findsOneWidget);
-    await tester.tap(find.text('Далее'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byType(CheckboxListTile));
-    await tester.tap(find.text('Сохранить и продолжить'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Home'), findsOneWidget);
-    expect(onboarding.status, OnboardingStatus.complete);
-  });
-
-  testWidgets('parent name remains required while children stay optional', (
-    tester,
-  ) async {
-    final auth = MobileAuthController(repository: _UnusedAuthRepository());
-    final onboarding = OnboardingController(
-      authController: auth,
-      repository: _FakeOnboardingRepository(),
-    );
-    await auth.loginWithEmail(email: 'b@example.com', password: 'password');
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: OnboardingPage(controller: onboarding),
-        builder: (context, child) => SKTheme(
-          dark: false,
-          colors: SKColorScheme.light(),
-          child: child!,
-        ),
-      ),
-    );
-
+    await tester.pumpWidget(_testApp(OnboardingPage(controller: onboarding)));
     await tester.tap(find.text('Продолжить'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Далее'));
     await tester.pump();
+
     expect(find.text('Введите ваше имя.'), findsOneWidget);
-    expect(find.text('Как вас зовут?'), findsOneWidget);
+    expect(find.text('Фамилия (необязательно)'), findsOneWidget);
   });
+
+  testWidgets('child count creates required sequential child steps', (
+    tester,
+  ) async {
+    final auth = await _authenticatedAuth('user-2');
+    final onboarding = OnboardingController(
+      authController: auth,
+      repository: _FakeOnboardingRepository(),
+    );
+
+    await tester.pumpWidget(_testApp(OnboardingPage(controller: onboarding)));
+    await tester.tap(find.text('Продолжить'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Айжан');
+    await tester.tap(find.text('Далее'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Сколько у вас детей?'), findsOneWidget);
+    expect(find.text('Сделать позже'), findsNothing);
+    await tester.tap(find.byTooltip('Увеличить количество детей'));
+    await tester.pump();
+    expect(find.text('2'), findsOneWidget);
+
+    await tester.tap(find.text('Далее'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ребёнок 1 из 2'), findsOneWidget);
+    expect(find.text('Не указывать'), findsOneWidget);
+
+    await tester.tap(find.text('Далее'));
+    await tester.pump();
+    expect(find.text('Введите имя ребёнка.'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).first, 'Ая');
+    await tester.tap(find.text('Далее'));
+    await tester.pump();
+    expect(find.text('Укажите дату рождения.'), findsOneWidget);
+  });
+}
+
+Widget _testApp(Widget child) {
+  return MaterialApp(
+    home: child,
+    builder: (context, child) => SKTheme(
+      dark: false,
+      colors: SKColorScheme.light(),
+      child: child!,
+    ),
+  );
+}
+
+Future<MobileAuthController> _authenticatedAuth(String userId) async {
+  final auth = MobileAuthController(repository: _UnusedAuthRepository());
+  await auth.loginWithEmail(
+    email: '$userId@example.com',
+    password: 'password',
+  );
+  return auth;
 }
 
 class _FakeOnboardingRepository implements OnboardingRepository {
@@ -99,6 +101,7 @@ class _FakeOnboardingRepository implements OnboardingRepository {
   @override
   Future<Result<OnboardingCompletion>> complete({
     required String firstName,
+    String? lastName,
     required List<OnboardingChildDraft> children,
     required String privacyConsentVersion,
   }) async {
@@ -107,9 +110,18 @@ class _FakeOnboardingRepository implements OnboardingRepository {
         profile: UserProfile(
           id: 'user-1',
           firstName: firstName,
+          lastName: lastName,
           onboardingCompleted: true,
         ),
-        children: const <Child>[],
+        children: [
+          for (var index = 0; index < children.length; index++)
+            Child(
+              id: 'child-$index',
+              name: children[index].name,
+              birthDate: children[index].birthDate,
+              gender: children[index].gender,
+            ),
+        ],
       ),
     );
   }
@@ -151,13 +163,10 @@ class _UnusedAuthRepository implements MobileAuthRepository {
   }) async =>
       Success(
         MobileAuthSession(
-          user: const MobileAuthUser(
-            id: 'user-1',
-            email: 'a@example.com',
-          ),
-          email: 'a@example.com',
-          accessToken: 'access-user-1',
-          refreshToken: 'refresh-user-1',
+          user: MobileAuthUser(id: email.split('@').first, email: email),
+          email: email,
+          accessToken: 'access-token',
+          refreshToken: 'refresh-token',
           tokenType: 'bearer',
           verifiedAt: DateTime.utc(2026, 1, 1),
         ),

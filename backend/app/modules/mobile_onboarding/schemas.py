@@ -40,7 +40,8 @@ class OnboardingChildInput(BaseModel):
 
 class OnboardingCompleteRequest(BaseModel):
     firstName: str = Field(min_length=1, max_length=50)
-    children: list[OnboardingChildInput] = Field(default_factory=list, max_length=20)
+    lastName: str | None = Field(default=None, max_length=50)
+    children: list[OnboardingChildInput] = Field(min_length=1, max_length=20)
     privacyConsentAccepted: bool
     privacyConsentVersion: str = Field(min_length=1, max_length=64)
 
@@ -51,6 +52,16 @@ class OnboardingCompleteRequest(BaseModel):
         if not value:
             raise ValueError('Parent name must not be empty.')
         return value
+
+    @field_validator('lastName', mode='before')
+    @classmethod
+    def validate_last_name(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise ValueError('Last name must be a string.')
+        value = value.strip()
+        return value or None
 
 
 class OnboardingCompleteResponse(BaseModel):
