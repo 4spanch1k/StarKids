@@ -16,9 +16,20 @@ export type RedemptionOutcome =
   | 'expired'
   | 'exhausted'
   | 'cancelled'
-  | 'pass_not_found';
+  | 'pass_not_found'
+  | 'customer_not_found'
+  | 'customer_inactive';
 
 export type AdmissionKind = 'ticket' | 'pass';
+
+export type CustomerIdentificationResponse = {
+  outcome: 'identified';
+  customerId: string;
+  displayName: string;
+  phoneMasked: string | null;
+  bonusBalance: number;
+  branchId: string;
+};
 
 export type AdmissionResponse = {
   kind: AdmissionKind;
@@ -110,6 +121,23 @@ export async function redeemAdmission({
   );
 }
 
+export async function identifyCustomer({
+  qrPayload,
+  branchId,
+}: {
+  qrPayload: string;
+  branchId: string;
+}): Promise<CustomerIdentificationResponse> {
+  return executeAuthorizedAdminRequest((accessToken) =>
+    httpClient<CustomerIdentificationResponse>({
+      path: '/admin/admission/identify-customer',
+      method: 'POST',
+      headers: buildAdminAuthHeaders(accessToken),
+      body: JSON.stringify({ qrPayload, branchId }),
+    }),
+  );
+}
+
 export async function lookupTickets(query: string): Promise<TicketLookupOrder[]> {
   const response = await executeAuthorizedAdminRequest((accessToken) =>
     httpClient<{ items: TicketLookupOrder[] }>({
@@ -169,6 +197,8 @@ const REDEMPTION_OUTCOMES = new Set<RedemptionOutcome>([
   'exhausted',
   'cancelled',
   'pass_not_found',
+  'customer_not_found',
+  'customer_inactive',
 ]);
 
 function isRedemptionOutcome(value: string): value is RedemptionOutcome {

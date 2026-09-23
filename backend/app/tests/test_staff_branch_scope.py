@@ -18,6 +18,7 @@ from app.db.models.branch import Branch
 from app.db.models.issued_ticket import IssuedTicket
 from app.db.models.mobile_payment import MobilePayment
 from app.db.models.mobile_user import MobileUser
+from app.db.models.loyalty_account import LoyaltyAccount
 from app.db.models.ticket_redemption import TicketRedemption
 from app.db.models.visit import Visit
 from app.main import app
@@ -71,6 +72,7 @@ class StaffBranchScopeTests(unittest.TestCase):
                 MobilePayment,
                 AdminSession,
                 AuthThrottleState,
+                LoyaltyAccount,
                 AdminUser,
                 MobileUser,
                 Branch,
@@ -85,6 +87,14 @@ class StaffBranchScopeTests(unittest.TestCase):
                 email='parent@example.com',
                 password_hash=hash_password('StrongPass123!'),
                 is_active=True,
+            )
+            loyalty_account = LoyaltyAccount(
+                id='loyalty-mobile-user',
+                mobile_user_id=mobile_user.id,
+                balance=1250,
+                reserved_balance=0,
+                lifetime_earned=1250,
+                lifetime_spent=0,
             )
             super_admin = self._admin('admin-super', 'super@example.com', 'super_admin')
             operator = self._admin(
@@ -102,6 +112,7 @@ class StaffBranchScopeTests(unittest.TestCase):
                     branch_a,
                     branch_b,
                     mobile_user,
+                    loyalty_account,
                     super_admin,
                     operator,
                     payment_a,
@@ -183,6 +194,44 @@ class StaffBranchScopeTests(unittest.TestCase):
 
     def _qr(self, ticket_id: str) -> str:
         return TicketQrService(self.secret).build_payload(ticket_id)
+
+    def _customer_qr(self) -> str:
+        from app.modules.mobile_profile.customer_qr_service import CustomerQrService
+
+        return CustomerQrService(self.secret).build_payload('mobile-user')[0]
+
+    def test_operator_can_identify_customer_without_admission_side_effects(self) -> None:
+        response = self.client.post(
+            '/api/v1/admin/admission/identify-customer',
+            headers=self._headers('operator@example.com'),
+            json={'qrPayload': self._customer_qr(), 'branchId': 'branch-a'},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()['outcome'], 'identified')
+        self.assertEqual(response.json()['bonusBalance'], 1250)
+        self.assertEqual(response.json()['phoneMasked'], '+7 *** *** 00 01')
+        with self.SessionLocal() as session:
+            self.assertEqual(session.query(TicketRedemption).count(), 0)
+            self.assertEqual(session.query(Visit).count(), 0)
+            self.assertEqual(session.get(LoyaltyAccount, 'loyalty-mobile-user').balance, 1250)
+
+    def test_customer_qr_cannot_enter_admission_redeem_path(self) -> None:
+        response = self.client.post(
+            '/api/v1/admin/admission/redeem',
+            headers=self._headers('operator@example.com'),
+            json={'qrPayload': self._customer_qr(), 'branchId': 'branch-a'},
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()['error']['code'], 'invalid_qr')
+
+    def test_customer_identification_requires_operator_branch_scope(self) -> None:
+        response = self.client.post(
+            '/api/v1/admin/admission/identify-customer',
+            headers=self._headers('operator@example.com'),
+            json={'qrPayload': self._customer_qr(), 'branchId': 'branch-b'},
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()['error']['code'], 'branch_access_denied')
 
     def test_operator_can_redeem_ticket_in_assigned_branch(self) -> None:
         response = self.client.post(

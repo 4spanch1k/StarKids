@@ -3,20 +3,50 @@ from fastapi import APIRouter, Depends, Query
 from ...core.exceptions.schemas import ErrorResponse
 from ..admin_auth.dependencies import require_admin_roles
 from ..admin_auth.schemas import AdminCurrentUserResponse
-from .dependencies import get_ticket_redemption_service
+from .dependencies import (
+    get_customer_identification_service,
+    get_ticket_redemption_service,
+)
 from ..passes.dependencies import get_pass_service
 from ..passes.schemas import GenericAdmissionRequest, GenericAdmissionResponse, AdminManualPassRedeemRequest
 from ..passes.service import PassService
 from .schemas import (
+    AdminCustomerIdentificationRequest,
+    AdminCustomerIdentificationResponse,
     AdminTicketLookupResponse,
     AdminTicketRedeemRequest,
     AdminManualTicketRedeemRequest,
     AdminTicketRedemptionResponse,
 )
 from .service import TicketRedemptionService
+from .customer_identification_service import CustomerIdentificationService
 
 
 router = APIRouter()
+
+
+@router.post(
+    '/admission/identify-customer',
+    response_model=AdminCustomerIdentificationResponse,
+    responses={
+        400: {'model': ErrorResponse},
+        401: {'model': ErrorResponse},
+        403: {'model': ErrorResponse},
+        404: {'model': ErrorResponse},
+    },
+)
+def identify_customer(
+    payload: AdminCustomerIdentificationRequest,
+    current_admin_user: AdminCurrentUserResponse = Depends(
+        require_admin_roles('super_admin', 'operator')
+    ),
+    service: CustomerIdentificationService = Depends(get_customer_identification_service),
+) -> AdminCustomerIdentificationResponse:
+    return service.identify(
+        qr_payload=payload.qrPayload,
+        branch_id=payload.branchId,
+        admin_user=current_admin_user,
+    )
 
 
 @router.post(

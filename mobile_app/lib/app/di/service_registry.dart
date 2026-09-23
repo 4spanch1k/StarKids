@@ -47,7 +47,9 @@ import '../../features/loyalty/presentation/controllers/loyalty_controller.dart'
 import '../../features/promotions/data/api_promotion_repository.dart';
 import '../../features/promotions/domain/promotion_repository.dart';
 import '../../features/profile/data/api_profile_repository.dart';
+import '../../features/profile/data/api_customer_qr_repository.dart';
 import '../../features/profile/domain/profile_repository.dart';
+import '../../features/profile/domain/customer_qr_repository.dart';
 import '../../features/profile/presentation/controllers/profile_controller.dart';
 import '../../features/passes/data/api_pass_repository.dart';
 import '../../features/passes/domain/pass_repository.dart';
@@ -73,14 +75,15 @@ typedef PaymentUrlLauncher = Future<bool> Function(String url);
 abstract final class ServiceRegistry {
   static final apiClient = ApiClient(baseUrl: AppEnvironment.apiBaseUrl);
   static final localStorage = LocalStorage();
-  static final appSettingsController =
-      AppSettingsController(localStorage: localStorage);
+  static final appSettingsController = AppSettingsController(
+    localStorage: localStorage,
+  );
   static final mobileAuthSessionStorage = MobileAuthSessionStorage();
   static final MobileAuthRepository mobileAuthRepository =
       ApiMobileAuthRepository(
-    apiClient: apiClient,
-    sessionStorage: mobileAuthSessionStorage,
-  );
+        apiClient: apiClient,
+        sessionStorage: mobileAuthSessionStorage,
+      );
   static final MobileAuthController mobileAuthController = MobileAuthController(
     repository: mobileAuthRepository,
   );
@@ -108,27 +111,27 @@ abstract final class ServiceRegistry {
       ApiTicketConfigRepository(apiClient: apiClient);
   static TicketPurchaseRepository ticketPurchaseRepository =
       ApiTicketPurchaseRepository(
-    apiClient: apiClient,
-    sessionStorage: mobileAuthSessionStorage,
-  );
+        apiClient: apiClient,
+        sessionStorage: mobileAuthSessionStorage,
+      );
   static final paymentReturnCoordinator = PaymentReturnCoordinator(
     purchaseRepository: ticketPurchaseRepository,
     localStorage: localStorage,
   );
   static IssuedTicketRepository issuedTicketRepository =
       ApiIssuedTicketRepository(
-    apiClient: apiClient,
-    sessionStorage: mobileAuthSessionStorage,
-  );
+        apiClient: apiClient,
+        sessionStorage: mobileAuthSessionStorage,
+      );
   static final PassRepository passRepository = ApiPassRepository(
     apiClient: apiClient,
     sessionStorage: mobileAuthSessionStorage,
   );
   static CurrentVisitRepository currentVisitRepository =
       ApiCurrentVisitRepository(
-    apiClient: apiClient,
-    sessionStorage: mobileAuthSessionStorage,
-  );
+        apiClient: apiClient,
+        sessionStorage: mobileAuthSessionStorage,
+      );
   static PaymentUrlLauncher paymentUrlLauncher = ExternalLinkService.openUrl;
   static final ContactLinksRepository contactLinksRepository =
       ApiContactLinksRepository(apiClient: apiClient);
@@ -137,20 +140,21 @@ abstract final class ServiceRegistry {
       PermissionHandlerNotificationPermissionGateway();
   static final NotificationSettingsRepository notificationSettingsRepository =
       DeviceNotificationSettingsRepository(
-    storage: notificationPermissionStorage,
-    permissionGateway: notificationPermissionGateway,
-  );
+        storage: notificationPermissionStorage,
+        permissionGateway: notificationPermissionGateway,
+      );
   static final mobileNotificationsController = MobileNotificationsController(
     repository: notificationSettingsRepository,
   );
   static final FcmTokenGateway fcmTokenGateway = FirebaseFcmTokenGateway();
-  static final PushTokenRepository pushTokenRepository =
-      ApiPushTokenRepository(apiClient: apiClient);
+  static final PushTokenRepository pushTokenRepository = ApiPushTokenRepository(
+    apiClient: apiClient,
+  );
   static final ApiCampaignOpenTracker campaignOpenTracker =
       ApiCampaignOpenTracker(
-    apiClient: apiClient,
-    sessionStorage: mobileAuthSessionStorage,
-  );
+        apiClient: apiClient,
+        sessionStorage: mobileAuthSessionStorage,
+      );
   static final pushTokenController = PushTokenController(
     authController: mobileAuthController,
     notificationSettingsRepository: notificationSettingsRepository,
@@ -167,25 +171,31 @@ abstract final class ServiceRegistry {
       ApiPublicContentRepository(apiClient: apiClient);
   static final RequestHistoryRepository requestHistoryRepository =
       ApiRequestHistoryRepository(
-    apiClient: apiClient,
-    sessionStorage: mobileAuthSessionStorage,
-    authRepository: mobileAuthRepository,
-  );
+        apiClient: apiClient,
+        sessionStorage: mobileAuthSessionStorage,
+        authRepository: mobileAuthRepository,
+      );
   static final ProfileRepository profileRepository = ApiProfileRepository(
     apiClient: apiClient,
     sessionStorage: mobileAuthSessionStorage,
     authRepository: mobileAuthRepository,
   );
+  static final CustomerQrRepository customerQrRepository =
+      ApiCustomerQrRepository(
+        apiClient: apiClient,
+        sessionStorage: mobileAuthSessionStorage,
+        authRepository: mobileAuthRepository,
+      );
   static final profileController = ProfileController(
     profileRepository: profileRepository,
     requestHistoryRepository: requestHistoryRepository,
   );
   static final OnboardingRepository onboardingRepository =
       ApiOnboardingRepository(
-    apiClient: apiClient,
-    sessionStorage: mobileAuthSessionStorage,
-    authRepository: mobileAuthRepository,
-  );
+        apiClient: apiClient,
+        sessionStorage: mobileAuthSessionStorage,
+        authRepository: mobileAuthRepository,
+      );
   static final onboardingController = OnboardingController(
     authController: mobileAuthController,
     repository: onboardingRepository,
@@ -194,7 +204,9 @@ abstract final class ServiceRegistry {
     apiClient: apiClient,
     sessionStorage: mobileAuthSessionStorage,
   );
-  static final loyaltyController = LoyaltyController(repository: loyaltyRepository);
+  static final loyaltyController = LoyaltyController(
+    repository: loyaltyRepository,
+  );
   static final ChildrenRepository childrenRepository = ApiChildrenRepository(
     apiClient: apiClient,
     sessionStorage: mobileAuthSessionStorage,
@@ -205,16 +217,16 @@ abstract final class ServiceRegistry {
   );
   static final ContactRequestRepository contactRequestRepository =
       ApiContactRequestRepository(
-    apiClient: apiClient,
-    sessionStorage: mobileAuthSessionStorage,
-  );
+        apiClient: apiClient,
+        sessionStorage: mobileAuthSessionStorage,
+      );
   static final birthdayRequestRepository =
       AppEnvironment.useMockBirthdayRequests
-          ? MockBirthdayRequestRepository()
-          : ApiBirthdayRequestRepository(
-              apiClient: apiClient,
-              sessionStorage: mobileAuthSessionStorage,
-            );
+      ? MockBirthdayRequestRepository()
+      : ApiBirthdayRequestRepository(
+          apiClient: apiClient,
+          sessionStorage: mobileAuthSessionStorage,
+        );
 
   static Future<void> bootstrap() async {
     debugPrint('[BOOT] ServiceRegistry init started');
@@ -226,10 +238,7 @@ abstract final class ServiceRegistry {
       '[BOOT] app settings load',
       appSettingsController.load,
     );
-    await _runStartupStep(
-      '[AUTH] bootstrap',
-      mobileAuthController.bootstrap,
-    );
+    await _runStartupStep('[AUTH] bootstrap', mobileAuthController.bootstrap);
     debugPrint('[BOOT] ServiceRegistry init completed');
     unawaited(_bootstrapNonCriticalServices());
   }

@@ -11,6 +11,7 @@ import '../../features/news/presentation/pages/news_details_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/onboarding/presentation/pages/onboarding_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
+import '../../features/profile/presentation/pages/customer_qr_page.dart';
 import '../../features/promotions/presentation/pages/promotions_page.dart';
 import '../../features/promotions/presentation/models/promotion_detail_page_args.dart';
 import '../../features/promotions/presentation/pages/promotion_detail_page.dart';
@@ -94,6 +95,8 @@ abstract final class AppRouter {
         return _page(const ProfilePage(), settings);
       case AppRoutes.myRequests:
         return _page(const RequestHistoryPage(), settings);
+      case AppRoutes.customerQr:
+        return _page(const CustomerQrPage(), settings);
       default:
         return _page(const HomePage(), settings);
     }

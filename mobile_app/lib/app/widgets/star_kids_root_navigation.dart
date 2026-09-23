@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../../core/design_system/widgets/glass_bottom_nav.dart';
 import '../router/app_routes.dart';
+import 'star_kids_quick_actions_sheet.dart';
 
-/// Persistent navigation shared by the five authenticated root destinations.
+/// Persistent navigation shared by the authenticated root destinations.
 class StarKidsRootNavigation extends StatefulWidget {
   const StarKidsRootNavigation({super.key, required this.current});
 
@@ -23,12 +24,13 @@ class _StarKidsRootNavigationState extends State<StarKidsRootNavigation> {
       icon: Icons.confirmation_num_rounded,
       label: 'Билеты',
     ),
-    GlassNavItem(id: 'birthdays', icon: Icons.cake_rounded, label: 'Праздники'),
     GlassNavItem(
-      id: 'promotions',
-      icon: Icons.local_offer_rounded,
-      label: 'Акции',
+      id: 'actions',
+      icon: Icons.qr_code_rounded,
+      label: 'QR',
+      prominent: true,
     ),
+    GlassNavItem(id: 'birthdays', icon: Icons.cake_rounded, label: 'Праздники'),
     GlassNavItem(id: 'profile', icon: Icons.person_rounded, label: 'Профиль'),
   ];
 
@@ -45,6 +47,10 @@ class _StarKidsRootNavigationState extends State<StarKidsRootNavigation> {
 
   Future<void> _open(BuildContext context, String id) async {
     if (id == widget.current || _isNavigating) return;
+    if (id == 'actions') {
+      await showStarKidsQuickActionsSheet(context);
+      return;
+    }
     setState(() => _isNavigating = true);
     try {
       if (id == 'tickets') {
@@ -57,7 +63,6 @@ class _StarKidsRootNavigationState extends State<StarKidsRootNavigation> {
       final route = switch (id) {
         'home' => AppRoutes.home,
         'birthdays' => AppRoutes.birthdays,
-        'promotions' => AppRoutes.promotions,
         'profile' => AppRoutes.profile,
         _ => null,
       };

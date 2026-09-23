@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../app/widgets/star_kids_root_navigation.dart';
 import '../../../../core/design_system/sk_design_tokens.dart';
 import '../../../../core/design_system/sk_theme.dart';
 import '../../../../core/design_system/widgets/glass_app_bar.dart';
@@ -34,11 +33,12 @@ class PromotionsPage extends StatelessWidget {
         return Scaffold(
           extendBody: true,
           appBar: GlassAppBar(
-            leading: const SizedBox(width: 44),
-            title: Text(
-              'Акции',
-              style: Theme.of(context).textTheme.titleLarge,
+            leading: GlassIconButton(
+              icon: Icons.arrow_back_rounded,
+              tooltip: 'Назад',
+              onPressed: () => Navigator.of(context).maybePop(),
             ),
+            title: Text('Акции', style: Theme.of(context).textTheme.titleLarge),
             trailing: GlassIconButton(
               icon: Icons.swap_horiz_rounded,
               tooltip: 'Сменить филиал',
@@ -46,8 +46,6 @@ class PromotionsPage extends StatelessWidget {
                   Navigator.of(context).pushNamed(AppRoutes.branchSelection),
             ),
           ),
-          bottomNavigationBar:
-              const StarKidsRootNavigation(current: 'promotions'),
           body: Stack(
             children: [
               StableFutureBuilder<_PromotionsScreenData>(
@@ -79,7 +77,8 @@ class PromotionsPage extends StatelessWidget {
                     );
                   }
 
-                  final data = snapshot.data ??
+                  final data =
+                      snapshot.data ??
                       _PromotionsScreenData(
                         branch: branch,
                         promotions: <PromotionOffer>[],
@@ -122,42 +121,41 @@ class PromotionsPage extends StatelessWidget {
                         ),
                         const SizedBox(height: SKSpacing.x4),
                         ...promotions.asMap().entries.map(
-                              (entry) => Padding(
-                                padding: const EdgeInsets.only(
-                                  bottom: SKSpacing.x4,
-                                ),
-                                child: StarKidsPromoCard(
-                                  revealDelay: starKidsStaggerDelay(entry.key),
-                                  title: entry.value.title,
-                                  description: entry.value.description,
-                                  imagePath: entry.value.imagePath,
-                                  badgeLabel: entry.value.badgeLabel,
-                                  actionLabel: entry.value.ctaLabel,
-                                  onTap: () => Navigator.of(context).pushNamed(
-                                    AppRoutes.requests,
-                                    arguments: const RequestPageArgs(
-                                      initialType: RequestType.birthdayRequest,
-                                    ),
-                                  ),
+                          (entry) => Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: SKSpacing.x4,
+                            ),
+                            child: StarKidsPromoCard(
+                              revealDelay: starKidsStaggerDelay(entry.key),
+                              title: entry.value.title,
+                              description: entry.value.description,
+                              imagePath: entry.value.imagePath,
+                              badgeLabel: entry.value.badgeLabel,
+                              actionLabel: entry.value.ctaLabel,
+                              onTap: () => Navigator.of(context).pushNamed(
+                                AppRoutes.requests,
+                                arguments: const RequestPageArgs(
+                                  initialType: RequestType.birthdayRequest,
                                 ),
                               ),
                             ),
+                          ),
+                        ),
                         const SizedBox(height: SKSpacing.x4),
                         if (data.contentBlocks.isNotEmpty)
                           ...data.contentBlocks.asMap().entries.map(
-                                (entry) => Padding(
-                                  padding: const EdgeInsets.only(
-                                    bottom: SKSpacing.x3,
-                                  ),
-                                  child: StarKidsContentBlockCard(
-                                    revealDelay:
-                                        starKidsStaggerDelay(entry.key),
-                                    title: entry.value.title,
-                                    body: entry.value.body,
-                                    label: entry.value.ctaLabel,
-                                  ),
-                                ),
-                              )
+                            (entry) => Padding(
+                              padding: const EdgeInsets.only(
+                                bottom: SKSpacing.x3,
+                              ),
+                              child: StarKidsContentBlockCard(
+                                revealDelay: starKidsStaggerDelay(entry.key),
+                                title: entry.value.title,
+                                body: entry.value.body,
+                                label: entry.value.ctaLabel,
+                              ),
+                            ),
+                          )
                         else
                           SolidCard(
                             padding: const EdgeInsets.all(SKSpacing.x4),
@@ -212,10 +210,11 @@ class PromotionsPage extends StatelessWidget {
   }
 
   Future<_PromotionsScreenData> _loadScreenData(String branchId) async {
-    final branchFuture =
-        ServiceRegistry.branchRepository.getBranch(branchId).catchError(
-              (_) => ServiceRegistry.selectedBranchController.selectedBranch,
-            );
+    final branchFuture = ServiceRegistry.branchRepository
+        .getBranch(branchId)
+        .catchError(
+          (_) => ServiceRegistry.selectedBranchController.selectedBranch,
+        );
     final promotionsFuture = ServiceRegistry.promotionRepository
         .listPromotions(branchId)
         .catchError((_) => const <PromotionOffer>[]);
@@ -276,16 +275,16 @@ class _PromotionsHero extends StatelessWidget {
                   Text(
                     branch.shortLabel,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.84),
-                        ),
+                      color: Colors.white.withValues(alpha: 0.84),
+                    ),
                   ),
                   const SizedBox(height: SKSpacing.x1),
                   Text(
                     'Предложения для вашего визита',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ],
               ),
