@@ -32,9 +32,9 @@ class MobileAuthController extends ChangeNotifier {
     required MobileAuthRepository repository,
     Duration restoreTimeout = const Duration(seconds: 2),
     Duration syncTimeout = const Duration(seconds: 8),
-  }) : _repository = repository,
-       _restoreTimeout = restoreTimeout,
-       _syncTimeout = syncTimeout;
+  })  : _repository = repository,
+        _restoreTimeout = restoreTimeout,
+        _syncTimeout = syncTimeout;
 
   final MobileAuthRepository _repository;
   final Duration _restoreTimeout;
@@ -47,6 +47,7 @@ class MobileAuthController extends ChangeNotifier {
   String? _errorMessage;
   bool _isRefreshingProfile = false;
   bool _isLoggingOut = false;
+  int _authOperationGeneration = 0;
 
   MobileAuthStatus get status => _status;
 
@@ -159,6 +160,7 @@ class MobileAuthController extends ChangeNotifier {
   }
 
   Future<void> bootstrap() async {
+    final operationGeneration = ++_authOperationGeneration;
     debugPrint('[AUTH] bootstrap started');
     _status = MobileAuthStatus.loading;
     _isRefreshingProfile = false;
@@ -168,11 +170,19 @@ class MobileAuthController extends ChangeNotifier {
     try {
       debugPrint('[AUTH] session storage read started');
       final restoredSession = await _repository.restoreSession().timeout(
-        _restoreTimeout,
-      );
+            _restoreTimeout,
+          );
       debugPrint(
         '[AUTH] session storage result: hasSession=${restoredSession != null}',
       );
+
+      // A login/request started while storage was being read owns the newer
+      // auth state. Never let this stale bootstrap overwrite it.
+      if (operationGeneration != _authOperationGeneration) {
+        debugPrint('[AUTH] bootstrap result ignored: auth state superseded');
+        return;
+      }
+
       _pendingChallenge = null;
       _errorMessage = null;
 
@@ -190,9 +200,13 @@ class MobileAuthController extends ChangeNotifier {
       _status = MobileAuthStatus.authenticated;
       debugPrint('[AUTH] local session restored; state -> authenticated');
       notifyListeners();
-      unawaited(_softSyncSession(restoredSession));
+      unawaited(_softSyncSession(restoredSession, operationGeneration));
     } catch (error) {
       debugPrint('[AUTH] bootstrap failed: $error');
+      if (operationGeneration != _authOperationGeneration) {
+        debugPrint('[AUTH] bootstrap failure ignored: auth state superseded');
+        return;
+      }
       // A storage read failure is not proof that credentials are invalid.
       // Keep the safe unauthenticated state and let the user retry/login;
       // never erase persisted credentials on an infrastructure error.
@@ -202,22 +216,30 @@ class MobileAuthController extends ChangeNotifier {
       _status = MobileAuthStatus.unauthenticated;
       debugPrint('[AUTH] state -> unauthenticated');
     } finally {
-      _isRefreshingProfile = false;
-      _isLoggingOut = false;
-      debugPrint('[AUTH] bootstrap finished');
-      notifyListeners();
+      if (operationGeneration == _authOperationGeneration) {
+        _isRefreshingProfile = false;
+        _isLoggingOut = false;
+        debugPrint('[AUTH] bootstrap finished');
+        notifyListeners();
+      } else {
+        debugPrint('[AUTH] bootstrap finish ignored: auth state superseded');
+      }
     }
   }
 
-  Future<void> _softSyncSession(MobileAuthSession restoredSession) async {
+  Future<void> _softSyncSession(
+    MobileAuthSession restoredSession,
+    int operationGeneration,
+  ) async {
     debugPrint('[AUTH] background current-user sync started');
     try {
-      final syncResult = await _repository
-          .syncSession(restoredSession)
-          .timeout(_syncTimeout);
+      final syncResult =
+          await _repository.syncSession(restoredSession).timeout(_syncTimeout);
 
       // A logout or a fresh login supersedes this background request.
-      if (_session?.accessToken != restoredSession.accessToken) {
+      if (operationGeneration != _authOperationGeneration ||
+          _session?.accessToken != restoredSession.accessToken) {
+        debugPrint('[AUTH] background sync ignored: session superseded');
         return;
       }
 
@@ -253,6 +275,7 @@ class MobileAuthController extends ChangeNotifier {
   }
 
   Future<void> requestOtp(String rawPhone) async {
+    final operationGeneration = ++_authOperationGeneration;
     final validationMessage = validatePhoneInput(rawPhone);
     if (validationMessage != null) {
       _errorMessage = validationMessage;
@@ -269,6 +292,10 @@ class MobileAuthController extends ChangeNotifier {
     notifyListeners();
 
     final result = await _repository.requestOtp(phone);
+
+    if (operationGeneration != _authOperationGeneration) {
+      return;
+    }
 
     if (result is Success<OtpChallenge>) {
       _pendingChallenge = result.data;
@@ -302,6 +329,7 @@ class MobileAuthController extends ChangeNotifier {
     }
 
     _errorMessage = null;
+    final operationGeneration = ++_authOperationGeneration;
     _status = MobileAuthStatus.verifying;
     _isRefreshingProfile = false;
     _isLoggingOut = false;
@@ -312,6 +340,10 @@ class MobileAuthController extends ChangeNotifier {
       code: code,
       verificationId: challenge.verificationId,
     );
+
+    if (operationGeneration != _authOperationGeneration) {
+      return;
+    }
 
     if (result is Success<MobileAuthSession>) {
       _session = result.data;
@@ -341,11 +373,17 @@ class MobileAuthController extends ChangeNotifier {
       return;
     }
 
+    final operationGeneration = ++_authOperationGeneration;
+
     _errorMessage = null;
     _isRefreshingProfile = true;
     notifyListeners();
 
     final result = await _repository.syncSession(session);
+
+    if (operationGeneration != _authOperationGeneration) {
+      return;
+    }
 
     if (result is Success<MobileAuthSession?>) {
       _session = result.data;
@@ -455,8 +493,8 @@ class MobileAuthController extends ChangeNotifier {
     _status = _session != null
         ? MobileAuthStatus.authenticated
         : _pendingChallenge != null
-        ? MobileAuthStatus.otpRequested
-        : MobileAuthStatus.unauthenticated;
+            ? MobileAuthStatus.otpRequested
+            : MobileAuthStatus.unauthenticated;
     notifyListeners();
   }
 

@@ -126,6 +126,37 @@ void main() {
       expect(controller.session, isNull);
     });
 
+    test(
+      'stale bootstrap cannot clear a session created by a later otp login',
+      () async {
+        final restore = Completer<MobileAuthSession?>();
+        final repository = _FakeMobileAuthRepository(
+          restoreSessionFuture: restore.future,
+        );
+        final controller = MobileAuthController(repository: repository);
+
+        final bootstrap = controller.bootstrap();
+        await Future<void>.delayed(Duration.zero);
+
+        await controller.requestOtp('+7 707 123 45 67');
+        await controller.verifyOtp('123456');
+
+        expect(controller.status, MobileAuthStatus.authenticated);
+        expect(controller.session, isNotNull);
+        expect(controller.pendingChallenge, isNull);
+
+        // This is the stale read from before the OTP login. The old
+        // implementation applied null here and returned the app to the phone
+        // gate after a successful verification.
+        restore.complete(null);
+        await bootstrap;
+
+        expect(controller.status, MobileAuthStatus.authenticated);
+        expect(controller.session, isNotNull);
+        expect(controller.session?.accessToken, 'access-token');
+      },
+    );
+
     test('bootstrap keeps restored session when sync throws', () async {
       final repository = _FakeMobileAuthRepository(
         restoredSession: MobileAuthSession(
@@ -405,6 +436,7 @@ class _FakeMobileAuthRepository implements MobileAuthRepository {
     Object? restoreSessionError,
     Object? syncSessionError,
     Future<Result<MobileAuthSession?>>? syncSessionFuture,
+    Future<MobileAuthSession?>? restoreSessionFuture,
   })  : _syncSessionResult = syncSessionResult ??
             (restoredSession == null
                 ? const Success<MobileAuthSession?>(null)
@@ -416,7 +448,8 @@ class _FakeMobileAuthRepository implements MobileAuthRepository {
         _logoutResult = logoutResult ?? const Success<void>(null),
         _restoreSessionError = restoreSessionError,
         _syncSessionError = syncSessionError,
-        _syncSessionFuture = syncSessionFuture;
+        _syncSessionFuture = syncSessionFuture,
+        _restoreSessionFuture = restoreSessionFuture;
 
   final MobileAuthSession? restoredSession;
   final Result<MobileAuthSession?> _syncSessionResult;
@@ -428,6 +461,7 @@ class _FakeMobileAuthRepository implements MobileAuthRepository {
   final Object? _restoreSessionError;
   final Object? _syncSessionError;
   final Future<Result<MobileAuthSession?>>? _syncSessionFuture;
+  final Future<MobileAuthSession?>? _restoreSessionFuture;
 
   String? requestedPhone;
   String? verifiedCode;
@@ -533,6 +567,10 @@ class _FakeMobileAuthRepository implements MobileAuthRepository {
 
   @override
   Future<MobileAuthSession?> restoreSession() async {
+    final future = _restoreSessionFuture;
+    if (future != null) {
+      return future;
+    }
     final error = _restoreSessionError;
     if (error != null) {
       throw error;
