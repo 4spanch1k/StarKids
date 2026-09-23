@@ -40,6 +40,7 @@ class StarKidsApp extends StatefulWidget {
 class _StarKidsAppState extends State<StarKidsApp> {
   StreamSubscription<PaymentReturnEvent>? _paymentReturnSubscription;
   late final AccountStateCoordinator _accountStateCoordinator;
+  final _unauthenticatedNavigatorKey = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
@@ -142,7 +143,13 @@ class _StarKidsAppState extends State<StarKidsApp> {
                 : 'auth-gate',
           ),
           title: 'Boom Bala',
-          navigatorKey: StarKidsApp.navigatorKey,
+          // Do not reuse the authenticated navigator's route stack for the
+          // unauthenticated shell (or vice versa). MaterialApp rebuilds when
+          // auth changes, but a shared navigator key can preserve the old
+          // auth/loading route and leave it visible after a successful OTP.
+          navigatorKey: isAuthenticated
+              ? StarKidsApp.navigatorKey
+              : _unauthenticatedNavigatorKey,
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),
