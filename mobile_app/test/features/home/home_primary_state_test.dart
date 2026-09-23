@@ -10,7 +10,6 @@ void main() {
   test('ticket has priority over a nearby birthday', () {
     final result = resolveHomePrimaryState(
       tickets: [_ticket(DateTime(2026, 9, 5))],
-      children: [_child(DateTime(2019, 9, 20))],
       now: today,
     );
 
@@ -20,7 +19,6 @@ void main() {
   test('upcoming ticket has priority over returning family', () {
     final result = resolveHomePrimaryState(
       tickets: [_ticket(DateTime(2026, 9, 5))],
-      children: const [],
       now: today,
       hasVisitHistory: true,
     );
@@ -31,7 +29,6 @@ void main() {
   test('active visit is the highest priority state', () {
     final result = resolveHomePrimaryState(
       tickets: const [],
-      children: const [],
       now: today,
       hasCheckedInVisit: true,
     );
@@ -42,7 +39,6 @@ void main() {
   test('active visit has priority over returning family', () {
     final result = resolveHomePrimaryState(
       tickets: const [],
-      children: const [],
       now: today,
       hasVisitHistory: true,
       hasCheckedInVisit: true,
@@ -51,28 +47,29 @@ void main() {
     expect(result.state, HomePrimaryState.checkedIn);
   });
 
-  test('birthday is selected when there is no upcoming ticket', () {
-    final result = resolveHomePrimaryState(
-      tickets: const [],
+  test('birthday context is available without taking primary state', () {
+    final result = resolveHomeBirthdayContext(
       children: [_child(DateTime(2019, 9, 20))],
       now: today,
     );
 
-    expect(result.state, HomePrimaryState.birthday);
-    expect(result.child?.name, 'Ася');
-    expect(result.birthdayAge, 7);
-    expect(result.nextBirthday, DateTime(2026, 9, 20));
+    expect(result?.child.name, 'Ася');
+    expect(result?.birthdayAge, 7);
+    expect(result?.nextBirthday, DateTime(2026, 9, 20));
+    expect(
+      resolveHomePrimaryState(tickets: const [], now: today).state,
+      HomePrimaryState.newFamily,
+    );
   });
 
-  test('upcoming birthday has priority over returning family', () {
+  test('upcoming birthday does not displace returning family', () {
     final result = resolveHomePrimaryState(
       tickets: const [],
-      children: [_child(DateTime(2019, 9, 20))],
       now: today,
       hasVisitHistory: true,
     );
 
-    expect(result.state, HomePrimaryState.birthday);
+    expect(result.state, HomePrimaryState.returningFamily);
   });
 
   test('past, used and open-date tickets are not active', () {
@@ -82,7 +79,6 @@ void main() {
         _ticket(null, status: 'used'),
         _ticket(null),
       ],
-      children: const [],
       now: today,
     );
 
@@ -92,7 +88,6 @@ void main() {
   test('a known returning family uses returning state without fake counts', () {
     final result = resolveHomePrimaryState(
       tickets: const [],
-      children: const [],
       now: today,
       hasVisitHistory: true,
     );

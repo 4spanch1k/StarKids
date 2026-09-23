@@ -94,7 +94,7 @@ class _HomePageState extends State<HomePage> {
         NewsFeedController(
           repository: ServiceRegistry.newsRepository,
           feedKind: NewsFeedKind.promotions,
-          pageSize: 6,
+          pageSize: 3,
         );
     _issuedTicketRepository =
         widget.issuedTicketRepository ?? ServiceRegistry.issuedTicketRepository;
@@ -286,23 +286,14 @@ class _HomePageState extends State<HomePage> {
                         delegate: SliverChildListDelegate([
                           _buildPrimarySection(context),
                           const SizedBox(height: SKSpacing.x5),
+                          _buildLoyaltySection(context),
+                          const SizedBox(height: SKSpacing.x5),
                           _buildBirthdayLeadSection(context),
+                          const SizedBox(height: SKSpacing.x5),
+                          _buildBirthdaySalesSection(context),
                           const SizedBox(height: SKSpacing.x5),
                           _buildChildrenSection(context),
                           const SizedBox(height: SKSpacing.x4),
-                          _buildSecondaryBirthdaySection(context),
-                          const SizedBox(height: SKSpacing.x5),
-                          _buildLoyaltySection(context),
-                          const SizedBox(height: SKSpacing.x5),
-                          _HomeQuickActions(
-                            onBranchTap: () =>
-                                _openNested(AppRoutes.branchDetails),
-                            onBirthdayTap: () => _openRoot(AppRoutes.birthdays),
-                            onMenuTap: () => _openNested(AppRoutes.menu),
-                            onContactsTap: () =>
-                                _openNested(AppRoutes.contacts),
-                          ),
-                          const SizedBox(height: SKSpacing.x5),
                           StableFutureBuilder<_HomeContentData>(
                             cacheKey: '${branch.id}-$_secondaryRefreshVersion',
                             futureFactory: () => _loadHomeContent(branch.id),
@@ -314,15 +305,6 @@ class _HomePageState extends State<HomePage> {
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  if (content.featuredPackage != null) ...[
-                                    _HomeFeaturedPackage(
-                                      package: content.featuredPackage!,
-                                      onOpen: () =>
-                                          _openRoot(AppRoutes.birthdays),
-                                    ),
-                                    if (content.promotions.isNotEmpty)
-                                      const SizedBox(height: SKSpacing.x5),
-                                  ],
                                   if (content.promotions.isNotEmpty)
                                     _HomePromotions(
                                       promotions: content.promotions,
@@ -332,6 +314,15 @@ class _HomePageState extends State<HomePage> {
                             },
                           ),
                           HomeNewsSection(newsController: _newsController),
+                          const SizedBox(height: SKSpacing.x5),
+                          _HomeQuickActions(
+                            onBranchTap: () =>
+                                _openNested(AppRoutes.branchDetails),
+                            onBirthdayTap: () => _openRoot(AppRoutes.birthdays),
+                            onMenuTap: () => _openNested(AppRoutes.menu),
+                            onContactsTap: () =>
+                                _openNested(AppRoutes.contacts),
+                          ),
                         ]),
                       ),
                     ),
@@ -346,68 +337,52 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildPrimarySection(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _childrenController,
-      builder: (context, _) {
-        final primary = resolveHomePrimaryState(
-          tickets: _issuedTickets,
-          children: _childrenController.children,
-          now: _nowProvider(),
-          hasVisitHistory: (_visitHistory?.visitCount ?? 0) > 0,
-          hasCheckedInVisit: _currentVisit != null,
-        );
-        final hasUpcomingTicket = _issuedTickets.any(
-          (ticket) =>
-              isUpcomingIssuedTicket(ticket, homeDateOnly(_nowProvider())),
-        );
-        if (_ticketsLoading && _issuedTickets.isEmpty) {
-          return _buildTicketsSection(context);
-        }
-        if (_ticketsError != null && !hasUpcomingTicket) {
-          return _buildTicketsSection(context);
-        }
-        switch (primary.state) {
-          case HomePrimaryState.checkedIn:
-            return _CheckedInHero(
-              key: const ValueKey('home-primary-checked-in'),
-              visit: _currentVisit!,
-              onOpenTickets: () => _openRoot(AppRoutes.tickets),
-            );
-          case HomePrimaryState.activeTicket:
-            return _buildTicketsSection(context);
-          case HomePrimaryState.birthday:
-            return _BirthdayHero(
-              key: const ValueKey('home-primary-birthday'),
-              child: primary.child!,
-              nextBirthday: primary.nextBirthday!,
-              birthdayAge: primary.birthdayAge!,
-              now: _nowProvider(),
-              onOpen: () => _openRoot(AppRoutes.birthdays),
-            );
-          case HomePrimaryState.returningFamily:
-            // Returning copy is rendered only from the completed Visit history.
-            return _NewFamilyHero(
-              key: const ValueKey('home-primary-returning-family'),
-              returning: true,
-              branchName:
-                  ServiceRegistry.selectedBranchController.selectedBranch.name,
-              visitCount: _visitHistory?.visitCount,
-              lastVisitAt: _visitHistory?.lastVisitAt,
-              onBuy: _openTicketPurchase,
-            );
-          case HomePrimaryState.newFamily:
-            return KeyedSubtree(
-              key: const ValueKey('home-primary-new-family'),
-              child: _NewFamilyHero(
-                key: const ValueKey('home-no-tickets'),
-                branchName: ServiceRegistry
-                    .selectedBranchController.selectedBranch.name,
-                onBuy: _openTicketPurchase,
-              ),
-            );
-        }
-      },
+    final primary = resolveHomePrimaryState(
+      tickets: _issuedTickets,
+      now: _nowProvider(),
+      hasVisitHistory: (_visitHistory?.visitCount ?? 0) > 0,
+      hasCheckedInVisit: _currentVisit != null,
     );
+    final hasUpcomingTicket = _issuedTickets.any(
+      (ticket) => isUpcomingIssuedTicket(ticket, homeDateOnly(_nowProvider())),
+    );
+    if (_ticketsLoading && _issuedTickets.isEmpty) {
+      return _buildTicketsSection(context);
+    }
+    if (_ticketsError != null && !hasUpcomingTicket) {
+      return _buildTicketsSection(context);
+    }
+    switch (primary.state) {
+      case HomePrimaryState.checkedIn:
+        return _CheckedInHero(
+          key: const ValueKey('home-primary-checked-in'),
+          visit: _currentVisit!,
+          onOpenTickets: () => _openRoot(AppRoutes.tickets),
+        );
+      case HomePrimaryState.activeTicket:
+        return _buildTicketsSection(context);
+      case HomePrimaryState.returningFamily:
+        // Returning copy is rendered only from the completed Visit history.
+        return _NewFamilyHero(
+          key: const ValueKey('home-primary-returning-family'),
+          returning: true,
+          branchName:
+              ServiceRegistry.selectedBranchController.selectedBranch.name,
+          visitCount: _visitHistory?.visitCount,
+          lastVisitAt: _visitHistory?.lastVisitAt,
+          onBuy: _openTicketPurchase,
+        );
+      case HomePrimaryState.newFamily:
+        return KeyedSubtree(
+          key: const ValueKey('home-primary-new-family'),
+          child: _NewFamilyHero(
+            key: const ValueKey('home-no-tickets'),
+            branchName:
+                ServiceRegistry.selectedBranchController.selectedBranch.name,
+            onBuy: _openTicketPurchase,
+          ),
+        );
+    }
   }
 
   Widget _buildTicketsSection(BuildContext context) {
@@ -465,7 +440,7 @@ class _HomePageState extends State<HomePage> {
       key: const ValueKey('home-upcoming-ticket'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const StarKidsSectionHeader(title: 'Ближайшее посещение'),
+        const StarKidsSectionHeader(title: 'Ваш ближайший визит'),
         const SizedBox(height: SKSpacing.x3),
         _HomeTicketCard(
           ticket: ticket,
@@ -631,7 +606,8 @@ class _HomePageState extends State<HomePage> {
             key: const ValueKey('home-children-empty'),
             icon: Icons.child_care_rounded,
             title: 'Дети',
-            description: 'Добавьте детей, чтобы быстрее оформлять визиты.',
+            description:
+                'Добавьте ребёнка, чтобы получать предложения к дню рождения.',
             action: SecondaryButton(
               label: 'Открыть профиль',
               onPressed: () => _openRoot(AppRoutes.profile),
@@ -675,53 +651,37 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildBirthdaySection(BuildContext context) {
-    return SolidCard(
-      key: const ValueKey('home-birthday-cta'),
-      child: Row(
-        children: [
-          const _HomeSectionIcon(icon: Icons.cake_rounded),
-          const SizedBox(width: SKSpacing.x3),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Планируете день рождения?',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: SKSpacing.x1),
-                Text(
-                  'Посмотрите пакеты и оставьте заявку менеджеру.',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: 'Открыть раздел дней рождения',
-            onPressed: () => _openRoot(AppRoutes.birthdays),
-            icon: const Icon(Icons.arrow_forward_rounded),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSecondaryBirthdaySection(BuildContext context) {
+  Widget _buildBirthdaySalesSection(BuildContext context) {
     return AnimatedBuilder(
-      animation: _childrenController,
+      animation: Listenable.merge([
+        _childrenController,
+        _requestHistoryController,
+      ]),
       builder: (context, _) {
-        final primary = resolveHomePrimaryState(
-          tickets: _issuedTickets,
-          children: _childrenController.children,
-          now: _nowProvider(),
-          hasCheckedInVisit: _currentVisit != null,
-        );
-        if (primary.state == HomePrimaryState.birthday) {
+        if (_requestHistoryController.status ==
+            RequestHistoryViewStatus.loading) {
           return const SizedBox.shrink();
         }
-        return _buildBirthdaySection(context);
+        final activeLead =
+            _requestHistoryController.status == RequestHistoryViewStatus.loaded
+                ? selectActiveBirthdayLead(_requestHistoryController.items)
+                : null;
+        if (activeLead != null) {
+          // The lead card above already represents the active sales funnel;
+          // avoid showing a second birthday CTA beside it.
+          return const SizedBox.shrink();
+        }
+
+        final birthday = resolveHomeBirthdayContext(
+          children: _childrenController.children,
+          now: _nowProvider(),
+        );
+        return _BirthdaySalesCard(
+          key: const ValueKey('home-birthday-sales'),
+          birthday: birthday,
+          now: _nowProvider(),
+          onOpen: () => _openRoot(AppRoutes.birthdays),
+        );
       },
     );
   }
@@ -731,32 +691,15 @@ class _HomePageState extends State<HomePage> {
         ServiceRegistry.branchRepository.getBranch(branchId).catchError(
               (_) => ServiceRegistry.selectedBranchController.selectedBranch,
             );
-    final packagesFuture = ServiceRegistry.birthdayPackageRepository
-        .listPackages(branchId: branchId)
-        .catchError((_) => const <BirthdayPackage>[]);
     final promotionsFuture = ServiceRegistry.promotionRepository
         .listPromotions(branchId)
         .catchError((_) => const <PromotionOffer>[]);
 
     final branch = await branchFuture;
-    final packages = await packagesFuture;
     final promotions = await promotionsFuture;
     ServiceRegistry.selectedBranchController.syncSelectedBranch(branch);
 
-    BirthdayPackage? featuredPackage;
-    for (final item in packages) {
-      if (item.isFeatured) {
-        featuredPackage = item;
-        break;
-      }
-    }
-    featuredPackage ??= packages.isEmpty ? null : packages.first;
-
-    return _HomeContentData(
-      branch: branch,
-      featuredPackage: featuredPackage,
-      promotions: promotions,
-    );
+    return _HomeContentData(branch: branch, promotions: promotions);
   }
 }
 
@@ -773,27 +716,28 @@ int _compareIssuedTickets(IssuedTicket a, IssuedTicket b) {
   return a.visitDate!.compareTo(b.visitDate!);
 }
 
-class _BirthdayHero extends StatelessWidget {
-  const _BirthdayHero({
+class _BirthdaySalesCard extends StatelessWidget {
+  const _BirthdaySalesCard({
     super.key,
-    required this.child,
-    required this.nextBirthday,
-    required this.birthdayAge,
+    required this.birthday,
     required this.now,
     required this.onOpen,
   });
 
-  final Child child;
-  final DateTime nextBirthday;
-  final int birthdayAge;
+  final HomeBirthdayContext? birthday;
   final DateTime now;
   final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
     final c = SKTheme.of(context).colors;
-    final days = nextBirthday.difference(homeDateOnly(now)).inDays;
-    final when = days == 0 ? 'сегодня' : 'через $days дней';
+    final child = birthday?.child;
+    final days = birthday?.nextBirthday.difference(homeDateOnly(now)).inDays;
+    final when = days == null
+        ? null
+        : days == 0
+            ? 'сегодня'
+            : 'через $days дней';
     return SolidCard(
       padding: const EdgeInsets.all(SKSpacing.x5),
       child: Column(
@@ -805,7 +749,9 @@ class _BirthdayHero extends StatelessWidget {
               const SizedBox(width: SKSpacing.x3),
               Expanded(
                 child: Text(
-                  '${child.name} скоро $birthdayAge лет',
+                  child == null
+                      ? 'День рождения в Boom Bala'
+                      : '${child.name} скоро ${birthday!.birthdayAge} лет',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.headlineSmall,
@@ -815,7 +761,9 @@ class _BirthdayHero extends StatelessWidget {
           ),
           const SizedBox(height: SKSpacing.x2),
           Text(
-            'День рождения $when. Подберите праздник в Boom Bala.',
+            child == null
+                ? 'Посмотрите программы и оставьте заявку менеджеру.'
+                : 'День рождения $when. Подберите праздник в Boom Bala.',
             style: Theme.of(
               context,
             ).textTheme.bodyLarge?.copyWith(color: c.textSecondary),
@@ -857,7 +805,7 @@ class _CheckedInHero extends StatelessWidget {
               const SizedBox(width: SKSpacing.x3),
               Expanded(
                 child: Text(
-                  'Вы в Boom Bala',
+                  'Вы сейчас в Boom Bala',
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
               ),
@@ -869,6 +817,13 @@ class _CheckedInHero extends StatelessWidget {
             style: Theme.of(
               context,
             ).textTheme.bodyLarge?.copyWith(color: c.textSecondary),
+          ),
+          const SizedBox(height: SKSpacing.x1),
+          Text(
+            _visitStatusLabel(visit.status),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: c.textSecondary),
           ),
           const SizedBox(height: SKSpacing.x4),
           PrimaryButton(
@@ -949,10 +904,11 @@ class _NewFamilyHero extends StatelessWidget {
                   if (returning) ...[
                     Text(
                       'С возвращением',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                          ),
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
                     ),
                     const SizedBox(height: SKSpacing.x2),
                     if (visitCount != null && visitCount! > 0)
@@ -974,10 +930,11 @@ class _NewFamilyHero extends StatelessWidget {
                   ] else ...[
                     Text(
                       'Планируете посещение?',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                          ),
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
                     ),
                     const SizedBox(height: SKSpacing.x2),
                     Text(
@@ -1142,7 +1099,7 @@ class _HomeQuickActions extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const StarKidsSectionHeader(title: 'Быстрые действия'),
+        const StarKidsSectionHeader(title: 'Ещё'),
         const SizedBox(height: SKSpacing.x3),
         GridView.count(
           crossAxisCount: 2,
@@ -1697,14 +1654,9 @@ class _TrustStat extends StatelessWidget {
 }
 
 class _HomeContentData {
-  const _HomeContentData({
-    required this.branch,
-    this.featuredPackage,
-    required this.promotions,
-  });
+  const _HomeContentData({required this.branch, required this.promotions});
 
   final BranchOption branch;
-  final BirthdayPackage? featuredPackage;
   final List<PromotionOffer> promotions;
 }
 
@@ -1716,4 +1668,12 @@ String _formatBonusBalance(int value) {
     buffer.write(raw[index]);
   }
   return buffer.toString();
+}
+
+String _visitStatusLabel(String status) {
+  return switch (status) {
+    'active' => 'Визит активен',
+    'completed' => 'Визит завершён',
+    _ => status,
+  };
 }
