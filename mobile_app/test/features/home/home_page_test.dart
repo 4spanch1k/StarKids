@@ -12,6 +12,10 @@ import 'package:star_kids_mobile/features/home/presentation/pages/home_page.dart
 import 'package:star_kids_mobile/features/news/domain/news_item.dart';
 import 'package:star_kids_mobile/features/news/domain/news_repository.dart';
 import 'package:star_kids_mobile/features/news/presentation/controllers/news_feed_controller.dart';
+import 'package:star_kids_mobile/features/loyalty/domain/loyalty_account.dart';
+import 'package:star_kids_mobile/features/loyalty/domain/loyalty_repository.dart';
+import 'package:star_kids_mobile/features/loyalty/domain/loyalty_transaction.dart';
+import 'package:star_kids_mobile/features/loyalty/presentation/controllers/loyalty_controller.dart';
 import 'package:star_kids_mobile/features/request_history/domain/request_history_item.dart';
 import 'package:star_kids_mobile/features/request_history/domain/request_history_repository.dart';
 import 'package:star_kids_mobile/features/request_history/presentation/controllers/request_history_controller.dart';
@@ -36,6 +40,36 @@ void main() {
     );
   });
 
+  testWidgets('checked-in state wins over ticket purchase content', (
+    tester,
+  ) async {
+    final children = _childrenController(const []);
+    await _pumpHome(
+      tester,
+      tickets: [_ticket(id: 'ticket-1')],
+      childrenController: children,
+      currentVisitRepository: _FakeCurrentVisitRepository(
+        currentVisit: CurrentVisit(
+          visitId: 'visit-1',
+          branchId: defaultBranchId,
+          branchName: 'Boom Bala Алматы',
+          status: 'active',
+          startedAt: DateTime(2026, 9, 1, 12, 30),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('home-primary-checked-in')),
+      findsOneWidget,
+    );
+    expect(find.text('Вы сейчас в Boom Bala'), findsOneWidget);
+    expect(find.text('Визит активен'), findsOneWidget);
+    expect(find.text('Купить ещё билет'), findsNothing);
+    children.dispose();
+  });
+
   testWidgets('real upcoming ticket is the first operational block', (
     tester,
   ) async {
@@ -53,7 +87,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('home-upcoming-ticket')), findsOneWidget);
-    expect(find.text('Ближайшее посещение'), findsOneWidget);
+    expect(find.text('Ваш ближайший визит'), findsOneWidget);
     expect(find.text('Детский билет'), findsOneWidget);
     expect(find.text('BB-0000000001'), findsOneWidget);
     expect(find.text('Boom Bala Алматы'), findsOneWidget);
@@ -112,7 +146,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('home-no-tickets')), findsOneWidget);
-    expect(find.text('Ближайшее посещение'), findsNothing);
+    expect(find.text('Ваш ближайший визит'), findsNothing);
     children.dispose();
   });
 
@@ -177,10 +211,106 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('home-upcoming-ticket')), findsOneWidget);
-    expect(find.byKey(const ValueKey('home-children-error')), findsOneWidget);
-    expect(find.byKey(const ValueKey('home-birthday-cta')), findsOneWidget);
-    expect(find.text('Планируете день рождения?'), findsOneWidget);
 
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('home-children-error')), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-birthday-sales')), findsOneWidget);
+    expect(find.text('День рождения в Boom Bala'), findsOneWidget);
+
+    children.dispose();
+  });
+
+  testWidgets('nearby birthday is a sales block, not the primary state', (
+    tester,
+  ) async {
+    final children = _childrenController([
+      Child(
+        id: 'child-1',
+        name: 'Алия',
+        birthDate: DateTime(2020, 9, 20),
+        gender: ChildGender.female,
+      ),
+    ]);
+    await _pumpHome(tester, tickets: const [], childrenController: children);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('home-primary-birthday')), findsNothing);
+    expect(find.byKey(const ValueKey('home-birthday-sales')), findsOneWidget);
+    expect(find.text('Алия скоро 6 лет'), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-no-tickets')), findsOneWidget);
+    children.dispose();
+  });
+
+  testWidgets('real children are rendered without fabricated counts', (
+    tester,
+  ) async {
+    final children = _childrenController([
+      Child(
+        id: 'child-1',
+        name: 'Алия',
+        birthDate: DateTime(2020, 1, 1),
+        gender: ChildGender.female,
+      ),
+      Child(
+        id: 'child-2',
+        name: 'Мирас',
+        birthDate: DateTime(2017, 4, 1),
+        gender: ChildGender.male,
+      ),
+    ]);
+    await _pumpHome(tester, tickets: const [], childrenController: children);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('home-children-success')), findsOneWidget);
+    expect(find.text('Алия, Мирас'), findsOneWidget);
+    expect(find.textContaining('2 ребёнка'), findsNothing);
+    children.dispose();
+  });
+
+  testWidgets('loyalty success is compact and visible after primary state', (
+    tester,
+  ) async {
+    final children = _childrenController(const []);
+    await _pumpHome(
+      tester,
+      tickets: const [],
+      childrenController: children,
+      loyaltyController: _loyaltyController(
+        const Success<LoyaltyAccount>(
+          LoyaltyAccount(
+            balance: 1250,
+            reservedBalance: 0,
+            availableBalance: 1250,
+            lifetimeEarned: 1250,
+            lifetimeSpent: 0,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('home-loyalty-summary')), findsOneWidget);
+    expect(find.text('1 250 доступно'), findsOneWidget);
+    children.dispose();
+  });
+
+  testWidgets('loyalty error keeps purchase hero usable', (tester) async {
+    final children = _childrenController(const []);
+    await _pumpHome(
+      tester,
+      tickets: const [],
+      childrenController: children,
+      loyaltyController: _loyaltyController(
+        const Failure<LoyaltyAccount>('Бонусы недоступны'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('home-no-tickets')), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-loyalty-error')), findsOneWidget);
+    expect(find.text('Купить билет'), findsOneWidget);
     children.dispose();
   });
 
@@ -223,6 +353,7 @@ void main() {
     expect(find.text('Заявка на праздник'), findsOneWidget);
     expect(find.text('Заявка отправлена'), findsOneWidget);
     expect(find.text('Алина • 20 сентября'), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-birthday-sales')), findsNothing);
 
     children.dispose();
   });
@@ -262,7 +393,9 @@ void main() {
     children.dispose();
   });
 
-  testWidgets('qualified and booked leads remain active on Home', (tester) async {
+  testWidgets('qualified and booked leads remain active on Home', (
+    tester,
+  ) async {
     final children = _childrenController(const []);
     await _pumpHome(
       tester,
@@ -276,12 +409,17 @@ void main() {
       ],
     );
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('home-active-birthday-lead')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('home-active-birthday-lead')),
+      findsOneWidget,
+    );
     expect(find.text('Детали уточняются'), findsOneWidget);
     children.dispose();
   });
 
-  testWidgets('completed lead is terminal and hidden from Home', (tester) async {
+  testWidgets('completed lead is terminal and hidden from Home', (
+    tester,
+  ) async {
     final children = _childrenController(const []);
     await _pumpHome(
       tester,
@@ -290,12 +428,16 @@ void main() {
       requests: [_request(status: RequestStatus.completed)],
     );
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('home-active-birthday-lead')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('home-active-birthday-lead')),
+      findsNothing,
+    );
     children.dispose();
   });
 
-  testWidgets('confirmed lead remains visible with confirmation copy',
-      (tester) async {
+  testWidgets('confirmed lead remains visible with confirmation copy', (
+    tester,
+  ) async {
     final children = _childrenController(const []);
     await tester.pumpWidget(
       buildTestApp(
@@ -334,7 +476,9 @@ void main() {
 
     expect(find.text('Планируете посещение?'), findsOneWidget);
     expect(
-        find.byKey(const ValueKey('home-active-birthday-lead')), findsNothing);
+      find.byKey(const ValueKey('home-active-birthday-lead')),
+      findsNothing,
+    );
     children.dispose();
   });
 
@@ -481,6 +625,7 @@ Future<void> _pumpHome(
   List<RequestHistoryItem> requests = const [],
   RequestHistoryController? requestHistoryController,
   CurrentVisitRepository? currentVisitRepository,
+  LoyaltyController? loyaltyController,
 }) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
@@ -498,6 +643,7 @@ Future<void> _pumpHome(
         requestHistoryController:
             requestHistoryController ?? _requestHistoryController(requests),
         currentVisitRepository: currentVisitRepository,
+        loyaltyController: loyaltyController,
       ),
     ),
   );
@@ -570,6 +716,10 @@ ChildrenController _childrenControllerFailure() {
   );
 }
 
+LoyaltyController _loyaltyController(Result<LoyaltyAccount> result) {
+  return LoyaltyController(repository: _FakeLoyaltyRepository(result));
+}
+
 class _FakeIssuedTicketRepository implements IssuedTicketRepository {
   _FakeIssuedTicketRepository(this.tickets);
 
@@ -636,17 +786,35 @@ class _FakeRequestHistoryRepository implements RequestHistoryRepository {
   }
 }
 
+class _FakeLoyaltyRepository implements LoyaltyRepository {
+  _FakeLoyaltyRepository(this.accountResult);
+
+  final Result<LoyaltyAccount> accountResult;
+
+  @override
+  Future<Result<LoyaltyAccount>> fetchAccount() async => accountResult;
+
+  @override
+  Future<Result<List<LoyaltyTransaction>>> fetchTransactions({
+    int limit = 20,
+    int offset = 0,
+  }) async =>
+      const Success<List<LoyaltyTransaction>>([]);
+}
+
 class _FakeCurrentVisitRepository implements CurrentVisitRepository {
   _FakeCurrentVisitRepository({
     this.history,
+    this.currentVisit,
     this.failHistory = false,
   });
 
   final VisitHistory? history;
+  final CurrentVisit? currentVisit;
   final bool failHistory;
 
   @override
-  Future<CurrentVisit?> getCurrentVisit() async => null;
+  Future<CurrentVisit?> getCurrentVisit() async => currentVisit;
 
   @override
   Future<VisitHistory> getVisitHistory() async {

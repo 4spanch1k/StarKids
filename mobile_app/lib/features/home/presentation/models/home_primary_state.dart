@@ -2,39 +2,34 @@ import '../../../children/domain/child.dart';
 import '../../../tickets/domain/issued_ticket.dart';
 
 /// Resolves Home's primary action without coupling business priority to UI.
-enum HomePrimaryState {
-  checkedIn,
-  activeTicket,
-  birthday,
-  returningFamily,
-  newFamily
-}
+enum HomePrimaryState { checkedIn, activeTicket, returningFamily, newFamily }
 
 class HomePrimaryContext {
-  const HomePrimaryContext({
-    required this.state,
-    this.ticket,
-    this.child,
-    this.nextBirthday,
-    this.birthdayAge,
-  });
+  const HomePrimaryContext({required this.state, this.ticket});
 
   final HomePrimaryState state;
   final IssuedTicket? ticket;
-  final Child? child;
-  final DateTime? nextBirthday;
-  final int? birthdayAge;
 }
 
-/// Checked-in visit > ticket > birthday > known returning family > first purchase.
+class HomeBirthdayContext {
+  const HomeBirthdayContext({
+    required this.child,
+    required this.nextBirthday,
+    required this.birthdayAge,
+  });
+
+  final Child child;
+  final DateTime nextBirthday;
+  final int birthdayAge;
+}
+
+/// Checked-in visit > ticket > known returning family > first purchase.
 /// `hasVisitHistory` is explicit because a paid ticket is not a visit.
 HomePrimaryContext resolveHomePrimaryState({
   required Iterable<IssuedTicket> tickets,
-  required Iterable<Child> children,
   required DateTime now,
   bool hasVisitHistory = false,
   bool hasCheckedInVisit = false,
-  int birthdayWindowDays = 60,
 }) {
   final today = homeDateOnly(now);
   if (hasCheckedInVisit) {
@@ -51,18 +46,33 @@ HomePrimaryContext resolveHomePrimaryState({
     );
   }
 
-  final birthday = _nextBirthdayContext(
-    children: children,
-    today: today,
-    windowDays: birthdayWindowDays,
-  );
-  if (birthday != null) return birthday;
-
   return HomePrimaryContext(
     state: hasVisitHistory
         ? HomePrimaryState.returningFamily
         : HomePrimaryState.newFamily,
   );
+}
+
+HomeBirthdayContext? resolveHomeBirthdayContext({
+  required Iterable<Child> children,
+  required DateTime now,
+  int windowDays = 60,
+}) {
+  final today = homeDateOnly(now);
+  HomeBirthdayContext? nearest;
+  var nearestDays = windowDays + 1;
+  for (final child in children) {
+    final birthday = _nextBirthday(child.birthDate, today);
+    final days = birthday.difference(today).inDays;
+    if (days < 0 || days > windowDays || days >= nearestDays) continue;
+    nearestDays = days;
+    nearest = HomeBirthdayContext(
+      child: child,
+      nextBirthday: birthday,
+      birthdayAge: birthday.year - child.birthDate.year,
+    );
+  }
+  return nearest;
 }
 
 DateTime homeDateOnly(DateTime value) =>
@@ -81,28 +91,6 @@ int _compareTickets(IssuedTicket a, IssuedTicket b) {
   if (aDate == null) return 1;
   if (bDate == null) return -1;
   return homeDateOnly(aDate).compareTo(homeDateOnly(bDate));
-}
-
-HomePrimaryContext? _nextBirthdayContext({
-  required Iterable<Child> children,
-  required DateTime today,
-  required int windowDays,
-}) {
-  HomePrimaryContext? nearest;
-  var nearestDays = windowDays + 1;
-  for (final child in children) {
-    final birthday = _nextBirthday(child.birthDate, today);
-    final days = birthday.difference(today).inDays;
-    if (days < 0 || days > windowDays || days >= nearestDays) continue;
-    nearestDays = days;
-    nearest = HomePrimaryContext(
-      state: HomePrimaryState.birthday,
-      child: child,
-      nextBirthday: birthday,
-      birthdayAge: birthday.year - child.birthDate.year,
-    );
-  }
-  return nearest;
 }
 
 DateTime _nextBirthday(DateTime birthDate, DateTime today) {
