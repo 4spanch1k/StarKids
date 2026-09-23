@@ -49,6 +49,7 @@ class MobileOnboardingService:
         if locked_user.onboarding_completed_at is None:
             now = datetime.now(UTC)
             locked_user.first_name = payload.firstName
+            locked_user.last_name = payload.lastName
             locked_user.onboarding_completed_at = now
             locked_user.privacy_consent_at = now
             locked_user.privacy_consent_version = payload.privacyConsentVersion
