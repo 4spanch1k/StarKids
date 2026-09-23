@@ -76,6 +76,7 @@ class MobileProfileEndpointTests(unittest.TestCase):
             media_root=tmp_dir,
             media_url_prefix='/media',
             public_base_url='http://testserver',
+            ticket_qr_secret='q' * 48,
         )
         _test_storage = LocalStorageBackend(
             media_root=tmp_dir,
@@ -142,6 +143,21 @@ class MobileProfileEndpointTests(unittest.TestCase):
         self.assertEqual(body['id'], auth['user']['id'])
         self.assertEqual(body['email'], 'test@example.com')
         self.assertNotIn('childBirthDate', body)
+
+    def test_mobile_me_qr_returns_short_lived_signed_payload(self) -> None:
+        auth = self._authenticate_email()
+        response = self.client.get(
+            '/api/v1/mobile/me/qr',
+            headers=self._auth_headers(auth),
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        body = response.json()
+        self.assertTrue(body['qrPayload'].startswith('bb_customer:v1:'))
+        self.assertTrue(body['expiresAt'])
+
+    def test_mobile_me_qr_requires_authentication(self) -> None:
+        response = self.client.get('/api/v1/mobile/me/qr')
+        self.assertEqual(response.status_code, 401)
 
     def test_patch_mobile_me_updates_parent_fields_only(self) -> None:
         auth = self._authenticate_email()

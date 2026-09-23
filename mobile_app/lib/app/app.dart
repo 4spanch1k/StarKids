@@ -213,6 +213,7 @@ class _StarKidsAppState extends State<StarKidsApp> {
       AppRoutes.requests,
       AppRoutes.notifications,
       AppRoutes.myRequests,
+      AppRoutes.customerQr,
     };
     return authenticatedRoutes.contains(requestedRoute)
         ? requestedRoute

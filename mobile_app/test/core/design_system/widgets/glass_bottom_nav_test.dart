@@ -68,12 +68,30 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final labels = ['Главная', 'Билеты', 'Праздники', 'Акции', 'Профиль'];
+    final labels = ['Главная', 'Билеты', 'QR', 'Праздники', 'Профиль'];
     final centers = labels
         .map((label) => tester.getCenter(find.text(label)))
         .toList(growable: false);
     for (var index = 1; index < centers.length; index++) {
       expect(centers[index].dx, greaterThan(centers[index - 1].dx));
     }
+  });
+
+  testWidgets('central QR action opens quick actions sheet', (tester) async {
+    await tester.pumpWidget(
+      buildTestApp(
+        child: const Scaffold(
+          bottomNavigationBar: StarKidsRootNavigation(current: 'home'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('QR'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Быстрые действия'), findsOneWidget);
+    expect(find.text('Мой QR'), findsOneWidget);
+    expect(find.text('Купить входной билет'), findsOneWidget);
   });
 }

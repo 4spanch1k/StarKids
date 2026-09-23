@@ -5,6 +5,7 @@ from ...db.models.mobile_user import MobileUser
 from .dependencies import get_authenticated_mobile_user, get_mobile_profile_service
 from .schemas import (
     MobileAvatarUploadResponse,
+    MobileCustomerQrResponse,
     MobileProfileRequestListResponse,
     MobileProfileResponse,
     MobileProfileUpdateRequest,
@@ -25,6 +26,18 @@ def get_profile(
     service: MobileProfileService = Depends(get_mobile_profile_service),
 ) -> MobileProfileResponse:
     return service.get_profile(user)
+
+
+@router.get(
+    '/me/qr',
+    response_model=MobileCustomerQrResponse,
+    responses={401: {'model': ErrorResponse}, 503: {'model': ErrorResponse}},
+)
+def get_customer_qr(
+    user: MobileUser = Depends(get_authenticated_mobile_user),
+    service: MobileProfileService = Depends(get_mobile_profile_service),
+) -> MobileCustomerQrResponse:
+    return service.get_customer_qr(user)
 
 
 @router.patch(

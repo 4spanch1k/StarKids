@@ -41,6 +41,16 @@ class MobileProfileResponse(BaseModel):
         )
 
 
+class MobileCustomerQrResponse(BaseModel):
+    qrPayload: str
+    expiresAt: datetime
+
+    @field_serializer('expiresAt')
+    def serialize_expires_at(self, value: datetime) -> str:
+        normalized = value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+        return normalized.astimezone(timezone.utc).isoformat().replace('+00:00', 'Z')
+
+
 class MobileProfileUpdateRequest(BaseModel):
     firstName: str | None = None
     lastName: str | None = None

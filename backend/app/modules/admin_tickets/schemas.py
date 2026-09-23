@@ -10,6 +10,20 @@ class AdminTicketRedeemRequest(BaseModel):
     branchId: str = Field(min_length=1, max_length=32)
 
 
+class AdminCustomerIdentificationRequest(BaseModel):
+    qrPayload: str = Field(min_length=1, max_length=512)
+    branchId: str = Field(min_length=1, max_length=32)
+
+
+class AdminCustomerIdentificationResponse(BaseModel):
+    outcome: str = 'identified'
+    customerId: str
+    displayName: str
+    phoneMasked: str | None = None
+    bonusBalance: int = 0
+    branchId: str
+
+
 ManualRedemptionReason = Literal[
     'customer_device_unavailable',
     'qr_unavailable',

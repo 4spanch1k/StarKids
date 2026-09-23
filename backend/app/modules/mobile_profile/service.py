@@ -19,7 +19,9 @@ from .schemas import (
     MobileProfileRequestListResponse,
     MobileProfileResponse,
     MobileProfileUpdateRequest,
+    MobileCustomerQrResponse,
 )
+from .customer_qr_service import CustomerQrService
 
 _MIME_TO_EXT = {
     'jpeg': 'jpg',
@@ -54,14 +56,28 @@ class MobileProfileService:
         request_history_repository: MobileRequestHistoryRepository,
         storage: StorageBackend,
         settings,
+        customer_qr_service: CustomerQrService | None = None,
     ) -> None:
         self._user_repository = user_repository
         self._request_history_repository = request_history_repository
         self._storage = storage
         self._settings = settings
+        self._customer_qr_service = customer_qr_service or CustomerQrService(
+            settings.ticket_qr_secret,
+        )
 
     def get_profile(self, user: MobileUser) -> MobileProfileResponse:
         return MobileProfileResponse.from_user(user)
+
+    def get_customer_qr(self, user: MobileUser) -> MobileCustomerQrResponse:
+        if not self._customer_qr_service.is_configured:
+            raise DomainHTTPException(
+                code='customer_qr_unavailable',
+                message='Customer QR is temporarily unavailable.',
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        payload, expires_at = self._customer_qr_service.build_payload(user.id)
+        return MobileCustomerQrResponse(qrPayload=payload, expiresAt=expires_at)
 
     def update_profile(
         self,

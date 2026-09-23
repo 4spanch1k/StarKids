@@ -9,10 +9,12 @@ class GlassNavItem {
   final String id;
   final IconData icon;
   final String label;
+  final bool prominent;
   const GlassNavItem({
     required this.id,
     required this.icon,
     required this.label,
+    this.prominent = false,
   });
 }
 
@@ -124,7 +126,11 @@ class _NavBtnState extends State<_NavBtn> {
                     Icon(
                       widget.item.icon,
                       size: widget.compact ? 20 : 22,
-                      color: widget.active ? c.cta : c.textSecondary,
+                      color: widget.item.prominent
+                          ? c.cta
+                          : widget.active
+                          ? c.cta
+                          : c.textSecondary,
                     ),
                     const SizedBox(height: 3),
                     Text(
@@ -133,9 +139,12 @@ class _NavBtnState extends State<_NavBtn> {
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
                       style: SKTextStyles.micro.copyWith(
-                        color: widget.active ? c.textPrimary : c.textSecondary,
-                        fontWeight:
-                            widget.active ? FontWeight.w700 : FontWeight.w500,
+                        color: widget.active || widget.item.prominent
+                            ? c.textPrimary
+                            : c.textSecondary,
+                        fontWeight: widget.active
+                            ? FontWeight.w700
+                            : FontWeight.w500,
                         fontSize: widget.compact ? 9.5 : null,
                         letterSpacing: widget.compact ? 0 : null,
                         height: 1.05,

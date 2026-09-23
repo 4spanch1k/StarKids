@@ -142,6 +142,12 @@
             <span v-if="result.pass.branchName" class="scanner-result__detail">Филиал: {{ result.pass.branchName }}</span>
             <span v-if="result.pass.expiresAt" class="scanner-result__detail">Действует до: {{ formatDateTime(result.pass.expiresAt) }}</span>
           </template>
+          <template v-if="result.customer">
+            <strong class="scanner-result__ticket-number">{{ result.customer.displayName }}</strong>
+            <span v-if="result.customer.phoneMasked" class="scanner-result__detail">{{ result.customer.phoneMasked }}</span>
+            <span class="scanner-result__detail">Бонусы: {{ result.customer.bonusBalance.toLocaleString('ru-RU') }}</span>
+            <span class="scanner-result__reason scanner-result__reason--customer">Это идентификация клиента. Вход не подтверждён.</span>
+          </template>
           <span v-if="result.errorMessage" class="scanner-result__reason">{{ result.errorMessage }}</span>
         </div>
         <button
@@ -165,9 +171,11 @@ import { useSessionStore } from '@/features/auth/stores/useSessionStore';
 import {
   redeemTicket,
   redeemAdmission,
+  identifyCustomer,
   resolveRedemptionOutcome,
   type TicketRedemptionResponse,
   type AdmissionResponse,
+  type CustomerIdentificationResponse,
   lookupTickets,
   redeemTicketManually,
 } from '@/features/ticket-scanner/api/ticketRedemptionApi';
@@ -197,6 +205,7 @@ const result = ref<{
   outcome: string;
   ticket: TicketRedemptionResponse | null;
   pass: AdmissionResponse | null;
+  customer: CustomerIdentificationResponse | null;
   kindHint: AdmissionKindHint;
   errorMessage: string;
 } | null>(null);
@@ -207,12 +216,14 @@ const selectedBranch = computed(() => branches.value.find((branch) => branch.id 
 const isOperator = computed(() => sessionStore.operatorRole === 'operator');
 const resultToneClass = computed(() => {
   if (result.value?.outcome === 'checking') return 'scanner-result--checking';
+  if (result.value?.outcome === 'identified') return 'scanner-result--customer';
   if (result.value?.outcome === 'redeemed') return 'scanner-result--success';
   if (result.value?.outcome === 'already_used' || result.value?.outcome === 'already_used_today') return 'scanner-result--warning';
   return 'scanner-result--failure';
 });
 const resultOutcomeLabel = computed(() => {
   if (result.value?.outcome === 'checking') return 'Проверяем';
+  if (result.value?.outcome === 'identified') return 'Идентификация';
   if (result.value?.outcome === 'redeemed') return 'Успешно';
   if (result.value?.outcome === 'already_used' || result.value?.outcome === 'already_used_today') return 'Проверка завершена';
   return 'Вход не подтверждён';
@@ -221,6 +232,8 @@ const resultTitle = computed(() => {
   switch (result.value?.outcome) {
     case 'checking':
       return 'QR считан. Проверяем…';
+    case 'identified':
+      return 'Клиент найден';
     case 'redeemed':
       return 'Вход подтверждён';
     case 'already_used':
@@ -259,17 +272,19 @@ const resultTitle = computed(() => {
 });
 const resultIcon = computed(() => {
   if (result.value?.outcome === 'checking') return '…';
+  if (result.value?.outcome === 'identified') return '◎';
   if (result.value?.outcome === 'redeemed') return '✓';
   if (result.value?.outcome === 'already_used' || result.value?.outcome === 'already_used_today') return '⚠';
   return '!';
 });
 let nextScanTimer: number | undefined;
 
-type AdmissionKindHint = 'ticket' | 'pass' | 'unknown';
+type AdmissionKindHint = 'ticket' | 'pass' | 'customer' | 'unknown';
 
 function admissionKindHint(qrPayload: string): AdmissionKindHint {
   if (qrPayload.startsWith('bb_ticket:v1:')) return 'ticket';
   if (qrPayload.startsWith('bb_pass:v1:')) return 'pass';
+  if (qrPayload.startsWith('bb_customer:v1:')) return 'customer';
   return 'unknown';
 }
 
@@ -418,11 +433,27 @@ async function handleDetected(decodedText: string) {
     outcome: 'checking',
     ticket: null,
     pass: null,
+    customer: null,
     kindHint,
     errorMessage: '',
   };
   await stopScanner();
   try {
+    if (kindHint === 'customer') {
+      const customer = await identifyCustomer({
+        qrPayload: decodedText,
+        branchId: selectedBranchId.value,
+      });
+      result.value = {
+        outcome: customer.outcome,
+        ticket: null,
+        pass: null,
+        customer,
+        kindHint,
+        errorMessage: '',
+      };
+      return;
+    }
     const response = await redeemAdmission({ qrPayload: decodedText, branchId: selectedBranchId.value });
     result.value = {
       outcome: response.outcome,
@@ -443,6 +474,7 @@ async function handleDetected(decodedText: string) {
           }
         : null,
       pass: response.kind === 'pass' ? response : null,
+      customer: null,
       kindHint: response.kind,
       errorMessage: '',
     };
@@ -452,6 +484,7 @@ async function handleDetected(decodedText: string) {
       outcome: resolveRedemptionOutcome(error),
       ticket: null,
       pass: null,
+      customer: null,
       kindHint,
       errorMessage: resolveScannerError(error, kindHint),
     };
@@ -515,6 +548,10 @@ function resolveScannerError(error: unknown, kindHint: AdmissionKindHint = 'unkn
       return 'Абонемент отменён.';
     case 'pass_not_found':
       return 'Абонемент не найден.';
+    case 'customer_not_found':
+      return 'Клиент не найден.';
+    case 'customer_inactive':
+      return 'Аккаунт клиента неактивен.';
     case 'network_error':
       return 'Нет связи. Вход не подтверждён.';
     default:
@@ -674,6 +711,11 @@ function formatDateTime(value: string) {
   background: rgba(39, 91, 160, 0.07);
 }
 
+.scanner-result--customer {
+  border-color: rgba(39, 91, 160, 0.24);
+  background: rgba(39, 91, 160, 0.07);
+}
+
 .scanner-result--warning {
   border-color: rgba(154, 103, 0, 0.3);
   background: #fff8e1;
@@ -701,6 +743,11 @@ function formatDateTime(value: string) {
 }
 
 .scanner-result--checking .scanner-result__icon {
+  color: var(--color-accent);
+  background: rgba(39, 91, 160, 0.12);
+}
+
+.scanner-result--customer .scanner-result__icon {
   color: var(--color-accent);
   background: rgba(39, 91, 160, 0.12);
 }
@@ -737,6 +784,10 @@ function formatDateTime(value: string) {
   color: var(--color-accent);
 }
 
+.scanner-result--customer h2 {
+  color: var(--color-accent);
+}
+
 .scanner-result--warning h2 {
   color: #9a6700;
 }
@@ -760,6 +811,10 @@ function formatDateTime(value: string) {
 .scanner-result__reason {
   color: var(--color-danger);
   font-weight: 700;
+}
+
+.scanner-result__reason--customer {
+  color: var(--color-accent);
 }
 
 @media (max-width: 900px) {

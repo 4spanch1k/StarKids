@@ -15,4 +15,5 @@ abstract final class AppRoutes {
   static const newsDetails = '/news/details';
   static const profile = '/profile';
   static const myRequests = '/profile/requests';
+  static const customerQr = '/profile/qr';
 }
