@@ -45,3 +45,11 @@ class AdminSessionRepository(Repository):
         self.db.commit()
         self.db.refresh(session)
         return session
+
+    def revoke(self, session: AdminSession) -> AdminSession:
+        session.revoked_at = datetime.now(UTC)
+        session.last_used_at = datetime.now(UTC)
+        self.db.add(session)
+        self.db.commit()
+        self.db.refresh(session)
+        return session

@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
@@ -6,7 +7,9 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.database.session import get_db_session
+from app.core.rate_limit.service import reset_rate_limit_state
 from app.db.models import Base
+from app.db.models.mobile_notification import MobileNotification
 from app.db.models.mobile_notification_device import MobileNotificationDevice
 from app.db.models.mobile_session import MobileSession
 from app.db.models.mobile_user import MobileUser
@@ -46,7 +49,9 @@ class MobileNotificationDeviceRegistrationEndpointTests(unittest.TestCase):
         Base.metadata.drop_all(cls.engine)
 
     def setUp(self) -> None:
+        reset_rate_limit_state()
         with self.SessionLocal() as session:
+            session.query(MobileNotification).delete()
             session.query(MobileNotificationDevice).delete()
             session.query(MobileSession).delete()
             session.query(MobileUser).delete()
@@ -213,28 +218,64 @@ class MobileNotificationDeviceRegistrationEndpointTests(unittest.TestCase):
         with self.SessionLocal() as session:
             self.assertEqual(session.query(MobileNotificationDevice).count(), 0)
 
-    def test_placeholder_notifications_route_remains_available(self) -> None:
+    def test_notifications_route_returns_separate_notification_history(self) -> None:
+        with self.SessionLocal() as session:
+            session.add_all(
+                [
+                    MobileNotification(
+                        id='news-visible',
+                        news_id='news-visible',
+                        notification_type='news',
+                        title='Visible notification',
+                        image_url='https://cdn.example/news-visible.jpg',
+                        description='Shown in notifications history.',
+                        is_active=True,
+                    ),
+                    MobileNotification(
+                        id='news-hidden',
+                        news_id=None,
+                        notification_type='promo',
+                        title='Hidden notification',
+                        image_url='https://cdn.example/news-hidden.jpg',
+                        description='Should stay hidden.',
+                        is_active=False,
+                    ),
+                ]
+            )
+            session.commit()
+
         response = self.client.get('/api/v1/mobile/notifications')
 
         self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(len(body), 1)
+        self.assertEqual(body[0]['id'], 'news-visible')
+        self.assertEqual(body[0]['news_id'], 'news-visible')
+        self.assertEqual(body[0]['type'], 'news')
+        self.assertEqual(body[0]['title'], 'Visible notification')
+        self.assertEqual(body[0]['description'], 'Shown in notifications history.')
         self.assertEqual(
-            response.json(),
-            [
-                {
-                    'id': 'notification-1',
-                    'title': 'Welcome to Star Kids',
-                    'is_read': False,
-                }
-            ],
+            body[0]['image_url'],
+            'https://cdn.example/news-visible.jpg',
         )
+        self.assertIn('created_at', body[0])
+        self.assertFalse(body[0]['is_read'])
 
     def _authenticate_mobile_user(self, phone: str) -> dict[str, object]:
+        with patch(
+            'app.modules.mobile_auth.service.secrets.randbelow',
+            return_value=123456,
+        ):
+            request_response = self.client.post(
+                '/api/v1/mobile/auth/request-otp',
+                json={'phone': phone},
+            )
         response = self.client.post(
             '/api/v1/mobile/auth/verify-otp',
             json={
                 'phone': phone,
-                'code': '1234',
-                'verification_id': f'otp_{phone[-4:]}',
+                'code': '123456',
+                'verification_id': request_response.json()['verification_id'],
             },
         )
         self.assertEqual(response.status_code, 200)

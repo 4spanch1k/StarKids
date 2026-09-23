@@ -1,4 +1,6 @@
-from ...core.exceptions.http import NotFoundException
+from datetime import datetime, timezone
+
+from ...core.exceptions.http import DomainHTTPException, NotFoundException
 from ...db.models.promotion import Promotion
 from ...db.repositories.branch_repository import BranchRepository
 from ...db.repositories.promotion_repository import PromotionRepository
@@ -64,6 +66,25 @@ class AdminPromotionService:
         if 'branch_ids' in changes:
             branch_ids = self._validated_branch_ids(changes.pop('branch_ids') or [])
 
+        next_start_at = self._normalize_datetime(changes.get('start_at', promotion.start_at))
+        next_end_at = self._normalize_datetime(changes.get('end_at', promotion.end_at))
+        if (
+            next_start_at is not None
+            and next_end_at is not None
+            and next_end_at <= next_start_at
+        ):
+            raise DomainHTTPException(
+                code='invalid_promotion_validity_window',
+                message='Дата окончания должна быть позже даты начала.',
+                status_code=422,
+                details=[
+                    {
+                        'field': 'end_at',
+                        'message': 'Дата окончания должна быть позже даты начала.',
+                    }
+                ],
+            )
+
         for key, value in changes.items():
             setattr(promotion, key, value)
 
@@ -84,6 +105,16 @@ class AdminPromotionService:
                 )
             validated.append(branch_id)
         return validated
+
+    @staticmethod
+    def _normalize_datetime(value: object) -> datetime | None:
+        if value is None:
+            return None
+        if not isinstance(value, datetime):
+            raise TypeError('Promotion validity dates must be datetimes.')
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
 
     def _get_promotion_or_404(self, promotion_id: str) -> Promotion:
         promotion = self.repository.get_by_id(promotion_id)
@@ -115,6 +146,8 @@ class AdminPromotionService:
                 display_order=promotion.display_order,
                 is_active=promotion.is_active,
                 is_published=promotion.is_published,
+                start_at=promotion.start_at,
+                end_at=promotion.end_at,
             )
             for promotion in promotions
         ]

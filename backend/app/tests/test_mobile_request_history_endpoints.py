@@ -1,5 +1,6 @@
 from datetime import date, datetime, timedelta, timezone
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
@@ -7,6 +8,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.database.session import get_db_session
+from app.core.rate_limit.service import reset_rate_limit_state
 from app.db.models import Base
 from app.db.models.birthday_package import BirthdayPackage
 from app.db.models.birthday_request import BirthdayRequest
@@ -50,6 +52,7 @@ class MobileRequestHistoryEndpointTests(unittest.TestCase):
         Base.metadata.drop_all(cls.engine)
 
     def setUp(self) -> None:
+        reset_rate_limit_state()
         with self.SessionLocal() as session:
             session.query(BirthdayRequest).delete()
             session.query(ContactLead).delete()
@@ -186,7 +189,9 @@ class MobileRequestHistoryEndpointTests(unittest.TestCase):
             headers={'Authorization': f"Bearer {user_two['access_token']}"},
         )
         self.assertEqual(other_user_history_response.status_code, 200)
-        self.assertEqual(other_user_history_response.json(), {'items': [], 'total': 0})
+        other_body = other_user_history_response.json()
+        self.assertEqual(other_body['items'], [])
+        self.assertEqual(other_body['total'], 0)
 
         with self.SessionLocal() as session:
             saved_birthday = session.scalar(
@@ -275,12 +280,20 @@ class MobileRequestHistoryEndpointTests(unittest.TestCase):
         )
 
     def _authenticate_mobile_user(self, phone: str) -> dict[str, object]:
+        with patch(
+            'app.modules.mobile_auth.service.secrets.randbelow',
+            return_value=123456,
+        ):
+            request_response = self.client.post(
+                '/api/v1/mobile/auth/request-otp',
+                json={'phone': phone},
+            )
         response = self.client.post(
             '/api/v1/mobile/auth/verify-otp',
             json={
                 'phone': phone,
-                'code': '1234',
-                'verification_id': f'otp_{phone[-4:]}',
+                'code': '123456',
+                'verification_id': request_response.json()['verification_id'],
             },
         )
         self.assertEqual(response.status_code, 200)

@@ -3,17 +3,25 @@ class BirthdayRequestPayload {
     required this.branchId,
     required this.name,
     required this.phone,
-    required this.preferredDate,
+    this.preferredDate,
     required this.guestCount,
+    this.childId,
     this.packageId,
     this.comment,
+    this.idempotencyKey,
+    this.sourceCampaignId,
+    this.birthdayCycleId,
   });
 
   final String branchId;
   final String? packageId;
   final String name;
   final String phone;
-  final DateTime preferredDate;
+  final DateTime? preferredDate;
   final int guestCount;
+  final String? childId;
   final String? comment;
+  final String? idempotencyKey;
+  final String? sourceCampaignId;
+  final String? birthdayCycleId;
 }

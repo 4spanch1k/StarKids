@@ -31,6 +31,20 @@
           :disabled="leadInbox.isListLoading"
         />
 
+        <AppSelectField
+          v-model="leadInbox.filters.awaitingContact"
+          label="Первый контакт"
+          :options="awaitingContactOptions"
+          :disabled="leadInbox.isListLoading"
+        />
+
+        <AppSelectField
+          v-model="leadInbox.filters.sort"
+          label="Сортировка"
+          :options="sortOptions"
+          :disabled="leadInbox.isListLoading"
+        />
+
         <AppDateRangeField
           v-model="createdRange"
           label="Период"
@@ -76,6 +90,60 @@
             :label="`Срочно: ${urgentLeadCount}`"
             :tone="urgentLeadCount ? 'danger' : 'neutral'"
           />
+        </div>
+      </div>
+    </section>
+
+    <section class="admin-panel admin-panel--stack lead-operations-summary">
+      <div class="admin-section-heading lead-operations-summary__heading">
+        <div>
+          <h2>Скорость обработки birthday-заявок</h2>
+          <p>Фактическое время первого контакта, без заданного SLA-порога.</p>
+        </div>
+        <AppSelectField
+          v-model="leadInbox.summaryPeriod"
+          label="Период"
+          :options="summaryPeriodOptions"
+          :disabled="leadInbox.isSummaryLoading"
+          @update:model-value="handleSummaryPeriodChange"
+        />
+      </div>
+
+      <StatePanel
+        v-if="leadInbox.isSummaryLoading && !leadInbox.operationsSummary"
+        title="Загружаем операционную сводку"
+        description="Считаем очередь и скорость первого контакта."
+      />
+      <p
+        v-else-if="leadInbox.summaryErrorMessage"
+        class="admin-inline-message admin-inline-message--error"
+      >
+        {{ leadInbox.summaryErrorMessage }}
+      </p>
+      <div v-else-if="leadInbox.operationsSummary" class="lead-operations-summary__grid">
+        <div>
+          <strong>{{ leadInbox.operationsSummary.newAwaitingContact }}</strong>
+          <span>Ждут первого контакта сейчас</span>
+        </div>
+        <div>
+          <strong>{{ formatDuration(leadInbox.operationsSummary.oldestWaitingMinutes) }}</strong>
+          <span>Самая старая новая заявка</span>
+        </div>
+        <div>
+          <strong>{{ formatDuration(leadInbox.operationsSummary.medianFirstContactMinutes) }}</strong>
+          <span>Медианное время первого контакта</span>
+        </div>
+        <div>
+          <strong>{{ formatDuration(leadInbox.operationsSummary.p90FirstContactMinutes) }}</strong>
+          <span>90-й перцентиль первого контакта</span>
+        </div>
+        <div>
+          <strong>{{ leadInbox.operationsSummary.leadsCreated }}</strong>
+          <span>Birthday-заявок создано за период</span>
+        </div>
+        <div>
+          <strong>{{ leadInbox.operationsSummary.contactedFromCreatedLeads }}</strong>
+          <span>Из них получили первый контакт</span>
         </div>
       </div>
     </section>
@@ -167,6 +235,17 @@
                   <span v-if="lead.type === 'birthday_request'">
                     {{ formatGuestCount(lead.guestCount) }}
                   </span>
+                  <span
+                    v-if="lead.type === 'birthday_request' && lead.waitingForContactMinutes !== null"
+                    class="lead-row__waiting"
+                  >
+                    Ждёт {{ formatDuration(lead.waitingForContactMinutes) }}
+                  </span>
+                  <span
+                    v-else-if="lead.type === 'birthday_request' && lead.firstContactMinutes !== null"
+                  >
+                    Связались за {{ formatDuration(lead.firstContactMinutes) }}
+                  </span>
                 </span>
               </span>
 
@@ -256,6 +335,7 @@
             :status-success-message="leadInbox.statusSuccessMessage"
             :status-error-message="leadInbox.statusErrorMessage"
             @update-status="leadInbox.updateLeadStatus"
+            @save-note="leadInbox.updateLeadNote"
           />
         </template>
       </aside>
@@ -301,6 +381,7 @@
         :status-success-message="leadInbox.statusSuccessMessage"
         :status-error-message="leadInbox.statusErrorMessage"
         @update-status="leadInbox.updateLeadStatus"
+        @save-note="leadInbox.updateLeadNote"
       />
     </AdminRoutePanel>
   </PageShell>
@@ -360,7 +441,9 @@ const newLeadCount = computed(() => {
 });
 
 const inProgressLeadCount = computed(() => {
-  return leadInbox.leads.filter((lead) => lead.status === 'in_progress').length;
+  return leadInbox.leads.filter((lead) =>
+    ['in_progress', 'contacted', 'qualified', 'booked'].includes(lead.status),
+  ).length;
 });
 
 const urgentLeadCount = computed(() => {
@@ -411,6 +494,22 @@ const statusFilterOptions = computed(() => {
     })),
   ];
 });
+
+const awaitingContactOptions = [
+  { label: 'Все заявки', value: '' },
+  { label: 'Только ждут контакта', value: 'true' },
+];
+
+const sortOptions = [
+  { label: 'Сначала новые', value: 'newest' },
+  { label: 'Сначала ожидающие', value: 'oldest_uncontacted' },
+];
+
+const summaryPeriodOptions = [
+  { label: 'Сегодня', value: 'today' },
+  { label: '7 дней', value: '7d' },
+  { label: '30 дней', value: '30d' },
+];
 
 const selectedLeadTitle = computed(() => {
   return leadInbox.selectedLead?.customerName || 'Карточка заявки';
@@ -478,6 +577,12 @@ async function resetLeadFilters() {
   await leadInbox.resetFilters();
 }
 
+async function handleSummaryPeriodChange(value: string) {
+  if (value === 'today' || value === '7d' || value === '30d') {
+    await leadInbox.loadOperationsSummary(value);
+  }
+}
+
 function loadMoreLeads() {
   visibleLeadLimit.value = Math.min(
     visibleLeadLimit.value + leadPageSize,
@@ -494,7 +599,7 @@ function statusTone(status: LeadStatus): 'new' | 'in-progress' | 'closed' {
     return 'new';
   }
 
-  if (status === 'in_progress') {
+  if (['in_progress', 'contacted', 'qualified', 'booked', 'paid'].includes(status)) {
     return 'in-progress';
   }
 
@@ -521,6 +626,26 @@ function formatDateTime(value: string): string {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(value));
+}
+
+function formatDuration(minutes: number | null): string {
+  if (minutes === null) {
+    return '—';
+  }
+
+  if (minutes < 60) {
+    return `${minutes} мин`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (hours < 24) {
+    return remainingMinutes ? `${hours} ч ${remainingMinutes} мин` : `${hours} ч`;
+  }
+
+  const days = Math.floor(hours / 24);
+  const remainingHours = hours % 24;
+  return remainingHours ? `${days} д ${remainingHours} ч` : `${days} д`;
 }
 
 function formatDateRangeSummary(from: string, to: string): string {
@@ -584,6 +709,14 @@ function buildFilterExplanation(options?: { includeBranchCaveat?: boolean }): st
   );
   if (dateRangeSummary) {
     notes.push(`Период: ${dateRangeSummary}.`);
+  }
+
+  if (leadInbox.filters.awaitingContact === 'true') {
+    notes.push('Только новые birthday-заявки без первого контакта.');
+  }
+
+  if (leadInbox.filters.sort === 'oldest_uncontacted') {
+    notes.push('Ожидающие расположены от самых старых.');
   }
 
   return notes.join(' ');
@@ -682,6 +815,43 @@ function startOfDay(date: Date): Date {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 6px;
+}
+
+.lead-operations-summary__heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.lead-operations-summary__heading .app-select {
+  width: 150px;
+  flex: 0 0 150px;
+}
+
+.lead-operations-summary__grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.lead-operations-summary__grid > div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-subtle);
+}
+
+.lead-operations-summary__grid strong {
+  font-size: 18px;
+}
+
+.lead-operations-summary__grid span {
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .lead-queue {
@@ -809,6 +979,11 @@ function startOfDay(date: Date): Date {
   font-weight: 600;
 }
 
+.lead-row__waiting {
+  color: var(--color-warning);
+  font-weight: 700;
+}
+
 .lead-row__actions {
   display: inline-flex;
   align-items: center;
@@ -879,6 +1054,10 @@ function startOfDay(date: Date): Date {
   .lead-filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .lead-operations-summary__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 900px) {
@@ -889,6 +1068,20 @@ function startOfDay(date: Date): Date {
   .leads-toolbar {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .lead-operations-summary__heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .lead-operations-summary__heading .app-select {
+    width: 100%;
+    flex-basis: auto;
+  }
+
+  .lead-operations-summary__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .lead-detail {

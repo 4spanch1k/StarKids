@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/design_system/sk_design_tokens.dart';
+
 import '../../../../app/di/service_registry.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/design_system/foundations/star_kids_spacing.dart';
+import '../../../../app/router/nested_navigation.dart';
 import '../../../../core/design_system/widgets/star_kids_branch_card.dart';
+import '../../../../core/design_system/widgets/star_kids_motion.dart';
 import '../../../../core/design_system/widgets/star_kids_section_header.dart';
+import '../../../../core/design_system/widgets/stable_future_builder.dart';
 import '../../domain/branch_option.dart';
 
 class BranchSelectionPage extends StatelessWidget {
@@ -18,68 +22,86 @@ class BranchSelectionPage extends StatelessWidget {
       animation: selectedBranchController,
       builder: (context, _) {
         return Scaffold(
-          appBar: AppBar(title: const Text('Выберите филиал')),
+          appBar: AppBar(
+            leading: const NestedBackButton(),
+            title: const Text('Выберите филиал'),
+          ),
           body: SafeArea(
-            child: FutureBuilder<List<BranchOption>>(
-              future: ServiceRegistry.branchRepository.listBranches(),
+            child: StableFutureBuilder<List<BranchOption>>(
+              cacheKey: 'branch-list',
+              futureFactory: ServiceRegistry.branchRepository.listBranches,
               builder: (context, snapshot) {
                 final branches = snapshot.data ?? const <BranchOption>[];
-
-                return ListView(
-                  padding: const EdgeInsets.all(StarKidsSpacing.xl),
-                  children: [
-                    const StarKidsSectionHeader(
-                      title: 'Начните с филиала',
-                      description:
-                          'Филиал влияет на цены, акции, контакты и быстрые действия в приложении.',
-                    ),
-                    const SizedBox(height: StarKidsSpacing.xl),
-                    if (snapshot.connectionState == ConnectionState.waiting &&
-                        branches.isEmpty)
-                      const Center(child: CircularProgressIndicator())
-                    else if (snapshot.hasError && branches.isEmpty)
-                      const _BranchSelectionStateView(
-                        title: 'Филиалы пока недоступны',
-                        description:
-                            'Не удалось загрузить список филиалов. Попробуйте открыть экран позже.',
+                final body = snapshot.connectionState ==
+                            ConnectionState.waiting &&
+                        branches.isEmpty
+                    ? const Center(
+                        key: ValueKey('branch-selection-loading'),
+                        child: CircularProgressIndicator(),
                       )
-                    else
-                      ...branches.map(
-                        (branch) => Padding(
-                          padding:
-                              const EdgeInsets.only(bottom: StarKidsSpacing.lg),
-                          child: StarKidsBranchCard(
-                            imagePath: branch.heroImagePath,
-                            title: branch.name,
-                            address: branch.address,
-                            workingHours: branch.workingHours,
-                            tagLabel: branch.id ==
-                                    selectedBranchController.selectedBranchId
-                                ? 'Выбран'
-                                : branch.shortLabel,
-                            onTap: () async {
-                              await selectedBranchController.selectBranch(
-                                branch.id,
-                              );
+                    : snapshot.hasError && branches.isEmpty
+                        ? const _BranchSelectionStateView(
+                            key: ValueKey('branch-selection-error'),
+                            title: 'Филиалы пока недоступны',
+                            description:
+                                'Не удалось загрузить список филиалов. Попробуйте открыть экран позже.',
+                          )
+                        : ListView(
+                            key: ValueKey(
+                              'branch-selection-loaded-${branches.length}',
+                            ),
+                            padding: const EdgeInsets.all(SKSpacing.x5),
+                            children: [
+                              const StarKidsSectionHeader(
+                                title: 'Начните с филиала',
+                                description:
+                                    'Филиал влияет на цены, акции, контакты и быстрые действия в приложении.',
+                              ),
+                              const SizedBox(height: SKSpacing.x5),
+                              ...branches.asMap().entries.map(
+                                    (entry) => Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: SKSpacing.x4,
+                                      ),
+                                      child: StarKidsBranchCard(
+                                        revealDelay:
+                                            starKidsStaggerDelay(entry.key),
+                                        imagePath: entry.value.heroImagePath,
+                                        title: entry.value.name,
+                                        address: entry.value.address,
+                                        workingHours: entry.value.workingHours,
+                                        tagLabel: entry.value.id ==
+                                                selectedBranchController
+                                                    .selectedBranchId
+                                            ? 'Выбран'
+                                            : entry.value.shortLabel,
+                                        onTap: () async {
+                                          await selectedBranchController
+                                              .selectBranch(
+                                            entry.value.id,
+                                          );
 
-                              if (!context.mounted) {
-                                return;
-                              }
+                                          if (!context.mounted) {
+                                            return;
+                                          }
 
-                              if (Navigator.of(context).canPop()) {
-                                Navigator.of(context).pop();
-                                return;
-                              }
+                                          if (Navigator.of(context).canPop()) {
+                                            Navigator.of(context).pop();
+                                            return;
+                                          }
 
-                              Navigator.of(
-                                context,
-                              ).pushReplacementNamed(AppRoutes.home);
-                            },
-                          ),
-                        ),
-                      ),
-                  ],
-                );
+                                          Navigator.of(
+                                            context,
+                                          ).pushReplacementNamed(
+                                              AppRoutes.home);
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                            ],
+                          );
+
+                return StarKidsContentSwitcher(child: body);
               },
             ),
           ),
@@ -91,6 +113,7 @@ class BranchSelectionPage extends StatelessWidget {
 
 class _BranchSelectionStateView extends StatelessWidget {
   const _BranchSelectionStateView({
+    super.key,
     required this.title,
     required this.description,
   });
@@ -101,11 +124,11 @@ class _BranchSelectionStateView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: StarKidsSpacing.x4l),
+      padding: const EdgeInsets.only(top: SKSpacing.x10),
       child: Column(
         children: [
           Text(title, style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: StarKidsSpacing.sm),
+          const SizedBox(height: SKSpacing.x2),
           Text(
             description,
             style: Theme.of(context).textTheme.bodyLarge,

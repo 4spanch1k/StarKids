@@ -6,15 +6,18 @@ class OtpRequestResponseDto {
   const OtpRequestResponseDto({
     required this.verificationId,
     required this.expiresInSeconds,
+    required this.resendAfterSeconds,
   });
 
   final String verificationId;
   final int expiresInSeconds;
+  final int resendAfterSeconds;
 
   factory OtpRequestResponseDto.fromJson(Map<String, dynamic> json) {
     return OtpRequestResponseDto(
       verificationId: json['verification_id'] as String,
       expiresInSeconds: json['expires_in_seconds'] as int,
+      resendAfterSeconds: (json['resend_after_seconds'] as int?) ?? 60,
     );
   }
 
@@ -27,6 +30,7 @@ class OtpRequestResponseDto {
       verificationId: verificationId,
       expiresIn: Duration(seconds: expiresInSeconds),
       requestedAt: requestedAt,
+      resendAfter: Duration(seconds: resendAfterSeconds),
     );
   }
 }
@@ -73,6 +77,7 @@ class TokenResponseDto {
     return MobileAuthSession(
       user: user.toDomain(),
       phone: user.phone,
+      email: user.email,
       accessToken: accessToken,
       refreshToken: refreshToken,
       tokenType: tokenType,
@@ -86,16 +91,19 @@ class TokenResponseDto {
 class MobileAuthUserDto {
   const MobileAuthUserDto({
     required this.id,
-    required this.phone,
+    this.phone,
+    this.email,
   });
 
   final String id;
-  final String phone;
+  final String? phone;
+  final String? email;
 
   factory MobileAuthUserDto.fromJson(Map<String, dynamic> json) {
     return MobileAuthUserDto(
       id: json['id'] as String,
-      phone: json['phone'] as String,
+      phone: json['phone'] as String?,
+      email: json['email'] as String?,
     );
   }
 
@@ -103,6 +111,7 @@ class MobileAuthUserDto {
     return MobileAuthUser(
       id: id,
       phone: phone,
+      email: email,
     );
   }
 }

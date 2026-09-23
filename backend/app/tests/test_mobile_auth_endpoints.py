@@ -1,15 +1,60 @@
+import base64
+from datetime import UTC, datetime, timedelta
+import hashlib
+import re
 import unittest
+from unittest.mock import Mock, patch
 
+from fastapi import Request
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.database.session import get_db_session
+from app.core.config.settings import Settings
+from app.core.exceptions.http import DomainHTTPException
+from app.core.rate_limit.service import reset_rate_limit_state
+from app.core.rate_limit.service import RateLimitService
+from app.core.security.passwords import (
+    SCRYPT_DKLEN,
+    SCRYPT_N,
+    SCRYPT_P,
+    SCRYPT_R,
+    describe_password_hash,
+    hash_password,
+    verify_password,
+)
 from app.db.models import Base
+from app.db.models.auth_throttle_state import AuthThrottleState
 from app.db.models.mobile_session import MobileSession
+from app.db.models.mobile_otp_challenge import MobileOtpChallenge
 from app.db.models.mobile_user import MobileUser
+from app.db.repositories.auth_throttle_state_repository import AuthThrottleStateRepository
+from app.db.repositories.mobile_otp_challenge_repository import MobileOtpChallengeRepository
+from app.db.repositories.mobile_session_repository import MobileSessionRepository
+from app.db.repositories.mobile_user_repository import MobileUserRepository
 from app.main import app
+from app.modules.auth_security.dependencies import (
+    AuthRequestContext,
+    get_auth_request_context,
+)
+from app.modules.auth_security.service import AuthProtectionService
+from app.modules.mobile_auth.clerk_verifier import (
+    ClerkTokenVerificationError,
+    VerifiedClerkIdentity,
+)
+from app.modules.mobile_auth.dependencies import (
+    get_clerk_session_verifier,
+    get_mobile_auth_service,
+)
+from app.modules.mobile_auth.schemas import (
+    MobileClerkExchangeRequest,
+    MobileEmailRegistrationRequest,
+    OTPRequest,
+    OTPVerifyRequest,
+)
+from app.modules.mobile_auth.service import MobileAuthService
 
 
 class MobileAuthEndpointTests(unittest.TestCase):
@@ -41,11 +86,23 @@ class MobileAuthEndpointTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
+        reset_rate_limit_state()
         app.dependency_overrides.clear()
         Base.metadata.drop_all(cls.engine)
 
     def setUp(self) -> None:
+        reset_rate_limit_state()
+        self._otp_code_patch = patch(
+            'app.modules.mobile_auth.service.secrets.randbelow',
+            return_value=123456,
+        )
+        self._otp_code_patch.start()
+        self.addCleanup(self._otp_code_patch.stop)
+        app.dependency_overrides.pop(get_clerk_session_verifier, None)
+        app.dependency_overrides.pop(get_mobile_auth_service, None)
         with self.SessionLocal() as session:
+            session.query(AuthThrottleState).delete()
+            session.query(MobileOtpChallenge).delete()
             session.query(MobileSession).delete()
             session.query(MobileUser).delete()
             session.commit()
@@ -60,6 +117,84 @@ class MobileAuthEndpointTests(unittest.TestCase):
         body = response.json()
         self.assertTrue(body['verification_id'].startswith('otp_'))
         self.assertEqual(body['expires_in_seconds'], 300)
+        self.assertEqual(body['resend_after_seconds'], 60)
+
+    def test_otp_endpoint_ignores_forwarded_ip_from_untrusted_peer(self) -> None:
+        captured: list[str] = []
+
+        def override_context(request: Request) -> AuthRequestContext:
+            scope = dict(request.scope)
+            scope['client'] = ('198.51.100.40', 54321)
+            return get_auth_request_context(Request(scope, request.receive))
+
+        def capture_context(
+            _service: AuthProtectionService,
+            *,
+            context: AuthRequestContext,
+            phone: str,
+        ) -> None:
+            del phone
+            captured.append(context.ip_address)
+
+        app.dependency_overrides[get_auth_request_context] = override_context
+        self.addCleanup(app.dependency_overrides.pop, get_auth_request_context, None)
+        with patch.object(
+            AuthProtectionService,
+            'enforce_otp_request_limits',
+            new=capture_context,
+        ):
+            first = self.client.post(
+                '/api/v1/mobile/auth/request-otp',
+                json={'phone': '+77071234567'},
+                headers={'X-Forwarded-For': '1.2.3.4'},
+            )
+            second = self.client.post(
+                '/api/v1/mobile/auth/request-otp',
+                json={'phone': '+77071234568'},
+                headers={'X-Forwarded-For': '203.0.113.50'},
+            )
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(captured, ['198.51.100.40', '198.51.100.40'])
+
+    def test_otp_endpoint_uses_forwarded_ip_from_trusted_peer(self) -> None:
+        captured: list[str] = []
+
+        def override_context(request: Request) -> AuthRequestContext:
+            scope = dict(request.scope)
+            scope['client'] = ('127.0.0.1', 54321)
+            return get_auth_request_context(Request(scope, request.receive))
+
+        def capture_context(
+            _service: AuthProtectionService,
+            *,
+            context: AuthRequestContext,
+            phone: str,
+        ) -> None:
+            del phone
+            captured.append(context.ip_address)
+
+        app.dependency_overrides[get_auth_request_context] = override_context
+        self.addCleanup(app.dependency_overrides.pop, get_auth_request_context, None)
+        with patch(
+            'app.modules.auth_security.dependencies.get_settings',
+            return_value=Settings(
+                app_env='test', trusted_proxy_cidrs='127.0.0.1/32'
+            ),
+        ), patch.object(
+            AuthProtectionService,
+            'enforce_otp_request_limits',
+            new=capture_context,
+        ):
+            response = self.client.post(
+                '/api/v1/mobile/auth/request-otp',
+                json={'phone': '+77071234569'},
+                headers={'X-Forwarded-For': '203.0.113.50, 127.0.0.1'},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(captured, ['203.0.113.50'])
 
     def test_verify_otp_returns_auth_response_and_persists_session(self) -> None:
         request_response = self.client.post(
@@ -72,7 +207,7 @@ class MobileAuthEndpointTests(unittest.TestCase):
             '/api/v1/mobile/auth/verify-otp',
             json={
                 'phone': '+77071234567',
-                'code': '1234',
+                'code': '123456',
                 'verification_id': verification_id,
             },
         )
@@ -91,15 +226,830 @@ class MobileAuthEndpointTests(unittest.TestCase):
             self.assertEqual(session.query(MobileUser).count(), 1)
             self.assertEqual(session.query(MobileSession).count(), 1)
 
-    def test_verify_otp_keeps_legacy_token_fields_for_existing_mobile_client(self) -> None:
+    def test_otp_challenge_is_persisted_hashed_and_single_use(self) -> None:
+        with patch(
+            'app.modules.mobile_auth.service.secrets.randbelow',
+            return_value=654321,
+        ):
+            request_response = self.client.post(
+                '/api/v1/mobile/auth/request-otp',
+                json={'phone': '+77071234567'},
+            )
+        verification_id = request_response.json()['verification_id']
+
+        with self.SessionLocal() as session:
+            challenge = session.get(MobileOtpChallenge, verification_id)
+            self.assertIsNotNone(challenge)
+            self.assertNotEqual(challenge.code_hash, '654321')
+            self.assertEqual(challenge.attempt_count, 0)
+            self.assertIsNone(challenge.consumed_at)
+
+        verified = self.client.post(
+            '/api/v1/mobile/auth/verify-otp',
+            json={
+                'phone': '+77071234567',
+                'code': '654321',
+                'verification_id': verification_id,
+            },
+        )
+        self.assertEqual(verified.status_code, 200)
+
+        replay = self.client.post(
+            '/api/v1/mobile/auth/verify-otp',
+            json={
+                'phone': '+77071234567',
+                'code': '654321',
+                'verification_id': verification_id,
+            },
+        )
+        self.assertEqual(replay.status_code, 401)
+
+    def test_otp_wrong_code_consumes_challenge_after_max_attempts(self) -> None:
+        with patch(
+            'app.modules.mobile_auth.service.secrets.randbelow',
+            return_value=654321,
+        ):
+            request_response = self.client.post(
+                '/api/v1/mobile/auth/request-otp',
+                json={'phone': '+77071234567'},
+            )
+        verification_id = request_response.json()['verification_id']
+
+        for _ in range(5):
+            response = self.client.post(
+                '/api/v1/mobile/auth/verify-otp',
+                json={
+                    'phone': '+77071234567',
+                    'code': '000000',
+                    'verification_id': verification_id,
+                },
+            )
+            self.assertEqual(response.status_code, 401)
+
+        with self.SessionLocal() as session:
+            challenge = session.get(MobileOtpChallenge, verification_id)
+            self.assertEqual(challenge.attempt_count, 5)
+            self.assertIsNotNone(challenge.consumed_at)
+
+    def test_otp_resend_is_rate_limited_during_cooldown(self) -> None:
+        with patch(
+            'app.modules.mobile_auth.service.secrets.randbelow',
+            return_value=654321,
+        ):
+            first = self.client.post(
+                '/api/v1/mobile/auth/request-otp',
+                json={'phone': '+77071234567'},
+            )
+            second = self.client.post(
+                '/api/v1/mobile/auth/request-otp',
+                json={'phone': '+77071234567'},
+            )
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 429)
+        self.assertGreaterEqual(int(second.headers['retry-after']), 1)
+
+    def test_successful_verify_preserves_request_budget(self) -> None:
+        self.addCleanup(reset_rate_limit_state)
+        settings = Settings(
+            app_env='test',
+            database_url='sqlite://',
+            otp_resend_cooldown_seconds=1,
+            otp_request_limit_per_phone=3,
+            otp_request_limit_per_ip=3,
+            otp_request_window_seconds=3600,
+            otp_verify_limit_per_ip_phone=2,
+            otp_verify_window_seconds=600,
+        )
+        with self.SessionLocal() as session:
+            rate_limits = RateLimitService(settings=settings)
+            service = MobileAuthService(
+                user_repository=MobileUserRepository(session),
+                session_repository=MobileSessionRepository(session),
+                otp_challenge_repository=MobileOtpChallengeRepository(session),
+                auth_protection_service=AuthProtectionService(
+                    throttle_repository=AuthThrottleStateRepository(session),
+                    rate_limit_service=rate_limits,
+                    settings=settings,
+                ),
+                settings=settings,
+            )
+            context = AuthRequestContext(ip_address='192.0.2.10')
+            with patch(
+                'app.modules.mobile_auth.service.secrets.randbelow',
+                return_value=654321,
+            ):
+                first = service.request_otp(
+                    OTPRequest(phone='+77071234567'),
+                    context=context,
+                )
+            service.verify_otp(
+                OTPVerifyRequest(
+                    phone='+77071234567',
+                    code='654321',
+                    verification_id=first.verification_id,
+                ),
+                context=context,
+            )
+            self.assertEqual(
+                rate_limits.peek(
+                    'otp:verify:192.0.2.10:+77071234567',
+                    limit=settings.otp_verify_limit_per_ip_phone,
+                    window_seconds=settings.otp_verify_window_seconds,
+                ).current_count,
+                0,
+            )
+            with patch(
+                'app.modules.mobile_auth.service.secrets.randbelow',
+                return_value=123456,
+            ):
+                service.request_otp(
+                    OTPRequest(phone='+77071234567'),
+                    context=context,
+                )
+                with self.assertRaises(DomainHTTPException) as raised:
+                    service.request_otp(
+                        OTPRequest(phone='+77071234567'),
+                        context=context,
+                    )
+            self.assertEqual(raised.exception.status_code, 429)
+            self.assertGreater(int(raised.exception.headers['Retry-After']), 100)
+
+    def test_successful_verify_clears_only_verify_bucket(self) -> None:
+        self.addCleanup(reset_rate_limit_state)
+        settings = Settings(app_env='test', database_url='sqlite://')
+        rate_limits = RateLimitService(settings=settings)
+        with self.SessionLocal() as session:
+            protection = AuthProtectionService(
+                throttle_repository=AuthThrottleStateRepository(session),
+                rate_limit_service=rate_limits,
+                settings=settings,
+            )
+            context = AuthRequestContext(ip_address='192.0.2.11')
+            phone = '+77071234567'
+            rate_limits.consume(
+                f'otp:request:phone:{phone}',
+                limit=settings.otp_request_limit_per_phone,
+                window_seconds=settings.otp_request_window_seconds,
+            )
+            for _ in range(settings.otp_verify_limit_per_ip_phone - 1):
+                protection.enforce_otp_verify_limits(context=context, phone=phone)
+            protection.clear_otp_verify_limit(context=context, phone=phone)
+            protection.enforce_otp_verify_limits(context=context, phone=phone)
+            self.assertEqual(
+                rate_limits.peek(
+                    f'otp:request:phone:{phone}',
+                    limit=settings.otp_request_limit_per_phone,
+                    window_seconds=settings.otp_request_window_seconds,
+                ).current_count,
+                1,
+            )
+
+    def test_expired_otp_cannot_be_verified(self) -> None:
+        with patch(
+            'app.modules.mobile_auth.service.secrets.randbelow',
+            return_value=654321,
+        ):
+            request_response = self.client.post(
+                '/api/v1/mobile/auth/request-otp',
+                json={'phone': '+77071234567'},
+            )
+        verification_id = request_response.json()['verification_id']
+        with self.SessionLocal() as session:
+            challenge = session.get(MobileOtpChallenge, verification_id)
+            challenge.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+            session.commit()
+
         response = self.client.post(
             '/api/v1/mobile/auth/verify-otp',
             json={
                 'phone': '+77071234567',
-                'code': '1234',
-                'verification_id': 'otp_legacy_contract',
+                'code': '654321',
+                'verification_id': verification_id,
             },
         )
+        self.assertEqual(response.status_code, 401)
+
+    def test_register_email_returns_auth_response_and_hashes_password_with_argon2id(self) -> None:
+        response = self.client.post(
+            '/api/v1/mobile/auth/register',
+            json={
+                'email': 'Parent@Example.com',
+                'password': 'strong-pass-123',
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body['token_type'], 'bearer')
+        self.assertTrue(body['access_token'])
+        self.assertTrue(body['refresh_token'])
+        self.assertEqual(body['user']['email'], 'parent@example.com')
+        self.assertNotIn('phone', body['user'])
+
+        with self.SessionLocal() as session:
+            saved_user = session.query(MobileUser).one()
+            saved_session = session.query(MobileSession).one()
+            self.assertEqual(saved_user.email, 'parent@example.com')
+            self.assertIsNone(saved_user.phone)
+            self.assertIsNotNone(saved_user.password_hash)
+            self.assertNotEqual(saved_user.password_hash, 'strong-pass-123')
+            self.assertEqual(
+                describe_password_hash(saved_user.password_hash or ''),
+                'argon2id',
+            )
+            self.assertTrue(
+                verify_password('strong-pass-123', saved_user.password_hash or '')
+            )
+            self.assertIsNotNone(saved_user.last_login_at)
+            self.assertEqual(session.query(MobileSession).count(), 1)
+            self.assertNotEqual(saved_session.refresh_token_hash, body['refresh_token'])
+            self.assertTrue(saved_session.refresh_token_hash.startswith('hmac-sha256$'))
+
+    def test_deployed_environment_disables_email_registration_before_side_effects(self) -> None:
+        for app_env in ('staging', 'production'):
+            with self.subTest(app_env=app_env):
+                holder = self._override_mobile_auth_environment(app_env)
+                response = self.client.post(
+                    '/api/v1/mobile/auth/register',
+                    json={
+                        'email': f'{app_env}@example.com',
+                        'password': 'strong-pass-123',
+                    },
+                )
+
+                self.assertEqual(response.status_code, 404)
+                self.assertEqual(
+                    response.json()['error']['code'],
+                    'legacy_mobile_auth_disabled',
+                )
+                with self.SessionLocal() as session:
+                    self.assertEqual(session.query(MobileUser).count(), 0)
+                    self.assertEqual(session.query(MobileSession).count(), 0)
+                holder['loyalty'].apply_event.assert_not_called()
+
+    def test_deployed_environment_disables_email_login_without_mutation(self) -> None:
+        for app_env in ('staging', 'production'):
+            with self.subTest(app_env=app_env):
+                email = f'{app_env}-login@example.com'
+                with self.SessionLocal() as session:
+                    session.add(
+                        MobileUser(
+                            id=f'{app_env}-login-user',
+                            email=email,
+                            password_hash=hash_password('strong-pass-123'),
+                        )
+                    )
+                    session.commit()
+
+                self._override_mobile_auth_environment(app_env)
+                response = self.client.post(
+                    '/api/v1/mobile/auth/login',
+                    json={
+                        'email': email,
+                        'password': 'strong-pass-123',
+                    },
+                    headers=self._login_headers(
+                        f'198.51.100.{20 if app_env == "staging" else 21}'
+                    ),
+                )
+
+                self.assertEqual(response.status_code, 404)
+                self.assertEqual(
+                    response.json()['error']['code'],
+                    'legacy_mobile_auth_disabled',
+                )
+                with self.SessionLocal() as session:
+                    saved_user = session.query(MobileUser).filter_by(email=email).one()
+                    self.assertIsNone(saved_user.last_login_at)
+                    self.assertEqual(session.query(MobileSession).count(), 0)
+                    self.assertEqual(session.query(AuthThrottleState).count(), 0)
+
+    def test_deployed_environment_disables_clerk_before_verifier_or_side_effects(self) -> None:
+        for app_env in ('staging', 'production'):
+            with self.subTest(app_env=app_env):
+                verifier = _FakeClerkSessionVerifier(
+                    identity=VerifiedClerkIdentity(
+                        clerk_user_id=f'{app_env}-clerk-user',
+                        email=f'{app_env}-clerk@example.com',
+                        email_verified=True,
+                    )
+                )
+                app.dependency_overrides[get_clerk_session_verifier] = (
+                    lambda verifier=verifier: verifier
+                )
+                holder = self._override_mobile_auth_environment(app_env)
+                response = self.client.post(
+                    '/api/v1/mobile/auth/clerk/exchange',
+                    json={'session_token': 'clerk-session-token'},
+                )
+
+                self.assertEqual(response.status_code, 404)
+                self.assertEqual(
+                    response.json()['error']['code'],
+                    'legacy_mobile_auth_disabled',
+                )
+                self.assertIsNone(verifier.seen_token)
+                with self.SessionLocal() as session:
+                    self.assertEqual(session.query(MobileUser).count(), 0)
+                    self.assertEqual(session.query(MobileSession).count(), 0)
+                holder['loyalty'].apply_event.assert_not_called()
+
+    def test_service_guard_rejects_legacy_auth_before_verifier(self) -> None:
+        with self.SessionLocal() as session:
+            settings = Settings(app_env='production', otp_mock_mode=False)
+            loyalty = Mock()
+            service = MobileAuthService(
+                user_repository=MobileUserRepository(session),
+                session_repository=MobileSessionRepository(session),
+                auth_protection_service=AuthProtectionService(
+                    throttle_repository=AuthThrottleStateRepository(session),
+                    settings=settings,
+                ),
+                settings=settings,
+                loyalty_service=loyalty,
+            )
+            verifier = _FakeClerkSessionVerifier(
+                identity=VerifiedClerkIdentity(
+                    clerk_user_id='direct-clerk-user',
+                    email='direct@example.com',
+                    email_verified=True,
+                )
+            )
+
+            with self.assertRaises(DomainHTTPException) as register_error:
+                service.register_with_email(
+                    MobileEmailRegistrationRequest(
+                        email='direct@example.com',
+                        password='strong-pass-123',
+                    )
+                )
+            with self.assertRaises(DomainHTTPException) as clerk_error:
+                service.exchange_clerk_session(
+                    MobileClerkExchangeRequest(session_token='direct-token'),
+                    verifier=verifier,
+                )
+
+            self.assertEqual(
+                register_error.exception.code,
+                'legacy_mobile_auth_disabled',
+            )
+            self.assertEqual(
+                clerk_error.exception.code,
+                'legacy_mobile_auth_disabled',
+            )
+            self.assertIsNone(verifier.seen_token)
+            loyalty.apply_event.assert_not_called()
+            self.assertEqual(session.query(MobileUser).count(), 0)
+            self.assertEqual(session.query(MobileSession).count(), 0)
+
+    def test_clerk_exchange_creates_user_and_returns_star_kids_tokens(self) -> None:
+        verifier = _FakeClerkSessionVerifier(
+            identity=VerifiedClerkIdentity(
+                clerk_user_id='user_clerk_123',
+                email='Parent@Example.com',
+                email_verified=True,
+                first_name='Dana',
+                last_name='Parent',
+                avatar_url='https://img.clerk.test/avatar.png',
+            )
+        )
+        app.dependency_overrides[get_clerk_session_verifier] = lambda: verifier
+
+        response = self.client.post(
+            '/api/v1/mobile/auth/clerk/exchange',
+            json={'session_token': 'clerk-session-token'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body['token_type'], 'bearer')
+        self.assertTrue(body['access_token'])
+        self.assertTrue(body['refresh_token'])
+        self.assertEqual(body['user']['email'], 'parent@example.com')
+        self.assertEqual(verifier.seen_token, 'clerk-session-token')
+
+        with self.SessionLocal() as session:
+            saved_user = session.query(MobileUser).one()
+            saved_session = session.query(MobileSession).one()
+            self.assertEqual(saved_user.email, 'parent@example.com')
+            self.assertEqual(saved_user.clerk_user_id, 'user_clerk_123')
+            self.assertIsNone(saved_user.password_hash)
+            self.assertEqual(saved_user.first_name, 'Dana')
+            self.assertEqual(saved_user.last_name, 'Parent')
+            self.assertEqual(
+                saved_user.avatar_url,
+                'https://img.clerk.test/avatar.png',
+            )
+            self.assertEqual(saved_session.mobile_user_id, saved_user.id)
+
+        current_user_response = self.client.get(
+            '/api/v1/mobile/auth/current-user',
+            headers={'Authorization': f"Bearer {body['access_token']}"},
+        )
+        self.assertEqual(current_user_response.status_code, 200)
+        self.assertEqual(current_user_response.json()['email'], 'parent@example.com')
+
+    def test_clerk_exchange_links_existing_verified_email_without_overwriting_profile(self) -> None:
+        with self.SessionLocal() as session:
+            session.add(
+                MobileUser(
+                    id='existing-user',
+                    email='parent@example.com',
+                    password_hash='hashed-password',
+                    first_name='Local',
+                    last_name='Profile',
+                    avatar_url='https://local.example/avatar.png',
+                    is_active=True,
+                )
+            )
+            session.commit()
+
+        verifier = _FakeClerkSessionVerifier(
+            identity=VerifiedClerkIdentity(
+                clerk_user_id='user_clerk_link',
+                email='parent@example.com',
+                email_verified=True,
+                first_name='Clerk',
+                last_name='Name',
+                avatar_url='https://img.clerk.test/new.png',
+            )
+        )
+        app.dependency_overrides[get_clerk_session_verifier] = lambda: verifier
+
+        response = self.client.post(
+            '/api/v1/mobile/auth/clerk/exchange',
+            json={'session_token': 'clerk-session-token'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body['user']['id'], 'existing-user')
+        with self.SessionLocal() as session:
+            saved_user = session.query(MobileUser).filter_by(id='existing-user').one()
+            self.assertEqual(saved_user.clerk_user_id, 'user_clerk_link')
+            self.assertEqual(saved_user.first_name, 'Local')
+            self.assertEqual(saved_user.last_name, 'Profile')
+            self.assertEqual(saved_user.avatar_url, 'https://local.example/avatar.png')
+
+    def test_clerk_exchange_rejects_email_already_linked_to_different_clerk_user(self) -> None:
+        with self.SessionLocal() as session:
+            session.add(
+                MobileUser(
+                    id='existing-user',
+                    email='parent@example.com',
+                    clerk_user_id='user_clerk_existing',
+                    is_active=True,
+                )
+            )
+            session.commit()
+
+        verifier = _FakeClerkSessionVerifier(
+            identity=VerifiedClerkIdentity(
+                clerk_user_id='user_clerk_new',
+                email='parent@example.com',
+                email_verified=True,
+            )
+        )
+        app.dependency_overrides[get_clerk_session_verifier] = lambda: verifier
+
+        response = self.client.post(
+            '/api/v1/mobile/auth/clerk/exchange',
+            json={'session_token': 'clerk-session-token'},
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()['error']['code'], 'account_already_linked')
+
+    def test_clerk_exchange_rejects_unverified_email(self) -> None:
+        verifier = _FakeClerkSessionVerifier(
+            identity=VerifiedClerkIdentity(
+                clerk_user_id='user_clerk_unverified',
+                email='parent@example.com',
+                email_verified=False,
+            )
+        )
+        app.dependency_overrides[get_clerk_session_verifier] = lambda: verifier
+
+        response = self.client.post(
+            '/api/v1/mobile/auth/clerk/exchange',
+            json={'session_token': 'clerk-session-token'},
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()['error']['code'], 'clerk_email_not_verified')
+
+    def test_clerk_exchange_rejects_invalid_clerk_session(self) -> None:
+        verifier = _FakeClerkSessionVerifier(
+            error=ClerkTokenVerificationError('invalid token')
+        )
+        app.dependency_overrides[get_clerk_session_verifier] = lambda: verifier
+
+        response = self.client.post(
+            '/api/v1/mobile/auth/clerk/exchange',
+            json={'session_token': 'bad-token'},
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()['error']['code'], 'invalid_clerk_session')
+
+    def test_register_email_rejects_duplicate_email_with_controlled_error(self) -> None:
+        first_response = self.client.post(
+            '/api/v1/mobile/auth/register',
+            json={
+                'email': 'parent@example.com',
+                'password': 'strong-pass-123',
+            },
+        )
+        self.assertEqual(first_response.status_code, 200)
+
+        duplicate_response = self.client.post(
+            '/api/v1/mobile/auth/register',
+            json={
+                'email': 'PARENT@example.com',
+                'password': 'strong-pass-123',
+            },
+        )
+
+        self.assertEqual(duplicate_response.status_code, 409)
+        body = duplicate_response.json()
+        self.assertEqual(
+            body['error']['code'],
+            'account_already_exists',
+        )
+        self.assertEqual(
+            body['error']['message'],
+            'Аккаунт с такими данными уже существует.',
+        )
+
+    def test_register_email_rejects_weak_password(self) -> None:
+        response = self.client.post(
+            '/api/v1/mobile/auth/register',
+            json={
+                'email': 'parent@example.com',
+                'password': 'password123',
+            },
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()['error']['code'], 'weak_password')
+
+    def test_login_email_returns_auth_response_for_existing_user(self) -> None:
+        register_response = self.client.post(
+            '/api/v1/mobile/auth/register',
+            json={
+                'email': 'parent@example.com',
+                'password': 'strong-pass-123',
+            },
+        )
+        self.assertEqual(register_response.status_code, 200)
+
+        response = self.client.post(
+            '/api/v1/mobile/auth/login',
+            json={
+                'email': 'PARENT@example.com',
+                'password': 'strong-pass-123',
+            },
+            headers=self._login_headers('198.51.100.10'),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body['user']['email'], 'parent@example.com')
+        self.assertNotEqual(body['access_token'], register_response.json()['access_token'])
+
+    def test_login_uses_same_controlled_error_for_unknown_user_and_wrong_password(self) -> None:
+        unknown_response = self.client.post(
+            '/api/v1/mobile/auth/login',
+            json={
+                'email': 'missing@example.com',
+                'password': 'strong-pass-123',
+            },
+            headers=self._login_headers('198.51.100.11'),
+        )
+
+        register_response = self.client.post(
+            '/api/v1/mobile/auth/register',
+            json={
+                'email': 'parent@example.com',
+                'password': 'strong-pass-123',
+            },
+        )
+        self.assertEqual(register_response.status_code, 200)
+
+        wrong_password_response = self.client.post(
+            '/api/v1/mobile/auth/login',
+            json={
+                'email': 'parent@example.com',
+                'password': 'wrong-password',
+            },
+            headers=self._login_headers('198.51.100.12'),
+        )
+
+        self.assertEqual(unknown_response.status_code, 401)
+        self.assertEqual(wrong_password_response.status_code, 401)
+        self.assertEqual(unknown_response.json(), wrong_password_response.json())
+        self.assertEqual(
+            unknown_response.json()['error']['message'],
+            'Неверный логин или пароль.',
+        )
+
+    def test_login_rehashes_legacy_scrypt_password_on_success(self) -> None:
+        with self.SessionLocal() as session:
+            session.add(
+                MobileUser(
+                    id='legacy-user',
+                    email='legacy@example.com',
+                    password_hash=self._legacy_scrypt_hash('legacy-pass-123'),
+                    is_active=True,
+                )
+            )
+            session.commit()
+
+        response = self.client.post(
+            '/api/v1/mobile/auth/login',
+            json={
+                'email': 'legacy@example.com',
+                'password': 'legacy-pass-123',
+            },
+            headers=self._login_headers('198.51.100.13'),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        with self.SessionLocal() as session:
+            saved_user = session.query(MobileUser).filter_by(id='legacy-user').one()
+            self.assertEqual(
+                describe_password_hash(saved_user.password_hash or ''),
+                'argon2id',
+            )
+            self.assertTrue(
+                verify_password('legacy-pass-123', saved_user.password_hash or '')
+            )
+
+    def test_login_blocks_after_five_failed_attempts_for_same_ip(self) -> None:
+        self.client.post(
+            '/api/v1/mobile/auth/register',
+            json={
+                'email': 'parent@example.com',
+                'password': 'strong-pass-123',
+            },
+        )
+
+        headers = self._login_headers('203.0.113.20')
+        for _ in range(4):
+            response = self.client.post(
+                '/api/v1/mobile/auth/login',
+                json={
+                    'email': 'parent@example.com',
+                    'password': 'wrong-password',
+                },
+                headers=headers,
+            )
+            self.assertEqual(response.status_code, 401)
+            self.assertEqual(response.json()['error']['code'], 'invalid_credentials')
+
+        blocked_response = self.client.post(
+            '/api/v1/mobile/auth/login',
+            json={
+                'email': 'parent@example.com',
+                'password': 'wrong-password',
+            },
+            headers=headers,
+        )
+
+        self.assertEqual(blocked_response.status_code, 429)
+        body = blocked_response.json()
+        self.assertEqual(body['error']['code'], 'login_temporarily_locked')
+        detail_map = self._detail_map(body['error']['details'])
+        self.assertGreaterEqual(int(detail_map['retry_after_seconds']), 1)
+
+    def test_login_requires_captcha_after_three_more_failures_post_lockout(self) -> None:
+        self.client.post(
+            '/api/v1/mobile/auth/register',
+            json={
+                'email': 'parent@example.com',
+                'password': 'strong-pass-123',
+            },
+        )
+
+        headers = self._login_headers('203.0.113.21')
+        for _ in range(5):
+            self.client.post(
+                '/api/v1/mobile/auth/login',
+                json={
+                    'email': 'parent@example.com',
+                    'password': 'wrong-password',
+                },
+                headers=headers,
+            )
+
+        self._expire_lockouts()
+
+        for _ in range(2):
+            response = self.client.post(
+                '/api/v1/mobile/auth/login',
+                json={
+                    'email': 'parent@example.com',
+                    'password': 'wrong-password',
+                },
+                headers=headers,
+            )
+            self.assertEqual(response.status_code, 401)
+
+        captcha_response = self.client.post(
+            '/api/v1/mobile/auth/login',
+            json={
+                'email': 'parent@example.com',
+                'password': 'wrong-password',
+            },
+            headers=headers,
+        )
+
+        self.assertEqual(captcha_response.status_code, 403)
+        body = captcha_response.json()
+        self.assertEqual(body['error']['code'], 'captcha_required')
+        detail_map = self._detail_map(body['error']['details'])
+        self.assertIn('captcha_id', detail_map)
+        self.assertIn('captcha_prompt', detail_map)
+
+    def test_login_succeeds_after_valid_captcha_in_hardened_mode(self) -> None:
+        self.client.post(
+            '/api/v1/mobile/auth/register',
+            json={
+                'email': 'parent@example.com',
+                'password': 'strong-pass-123',
+            },
+        )
+
+        headers = self._login_headers('203.0.113.22')
+        for _ in range(5):
+            self.client.post(
+                '/api/v1/mobile/auth/login',
+                json={
+                    'email': 'parent@example.com',
+                    'password': 'wrong-password',
+                },
+                headers=headers,
+            )
+
+        self._expire_lockouts()
+
+        for _ in range(3):
+            response = self.client.post(
+                '/api/v1/mobile/auth/login',
+                json={
+                    'email': 'parent@example.com',
+                    'password': 'wrong-password',
+                },
+                headers=headers,
+            )
+
+        self.assertEqual(response.status_code, 403)
+        detail_map = self._detail_map(response.json()['error']['details'])
+        captcha_answer = self._solve_captcha(detail_map['captcha_prompt'])
+
+        success_response = self.client.post(
+            '/api/v1/mobile/auth/login',
+            json={
+                'email': 'parent@example.com',
+                'password': 'strong-pass-123',
+                'captcha_id': detail_map['captcha_id'],
+                'captcha_answer': captcha_answer,
+            },
+            headers=headers,
+        )
+
+        self.assertEqual(success_response.status_code, 200)
+        self.assertEqual(
+            success_response.json()['user']['email'],
+            'parent@example.com',
+        )
+
+    def test_email_auth_me_alias_returns_current_user(self) -> None:
+        register_response = self.client.post(
+            '/api/v1/mobile/auth/register',
+            json={
+                'email': 'parent@example.com',
+                'password': 'strong-pass-123',
+            },
+        )
+        auth_body = register_response.json()
+
+        response = self.client.get(
+            '/api/v1/mobile/auth/me',
+            headers={'Authorization': f"Bearer {auth_body['access_token']}"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {
+                'id': auth_body['user']['id'],
+                'email': 'parent@example.com',
+            },
+        )
+
+    def test_verify_otp_keeps_legacy_token_fields_for_existing_mobile_client(self) -> None:
+        response = self._verify_phone()
 
         self.assertEqual(response.status_code, 200)
         body = response.json()
@@ -111,14 +1061,7 @@ class MobileAuthEndpointTests(unittest.TestCase):
         self.assertTrue(body['refresh_token'])
 
     def test_current_user_returns_authenticated_mobile_user(self) -> None:
-        verify_response = self.client.post(
-            '/api/v1/mobile/auth/verify-otp',
-            json={
-                'phone': '+77071234567',
-                'code': '1234',
-                'verification_id': 'otp_current_user',
-            },
-        )
+        verify_response = self._verify_phone()
         auth_body = verify_response.json()
 
         response = self.client.get(
@@ -136,14 +1079,7 @@ class MobileAuthEndpointTests(unittest.TestCase):
         )
 
     def test_mobile_me_alias_returns_same_authenticated_mobile_user(self) -> None:
-        verify_response = self.client.post(
-            '/api/v1/mobile/auth/verify-otp',
-            json={
-                'phone': '+77071234567',
-                'code': '1234',
-                'verification_id': 'otp_me_alias',
-            },
-        )
+        verify_response = self._verify_phone()
         auth_body = verify_response.json()
 
         current_user_response = self.client.get(
@@ -151,7 +1087,7 @@ class MobileAuthEndpointTests(unittest.TestCase):
             headers={'Authorization': f"Bearer {auth_body['access_token']}"},
         )
         me_response = self.client.get(
-            '/api/v1/mobile/me',
+            '/api/v1/mobile/auth/me',
             headers={'Authorization': f"Bearer {auth_body['access_token']}"},
         )
 
@@ -160,14 +1096,7 @@ class MobileAuthEndpointTests(unittest.TestCase):
         self.assertEqual(me_response.json(), current_user_response.json())
 
     def test_refresh_rotates_refresh_token_and_keeps_session_valid(self) -> None:
-        verify_response = self.client.post(
-            '/api/v1/mobile/auth/verify-otp',
-            json={
-                'phone': '+77071234567',
-                'code': '1234',
-                'verification_id': 'otp_refresh',
-            },
-        )
+        verify_response = self._verify_phone()
         auth_body = verify_response.json()
 
         refresh_response = self.client.post(
@@ -200,14 +1129,7 @@ class MobileAuthEndpointTests(unittest.TestCase):
         self.assertEqual(current_user_response.status_code, 200)
 
     def test_logout_revokes_current_session(self) -> None:
-        verify_response = self.client.post(
-            '/api/v1/mobile/auth/verify-otp',
-            json={
-                'phone': '+77071234567',
-                'code': '1234',
-                'verification_id': 'otp_logout',
-            },
-        )
+        verify_response = self._verify_phone()
         auth_body = verify_response.json()
 
         logout_response = self.client.post(
@@ -227,3 +1149,105 @@ class MobileAuthEndpointTests(unittest.TestCase):
             json={'refresh_token': auth_body['refresh_token']},
         )
         self.assertEqual(refresh_response.status_code, 401)
+
+    @staticmethod
+    def _login_headers(ip_address: str) -> dict[str, str]:
+        return {'X-Forwarded-For': ip_address}
+
+    def _override_mobile_auth_environment(self, app_env: str) -> dict[str, Mock]:
+        settings = Settings(app_env=app_env, otp_mock_mode=False)
+        holder: dict[str, Mock] = {}
+
+        def override_mobile_auth_service():
+            session = self.SessionLocal()
+            loyalty = Mock()
+            holder['loyalty'] = loyalty
+            service = MobileAuthService(
+                user_repository=MobileUserRepository(session),
+                session_repository=MobileSessionRepository(session),
+                auth_protection_service=AuthProtectionService(
+                    throttle_repository=AuthThrottleStateRepository(session),
+                    settings=settings,
+                ),
+                settings=settings,
+                loyalty_service=loyalty,
+            )
+            try:
+                yield service
+            finally:
+                session.close()
+
+        app.dependency_overrides[get_mobile_auth_service] = override_mobile_auth_service
+        return holder
+
+    def _verify_phone(self, phone: str = '+77071234567'):
+        request_response = self.client.post(
+            '/api/v1/mobile/auth/request-otp',
+            json={'phone': phone},
+        )
+        self.assertEqual(request_response.status_code, 200)
+        return self.client.post(
+            '/api/v1/mobile/auth/verify-otp',
+            json={
+                'phone': phone,
+                'code': '123456',
+                'verification_id': request_response.json()['verification_id'],
+            },
+        )
+
+    @staticmethod
+    def _detail_map(details: list[dict[str, str]]) -> dict[str, str]:
+        return {
+            detail['field']: detail['message']
+            for detail in details
+            if detail.get('field') and detail.get('message')
+        }
+
+    @staticmethod
+    def _solve_captcha(prompt: str) -> str:
+        match = re.search(r'(\d+)\s*\+\s*(\d+)', prompt)
+        if match is None:
+            raise AssertionError(f'Unexpected captcha prompt: {prompt}')
+        return str(int(match.group(1)) + int(match.group(2)))
+
+    def _expire_lockouts(self) -> None:
+        reset_rate_limit_state()
+        with self.SessionLocal() as session:
+            for state in session.query(AuthThrottleState).all():
+                state.lockout_until = datetime.now(UTC) - timedelta(seconds=1)
+            session.commit()
+
+    @staticmethod
+    def _legacy_scrypt_hash(password: str) -> str:
+        salt = b'starkids-legacy!'
+        derived_key = hashlib.scrypt(
+            password=password.encode('utf-8'),
+            salt=salt,
+            n=SCRYPT_N,
+            r=SCRYPT_R,
+            p=SCRYPT_P,
+            dklen=SCRYPT_DKLEN,
+        )
+        salt_segment = base64.b64encode(salt).decode('ascii')
+        hash_segment = base64.b64encode(derived_key).decode('ascii')
+        return f'scrypt${SCRYPT_N}${SCRYPT_R}${SCRYPT_P}${salt_segment}${hash_segment}'
+
+
+class _FakeClerkSessionVerifier:
+    def __init__(
+        self,
+        *,
+        identity: VerifiedClerkIdentity | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self._identity = identity
+        self._error = error
+        self.seen_token: str | None = None
+
+    def verify(self, session_token: str) -> VerifiedClerkIdentity:
+        self.seen_token = session_token
+        if self._error is not None:
+            raise self._error
+        if self._identity is None:
+            raise AssertionError('Fake Clerk verifier requires identity or error.')
+        return self._identity

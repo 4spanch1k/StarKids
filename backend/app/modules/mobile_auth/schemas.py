@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 
 class OTPRequest(BaseModel):
@@ -8,21 +8,39 @@ class OTPRequest(BaseModel):
 class OTPRequestResponse(BaseModel):
     verification_id: str
     expires_in_seconds: int
+    resend_after_seconds: int
 
 
 class OTPVerifyRequest(BaseModel):
     phone: str = Field(min_length=8, max_length=20)
-    code: str = Field(min_length=4, max_length=8, pattern=r'^\d{4,8}$')
-    verification_id: str = Field(min_length=1)
+    code: str = Field(min_length=6, max_length=6, pattern=r'^\d{6}$')
+    verification_id: str = Field(min_length=1, max_length=64)
+
+
+class MobileEmailRegistrationRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=128)
+
+
+class MobileEmailLoginRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=128)
+    captcha_id: str | None = Field(default=None, min_length=1)
+    captcha_answer: str | None = Field(default=None, min_length=1, max_length=16)
 
 
 class MobileRefreshRequest(BaseModel):
     refresh_token: str = Field(min_length=1)
 
 
+class MobileClerkExchangeRequest(BaseModel):
+    session_token: str = Field(min_length=1)
+
+
 class MobileCurrentUserResponse(BaseModel):
     id: str
-    phone: str
+    phone: str | None = None
+    email: EmailStr | None = None
 
 
 class MobileAuthResponse(BaseModel):

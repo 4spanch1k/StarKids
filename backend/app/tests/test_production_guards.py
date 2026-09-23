@@ -1,0 +1,390 @@
+import logging
+import os
+import unittest
+from unittest.mock import Mock, patch
+
+from pydantic import ValidationError
+from app.core.config.settings import Settings
+from app.core.config.validation import (
+    ProductionConfigurationError,
+    RuntimeConfigurationStatus,
+    log_runtime_configuration,
+    validate_runtime_configuration,
+)
+from app.modules.admin_branches.service import AdminBranchService
+from app.modules.branches.service import BranchService
+from app.modules.mobile_auth.schemas import OTPRequest, OTPVerifyRequest
+from app.modules.mobile_auth.service import MobileAuthService
+from app.modules.mobile_payments.freedompay_client import (
+    FreedomPayClient,
+    FreedomPayGatewayError,
+)
+from app.core.exceptions.http import DomainHTTPException
+from app.core.storage.backend import (
+    LocalStorageBackend,
+    S3StorageBackend,
+    StorageConfigurationError,
+    get_storage_backend,
+)
+
+
+def production_settings(**overrides: object) -> Settings:
+    values: dict[str, object] = {
+        'app_env': 'production',
+        'jwt_secret_key': 'p' * 48,
+        'otp_mock_mode': False,
+        'database_url': 'postgresql+psycopg://boom:secret@db.internal:5432/boom',
+        'backend_cors_origins': 'https://app.boombala.kz',
+        'freedompay_merchant_id': 'merchant',
+        'freedompay_secret_key': 'secret',
+        'freedompay_base_url': 'https://api.freedompay.kz',
+        'freedompay_result_url': 'https://api.boombala.kz/payments/result',
+        'freedompay_success_url': 'https://app.boombala.kz/payment/success',
+        'freedompay_failure_url': 'https://app.boombala.kz/payment/failure',
+        'ticket_qr_secret': 'q' * 48,
+        'redis_url': 'redis://127.0.0.1:6379/0',
+        'trusted_proxy_cidrs': '127.0.0.1/32,::1/128',
+    }
+    values.update(overrides)
+    return Settings(**values)
+
+
+class ProductionGuardTests(unittest.TestCase):
+    def test_app_env_is_required(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaises(ValidationError):
+                Settings(_env_file=None)
+
+    def test_app_env_accepts_only_explicit_values(self) -> None:
+        for value in ('prod', 'local', 'whatever'):
+            with self.subTest(value=value), self.assertRaises(ValidationError):
+                Settings(app_env=value, _env_file=None)
+
+        for value in ('development', 'test', 'staging', 'production'):
+            with self.subTest(value=value):
+                settings = Settings(app_env=value, _env_file=None)
+                self.assertEqual(settings.normalized_app_env, value)
+
+    def test_mock_otp_requires_explicit_environment_and_flag(self) -> None:
+        self.assertTrue(Settings(app_env='development', otp_mock_mode=True).allows_mock_otp)
+        self.assertTrue(Settings(app_env='test', otp_mock_mode=True).allows_mock_otp)
+        self.assertFalse(Settings(app_env='development', otp_mock_mode=False).allows_mock_otp)
+        self.assertFalse(Settings(app_env='production', otp_mock_mode=True).allows_mock_otp)
+
+        service = MobileAuthService(
+            settings=Settings(app_env='development', otp_mock_mode=False)
+        )
+        with self.assertRaises(DomainHTTPException):
+            service.request_otp(OTPRequest(phone='+77070000000'))
+
+    def test_production_rejects_default_jwt_secret(self) -> None:
+        with self.assertRaises(ProductionConfigurationError):
+            validate_runtime_configuration(
+                production_settings(jwt_secret_key='replace-me')
+            )
+
+    def test_staging_and_production_require_redis_url(self) -> None:
+        for app_env in ('staging', 'production'):
+            with self.subTest(app_env=app_env), self.assertRaises(
+                ProductionConfigurationError
+            ):
+                validate_runtime_configuration(
+                    production_settings(app_env=app_env, redis_url=None)
+                )
+
+    def test_staging_and_production_reject_malformed_redis_url(self) -> None:
+        for value in (
+            'http://redis.internal:6379/0',
+            'redis://example.com:6379/0',
+            'redis://CHANGE_ME:6379/0',
+            'redis://replace-me:6379/0',
+            'redis://redis.internal:not-a-port/0',
+        ):
+            with self.subTest(redis_url=value), self.assertRaises(
+                ProductionConfigurationError
+            ):
+                validate_runtime_configuration(production_settings(redis_url=value))
+
+    def test_redis_configuration_errors_do_not_expose_credentials(self) -> None:
+        with self.assertRaises(ProductionConfigurationError) as error_context:
+            validate_runtime_configuration(
+                production_settings(redis_url='redis://:super-secret@')
+            )
+        self.assertNotIn('super-secret', str(error_context.exception))
+
+    def test_development_and_test_allow_missing_redis_url(self) -> None:
+        for app_env in ('development', 'test'):
+            settings = Settings(app_env=app_env, redis_url=None)
+            status = validate_runtime_configuration(settings)
+            self.assertEqual(status.environment, app_env)
+
+    def test_production_requires_strong_ticket_qr_secret(self) -> None:
+        for value in (None, 'replace-me', 'short'):
+            with self.subTest(value=value), self.assertRaises(
+                ProductionConfigurationError
+            ):
+                validate_runtime_configuration(
+                    production_settings(ticket_qr_secret=value)
+                )
+
+    def test_production_rejects_default_admin_bootstrap_credentials(self) -> None:
+        with self.assertRaises(ProductionConfigurationError):
+            validate_runtime_configuration(
+                production_settings(
+                    admin_seed_email='admin@starkids.kz',
+                    admin_seed_password='ChangeMe123!',
+                )
+            )
+
+    def test_production_allows_explicit_non_default_admin_bootstrap(self) -> None:
+        status = validate_runtime_configuration(
+            production_settings(
+                admin_seed_email='ops@boombala.kz',
+                admin_seed_password='A-strong-production-password-42',
+            )
+        )
+        self.assertEqual(status.environment, 'production')
+
+    def test_production_rejects_freedompay_mock_and_missing_credentials(self) -> None:
+        with self.assertRaises(ProductionConfigurationError):
+            validate_runtime_configuration(
+                production_settings(freedompay_mock_mode=True)
+            )
+        with self.assertRaises(ProductionConfigurationError):
+            validate_runtime_configuration(
+                production_settings(freedompay_secret_key=None)
+            )
+
+    def test_production_rejects_freedompay_testing_mode(self) -> None:
+        with self.assertRaises(ProductionConfigurationError):
+            validate_runtime_configuration(
+                production_settings(freedompay_testing_mode=True)
+            )
+
+    def test_staging_allows_freedompay_testing_mode_but_remains_fail_closed(self) -> None:
+        settings = production_settings(
+            app_env='staging',
+            freedompay_testing_mode=True,
+            backend_cors_origins='https://ops-staging.boombala.kz',
+            freedompay_result_url=(
+                'https://api-staging.boombala.kz/api/v1/public/payments/freedom/result'
+            ),
+        )
+        status = validate_runtime_configuration(settings)
+        self.assertEqual(status.environment, 'staging')
+
+        with self.assertRaises(ProductionConfigurationError):
+            validate_runtime_configuration(
+                settings.model_copy(update={'freedompay_mock_mode': True})
+            )
+
+    def test_placeholder_firebase_values_are_reported_as_disabled(self) -> None:
+        settings = Settings(
+            app_env='test',
+            fcm_project_id='PLACEHOLDER_PROJECT_ID',
+            fcm_client_email='placeholder@example.com',
+            fcm_private_key='PLACEHOLDER_PRIVATE_KEY',
+        )
+        self.assertFalse(settings.fcm_is_configured)
+        status = validate_runtime_configuration(settings)
+        self.assertFalse(status.push_enabled)
+
+    def test_production_freedompay_client_cannot_reach_mock_url(self) -> None:
+        settings = production_settings(freedompay_mock_mode=True)
+        with self.assertRaises(FreedomPayGatewayError):
+            FreedomPayClient(settings).init_payment({'pg_order_id': 'order-1'})
+
+    def test_production_rejects_local_database_and_cors_defaults(self) -> None:
+        with self.assertRaises(ProductionConfigurationError):
+            validate_runtime_configuration(
+                production_settings(
+                    database_url=Settings(app_env='test').default_database_url,
+                    backend_cors_origins='http://localhost:5173',
+                )
+            )
+
+    def test_production_accepts_only_the_installed_postgresql_driver(self) -> None:
+        status = validate_runtime_configuration(
+            production_settings(
+                database_url='postgresql+psycopg://boom:secret@db.internal:5432/boom'
+            )
+        )
+        self.assertEqual(status.environment, 'production')
+
+        for value in (
+            'postgresql://boom:secret@db.internal:5432/boom',
+            'postgresql+psycopg2://boom:secret@db.internal:5432/boom',
+            'mysql://boom:secret@db.internal:3306/boom',
+            'unknown://db.internal/boom',
+            'not a database url',
+            'postgresql+psycopg://',
+            'postgresql+psycopg:///boom',
+            'postgresql+psycopg://boom:secret@/boom',
+            'postgresql+psycopg://boom:secret@db.internal',
+            'postgresql+psycopg://boom:secret@db.internal:invalid/boom',
+            'postgresql+psycopg://boom:secret@db.internal:65536/boom',
+        ):
+            with self.subTest(database_url=value), self.assertRaises(
+                ProductionConfigurationError
+            ):
+                validate_runtime_configuration(
+                    production_settings(database_url=value)
+                )
+
+        with self.assertRaises(ProductionConfigurationError) as error_context:
+            validate_runtime_configuration(
+                production_settings(
+                    database_url='mysql://boom:super-secret@db.internal:3306/boom'
+                )
+            )
+        self.assertNotIn('super-secret', str(error_context.exception))
+
+    def test_production_rejects_equivalent_local_default_database_urls(self) -> None:
+        for value in (
+            'postgresql+psycopg://postgres:postgres@localhost:5432/star_kids?',
+            'postgresql+psycopg://postgres:postgres@localhost:5432/star_kids?x=',
+            'postgresql+psycopg://postgres:postgres@localhost/star_kids',
+        ):
+            with self.subTest(database_url=value), self.assertRaises(
+                ProductionConfigurationError
+            ):
+                validate_runtime_configuration(
+                    production_settings(database_url=value)
+                )
+
+    def test_development_and_test_keep_sqlite_support(self) -> None:
+        for app_env in ('development', 'test'):
+            with self.subTest(app_env=app_env):
+                status = validate_runtime_configuration(
+                    Settings(
+                        app_env=app_env,
+                        database_url='sqlite:///local-test.db',
+                    )
+                )
+                self.assertEqual(status.environment, app_env)
+
+    def test_production_requires_s3_bucket_when_s3_is_selected(self) -> None:
+        with self.assertRaises(ProductionConfigurationError):
+            validate_runtime_configuration(
+                production_settings(storage_backend='s3', s3_bucket='')
+            )
+
+    def test_production_local_otp_is_unavailable(self) -> None:
+        service = MobileAuthService(settings=production_settings())
+
+        with self.assertRaises(DomainHTTPException) as request_context:
+            service.request_otp(OTPRequest(phone='+77070000000'))
+        self.assertEqual(request_context.exception.code, 'otp_not_configured')
+        self.assertEqual(request_context.exception.status_code, 503)
+
+        with self.assertRaises(DomainHTTPException) as verify_context:
+            service.verify_otp(
+                OTPVerifyRequest(
+                    phone='+77070000000',
+                    code='123456',
+                    verification_id='otp_arbitrary',
+                )
+            )
+        self.assertEqual(verify_context.exception.code, 'otp_not_configured')
+
+    def test_production_branch_reads_never_seed_menu_or_tickets(self) -> None:
+        menu_repository = Mock()
+        menu_repository.has_menu.return_value = False
+        ticket_repository = Mock()
+        ticket_repository.has_ticket_config.return_value = False
+        service = BranchService(
+            menu_repository=menu_repository,
+            ticket_repository=ticket_repository,
+            settings=production_settings(),
+        )
+
+        service._ensure_branch_menu_seeded('branch-1')
+        service._ensure_branch_tickets_seeded('branch-1')
+
+        menu_repository.replace_branch_menu.assert_not_called()
+        ticket_repository.replace_branch_ticket_config.assert_not_called()
+
+    def test_development_branch_reads_keep_local_seed_support(self) -> None:
+        menu_repository = Mock()
+        menu_repository.has_menu.return_value = False
+        ticket_repository = Mock()
+        ticket_repository.has_ticket_config.return_value = False
+        service = BranchService(
+            menu_repository=menu_repository,
+            ticket_repository=ticket_repository,
+            settings=Settings(app_env='development'),
+        )
+
+        service._ensure_branch_menu_seeded('branch-1')
+        service._ensure_branch_tickets_seeded('branch-1')
+
+        menu_repository.replace_branch_menu.assert_called_once()
+        ticket_repository.replace_branch_ticket_config.assert_called_once()
+
+    def test_production_admin_reads_never_seed_menu_or_tickets(self) -> None:
+        menu_repository = Mock()
+        menu_repository.has_menu.return_value = False
+        ticket_repository = Mock()
+        ticket_repository.has_ticket_config.return_value = False
+        service = AdminBranchService(
+            menu_repository=menu_repository,
+            ticket_repository=ticket_repository,
+            settings=production_settings(),
+        )
+
+        service._ensure_branch_menu_seeded('branch-1')
+        service._ensure_branch_tickets_seeded('branch-1')
+
+        menu_repository.replace_branch_menu.assert_not_called()
+        ticket_repository.replace_branch_ticket_config.assert_not_called()
+
+    def test_runtime_log_contains_only_non_secret_configuration(self) -> None:
+        status = RuntimeConfigurationStatus(
+            environment='production',
+            mock_payment_enabled=False,
+            push_enabled=False,
+            development_seed_enabled=False,
+        )
+        with self.assertLogs('app.core.config.validation', level=logging.INFO) as logs:
+            log_runtime_configuration(status)
+        message = '\n'.join(logs.output)
+        self.assertIn('environment=production', message)
+        self.assertNotIn('secret', message.lower())
+        self.assertNotIn('password', message.lower())
+        self.assertNotIn('token', message.lower())
+
+
+class StorageBackendConfigurationTests(unittest.TestCase):
+    def test_local_backend_is_selected(self) -> None:
+        settings = Settings(app_env='test', storage_backend='local')
+        self.assertIsInstance(get_storage_backend(settings), LocalStorageBackend)
+
+    def test_s3_backend_is_selected_without_network_access(self) -> None:
+        settings = Settings(
+            app_env='test',
+            storage_backend='s3',
+            s3_bucket='boom-bala-test',
+        )
+        self.assertIsInstance(get_storage_backend(settings), S3StorageBackend)
+
+    def test_unknown_backend_never_falls_back_to_local(self) -> None:
+        settings = Settings(app_env='test', storage_backend='s33')
+        with self.assertRaises(StorageConfigurationError):
+            get_storage_backend(settings)
+
+    def test_runtime_validation_rejects_unknown_backend_in_every_environment(self) -> None:
+        settings_by_environment = {
+            'development': Settings(app_env='development', storage_backend='s33'),
+            'test': Settings(app_env='test', storage_backend='s33'),
+            'production': production_settings(storage_backend='s33'),
+        }
+        for app_env, settings in settings_by_environment.items():
+            with self.subTest(app_env=app_env), self.assertRaises(
+                ProductionConfigurationError
+            ):
+                validate_runtime_configuration(settings)
+
+    def test_s3_requires_a_bucket(self) -> None:
+        settings = Settings(app_env='test', storage_backend='s3')
+        with self.assertRaises(StorageConfigurationError):
+            get_storage_backend(settings)
