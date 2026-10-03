@@ -106,6 +106,16 @@ class MobileAuthController extends ChangeNotifier {
   Future<void> loginWithGoogleClerk({
     required Future<String> Function() requestSessionToken,
   }) async {
+    return loginWithClerk(
+      requestSessionToken: requestSessionToken,
+      providerName: 'Google',
+    );
+  }
+
+  Future<void> loginWithClerk({
+    required Future<String> Function() requestSessionToken,
+    required String providerName,
+  }) async {
     if (isBusy) {
       return;
     }
@@ -120,7 +130,8 @@ class MobileAuthController extends ChangeNotifier {
       final sessionToken = (await requestSessionToken()).trim();
       if (sessionToken.isEmpty) {
         _session = null;
-        _errorMessage = 'Не удалось получить сессию Google. Попробуйте снова.';
+        _errorMessage =
+            'Не удалось получить сессию $providerName. Попробуйте снова.';
         _status = MobileAuthStatus.error;
         notifyListeners();
         return;
@@ -153,7 +164,7 @@ class MobileAuthController extends ChangeNotifier {
       notifyListeners();
     } catch (_) {
       _session = null;
-      _errorMessage = 'Не удалось войти через Google. Попробуйте снова.';
+      _errorMessage = 'Не удалось войти через $providerName. Попробуйте снова.';
       _status = MobileAuthStatus.error;
       notifyListeners();
     }

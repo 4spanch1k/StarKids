@@ -14,7 +14,7 @@ import '../core/design_system/sk_theme.dart';
 import '../core/design_system/widgets/sk_splash_view.dart';
 import '../features/auth/presentation/controllers/mobile_auth_controller.dart';
 import '../features/auth/domain/mobile_auth_session.dart';
-import '../features/auth/presentation/pages/email_auth_gate_page.dart';
+import '../features/auth/presentation/pages/social_auth_gate_page.dart';
 import '../features/onboarding/presentation/pages/onboarding_page.dart';
 import '../features/tickets/domain/ticket_purchase.dart';
 import '../features/tickets/presentation/controllers/payment_return_coordinator.dart';
@@ -187,7 +187,7 @@ class _StarKidsAppState extends State<StarKidsApp> {
           home: !isAuthenticated
               ? isBootstrapping
                   ? const _AuthGateLoadingPage()
-                  : const EmailAuthGatePage()
+                  : const SocialAuthGatePage()
               : onboarding.isRequired
                   ? const OnboardingPage()
                   : null,

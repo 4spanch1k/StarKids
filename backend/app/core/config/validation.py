@@ -152,6 +152,9 @@ def validate_runtime_configuration(settings: Settings) -> RuntimeConfigurationSt
     )
     if trusted_proxy_error:
         errors.append(trusted_proxy_error)
+    clerk_error = _clerk_configuration_error(settings)
+    if clerk_error:
+        errors.append(clerk_error)
 
     if errors:
         raise ProductionConfigurationError('; '.join(errors))
@@ -174,6 +177,33 @@ def _trusted_proxy_configuration_error(
         return 'TRUSTED_PROXY_CIDRS must contain valid IP networks'
     if any(network.prefixlen == 0 for network in networks):
         return 'TRUSTED_PROXY_CIDRS must not contain catch-all networks'
+    return None
+
+
+def _clerk_configuration_error(settings: Settings) -> str | None:
+    """Validate the production external-identity trust boundary safely."""
+    values = (
+        settings.clerk_secret_key,
+        settings.clerk_issuer,
+        settings.resolved_clerk_jwks_url,
+    )
+    if not all(value and value.strip() for value in values):
+        return 'CLERK_SECRET_KEY, CLERK_ISSUER and Clerk JWKS URL are required'
+    if not settings.clerk_authorized_parties_list:
+        return 'CLERK_AUTHORIZED_PARTIES is required for staging and production'
+    for value in (settings.clerk_issuer, settings.resolved_clerk_jwks_url):
+        parsed = urlparse(value or '')
+        if parsed.scheme != 'https' or not parsed.hostname:
+            return 'CLERK_ISSUER and Clerk JWKS URL must be HTTPS URLs'
+        if _is_placeholder_url(value or '') or parsed.hostname in {'localhost', '127.0.0.1'}:
+            return 'CLERK_ISSUER and Clerk JWKS URL must not use placeholder hosts'
+    if any(
+        (value or '').strip().upper().startswith(
+            ('PLACEHOLDER', 'REPLACE_ME', 'YOUR_', 'CHANGE_ME')
+        )
+        for value in (settings.clerk_secret_key, *settings.clerk_authorized_parties_list)
+    ):
+        return 'Clerk production configuration must not use placeholder values'
     return None
 
 

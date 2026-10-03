@@ -16,7 +16,7 @@ void main() {
     await ServiceRegistry.mobileAuthController.logout();
   });
 
-  testWidgets('unauthenticated app opens phone OTP auth gate', (
+  testWidgets('unauthenticated app opens social auth gate', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(1280, 2400);
@@ -27,17 +27,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Boom Bala'), findsOneWidget);
-    expect(find.text('Номер телефона'), findsOneWidget);
-    expect(find.text('Получить код'), findsOneWidget);
-    expect(find.text('Продолжить с Google'), findsNothing);
-
-    await tester.tap(find.text('Получить код'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Введите номер телефона.'), findsOneWidget);
+    expect(find.text('Продолжить с Google'), findsOneWidget);
+    expect(find.text('Номер телефона'), findsNothing);
+    expect(find.text('Код подтверждения'), findsNothing);
+    expect(
+      find.text('Социальный вход пока не настроен для этого окружения.'),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('bootstrap shell renders app while initialization is pending', (
+  testWidgets(
+      'bootstrap shell renders social gate while initialization is pending', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(1280, 2400);
@@ -51,7 +51,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Boom Bala'), findsOneWidget);
-    expect(find.text('Номер телефона'), findsOneWidget);
+    expect(find.text('Продолжить с Google'), findsOneWidget);
 
     initialization.complete();
     await tester.pumpAndSettle();
