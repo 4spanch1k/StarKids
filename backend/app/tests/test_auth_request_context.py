@@ -134,6 +134,10 @@ class TrustedProxyConfigurationTests(unittest.TestCase):
             'ticket_qr_secret': 'q' * 48,
             'redis_url': 'redis://127.0.0.1:6379/0',
             'trusted_proxy_cidrs': '127.0.0.1/32,::1/128',
+            'clerk_secret_key': 'sk_test_' + 'c' * 48,
+            'clerk_issuer': 'https://clerk.example.test',
+            'clerk_jwks_url': 'https://clerk.example.test/.well-known/jwks.json',
+            'clerk_authorized_parties': 'boombala-mobile',
         }
         values.update(overrides)
         return Settings(**values)

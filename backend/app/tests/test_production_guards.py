@@ -44,6 +44,10 @@ def production_settings(**overrides: object) -> Settings:
         'ticket_qr_secret': 'q' * 48,
         'redis_url': 'redis://127.0.0.1:6379/0',
         'trusted_proxy_cidrs': '127.0.0.1/32,::1/128',
+        'clerk_secret_key': 'sk_test_' + 'c' * 48,
+        'clerk_issuer': 'https://clerk.example.test',
+        'clerk_jwks_url': 'https://clerk.example.test/.well-known/jwks.json',
+        'clerk_authorized_parties': 'boombala-mobile',
     }
     values.update(overrides)
     return Settings(**values)
@@ -91,6 +95,31 @@ class ProductionGuardTests(unittest.TestCase):
                 validate_runtime_configuration(
                     production_settings(app_env=app_env, redis_url=None)
                 )
+
+    def test_staging_and_production_require_clerk_configuration(self) -> None:
+        for app_env in ('staging', 'production'):
+            with self.subTest(app_env=app_env), self.assertRaises(
+                ProductionConfigurationError
+            ):
+                validate_runtime_configuration(
+                    production_settings(
+                        app_env=app_env,
+                        clerk_secret_key=None,
+                        clerk_issuer=None,
+                        clerk_jwks_url=None,
+                        clerk_authorized_parties=None,
+                    )
+                )
+
+    def test_clerk_configuration_requires_https_and_authorized_party(self) -> None:
+        with self.assertRaises(ProductionConfigurationError):
+            validate_runtime_configuration(
+                production_settings(clerk_issuer='http://clerk.internal')
+            )
+        with self.assertRaises(ProductionConfigurationError):
+            validate_runtime_configuration(
+                production_settings(clerk_authorized_parties=None)
+            )
 
     def test_staging_and_production_reject_malformed_redis_url(self) -> None:
         for value in (

@@ -134,6 +134,18 @@ abstract final class AppEnvironment {
       configuredUrl: privacyPolicyUrl,
       consentVersion: privacyConsentVersion,
     );
+    if (isProduction || appEnv.trim().toLowerCase() == 'staging') {
+      if (!hasClerkPublishableKey) {
+        throw StateError(
+          'MOBILE_CLERK_PUBLISHABLE_KEY is required in production.',
+        );
+      }
+      if (!hasGoogleSignInConfig) {
+        throw StateError(
+          'Google sign-in client IDs are required in production.',
+        );
+      }
+    }
   }
 
   static void validatePrivacyConfiguration({

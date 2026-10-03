@@ -34,6 +34,16 @@ the flag disabled in staging and production. Challenges expire after
 rate limits are configurable with `OTP_REQUEST_LIMIT_PER_PHONE`,
 `OTP_REQUEST_LIMIT_PER_IP`, and `OTP_VERIFY_LIMIT_PER_IP_PHONE`.
 
+## Production mobile authentication
+
+Staging and production use Clerk-backed social authentication as the only
+mobile identity bootstrap: Google or Apple establishes a verified Clerk
+session, then `/api/v1/mobile/auth/clerk/exchange` issues the Boom Bala access
+and refresh session. `CLERK_SECRET_KEY`, `CLERK_ISSUER`, a valid HTTPS JWKS URL
+(explicit or derived), and the `CLERK_AUTHORIZED_PARTIES` allowlist are
+required at startup. Email/password and local OTP remain development/test
+compatibility paths and are rejected in deployed environments.
+
 ## Operational payment cleanup
 
 `scripts/expire_mobile_payments.py` is the idempotent reconciliation pass for

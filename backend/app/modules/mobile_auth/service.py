@@ -332,7 +332,6 @@ class MobileAuthService:
         *,
         verifier: ClerkSessionVerifier,
     ) -> MobileAuthResponse:
-        self._ensure_legacy_mobile_auth_available()
         self._ensure_runtime_configuration()
         identity = self._verify_clerk_session(payload.session_token, verifier=verifier)
         user = self._get_or_create_user_from_clerk_identity(identity)
@@ -469,10 +468,10 @@ class MobileAuthService:
         )
 
     @staticmethod
-    def clerk_configuration_exception(message: str) -> DomainHTTPException:
+    def clerk_configuration_exception() -> DomainHTTPException:
         return DomainHTTPException(
             code='clerk_configuration_error',
-            message=message,
+            message='External authentication is not configured safely.',
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
 
@@ -539,8 +538,8 @@ class MobileAuthService:
         try:
             return verifier.verify(session_token)
         except ClerkConfigurationError as exc:
-            logger.error('Clerk mobile auth configuration error: %s', exc)
-            raise self.clerk_configuration_exception(str(exc)) from exc
+            logger.error('Clerk mobile auth configuration error: %s', type(exc).__name__)
+            raise self.clerk_configuration_exception() from exc
         except ClerkTokenVerificationError as exc:
             logger.warning('Clerk mobile auth exchange failed: %s', exc)
             raise self.invalid_clerk_session_exception() from exc

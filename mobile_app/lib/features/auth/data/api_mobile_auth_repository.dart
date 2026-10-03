@@ -66,34 +66,34 @@ class ApiMobileAuthRepository implements MobileAuthRepository {
         }
 
         return const Failure<MobileAuthSession>(
-          'Не удалось завершить вход через Google. Попробуйте снова.',
+          'Не удалось завершить вход через социальный аккаунт. Попробуйте снова.',
         );
       }
 
       if (response.statusCode == 401) {
         return const Failure<MobileAuthSession>(
-          'Не удалось подтвердить вход через Google. Попробуйте снова.',
+          'Не удалось подтвердить социальный вход. Попробуйте снова.',
         );
       }
 
       if (response.statusCode == 409) {
         return const Failure<MobileAuthSession>(
-          'Этот Google аккаунт уже связан с другим профилем Boom Bala.',
+          'Этот аккаунт уже связан с другим профилем Boom Bala.',
         );
       }
 
       if (response.statusCode == 422) {
         return const Failure<MobileAuthSession>(
-          'Подтвердите email в Google и попробуйте снова.',
+          'Подтвердите email во внешнем аккаунте и попробуйте снова.',
         );
       }
 
       return const Failure<MobileAuthSession>(
-        'Не удалось войти через Google. Проверьте интернет и попробуйте снова.',
+        'Не удалось войти через социальный аккаунт. Проверьте интернет и попробуйте снова.',
       );
     } catch (_) {
       return const Failure<MobileAuthSession>(
-        'Не удалось войти через Google. Проверьте интернет и попробуйте снова.',
+        'Не удалось войти через социальный аккаунт. Проверьте интернет и попробуйте снова.',
       );
     }
   }

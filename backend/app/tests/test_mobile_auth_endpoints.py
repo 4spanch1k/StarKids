@@ -524,9 +524,13 @@ class MobileAuthEndpointTests(unittest.TestCase):
                     self.assertEqual(session.query(MobileSession).count(), 0)
                     self.assertEqual(session.query(AuthThrottleState).count(), 0)
 
-    def test_deployed_environment_disables_clerk_before_verifier_or_side_effects(self) -> None:
+    def test_deployed_environment_allows_configured_clerk_exchange(self) -> None:
         for app_env in ('staging', 'production'):
             with self.subTest(app_env=app_env):
+                with self.SessionLocal() as session:
+                    session.query(MobileSession).delete()
+                    session.query(MobileUser).delete()
+                    session.commit()
                 verifier = _FakeClerkSessionVerifier(
                     identity=VerifiedClerkIdentity(
                         clerk_user_id=f'{app_env}-clerk-user',
@@ -543,16 +547,12 @@ class MobileAuthEndpointTests(unittest.TestCase):
                     json={'session_token': 'clerk-session-token'},
                 )
 
-                self.assertEqual(response.status_code, 404)
-                self.assertEqual(
-                    response.json()['error']['code'],
-                    'legacy_mobile_auth_disabled',
-                )
-                self.assertIsNone(verifier.seen_token)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.json()['user']['email'], f'{app_env}-clerk@example.com')
                 with self.SessionLocal() as session:
-                    self.assertEqual(session.query(MobileUser).count(), 0)
-                    self.assertEqual(session.query(MobileSession).count(), 0)
-                holder['loyalty'].apply_event.assert_not_called()
+                    self.assertEqual(session.query(MobileUser).count(), 1)
+                    self.assertEqual(session.query(MobileSession).count(), 1)
+                holder['loyalty'].apply_event.assert_called_once()
 
     def test_service_guard_rejects_legacy_auth_before_verifier(self) -> None:
         with self.SessionLocal() as session:
@@ -593,10 +593,7 @@ class MobileAuthEndpointTests(unittest.TestCase):
                 register_error.exception.code,
                 'legacy_mobile_auth_disabled',
             )
-            self.assertEqual(
-                clerk_error.exception.code,
-                'legacy_mobile_auth_disabled',
-            )
+            self.assertEqual(clerk_error.exception.code, 'auth_configuration_error')
             self.assertIsNone(verifier.seen_token)
             loyalty.apply_event.assert_not_called()
             self.assertEqual(session.query(MobileUser).count(), 0)
@@ -1155,7 +1152,25 @@ class MobileAuthEndpointTests(unittest.TestCase):
         return {'X-Forwarded-For': ip_address}
 
     def _override_mobile_auth_environment(self, app_env: str) -> dict[str, Mock]:
-        settings = Settings(app_env=app_env, otp_mock_mode=False)
+        settings = Settings(
+            app_env=app_env,
+            otp_mock_mode=False,
+            jwt_secret_key='j' * 48,
+            database_url='postgresql+psycopg://boom:secret@db.internal:5432/boom',
+            backend_cors_origins='https://app.boombala.kz',
+            freedompay_merchant_id='merchant',
+            freedompay_secret_key='secret',
+            freedompay_result_url='https://api.boombala.kz/payments/result',
+            freedompay_success_url='https://app.boombala.kz/payment/success',
+            freedompay_failure_url='https://app.boombala.kz/payment/failure',
+            ticket_qr_secret='q' * 48,
+            redis_url='redis://127.0.0.1:6379/0',
+            trusted_proxy_cidrs='127.0.0.1/32,::1/128',
+            clerk_secret_key='sk_test_' + 'c' * 48,
+            clerk_issuer='https://clerk.example.test',
+            clerk_jwks_url='https://clerk.example.test/.well-known/jwks.json',
+            clerk_authorized_parties='boombala-mobile',
+        )
         holder: dict[str, Mock] = {}
 
         def override_mobile_auth_service():

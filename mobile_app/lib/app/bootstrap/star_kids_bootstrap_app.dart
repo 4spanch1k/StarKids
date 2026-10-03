@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:clerk_flutter/clerk_flutter.dart';
 import 'package:flutter/material.dart';
 
 import '../app.dart';
+import '../config/app_environment.dart';
 
 class StarKidsBootstrapApp extends StatefulWidget {
   const StarKidsBootstrapApp({
@@ -38,6 +40,15 @@ class _StarKidsBootstrapAppState extends State<StarKidsBootstrapApp> {
 
   @override
   Widget build(BuildContext context) {
-    return const StarKidsApp();
+    if (!AppEnvironment.hasClerkPublishableKey) {
+      return const StarKidsApp();
+    }
+    return ClerkAuth(
+      config: ClerkAuthConfig(
+        publishableKey: AppEnvironment.clerkPublishableKey,
+        supportsHardwareSecurityKeys: false,
+      ),
+      child: const StarKidsApp(),
+    );
   }
 }
