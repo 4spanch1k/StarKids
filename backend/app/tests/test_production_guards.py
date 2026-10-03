@@ -44,6 +44,10 @@ def production_settings(**overrides: object) -> Settings:
         'ticket_qr_secret': 'q' * 48,
         'redis_url': 'redis://127.0.0.1:6379/0',
         'trusted_proxy_cidrs': '127.0.0.1/32,::1/128',
+        'sms_provider': 'approved-provider-pending-adapter',
+        'sms_api_base_url': 'https://sms.vendor.test/api',
+        'sms_api_key': 'sms-test-key',
+        'sms_sender': 'Boom Bala',
     }
     values.update(overrides)
     return Settings(**values)
@@ -91,6 +95,53 @@ class ProductionGuardTests(unittest.TestCase):
                 validate_runtime_configuration(
                     production_settings(app_env=app_env, redis_url=None)
                 )
+
+    def test_staging_and_production_require_sms_provider_configuration(self) -> None:
+        for app_env in ('staging', 'production'):
+            with self.subTest(app_env=app_env), self.assertRaises(
+                ProductionConfigurationError
+            ):
+                validate_runtime_configuration(
+                    production_settings(
+                        app_env=app_env,
+                        sms_provider=None,
+                        sms_api_base_url=None,
+                        sms_api_key=None,
+                        sms_sender=None,
+                    )
+                )
+
+    def test_staging_and_production_reject_malformed_sms_url(self) -> None:
+        for value in (
+            'not-a-url',
+            'ftp://sms.example.test/api',
+            'http://sms.vendor.test/api',
+            'https://example.com/api',
+        ):
+            with self.subTest(sms_api_base_url=value), self.assertRaises(
+                ProductionConfigurationError
+            ):
+                validate_runtime_configuration(
+                    production_settings(sms_api_base_url=value)
+                )
+
+    def test_sms_configuration_errors_do_not_expose_api_key(self) -> None:
+        with self.assertRaises(ProductionConfigurationError) as error_context:
+            validate_runtime_configuration(
+                production_settings(
+                    sms_api_key='super-secret-sms-key',
+                    sms_api_base_url=None,
+                )
+            )
+        self.assertNotIn('super-secret-sms-key', str(error_context.exception))
+
+    def test_development_and_test_allow_missing_sms_provider(self) -> None:
+        for app_env in ('development', 'test'):
+            with self.subTest(app_env=app_env):
+                status = validate_runtime_configuration(
+                    Settings(app_env=app_env, otp_mock_mode=True)
+                )
+                self.assertEqual(status.environment, app_env)
 
     def test_staging_and_production_reject_malformed_redis_url(self) -> None:
         for value in (
@@ -269,12 +320,19 @@ class ProductionGuardTests(unittest.TestCase):
                 production_settings(storage_backend='s3', s3_bucket='')
             )
 
-    def test_production_local_otp_is_unavailable(self) -> None:
-        service = MobileAuthService(settings=production_settings())
+    def test_production_sms_delivery_fails_closed_until_adapter_is_approved(self) -> None:
+        service = MobileAuthService(
+            settings=production_settings(
+                sms_provider=None,
+                sms_api_base_url=None,
+                sms_api_key=None,
+                sms_sender=None,
+            )
+        )
 
         with self.assertRaises(DomainHTTPException) as request_context:
             service.request_otp(OTPRequest(phone='+77070000000'))
-        self.assertEqual(request_context.exception.code, 'otp_not_configured')
+        self.assertEqual(request_context.exception.code, 'sms_provider_not_configured')
         self.assertEqual(request_context.exception.status_code, 503)
 
         with self.assertRaises(DomainHTTPException) as verify_context:
@@ -285,7 +343,7 @@ class ProductionGuardTests(unittest.TestCase):
                     verification_id='otp_arbitrary',
                 )
             )
-        self.assertEqual(verify_context.exception.code, 'otp_not_configured')
+        self.assertEqual(verify_context.exception.code, 'auth_configuration_error')
 
     def test_production_branch_reads_never_seed_menu_or_tickets(self) -> None:
         menu_repository = Mock()

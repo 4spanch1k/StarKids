@@ -125,6 +125,10 @@ def validate_runtime_configuration(settings: Settings) -> RuntimeConfigurationSt
     if settings.otp_mock_mode:
         errors.append('OTP mock authentication is not allowed')
 
+    sms_error = _sms_configuration_error(settings)
+    if sms_error:
+        errors.append(sms_error)
+
     if _is_default_database_url(settings.database_url, settings.default_database_url):
         errors.append('DATABASE_URL must be explicitly configured for production')
     database_error = _production_database_configuration_error(settings.database_url)
@@ -240,6 +244,27 @@ def _redis_configuration_error(value: str | None) -> str | None:
         return 'REDIS_URL must use a valid port'
     if port is not None and not 1 <= port <= 65535:
         return 'REDIS_URL must use a valid port'
+    return None
+
+
+def _sms_configuration_error(settings: Settings) -> str | None:
+    """Validate provider-neutral SMS settings without contacting the provider."""
+
+    if not settings.sms_is_configured:
+        return (
+            'SMS_PROVIDER, SMS_API_BASE_URL, SMS_API_KEY and SMS_SENDER are '
+            'required for staging and production'
+        )
+    try:
+        parsed = urlparse(settings.sms_api_base_url or '')
+    except ValueError:
+        return 'SMS_API_BASE_URL must be a valid HTTP(S) URL'
+    if parsed.scheme not in {'http', 'https'} or not parsed.hostname:
+        return 'SMS_API_BASE_URL must be a valid HTTP(S) URL'
+    if parsed.scheme != 'https':
+        return 'SMS_API_BASE_URL must use HTTPS in staging and production'
+    if parsed.hostname.lower() in _PLACEHOLDER_HOSTS:
+        return 'SMS_API_BASE_URL must not point to a placeholder host'
     return None
 
 

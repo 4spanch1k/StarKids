@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     otp_request_window_seconds: int = Field(default=3600, gt=0, le=86400)
     otp_verify_limit_per_ip_phone: int = Field(default=10, gt=0, le=100)
     otp_verify_window_seconds: int = Field(default=600, gt=0, le=86400)
+    sms_provider: str | None = None
+    sms_api_base_url: str | None = None
+    sms_api_key: str | None = None
+    sms_sender: str | None = None
+    sms_request_timeout_seconds: int = Field(default=10, gt=0, le=60)
     jwt_access_token_ttl_minutes: int = 30
     jwt_refresh_token_ttl_days: int = 14
     auth_password_min_length: int = 10
@@ -167,6 +172,29 @@ class Settings(BaseSettings):
     def allows_mock_otp(self) -> bool:
         """Return whether local console-delivered OTP is explicitly allowed."""
         return self.otp_mock_mode and (self.is_development or self.is_test)
+
+    @property
+    def sms_is_configured(self) -> bool:
+        """Return whether all provider-neutral SMS settings are present.
+
+        The concrete provider contract is intentionally not inferred from these
+        values.  A deployment may only start with an explicit provider contract,
+        and the adapter remains responsible for implementing that contract.
+        """
+        values = (
+            self.sms_provider,
+            self.sms_api_base_url,
+            self.sms_api_key,
+            self.sms_sender,
+        )
+        return all(
+            value
+            and value.strip()
+            and not value.strip().upper().startswith(
+                ('PLACEHOLDER', 'REPLACE_ME', 'CHANGE_ME', 'YOUR_')
+            )
+            for value in values
+        )
 
     @property
     def default_database_url(self) -> str:

@@ -33,6 +33,12 @@ from ...core.security.tokens import (
     verify_secret_value,
     verify_token_value,
 )
+from ...integrations.sms import (
+    SmsProvider,
+    SmsProviderError,
+    SmsProviderNotConfigured,
+    build_sms_provider,
+)
 from ...db.models.mobile_session import MobileSession
 from ...db.models.mobile_user import MobileUser
 from ...db.repositories.mobile_session_repository import MobileSessionRepository
@@ -77,6 +83,7 @@ class MobileAuthService:
         auth_protection_service: AuthProtectionService | None = None,
         settings: Settings | None = None,
         loyalty_service: LoyaltyService | None = None,
+        sms_provider: SmsProvider | None = None,
     ) -> None:
         self.user_repository = user_repository or MobileUserRepository()
         self.session_repository = session_repository or MobileSessionRepository()
@@ -84,6 +91,7 @@ class MobileAuthService:
             self.user_repository.session
         )
         self.settings = settings or get_settings()
+        self.sms_provider = sms_provider
         self.auth_protection_service = auth_protection_service or AuthProtectionService(
             throttle_repository=AuthThrottleStateRepository(self.user_repository.session),
         )
@@ -96,7 +104,16 @@ class MobileAuthService:
         context: AuthRequestContext | None = None,
     ) -> OTPRequestResponse:
         phone = self._normalize_phone(payload.phone)
-        self._ensure_otp_available()
+        if (
+            (self.settings.is_staging or self.settings.is_production)
+            and not self.settings.sms_is_configured
+        ):
+            raise self.sms_provider_not_configured_exception()
+        self._ensure_runtime_configuration()
+        try:
+            provider = self.sms_provider or build_sms_provider(self.settings)
+        except SmsProviderNotConfigured as exc:
+            raise self.sms_provider_not_configured_exception() from exc
         context = context or AuthRequestContext(ip_address='unknown')
         self._auth_protection_service.enforce_otp_request_limits(
             context=context,
@@ -114,14 +131,14 @@ class MobileAuthService:
                 )
         code = f'{secrets.randbelow(1_000_000):06d}'
         verification_id = f'otp_{secrets.token_hex(16)}'
-        created_new_challenge = True
+        delivery_error: SmsProviderError | None = None
         try:
             with self.otp_challenge_repository.db.begin_nested():
                 self.otp_challenge_repository.invalidate_active_for_phone(
                     phone,
                     consumed_at=now,
                 )
-                self.otp_challenge_repository.create(
+                challenge = self.otp_challenge_repository.create(
                     verification_id=verification_id,
                     phone=phone,
                     code_hash=hash_secret_value(
@@ -133,6 +150,20 @@ class MobileAuthService:
                     max_attempts=self.settings.otp_max_attempts,
                 )
                 self.otp_challenge_repository.db.flush()
+                try:
+                    provider.send_otp(phone=phone, code=code)
+                except SmsProviderNotConfigured as exc:
+                    challenge.consumed_at = now
+                    self.otp_challenge_repository.db.flush()
+                    delivery_error = exc
+                except SmsProviderError as exc:
+                    challenge.consumed_at = now
+                    self.otp_challenge_repository.db.flush()
+                    delivery_error = exc
+                except Exception as exc:  # pragma: no cover - defensive provider boundary
+                    challenge.consumed_at = now
+                    self.otp_challenge_repository.db.flush()
+                    delivery_error = SmsProviderError(type(exc).__name__)
         except IntegrityError:
             # The partial unique index serializes simultaneous requests.  The
             # losing request returns the winner's challenge without rolling
@@ -141,7 +172,6 @@ class MobileAuthService:
             if existing is None:
                 raise
             verification_id = existing.id
-            created_new_challenge = False
             expires_in_seconds = max(
                 1,
                 int(
@@ -157,14 +187,15 @@ class MobileAuthService:
                 verification_id,
             )
         self.otp_challenge_repository.db.commit()
-        if created_new_challenge:
-            logger.info(
-                'Local OTP issued: verification_id=%s phone=***%s code=%s expires_in_seconds=%s',
-                verification_id,
+        if delivery_error is not None:
+            logger.warning(
+                'SMS OTP delivery failed: provider_error=%s phone=***%s',
+                type(delivery_error).__name__,
                 phone[-2:],
-                code,
-                expires_in_seconds,
             )
+            if isinstance(delivery_error, SmsProviderNotConfigured):
+                raise self.sms_provider_not_configured_exception()
+            raise self.sms_provider_unavailable_exception()
         return OTPRequestResponse(
             verification_id=verification_id,
             expires_in_seconds=expires_in_seconds,
@@ -178,7 +209,6 @@ class MobileAuthService:
         context: AuthRequestContext | None = None,
     ) -> MobileAuthResponse:
         self._ensure_runtime_configuration()
-        self._ensure_otp_available()
         phone = self._normalize_phone(payload.phone)
         context = context or AuthRequestContext(ip_address='unknown')
         self._auth_protection_service.enforce_otp_verify_limits(
@@ -411,6 +441,22 @@ class MobileAuthService:
         )
 
     @staticmethod
+    def sms_provider_not_configured_exception() -> DomainHTTPException:
+        return DomainHTTPException(
+            code='sms_provider_not_configured',
+            message='SMS delivery is not configured for this environment.',
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    @staticmethod
+    def sms_provider_unavailable_exception() -> DomainHTTPException:
+        return DomainHTTPException(
+            code='sms_provider_unavailable',
+            message='SMS delivery is temporarily unavailable.',
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    @staticmethod
     def invalid_credentials_exception() -> DomainHTTPException:
         return DomainHTTPException(
             code='invalid_credentials',
@@ -498,14 +544,6 @@ class MobileAuthService:
             message='This authentication method is unavailable.',
             status_code=status.HTTP_404_NOT_FOUND,
         )
-
-    def _ensure_otp_available(self) -> None:
-        if not self.settings.allows_mock_otp:
-            raise DomainHTTPException(
-                code='otp_not_configured',
-                message='Local OTP delivery is not enabled for this environment.',
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
 
     def _normalize_phone(self, phone: str) -> str:
         digits = ''.join(char for char in phone if char.isdigit())

@@ -87,7 +87,11 @@ def exchange_clerk_session(
 @router.post(
     '/request-otp',
     response_model=OTPRequestResponse,
-    responses={429: {'model': ErrorResponse}, 422: {'model': ErrorResponse}},
+    responses={
+        429: {'model': ErrorResponse},
+        422: {'model': ErrorResponse},
+        503: {'model': ErrorResponse},
+    },
 )
 def request_otp(
     payload: OTPRequest,

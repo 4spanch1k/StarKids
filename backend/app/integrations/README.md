@@ -6,5 +6,6 @@ External adapters will live here:
 - WhatsApp
 - push delivery
 - payments
-- SMS
-
+- SMS (`sms.py` currently exposes the development console adapter and a
+  fail-closed production boundary; a vendor-specific HTTP contract is still
+  required before staging/production delivery can be enabled)

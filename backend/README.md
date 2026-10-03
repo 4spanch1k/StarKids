@@ -34,6 +34,13 @@ the flag disabled in staging and production. Challenges expire after
 rate limits are configurable with `OTP_REQUEST_LIMIT_PER_PHONE`,
 `OTP_REQUEST_LIMIT_PER_IP`, and `OTP_VERIFY_LIMIT_PER_IP_PHONE`.
 
+Deployed environments require `SMS_PROVIDER`, `SMS_API_BASE_URL`,
+`SMS_API_KEY`, and `SMS_SENDER`. The repository currently has no approved
+vendor contract, so the production adapter fails closed until a
+provider-specific HTTP adapter is supplied. It never returns or logs an OTP
+code in staging/production. A provider outage invalidates the newly-created
+challenge and returns a controlled `503` response.
+
 ## Operational payment cleanup
 
 `scripts/expire_mobile_payments.py` is the idempotent reconciliation pass for

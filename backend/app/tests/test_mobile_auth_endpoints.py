@@ -25,6 +25,7 @@ from app.core.security.passwords import (
     hash_password,
     verify_password,
 )
+from app.integrations.sms import SmsProviderError
 from app.db.models import Base
 from app.db.models.auth_throttle_state import AuthThrottleState
 from app.db.models.mobile_session import MobileSession
@@ -55,6 +56,20 @@ from app.modules.mobile_auth.schemas import (
     OTPVerifyRequest,
 )
 from app.modules.mobile_auth.service import MobileAuthService
+
+
+class _RecordingSmsProvider:
+    def __init__(self) -> None:
+        self.messages: list[tuple[str, str]] = []
+
+    def send_otp(self, *, phone: str, code: str) -> None:
+        self.messages.append((phone, code))
+
+
+class _FailingSmsProvider:
+    def send_otp(self, *, phone: str, code: str) -> None:
+        del phone, code
+        raise SmsProviderError('provider unavailable')
 
 
 class MobileAuthEndpointTests(unittest.TestCase):
@@ -118,6 +133,64 @@ class MobileAuthEndpointTests(unittest.TestCase):
         self.assertTrue(body['verification_id'].startswith('otp_'))
         self.assertEqual(body['expires_in_seconds'], 300)
         self.assertEqual(body['resend_after_seconds'], 60)
+        self.assertNotIn('code', body)
+
+    def test_configured_sms_provider_receives_normalized_phone_and_code(self) -> None:
+        provider = _RecordingSmsProvider()
+        with self.SessionLocal() as session:
+            service = MobileAuthService(
+                user_repository=MobileUserRepository(session),
+                session_repository=MobileSessionRepository(session),
+                otp_challenge_repository=MobileOtpChallengeRepository(session),
+                settings=Settings(app_env='test', otp_mock_mode=False),
+                sms_provider=provider,
+            )
+            response = service.request_otp(
+                OTPRequest(phone='8 (707) 123-45-67'),
+                context=AuthRequestContext(ip_address='192.0.2.10'),
+            )
+
+        self.assertEqual(response.expires_in_seconds, 300)
+        self.assertEqual(provider.messages, [('+77071234567', '123456')])
+
+    def test_sms_provider_failure_returns_503_and_consumes_challenge(self) -> None:
+        with self.SessionLocal() as session:
+            service = MobileAuthService(
+                user_repository=MobileUserRepository(session),
+                session_repository=MobileSessionRepository(session),
+                otp_challenge_repository=MobileOtpChallengeRepository(session),
+                settings=Settings(app_env='test', otp_mock_mode=False),
+                sms_provider=_FailingSmsProvider(),
+            )
+            with self.assertRaises(DomainHTTPException) as raised:
+                service.request_otp(
+                    OTPRequest(phone='+77071234567'),
+                    context=AuthRequestContext(ip_address='192.0.2.11'),
+                )
+            self.assertEqual(raised.exception.status_code, 503)
+            self.assertEqual(raised.exception.code, 'sms_provider_unavailable')
+            self.assertIsNone(
+                MobileOtpChallengeRepository(session).get_latest_active_for_phone(
+                    '+77071234567'
+                )
+            )
+
+    def test_provider_failure_logs_no_otp_code(self) -> None:
+        with self.SessionLocal() as session:
+            service = MobileAuthService(
+                user_repository=MobileUserRepository(session),
+                session_repository=MobileSessionRepository(session),
+                otp_challenge_repository=MobileOtpChallengeRepository(session),
+                settings=Settings(app_env='test', otp_mock_mode=False),
+                sms_provider=_FailingSmsProvider(),
+            )
+            with self.assertLogs('app.modules.mobile_auth.service', level='WARNING') as logs:
+                with self.assertRaises(DomainHTTPException):
+                    service.request_otp(
+                        OTPRequest(phone='+77071234567'),
+                        context=AuthRequestContext(ip_address='192.0.2.12'),
+                    )
+        self.assertNotIn('123456', '\n'.join(logs.output))
 
     def test_otp_endpoint_ignores_forwarded_ip_from_untrusted_peer(self) -> None:
         captured: list[str] = []

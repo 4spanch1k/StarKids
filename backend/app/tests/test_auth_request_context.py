@@ -134,6 +134,10 @@ class TrustedProxyConfigurationTests(unittest.TestCase):
             'ticket_qr_secret': 'q' * 48,
             'redis_url': 'redis://127.0.0.1:6379/0',
             'trusted_proxy_cidrs': '127.0.0.1/32,::1/128',
+            'sms_provider': 'approved-provider-pending-adapter',
+            'sms_api_base_url': 'https://sms.vendor.test/api',
+            'sms_api_key': 'sms-test-key',
+            'sms_sender': 'Boom Bala',
         }
         values.update(overrides)
         return Settings(**values)
