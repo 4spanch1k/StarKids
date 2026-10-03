@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 import hashlib
 import unittest
 from unittest.mock import patch
@@ -642,6 +642,231 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
             source_patch.stop()
             for key, value in original.items():
                 setattr(settings, key, value)
+
+    def test_kaspi_retry_rejects_changed_ticket_date_or_bonus_identity(self) -> None:
+        settings, original, source_patch = self._enable_kaspi()
+        try:
+            auth = self._authenticate_mobile_user('+77071234567')
+            headers = {'Authorization': f"Bearer {auth['access_token']}"}
+            base = {
+                'idempotencyKey': 'kaspi-integrity-check-1234',
+                'ticketItems': [{'ticketItemId': 'ticket-kids', 'quantity': 1}],
+                'visitDate': str(date.today()),
+            }
+            created = self.client.post('/api/v1/mobile/payments/init', headers=headers, json=base)
+            self.assertEqual(created.status_code, 200)
+            payment_id = created.json()['paymentId']
+
+            changed_items = {**base, 'ticketItems': [{'ticketItemId': 'ticket-adult', 'quantity': 1}]}
+            changed_date = {**base, 'visitDate': str(date.today() + timedelta(days=1))}
+            changed_bonus = {**base, 'requestedBonusAmount': 1}
+            for changed in (changed_items, changed_date, changed_bonus):
+                response = self.client.post('/api/v1/mobile/payments/init', headers=headers, json=changed)
+                self.assertEqual(response.status_code, 409)
+                self.assertEqual(response.json()['error']['code'], 'idempotency_key_conflict')
+
+            with self.SessionLocal() as session:
+                self.assertEqual(session.query(MobilePayment).count(), 1)
+                stored = session.get(MobilePayment, payment_id)
+                self.assertEqual(stored.status, 'pending')
+                self.assertEqual(session.query(IssuedTicket).count(), 0)
+        finally:
+            self._restore_kaspi(settings, original, source_patch)
+
+    def test_kaspi_nonzero_created_retry_cannot_become_zero_cash(self) -> None:
+        settings, original, source_patch = self._enable_kaspi()
+        try:
+            auth = self._authenticate_mobile_user('+77071234567')
+            headers = {'Authorization': f"Bearer {auth['access_token']}"}
+            self._configure_loyalty(balance=5000, max_percent='100')
+            payload = {
+                'idempotencyKey': 'kaspi-nonzero-to-zero-1234',
+                'ticketItems': [{'ticketItemId': 'ticket-kids', 'quantity': 1}],
+                'visitDate': str(date.today()),
+                'requestedBonusAmount': 1000,
+            }
+            first = self.client.post('/api/v1/mobile/payments/init', headers=headers, json=payload)
+            self.assertEqual(first.status_code, 200)
+            retry = self.client.post(
+                '/api/v1/mobile/payments/init',
+                headers=headers,
+                json={**payload, 'requestedBonusAmount': 2700},
+            )
+            self.assertEqual(retry.status_code, 409)
+            self.assertEqual(retry.json()['error']['code'], 'idempotency_key_conflict')
+            with self.SessionLocal() as session:
+                stored = session.get(MobilePayment, first.json()['paymentId'])
+                self.assertEqual(stored.status, 'pending')
+                self.assertEqual(session.query(IssuedTicket).count(), 0)
+        finally:
+            self._restore_kaspi(settings, original, source_patch)
+
+    def test_kaspi_zero_cash_integrity_race_reloads_existing_payment(self) -> None:
+        settings, original, source_patch = self._enable_kaspi()
+        original_create = MobilePaymentRepository.create_ticket_payment
+
+        def create_then_raise(repository, **kwargs):
+            payment = original_create(repository, **kwargs)
+            raise IntegrityError('simulated concurrent idempotency conflict', {}, Exception('unique'))
+
+        try:
+            auth = self._authenticate_mobile_user('+77071234567')
+            headers = {'Authorization': f"Bearer {auth['access_token']}"}
+            self._configure_loyalty(balance=5000, max_percent='100')
+            with patch.object(
+                MobilePaymentRepository,
+                'create_ticket_payment',
+                autospec=True,
+                side_effect=create_then_raise,
+            ):
+                response = self.client.post(
+                    '/api/v1/mobile/payments/init',
+                    headers=headers,
+                    json={
+                        'idempotencyKey': 'kaspi-zero-race-1234',
+                        'ticketItems': [{'ticketItemId': 'ticket-kids', 'quantity': 1}],
+                        'visitDate': str(date.today()),
+                        'requestedBonusAmount': 2700,
+                    },
+                )
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()['status'], 'paid')
+            with self.SessionLocal() as session:
+                self.assertEqual(session.query(MobilePayment).count(), 1)
+                self.assertEqual(session.query(IssuedTicket).count(), 1)
+        finally:
+            self._restore_kaspi(settings, original, source_patch)
+
+    def test_kaspi_expired_check_and_pay_never_mark_paid(self) -> None:
+        settings, original, source_patch = self._enable_kaspi()
+        try:
+            auth = self._authenticate_mobile_user('+77071234567')
+            headers = {'Authorization': f"Bearer {auth['access_token']}"}
+            self._configure_loyalty(balance=5000, max_percent='30')
+            first = self.client.post(
+                '/api/v1/mobile/payments/init', headers=headers,
+                json={
+                    'idempotencyKey': 'kaspi-expired-check-1234',
+                    'ticketItems': [{'ticketItemId': 'ticket-kids', 'quantity': 1}],
+                    'visitDate': str(date.today()),
+                },
+            ).json()
+            with self.SessionLocal() as session:
+                stored = session.get(MobilePayment, first['paymentId'])
+                stored.expires_at = datetime.now(UTC) - timedelta(minutes=1)
+                session.commit()
+            check = self.client.get(
+                '/api/v1/public/payments/kaspi',
+                params={'command': 'check', 'txn_id': 'kaspi-expired-check', 'account': first['localOrderId'], 'sum': '2700'},
+            )
+            self.assertIn('<result>3</result>', check.text)
+
+            second = self.client.post(
+                '/api/v1/mobile/payments/init', headers=headers,
+                json={
+                    'idempotencyKey': 'kaspi-expired-pay-1234',
+                    'ticketItems': [{'ticketItemId': 'ticket-kids', 'quantity': 1}],
+                    'visitDate': str(date.today()),
+                    'requestedBonusAmount': 500,
+                },
+            ).json()
+            with self.SessionLocal() as session:
+                stored = session.get(MobilePayment, second['paymentId'])
+                stored.expires_at = datetime.now(UTC) - timedelta(minutes=1)
+                session.commit()
+            pay = self.client.get(
+                '/api/v1/public/payments/kaspi',
+                params={'command': 'pay', 'txn_id': 'kaspi-expired-pay', 'account': second['localOrderId'], 'sum': '2200'},
+            )
+            self.assertIn('<result>3</result>', pay.text)
+            with self.SessionLocal() as session:
+                stored = session.get(MobilePayment, second['paymentId'])
+                account = session.scalar(select(LoyaltyAccount))
+                self.assertEqual(stored.status, 'expired')
+                self.assertEqual(account.reserved_balance, 0)
+                self.assertEqual(session.query(IssuedTicket).count(), 0)
+        finally:
+            self._restore_kaspi(settings, original, source_patch)
+
+    def test_kaspi_pay_rejects_amount_and_non_kzt_currency(self) -> None:
+        settings, original, source_patch = self._enable_kaspi()
+        try:
+            auth = self._authenticate_mobile_user('+77071234567')
+            headers = {'Authorization': f"Bearer {auth['access_token']}"}
+            for key, amount in (
+                ('kaspi-underpayment-1234', '2699'),
+                ('kaspi-overpayment-1234', '2701'),
+            ):
+                payment = self.client.post(
+                    '/api/v1/mobile/payments/init', headers=headers,
+                    json={
+                        'idempotencyKey': key,
+                        'ticketItems': [{'ticketItemId': 'ticket-kids', 'quantity': 1}],
+                        'visitDate': str(date.today()),
+                    },
+                ).json()
+                response = self.client.get(
+                    '/api/v1/public/payments/kaspi',
+                    params={'command': 'pay', 'txn_id': key, 'account': payment['localOrderId'], 'sum': amount},
+                )
+                self.assertIn('<result>5</result>', response.text)
+            payment = self.client.post(
+                '/api/v1/mobile/payments/init', headers=headers,
+                json={
+                    'idempotencyKey': 'kaspi-non-kzt-1234',
+                    'ticketItems': [{'ticketItemId': 'ticket-kids', 'quantity': 1}],
+                    'visitDate': str(date.today()),
+                },
+            ).json()
+            with self.SessionLocal() as session:
+                stored = session.get(MobilePayment, payment['paymentId'])
+                stored.currency = 'USD'
+                session.commit()
+            response = self.client.get(
+                '/api/v1/public/payments/kaspi',
+                params={'command': 'pay', 'txn_id': 'kaspi-non-kzt', 'account': payment['localOrderId'], 'sum': '2700'},
+            )
+            self.assertIn('<result>5</result>', response.text)
+            with self.SessionLocal() as session:
+                self.assertEqual(session.get(MobilePayment, payment['paymentId']).status, 'pending')
+        finally:
+            self._restore_kaspi(settings, original, source_patch)
+
+    def test_kaspi_source_allowlist_rejects_untrusted_peer(self) -> None:
+        settings, original, source_patch = self._enable_kaspi()
+        source_stopped = False
+        try:
+            auth = self._authenticate_mobile_user('+77071234567')
+            headers = {'Authorization': f"Bearer {auth['access_token']}"}
+            payment = self.client.post(
+                '/api/v1/mobile/payments/init', headers=headers,
+                json={
+                    'idempotencyKey': 'kaspi-source-allowlist-1234',
+                    'ticketItems': [{'ticketItemId': 'ticket-kids', 'quantity': 1}],
+                    'visitDate': str(date.today()),
+                },
+            ).json()
+            source_patch.stop()
+            source_stopped = True
+            untrusted_patch = patch(
+                'app.modules.mobile_payments.router.resolve_client_ip',
+                return_value='198.51.100.10',
+            )
+            untrusted_patch.start()
+            try:
+                response = self.client.get(
+                    '/api/v1/public/payments/kaspi',
+                    params={'command': 'pay', 'txn_id': 'kaspi-untrusted', 'account': payment['localOrderId'], 'sum': '2700'},
+                )
+            finally:
+                untrusted_patch.stop()
+            self.assertIn('<result>1</result>', response.text)
+            with self.SessionLocal() as session:
+                self.assertEqual(session.get(MobilePayment, payment['paymentId']).status, 'pending')
+        finally:
+            if source_stopped:
+                source_patch.start()
+            self._restore_kaspi(settings, original, source_patch)
 
     def test_freedompay_init_requires_visit_date_for_date_bound_tickets(self) -> None:
         auth = self._authenticate_mobile_user('+77071234567')
@@ -1374,6 +1599,31 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
             callback_record = session.scalar(select(MobilePaymentCallback))
             self.assertEqual(callback_record.result, 'reconciliation_required')
             self.assertIn('missing_amount', callback_record.failure_reason)
+
+    def _enable_kaspi(self):
+        settings = get_settings()
+        original = {
+            'payment_provider': settings.payment_provider,
+            'kaspi_service_name': settings.kaspi_service_name,
+            'kaspi_service_id': settings.kaspi_service_id,
+            'kaspi_allowed_cidrs': settings.kaspi_allowed_cidrs,
+        }
+        settings.payment_provider = 'kaspi'
+        settings.kaspi_service_name = 'boom-bala'
+        settings.kaspi_service_id = 'service-42'
+        settings.kaspi_allowed_cidrs = '127.0.0.1/32'
+        source_patch = patch(
+            'app.modules.mobile_payments.router.resolve_client_ip',
+            return_value='127.0.0.1',
+        )
+        source_patch.start()
+        return settings, original, source_patch
+
+    @staticmethod
+    def _restore_kaspi(settings, original, source_patch) -> None:
+        source_patch.stop()
+        for key, value in original.items():
+            setattr(settings, key, value)
 
     def _init_payment(
         self,

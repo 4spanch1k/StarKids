@@ -27,6 +27,8 @@ from .constants import (
     PAYMENT_CURRENCY_KZT,
     PAYMENT_GATEWAY_FREEDOMPAY,
     PAYMENT_GATEWAY_KASPI,
+    PAYMENT_STATUS_CREATED,
+    PAYMENT_STATUS_PENDING,
     PAYMENT_STATUS_CANCELED,
     PAYMENT_STATUS_EXPIRED,
     PAYMENT_STATUS_FAILED,
@@ -251,6 +253,41 @@ class MobilePaymentService:
             cls._idempotency_conflict()
         return snapshot
 
+    @classmethod
+    def _validate_ticket_idempotency(
+        cls,
+        payment: MobilePayment,
+        payload: FreedomPaymentInitRequest,
+        *,
+        expected_gateway: str,
+    ) -> None:
+        """Validate only immutable purchase identity for an idempotent retry.
+
+        Ticket titles and prices are deliberately not compared: those are
+        mutable CMS data. The persisted ticket item snapshot is authoritative
+        for an already-created payment.
+        """
+        cls._assert_idempotency_type(payment, PAYABLE_BRANCH_TICKET_ORDER)
+        if payment.gateway != expected_gateway:
+            cls._idempotency_conflict()
+        if payment.visit_date != payload.visitDate:
+            cls._idempotency_conflict()
+        if payment.bonus_amount != payload.requestedBonusAmount:
+            cls._idempotency_conflict()
+
+        persisted_items = dict(payment.init_payload or {}).get('ticketItems')
+        if not isinstance(persisted_items, list):
+            cls._idempotency_conflict()
+        persisted_identity = _ticket_item_identity(persisted_items)
+        incoming_identity = _ticket_item_identity(
+            [
+                {'ticketItemId': item.ticketItemId, 'quantity': item.quantity}
+                for item in payload.ticketItems
+            ]
+        )
+        if persisted_identity is None or persisted_identity != incoming_identity:
+            cls._idempotency_conflict()
+
     def _ensure_freedompay_available(self) -> None:
         if (
             (self._settings.is_production or self._settings.is_staging)
@@ -450,9 +487,9 @@ class MobilePaymentService:
             mobile_user_id=user.id, idempotency_key=payload.idempotencyKey,
         )
         if existing is not None:
-            self._assert_idempotency_type(existing, PAYABLE_BRANCH_TICKET_ORDER)
-            if existing.gateway != PAYMENT_GATEWAY_KASPI:
-                self._idempotency_conflict()
+            self._validate_ticket_idempotency(
+                existing, payload, expected_gateway=PAYMENT_GATEWAY_KASPI,
+            )
             if existing.status != PAYMENT_STATUS_CREATED or existing.payment_url:
                 return _payment_init_response(existing)
             existing = self._payment_repository.get_by_idempotency_key_for_user(
@@ -466,41 +503,33 @@ class MobilePaymentService:
                     message='Payment initialization could not be locked safely.',
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 )
+            self._validate_ticket_idempotency(
+                existing, payload, expected_gateway=PAYMENT_GATEWAY_KASPI,
+            )
+            if existing.status != PAYMENT_STATUS_CREATED or existing.payment_url:
+                return _payment_init_response(existing)
         if not self._settings.is_kaspi_configured:
             raise DomainHTTPException(
                 code='kaspi_not_configured',
                 message='Kaspi is not configured on the backend.',
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
-        branch, ticket_items = self._resolve_ticket_items(payload)
-        quote = self._calculate_quote(
-            user=user,
-            gross_amount_tenge=sum(item['priceTenge'] * item['quantity'] for item in ticket_items),
-            requested_bonus_amount=payload.requestedBonusAmount,
-        )
-        if quote.payable_tenge <= 0:
-            if existing is not None:
-                if existing.gateway != PAYMENT_GATEWAY_KASPI:
-                    self._idempotency_conflict()
-                if existing.bonus_amount > 0 and existing.loyalty_reservation_id is None:
-                    reservation = self._loyalty_service.reserve(
-                        user_id=existing.mobile_user_id,
-                        amount=existing.bonus_amount,
-                        source_type='mobile_payment', source_id=existing.id,
-                        order_amount_kzt=existing.gross_amount_tenge,
-                        idempotency_key=f'ticket_payment_reserve:{existing.id}',
-                        description='Резерв бонусов для покупки билетов',
-                    )
-                    existing.loyalty_reservation_id = reservation.id
-                    self._payment_repository.db.flush()
-                return self._complete_zero_cash_payment(existing)
-            return self._create_zero_cash_ticket_payment(
-                user=user, payload=payload, branch=branch, ticket_items=ticket_items,
-                quote=quote,
-            )
         if existing is not None:
             payment = existing
+            ticket_items = None
+            quote = None
         else:
+            branch, ticket_items = self._resolve_ticket_items(payload)
+            quote = self._calculate_quote(
+                user=user,
+                gross_amount_tenge=sum(item['priceTenge'] * item['quantity'] for item in ticket_items),
+                requested_bonus_amount=payload.requestedBonusAmount,
+            )
+            if quote.payable_tenge <= 0:
+                return self._create_zero_cash_ticket_payment(
+                    user=user, payload=payload, branch=branch, ticket_items=ticket_items,
+                    quote=quote,
+                )
             quantity = sum(item['quantity'] for item in ticket_items)
             local_order_id = f'sk-{token_hex(12)}'
             try:
@@ -525,12 +554,26 @@ class MobilePaymentService:
                 )
                 if payment is None:
                     raise
-                self._assert_idempotency_type(payment, PAYABLE_BRANCH_TICKET_ORDER)
-                if payment.gateway != PAYMENT_GATEWAY_KASPI:
-                    self._idempotency_conflict()
+                self._validate_ticket_idempotency(
+                    payment, payload, expected_gateway=PAYMENT_GATEWAY_KASPI,
+                )
                 if payment.status != PAYMENT_STATUS_CREATED or payment.payment_url:
                     return _payment_init_response(payment)
-        if quote.requested_bonus_amount > 0:
+        if payment.cash_amount_tenge == 0:
+            if payment.bonus_amount > 0 and payment.loyalty_reservation_id is None:
+                reservation = self._loyalty_service.reserve(
+                    user_id=payment.mobile_user_id,
+                    amount=payment.bonus_amount,
+                    source_type='mobile_payment',
+                    source_id=payment.id,
+                    order_amount_kzt=payment.gross_amount_tenge,
+                    idempotency_key=f'ticket_payment_reserve:{payment.id}',
+                    description='Резерв бонусов для покупки билетов',
+                )
+                payment.loyalty_reservation_id = reservation.id
+                self._payment_repository.db.flush()
+            return self._complete_zero_cash_payment(payment)
+        if payment.bonus_amount > 0 and payment.loyalty_reservation_id is None:
             reservation = self._loyalty_service.reserve(
                 user_id=payment.mobile_user_id, amount=payment.bonus_amount,
                 source_type='mobile_payment', source_id=payment.id,
@@ -556,21 +599,42 @@ class MobilePaymentService:
         )
         return _payment_init_response(payment, payment_url=payment_url)
 
-    def _create_zero_cash_ticket_payment(self, *, user: MobileUser, payload: FreedomPaymentInitRequest, branch: Branch, ticket_items: list[dict[str, object]], quote: TicketPaymentQuote) -> FreedomPaymentInitResponse:
-        payment = self._payment_repository.create_ticket_payment(
-            mobile_user_id=user.id, branch_id=branch.id,
-            payable_entity_type=PAYABLE_BRANCH_TICKET_ORDER,
-            payable_entity_id=branch.id, local_order_id=f'sk-{token_hex(12)}',
-            idempotency_key=payload.idempotencyKey, amount_tenge=0,
-            currency=PAYMENT_CURRENCY_KZT,
-            quantity=sum(item['quantity'] for item in ticket_items),
-            visit_date=payload.visitDate, ticket_items=ticket_items,
-            init_payload={'ticketItems': ticket_items, 'gateway': PAYMENT_GATEWAY_KASPI},
-            gross_amount_tenge=quote.subtotal_tenge,
-            bonus_amount=quote.requested_bonus_amount, cash_amount_tenge=0,
-            expires_at=datetime.now(UTC) + timedelta(minutes=PAYMENT_RESERVATION_TTL_MINUTES),
-            gateway=PAYMENT_GATEWAY_KASPI,
-        )
+    def _create_zero_cash_ticket_payment(
+        self,
+        *,
+        user: MobileUser,
+        payload: FreedomPaymentInitRequest,
+        branch: Branch,
+        ticket_items: list[dict[str, object]],
+        quote: TicketPaymentQuote,
+    ) -> FreedomPaymentInitResponse:
+        try:
+            payment = self._payment_repository.create_ticket_payment(
+                mobile_user_id=user.id, branch_id=branch.id,
+                payable_entity_type=PAYABLE_BRANCH_TICKET_ORDER,
+                payable_entity_id=branch.id, local_order_id=f'sk-{token_hex(12)}',
+                idempotency_key=payload.idempotencyKey, amount_tenge=0,
+                currency=PAYMENT_CURRENCY_KZT,
+                quantity=sum(item['quantity'] for item in ticket_items),
+                visit_date=payload.visitDate, ticket_items=ticket_items,
+                init_payload={'ticketItems': ticket_items, 'gateway': PAYMENT_GATEWAY_KASPI},
+                gross_amount_tenge=quote.subtotal_tenge,
+                bonus_amount=quote.requested_bonus_amount, cash_amount_tenge=0,
+                expires_at=datetime.now(UTC) + timedelta(minutes=PAYMENT_RESERVATION_TTL_MINUTES),
+                gateway=PAYMENT_GATEWAY_KASPI,
+            )
+        except IntegrityError:
+            self._payment_repository.db.rollback()
+            payment = self._payment_repository.get_by_idempotency_key_for_user(
+                mobile_user_id=user.id, idempotency_key=payload.idempotencyKey, for_update=True,
+            )
+            if payment is None:
+                raise
+            self._validate_ticket_idempotency(
+                payment, payload, expected_gateway=PAYMENT_GATEWAY_KASPI,
+            )
+            if payment.status != PAYMENT_STATUS_CREATED:
+                return _payment_init_response(payment)
         if payment.bonus_amount > 0:
             reservation = self._loyalty_service.reserve(
                 user_id=payment.mobile_user_id,
@@ -992,9 +1056,23 @@ class MobilePaymentService:
         command = (payload.get('command') or '').strip().lower()
         if not is_kaspi_source_allowed(source_ip, allowed_networks) or not txn_id or not account:
             return kaspi_response(result=1, comment='Request rejected', txn_id=txn_id or 'unknown')
-        payment = self._payment_repository.get_by_local_order_id(account)
+        payment = self._payment_repository.get_by_local_order_id_for_update(account)
         if payment is None or payment.gateway != PAYMENT_GATEWAY_KASPI:
             return kaspi_response(result=2, comment='Order not found', txn_id=txn_id)
+        expires_at = payment.expires_at
+        if expires_at is not None and expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
+        if (
+            payment.status in {PAYMENT_STATUS_CREATED, PAYMENT_STATUS_PENDING}
+            and expires_at is not None
+            and expires_at <= datetime.now(UTC)
+        ):
+            payment.status = PAYMENT_STATUS_EXPIRED
+            payment.failure_reason = 'Payment reservation expired.'
+            self._release_payment_reservation(payment)
+            self._payment_repository.db.add(payment)
+            self._payment_repository.db.commit()
+            return kaspi_response(result=3, comment='Order expired', txn_id=txn_id)
         if command == 'check':
             if payment.status in {PAYMENT_STATUS_CANCELED, PAYMENT_STATUS_EXPIRED, PAYMENT_STATUS_FAILED}:
                 return kaspi_response(result=3, comment='Order canceled', txn_id=txn_id)
@@ -1023,6 +1101,8 @@ class MobilePaymentService:
             return kaspi_response(result=4, comment='Order already paid', txn_id=txn_id)
         if payment.status in {PAYMENT_STATUS_CANCELED, PAYMENT_STATUS_EXPIRED, PAYMENT_STATUS_FAILED}:
             return kaspi_response(result=3, comment='Order canceled', txn_id=txn_id)
+        if payment.currency != PAYMENT_CURRENCY_KZT:
+            return kaspi_response(result=5, comment='Unsupported currency', txn_id=txn_id)
         try:
             paid_amount = parse_kaspi_amount(payload.get('sum'))
         except KaspiProtocolError:
@@ -1463,6 +1543,30 @@ def _quote_response(quote: TicketPaymentQuote) -> FreedomPaymentQuoteResponse:
         cashbackEnabled=quote.cashback_enabled,
         expectedCashback=quote.expected_cashback,
     )
+
+
+def _ticket_item_identity(
+    items: list[object],
+) -> tuple[tuple[str, int], ...] | None:
+    counts: dict[str, int] = {}
+    for item in items:
+        if isinstance(item, dict):
+            ticket_item_id = item.get('ticketItemId')
+            quantity = item.get('quantity')
+        else:
+            ticket_item_id = getattr(item, 'ticketItemId', None)
+            quantity = getattr(item, 'quantity', None)
+        if not ticket_item_id:
+            return None
+        try:
+            quantity_value = int(quantity)
+        except (TypeError, ValueError):
+            return None
+        if quantity_value <= 0:
+            return None
+        key = str(ticket_item_id)
+        counts[key] = counts.get(key, 0) + quantity_value
+    return tuple(sorted(counts.items()))
 
 
 def _purchased_ticket_response(
