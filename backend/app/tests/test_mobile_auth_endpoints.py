@@ -59,11 +59,15 @@ from app.modules.mobile_auth.service import MobileAuthService
 
 
 class _RecordingSmsProvider:
-    def __init__(self) -> None:
+    def __init__(self, session: Session | None = None) -> None:
         self.messages: list[tuple[str, str]] = []
+        self.transaction_states: list[bool] = []
+        self.session = session
 
     def send_otp(self, *, phone: str, code: str) -> None:
         self.messages.append((phone, code))
+        if self.session is not None:
+            self.transaction_states.append(self.session.in_transaction())
 
 
 class _FailingSmsProvider:
@@ -174,6 +178,67 @@ class MobileAuthEndpointTests(unittest.TestCase):
                     '+77071234567'
                 )
             )
+
+    def test_sms_delivery_failure_allows_a_new_request(self) -> None:
+        with self.SessionLocal() as session:
+            settings = Settings(app_env='test', otp_mock_mode=False)
+            failed_service = MobileAuthService(
+                user_repository=MobileUserRepository(session),
+                session_repository=MobileSessionRepository(session),
+                otp_challenge_repository=MobileOtpChallengeRepository(session),
+                settings=settings,
+                sms_provider=_FailingSmsProvider(),
+            )
+            with self.assertRaises(DomainHTTPException):
+                failed_service.request_otp(
+                    OTPRequest(phone='+77071234567'),
+                    context=AuthRequestContext(ip_address='192.0.2.13'),
+                )
+
+            failed_challenge = (
+                session.query(MobileOtpChallenge)
+                .filter_by(phone='+77071234567')
+                .one()
+            )
+            self.assertIsNotNone(failed_challenge.consumed_at)
+
+            provider = _RecordingSmsProvider(session)
+            retry_service = MobileAuthService(
+                user_repository=MobileUserRepository(session),
+                session_repository=MobileSessionRepository(session),
+                otp_challenge_repository=MobileOtpChallengeRepository(session),
+                settings=settings,
+                sms_provider=provider,
+            )
+            retry = retry_service.request_otp(
+                OTPRequest(phone='+77071234567'),
+                context=AuthRequestContext(ip_address='192.0.2.13'),
+            )
+
+            active = MobileOtpChallengeRepository(session).get_latest_active_for_phone(
+                '+77071234567'
+            )
+            self.assertIsNotNone(active)
+            self.assertEqual(active.id, retry.verification_id)
+            self.assertNotEqual(active.id, failed_challenge.id)
+            self.assertEqual(provider.messages, [('+77071234567', '123456')])
+
+    def test_sms_provider_is_called_after_challenge_commit(self) -> None:
+        with self.SessionLocal() as session:
+            provider = _RecordingSmsProvider(session)
+            service = MobileAuthService(
+                user_repository=MobileUserRepository(session),
+                session_repository=MobileSessionRepository(session),
+                otp_challenge_repository=MobileOtpChallengeRepository(session),
+                settings=Settings(app_env='test', otp_mock_mode=False),
+                sms_provider=provider,
+            )
+            service.request_otp(
+                OTPRequest(phone='+77071234567'),
+                context=AuthRequestContext(ip_address='192.0.2.14'),
+            )
+
+        self.assertEqual(provider.transaction_states, [False])
 
     def test_provider_failure_logs_no_otp_code(self) -> None:
         with self.SessionLocal() as session:

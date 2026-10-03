@@ -131,7 +131,7 @@ class MobileAuthService:
                 )
         code = f'{secrets.randbelow(1_000_000):06d}'
         verification_id = f'otp_{secrets.token_hex(16)}'
-        delivery_error: SmsProviderError | None = None
+        created_new_challenge = False
         try:
             with self.otp_challenge_repository.db.begin_nested():
                 self.otp_challenge_repository.invalidate_active_for_phone(
@@ -150,20 +150,7 @@ class MobileAuthService:
                     max_attempts=self.settings.otp_max_attempts,
                 )
                 self.otp_challenge_repository.db.flush()
-                try:
-                    provider.send_otp(phone=phone, code=code)
-                except SmsProviderNotConfigured as exc:
-                    challenge.consumed_at = now
-                    self.otp_challenge_repository.db.flush()
-                    delivery_error = exc
-                except SmsProviderError as exc:
-                    challenge.consumed_at = now
-                    self.otp_challenge_repository.db.flush()
-                    delivery_error = exc
-                except Exception as exc:  # pragma: no cover - defensive provider boundary
-                    challenge.consumed_at = now
-                    self.otp_challenge_repository.db.flush()
-                    delivery_error = SmsProviderError(type(exc).__name__)
+                created_new_challenge = True
         except IntegrityError:
             # The partial unique index serializes simultaneous requests.  The
             # losing request returns the winner's challenge without rolling
@@ -187,7 +174,26 @@ class MobileAuthService:
                 verification_id,
             )
         self.otp_challenge_repository.db.commit()
-        if delivery_error is not None:
+
+        # Delivery is deliberately outside the database transaction.  A
+        # provider may perform network I/O and must not hold the challenge
+        # transaction open while doing so.
+        delivery_error: SmsProviderError | None = None
+        if created_new_challenge:
+            try:
+                provider.send_otp(phone=phone, code=code)
+            except SmsProviderNotConfigured as exc:
+                delivery_error = exc
+            except SmsProviderError as exc:
+                delivery_error = exc
+            except Exception as exc:  # pragma: no cover - defensive provider boundary
+                delivery_error = SmsProviderError(type(exc).__name__)
+
+        if created_new_challenge and delivery_error is not None:
+            self._consume_failed_otp_delivery(
+                verification_id=verification_id,
+                consumed_at=datetime.now(UTC),
+            )
             logger.warning(
                 'SMS OTP delivery failed: provider_error=%s phone=***%s',
                 type(delivery_error).__name__,
@@ -536,6 +542,32 @@ class MobileAuthService:
         if self.settings.is_development or self.settings.is_test:
             return
         raise self.legacy_mobile_auth_disabled_exception()
+
+    def _consume_failed_otp_delivery(
+        self,
+        *,
+        verification_id: str,
+        consumed_at: datetime,
+    ) -> None:
+        """Invalidate only the challenge whose delivery failed.
+
+        This executes after the delivery-free challenge commit.  The
+        conditional update cannot consume a newer challenge that superseded
+        this one while the provider was running.
+        """
+
+        try:
+            self.otp_challenge_repository.consume_if_active(
+                verification_id,
+                consumed_at=consumed_at,
+            )
+            self.otp_challenge_repository.db.commit()
+        except Exception:  # pragma: no cover - database outage during cleanup
+            self.otp_challenge_repository.db.rollback()
+            logger.error(
+                'Failed to invalidate OTP challenge after delivery error: verification_id=%s',
+                verification_id,
+            )
 
     @staticmethod
     def legacy_mobile_auth_disabled_exception() -> DomainHTTPException:

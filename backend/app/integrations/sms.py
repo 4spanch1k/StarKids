@@ -51,12 +51,13 @@ class DevelopmentSmsProvider:
 
 @dataclass(frozen=True)
 class ProductionSmsProvider:
-    """Fail-closed boundary until a concrete vendor contract is selected.
+    """Fail-closed placeholder until a concrete vendor contract is selected.
 
     ``SMS_API_BASE_URL``/``SMS_API_KEY``/``SMS_SENDER`` are intentionally
     provider-neutral configuration slots.  No request is sent using an
     invented payload: the deployment must add a vendor-specific adapter once
-    the provider contract is approved.
+    the provider contract is approved.  Having those environment values
+    present does not imply that real SMS delivery is available.
     """
 
     settings: Settings

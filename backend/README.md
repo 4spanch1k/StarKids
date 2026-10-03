@@ -36,10 +36,12 @@ rate limits are configurable with `OTP_REQUEST_LIMIT_PER_PHONE`,
 
 Deployed environments require `SMS_PROVIDER`, `SMS_API_BASE_URL`,
 `SMS_API_KEY`, and `SMS_SENDER`. The repository currently has no approved
-vendor contract, so the production adapter fails closed until a
-provider-specific HTTP adapter is supplied. It never returns or logs an OTP
-code in staging/production. A provider outage invalidates the newly-created
-challenge and returns a controlled `503` response.
+vendor contract: `ProductionSmsProvider` is currently a fail-closed
+placeholder. The presence of these environment values alone does not mean
+that real SMS delivery is available; a provider-specific HTTP adapter is still
+required. It never returns or logs an OTP code in staging/production. A
+provider outage invalidates the newly-created challenge and returns a
+controlled `503` response.
 
 ## Operational payment cleanup
 

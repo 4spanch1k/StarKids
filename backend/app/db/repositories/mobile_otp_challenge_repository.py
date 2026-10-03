@@ -61,3 +61,25 @@ class MobileOtpChallengeRepository(Repository):
             )
             .with_for_update()
         )
+
+    def consume_if_active(
+        self,
+        verification_id: str,
+        *,
+        consumed_at: datetime,
+    ) -> bool:
+        """Consume only the challenge created by the failed delivery attempt.
+
+        The conditional predicate prevents a late provider failure from
+        consuming a newer challenge created by a subsequent request.
+        """
+
+        result = self.db.execute(
+            update(MobileOtpChallenge)
+            .where(
+                MobileOtpChallenge.id == verification_id,
+                MobileOtpChallenge.consumed_at.is_(None),
+            )
+            .values(consumed_at=consumed_at)
+        )
+        return result.rowcount == 1
