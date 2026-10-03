@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, Request, Response
 
 from ...core.exceptions.schemas import ErrorResponse
+from ...core.config.settings import get_settings
+from ..auth_security.dependencies import resolve_client_ip
 from ..mobile_auth.dependencies import (
     AuthenticatedMobileContext,
     get_current_mobile_auth_context,
@@ -18,11 +20,41 @@ from .schemas import (
     PurchasedTicketsResponse,
     CurrentVisitResponse,
     VisitHistoryResponse,
+    PaymentInitRequest,
+    PaymentInitResponse,
+    PaymentQuoteRequest,
+    PaymentQuoteResponse,
 )
 from .service import MobilePaymentService
 
 mobile_router = APIRouter()
 public_router = APIRouter()
+
+
+@mobile_router.post(
+    '/payments/quote',
+    response_model=PaymentQuoteResponse,
+    responses={401: {'model': ErrorResponse}, 404: {'model': ErrorResponse}, 422: {'model': ErrorResponse}},
+)
+def quote_payment(
+    payload: PaymentQuoteRequest,
+    auth_context: AuthenticatedMobileContext = Depends(get_current_mobile_auth_context),
+    service: MobilePaymentService = Depends(get_mobile_payment_service),
+) -> PaymentQuoteResponse:
+    return service.quote_ticket_payment(user=auth_context.user, payload=payload)
+
+
+@mobile_router.post(
+    '/payments/init',
+    response_model=PaymentInitResponse,
+    responses={401: {'model': ErrorResponse}, 404: {'model': ErrorResponse}, 422: {'model': ErrorResponse}, 503: {'model': ErrorResponse}},
+)
+def init_payment(
+    payload: PaymentInitRequest,
+    auth_context: AuthenticatedMobileContext = Depends(get_current_mobile_auth_context),
+    service: MobilePaymentService = Depends(get_mobile_payment_service),
+) -> PaymentInitResponse:
+    return service.init_freedom_ticket_payment(user=auth_context.user, payload=payload)
 
 
 @mobile_router.post(
@@ -167,6 +199,27 @@ async def handle_freedompay_result(
     payload = await _read_gateway_payload(request)
     result = service.handle_freedompay_result(payload)
     return Response(content=result.xml, media_type='application/xml')
+
+
+@public_router.get('/payments/kaspi')
+@public_router.post('/payments/kaspi')
+async def handle_kaspi_request(
+    request: Request,
+    service: MobilePaymentService = Depends(get_mobile_payment_service),
+) -> Response:
+    settings = get_settings()
+    immediate_peer = request.client.host if request.client is not None else ''
+    source_ip = resolve_client_ip(
+        immediate_peer=immediate_peer,
+        forwarded_for=request.headers.get('x-forwarded-for'),
+        trusted_proxy_networks=settings.trusted_proxy_networks,
+    )
+    if request.method == 'POST':
+        payload = await _read_gateway_payload(request)
+    else:
+        payload = {str(key): str(value) for key, value in request.query_params.items()}
+    result = service.handle_kaspi_request(payload, source_ip=source_ip)
+    return Response(content=result, media_type='application/xml')
 
 
 async def _read_gateway_payload(request: Request) -> dict[str, str]:

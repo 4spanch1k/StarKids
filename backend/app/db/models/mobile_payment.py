@@ -50,6 +50,9 @@ class MobilePayment(Base):
         unique=True,
         index=True,
     )
+    provider_transaction_reference: Mapped[str | None] = mapped_column(
+        String(20), nullable=True, unique=True, index=True,
+    )
     gateway: Mapped[str] = mapped_column(String(32), default='freedompay')
     amount_tenge: Mapped[int] = mapped_column(Integer)
     gross_amount_tenge: Mapped[int] = mapped_column(Integer, default=0)

@@ -184,6 +184,37 @@ class ProductionGuardTests(unittest.TestCase):
                 production_settings(freedompay_secret_key=None)
             )
 
+    def test_kaspi_provider_does_not_require_freedompay(self) -> None:
+        status = validate_runtime_configuration(
+            production_settings(
+                payment_provider='kaspi',
+                freedompay_merchant_id=None,
+                freedompay_secret_key=None,
+                freedompay_result_url=None,
+                freedompay_success_url=None,
+                freedompay_failure_url=None,
+                kaspi_service_name='boom-bala',
+                kaspi_service_id='service-1',
+                kaspi_allowed_cidrs='203.0.113.0/24',
+            )
+        )
+        self.assertEqual(status.environment, 'production')
+
+        with self.assertRaises(ProductionConfigurationError):
+            validate_runtime_configuration(
+                production_settings(
+                    payment_provider='kaspi',
+                    freedompay_merchant_id=None,
+                    freedompay_secret_key=None,
+                    freedompay_result_url=None,
+                    freedompay_success_url=None,
+                    freedompay_failure_url=None,
+                    kaspi_service_name='CHANGE_ME',
+                    kaspi_service_id='service-1',
+                    kaspi_allowed_cidrs='203.0.113.0/24',
+                )
+            )
+
     def test_production_rejects_freedompay_testing_mode(self) -> None:
         with self.assertRaises(ProductionConfigurationError):
             validate_runtime_configuration(

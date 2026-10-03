@@ -47,6 +47,14 @@ class FreedomPaymentInitResponse(BaseModel):
     cashAmountTenge: int = 0
 
 
+# Provider-neutral aliases keep the mobile contract independent from the
+# selected gateway while preserving the existing response shape.
+PaymentInitRequest = FreedomPaymentInitRequest
+PaymentQuoteRequest = FreedomPaymentQuoteRequest
+PaymentInitResponse = FreedomPaymentInitResponse
+PaymentQuoteResponse = FreedomPaymentQuoteResponse
+
+
 class MobilePaymentStatusResponse(BaseModel):
     paymentId: str
     localOrderId: str

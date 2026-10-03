@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     freedompay_testing_mode: bool = False
     freedompay_mock_mode: bool = False
     freedompay_request_timeout_seconds: int = 15
+    payment_provider: Literal['freedompay', 'kaspi'] = 'freedompay'
+    kaspi_service_name: str | None = None
+    kaspi_service_id: str | None = None
+    kaspi_account_parameter_id: str = 'account'
+    kaspi_allowed_cidrs: str = ''
     ticket_qr_secret: str | None = None
 
     fcm_project_id: str | None = None
@@ -206,6 +211,20 @@ class Settings(BaseSettings):
                     self.freedompay_failure_url,
                 )
             )
+        )
+
+    @property
+    def is_kaspi_configured(self) -> bool:
+        values = (
+            self.kaspi_service_name,
+            self.kaspi_service_id,
+            self.kaspi_account_parameter_id,
+        )
+        return all(
+            value
+            and value.strip()
+            and not value.strip().upper().startswith(('CHANGE_ME', 'REPLACE_ME', 'YOUR_'))
+            for value in values
         )
 
 

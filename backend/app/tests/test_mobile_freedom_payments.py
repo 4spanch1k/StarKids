@@ -561,6 +561,88 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
         self.assertEqual(issued_tickets_response.status_code, 200)
         self.assertEqual(issued_tickets_response.json()['total'], 2)
 
+    def test_kaspi_provider_check_pay_and_duplicate_pay_are_idempotent(self) -> None:
+        settings = get_settings()
+        original = {
+            'payment_provider': settings.payment_provider,
+            'kaspi_service_name': settings.kaspi_service_name,
+            'kaspi_service_id': settings.kaspi_service_id,
+            'kaspi_allowed_cidrs': settings.kaspi_allowed_cidrs,
+        }
+        settings.payment_provider = 'kaspi'
+        settings.kaspi_service_name = 'boom-bala'
+        settings.kaspi_service_id = 'service-42'
+        settings.kaspi_allowed_cidrs = '127.0.0.1/32'
+        source_patch = patch(
+            'app.modules.mobile_payments.router.resolve_client_ip',
+            return_value='127.0.0.1',
+        )
+        source_patch.start()
+        try:
+            auth = self._authenticate_mobile_user('+77071234567')
+            headers = {'Authorization': f"Bearer {auth['access_token']}"}
+            response = self.client.post(
+                '/api/v1/mobile/payments/init',
+                headers=headers,
+                json={
+                    'idempotencyKey': 'kaspi-check-pay-1234',
+                    'ticketItems': [{'ticketItemId': 'ticket-kids', 'quantity': 1}],
+                    'visitDate': str(date.today()),
+                },
+            )
+            self.assertEqual(response.status_code, 200)
+            payment = response.json()
+            self.assertIn('service_id=service-42', payment['paymentUrl'])
+            self.assertIn(f"account={payment['localOrderId']}", payment['paymentUrl'])
+            self.assertIn('amount=2700.00', payment['paymentUrl'])
+
+            check = self.client.get(
+                '/api/v1/public/payments/kaspi',
+                params={
+                    'command': 'check', 'txn_id': 'kaspi-check-1',
+                    'account': payment['localOrderId'], 'sum': '1.00',
+                },
+            )
+            self.assertIn('<result>0</result>', check.text)
+            pay = self.client.get(
+                '/api/v1/public/payments/kaspi',
+                params={
+                    'command': 'pay', 'txn_id': 'kaspi-pay-1',
+                    'txn_date': '2026-10-03', 'account': payment['localOrderId'],
+                    'sum': '2700.00',
+                },
+            )
+            self.assertIn('<result>0</result>', pay.text)
+            self.assertEqual(self.client.get('/api/v1/mobile/tickets', headers=headers).json()['total'], 1)
+            with self.SessionLocal() as session:
+                stored = session.get(MobilePayment, payment['paymentId'])
+                self.assertEqual(stored.gateway, 'kaspi')
+                self.assertEqual(stored.external_payment_id, 'kaspi-pay-1')
+                self.assertTrue(stored.provider_transaction_reference.isdigit())
+                self.assertLessEqual(len(stored.provider_transaction_reference), 20)
+
+            duplicate = self.client.get(
+                '/api/v1/public/payments/kaspi',
+                params={
+                    'command': 'pay', 'txn_id': 'kaspi-pay-1',
+                    'account': payment['localOrderId'], 'sum': '2700.00',
+                },
+            )
+            self.assertIn('<result>0</result>', duplicate.text)
+            second = self.client.get(
+                '/api/v1/public/payments/kaspi',
+                params={
+                    'command': 'pay', 'txn_id': 'kaspi-pay-2',
+                    'account': payment['localOrderId'], 'sum': '2700.00',
+                },
+            )
+            self.assertIn('<result>4</result>', second.text)
+            self.assertEqual(self.client.get('/api/v1/mobile/tickets', headers=headers).json()['total'], 1)
+        finally:
+            source_patch.stop()
+            for key, value in original.items():
+                setattr(settings, key, value)
+
     def test_freedompay_init_requires_visit_date_for_date_bound_tickets(self) -> None:
         auth = self._authenticate_mobile_user('+77071234567')
         headers = {'Authorization': f"Bearer {auth['access_token']}"}

@@ -8,6 +8,7 @@ from ..models.branch import Branch
 from ..models.mobile_payment import MobilePayment
 from ..models.mobile_payment_callback import MobilePaymentCallback
 from ...modules.mobile_payments.constants import TERMINAL_PAYMENT_STATUSES
+from ...modules.mobile_payments.constants import PAYMENT_GATEWAY_FREEDOMPAY
 from .base import Repository
 
 
@@ -31,6 +32,7 @@ class MobilePaymentRepository(Repository):
         bonus_amount: int = 0,
         cash_amount_tenge: int | None = None,
         expires_at: datetime | None = None,
+        gateway: str = PAYMENT_GATEWAY_FREEDOMPAY,
     ) -> MobilePayment:
         cash_amount_tenge = amount_tenge if cash_amount_tenge is None else cash_amount_tenge
         gross_amount_tenge = cash_amount_tenge + bonus_amount if gross_amount_tenge is None else gross_amount_tenge
@@ -50,6 +52,7 @@ class MobilePaymentRepository(Repository):
             visit_date=visit_date,
             ticket_items=ticket_items,
             status='created',
+            gateway=gateway,
             init_payload=init_payload,
             expires_at=expires_at,
         )
@@ -162,11 +165,26 @@ class MobilePaymentRepository(Repository):
         statement = select(MobilePayment).where(MobilePayment.local_order_id == local_order_id)
         return self.db.scalar(statement)
 
+    def get_by_local_order_id_for_update(self, local_order_id: str) -> MobilePayment | None:
+        statement = (
+            select(MobilePayment)
+            .where(MobilePayment.local_order_id == local_order_id)
+            .with_for_update()
+        )
+        return self.db.scalar(statement)
+
+    def get_by_provider_transaction_reference(self, reference: str) -> MobilePayment | None:
+        return self.db.scalar(
+            select(MobilePayment).where(
+                MobilePayment.provider_transaction_reference == reference
+            )
+        )
+
     def mark_pending(
         self,
         payment: MobilePayment,
         *,
-        external_payment_id: str,
+        external_payment_id: str | None,
         init_payload: dict[str, object],
         payment_url: str | None = None,
     ) -> MobilePayment:
@@ -301,7 +319,17 @@ class MobilePaymentRepository(Repository):
             )
             if callback is not None and (
                 callback.result in {'rejected', 'reconciliation_required'}
-                or callback.payload.get('pg_result') != payload.get('pg_result')
+                or (
+                    (
+                        'command' in callback.payload or 'command' in payload
+                    )
+                    and callback.payload.get('command') != payload.get('command')
+                )
+                or (
+                    'command' not in callback.payload
+                    and 'command' not in payload
+                    and callback.payload.get('pg_result') != payload.get('pg_result')
+                )
             ):
                 callback = None
         if callback is None:
@@ -439,7 +467,7 @@ def _callback_fingerprint(payload: dict[str, object]) -> str:
 
 
 def _provider_event_id(payload: dict[str, object]) -> str | None:
-    raw_event_id = payload.get('pg_payment_id')
+    raw_event_id = payload.get('pg_payment_id') or payload.get('txn_id')
     if raw_event_id is None:
         return None
     event_id = str(raw_event_id).strip()

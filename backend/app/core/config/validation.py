@@ -113,14 +113,19 @@ def validate_runtime_configuration(settings: Settings) -> RuntimeConfigurationSt
         ):
             errors.append('ADMIN_SEED credentials use a known development default')
 
-    if settings.freedompay_mock_mode:
-        errors.append('FREEDOMPAY_MOCK_MODE must be false')
-    if settings.is_production and settings.freedompay_testing_mode:
-        errors.append('FREEDOMPAY_TESTING_MODE must be false')
-    if not settings.is_freedompay_configured:
-        errors.append(
-            'FreedomPay merchant, secret, base, result, success and failure settings are required'
-        )
+    if settings.payment_provider == 'freedompay':
+        if settings.freedompay_mock_mode:
+            errors.append('FREEDOMPAY_MOCK_MODE must be false')
+        if settings.is_production and settings.freedompay_testing_mode:
+            errors.append('FREEDOMPAY_TESTING_MODE must be false')
+        if not settings.is_freedompay_configured:
+            errors.append(
+                'FreedomPay merchant, secret, base, result, success and failure settings are required'
+            )
+    elif settings.payment_provider == 'kaspi':
+        kaspi_error = _kaspi_configuration_error(settings)
+        if kaspi_error:
+            errors.append(kaspi_error)
 
     if settings.otp_mock_mode:
         errors.append('OTP mock authentication is not allowed')
@@ -132,7 +137,7 @@ def validate_runtime_configuration(settings: Settings) -> RuntimeConfigurationSt
         errors.append(database_error)
     if any(_is_local_url(origin) for origin in settings.cors_origins_list):
         errors.append('BACKEND_CORS_ORIGINS must not contain localhost in production')
-    if any(
+    if settings.payment_provider == 'freedompay' and any(
         _is_local_url(url) or _is_placeholder_url(url)
         for url in (
             settings.freedompay_base_url,
@@ -177,6 +182,26 @@ def _trusted_proxy_configuration_error(
         return 'TRUSTED_PROXY_CIDRS must contain valid IP networks'
     if any(network.prefixlen == 0 for network in networks):
         return 'TRUSTED_PROXY_CIDRS must not contain catch-all networks'
+    return None
+
+
+def _kaspi_configuration_error(settings: Settings) -> str | None:
+    if not settings.is_kaspi_configured:
+        return 'KASPI_SERVICE_NAME, KASPI_SERVICE_ID and KASPI_ACCOUNT_PARAMETER_ID are required'
+    if settings.kaspi_allowed_cidrs.strip() == '':
+        return 'KASPI_ALLOWED_CIDRS is required for staging and production'
+    try:
+        networks = parse_trusted_proxy_cidrs(settings.kaspi_allowed_cidrs)
+    except ValueError:
+        return 'KASPI_ALLOWED_CIDRS must contain valid IP networks'
+    if any(network.prefixlen == 0 for network in networks):
+        return 'KASPI_ALLOWED_CIDRS must not contain catch-all networks'
+    values = (settings.kaspi_service_name, settings.kaspi_service_id)
+    if any(
+        (value or '').strip().upper().startswith(('CHANGE_ME', 'REPLACE_ME', 'YOUR_'))
+        for value in values
+    ):
+        return 'Kaspi configuration must not use placeholder values'
     return None
 
 

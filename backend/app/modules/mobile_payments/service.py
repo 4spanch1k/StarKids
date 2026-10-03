@@ -4,13 +4,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_DOWN
 import logging
-from secrets import token_hex
+from secrets import randbelow, token_hex
 from xml.etree import ElementTree
 
 from fastapi import status
 from sqlalchemy.exc import IntegrityError
 
-from ...core.config.settings import Settings
+from ...core.config.settings import Settings, parse_trusted_proxy_cidrs
 from ...core.exceptions.http import DomainHTTPException, NotFoundException
 from ...core.time.business_time import business_today
 from ...db.models.branch import Branch
@@ -26,6 +26,7 @@ from .constants import (
     PAYABLE_BRANCH_TICKET_ORDER,
     PAYMENT_CURRENCY_KZT,
     PAYMENT_GATEWAY_FREEDOMPAY,
+    PAYMENT_GATEWAY_KASPI,
     PAYMENT_STATUS_CANCELED,
     PAYMENT_STATUS_EXPIRED,
     PAYMENT_STATUS_FAILED,
@@ -60,6 +61,13 @@ from .signing import (
 )
 from .ticket_qr_service import TicketQrService
 from .visit_lifecycle import should_complete_visit
+from .kaspi import (
+    KaspiProtocolError,
+    build_kaspi_payment_url,
+    kaspi_response,
+    parse_kaspi_amount,
+    is_kaspi_source_allowed,
+)
 from ..loyalty.constants import LOYALTY_EVENT_TICKET_PURCHASE
 from ..loyalty.service import LoyaltyService
 from ..passes.schemas import PassInitRequest
@@ -258,6 +266,8 @@ class MobilePaymentService:
         user: MobileUser,
         payload: FreedomPaymentInitRequest,
     ) -> FreedomPaymentInitResponse:
+        if self._settings.payment_provider == PAYMENT_GATEWAY_KASPI:
+            return self.init_kaspi_ticket_payment(user=user, payload=payload)
         self.expire_stale_payments()
         if payload.visitDate < business_today():
             raise DomainHTTPException(
@@ -426,6 +436,154 @@ class MobilePaymentService:
         )
 
         return _payment_init_response(payment, payment_url=gateway_result.payment_url)
+
+    def init_kaspi_ticket_payment(
+        self,
+        *,
+        user: MobileUser,
+        payload: FreedomPaymentInitRequest,
+    ) -> FreedomPaymentInitResponse:
+        self.expire_stale_payments()
+        if payload.visitDate < business_today():
+            raise DomainHTTPException(code='invalid_visit_date', message='Visit date must be today or later.')
+        existing = self._payment_repository.get_by_idempotency_key_for_user(
+            mobile_user_id=user.id, idempotency_key=payload.idempotencyKey,
+        )
+        if existing is not None:
+            self._assert_idempotency_type(existing, PAYABLE_BRANCH_TICKET_ORDER)
+            if existing.gateway != PAYMENT_GATEWAY_KASPI:
+                self._idempotency_conflict()
+            if existing.status != PAYMENT_STATUS_CREATED or existing.payment_url:
+                return _payment_init_response(existing)
+            existing = self._payment_repository.get_by_idempotency_key_for_user(
+                mobile_user_id=user.id,
+                idempotency_key=payload.idempotencyKey,
+                for_update=True,
+            )
+            if existing is None:
+                raise DomainHTTPException(
+                    code='payment_init_race',
+                    message='Payment initialization could not be locked safely.',
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
+        if not self._settings.is_kaspi_configured:
+            raise DomainHTTPException(
+                code='kaspi_not_configured',
+                message='Kaspi is not configured on the backend.',
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        branch, ticket_items = self._resolve_ticket_items(payload)
+        quote = self._calculate_quote(
+            user=user,
+            gross_amount_tenge=sum(item['priceTenge'] * item['quantity'] for item in ticket_items),
+            requested_bonus_amount=payload.requestedBonusAmount,
+        )
+        if quote.payable_tenge <= 0:
+            if existing is not None:
+                if existing.gateway != PAYMENT_GATEWAY_KASPI:
+                    self._idempotency_conflict()
+                if existing.bonus_amount > 0 and existing.loyalty_reservation_id is None:
+                    reservation = self._loyalty_service.reserve(
+                        user_id=existing.mobile_user_id,
+                        amount=existing.bonus_amount,
+                        source_type='mobile_payment', source_id=existing.id,
+                        order_amount_kzt=existing.gross_amount_tenge,
+                        idempotency_key=f'ticket_payment_reserve:{existing.id}',
+                        description='Резерв бонусов для покупки билетов',
+                    )
+                    existing.loyalty_reservation_id = reservation.id
+                    self._payment_repository.db.flush()
+                return self._complete_zero_cash_payment(existing)
+            return self._create_zero_cash_ticket_payment(
+                user=user, payload=payload, branch=branch, ticket_items=ticket_items,
+                quote=quote,
+            )
+        if existing is not None:
+            payment = existing
+        else:
+            quantity = sum(item['quantity'] for item in ticket_items)
+            local_order_id = f'sk-{token_hex(12)}'
+            try:
+                payment = self._payment_repository.create_ticket_payment(
+                    mobile_user_id=user.id, branch_id=branch.id,
+                    payable_entity_type=PAYABLE_BRANCH_TICKET_ORDER,
+                    payable_entity_id=branch.id, local_order_id=local_order_id,
+                    idempotency_key=payload.idempotencyKey, amount_tenge=quote.payable_tenge,
+                    currency=PAYMENT_CURRENCY_KZT, quantity=quantity,
+                    visit_date=payload.visitDate, ticket_items=ticket_items,
+                    init_payload={'ticketItems': ticket_items, 'gateway': PAYMENT_GATEWAY_KASPI},
+                    gross_amount_tenge=quote.subtotal_tenge,
+                    bonus_amount=quote.requested_bonus_amount,
+                    cash_amount_tenge=quote.payable_tenge,
+                    expires_at=datetime.now(UTC) + timedelta(minutes=PAYMENT_RESERVATION_TTL_MINUTES),
+                    gateway=PAYMENT_GATEWAY_KASPI,
+                )
+            except IntegrityError:
+                self._payment_repository.db.rollback()
+                payment = self._payment_repository.get_by_idempotency_key_for_user(
+                    mobile_user_id=user.id, idempotency_key=payload.idempotencyKey, for_update=True,
+                )
+                if payment is None:
+                    raise
+                self._assert_idempotency_type(payment, PAYABLE_BRANCH_TICKET_ORDER)
+                if payment.gateway != PAYMENT_GATEWAY_KASPI:
+                    self._idempotency_conflict()
+                if payment.status != PAYMENT_STATUS_CREATED or payment.payment_url:
+                    return _payment_init_response(payment)
+        if quote.requested_bonus_amount > 0:
+            reservation = self._loyalty_service.reserve(
+                user_id=payment.mobile_user_id, amount=payment.bonus_amount,
+                source_type='mobile_payment', source_id=payment.id,
+                order_amount_kzt=payment.gross_amount_tenge,
+                idempotency_key=f'ticket_payment_reserve:{payment.id}',
+                description='Резерв бонусов для покупки билетов',
+            )
+            payment.loyalty_reservation_id = reservation.id
+            self._payment_repository.db.flush()
+        try:
+            payment_url = build_kaspi_payment_url(
+                settings=self._settings, local_order_id=payment.local_order_id,
+                cash_amount_tenge=payment.cash_amount_tenge,
+            )
+        except KaspiProtocolError as exc:
+            self._payment_repository.mark_failed(
+                payment, status=PAYMENT_STATUS_FAILED, callback_payload={}, failure_reason=str(exc),
+            )
+            raise DomainHTTPException(code='kaspi_not_configured', message='Kaspi is not configured on the backend.', status_code=503) from exc
+        payment = self._payment_repository.mark_pending(
+            payment, external_payment_id=None, payment_url=payment_url,
+            init_payload={**dict(payment.init_payload or {}), 'paymentUrl': payment_url},
+        )
+        return _payment_init_response(payment, payment_url=payment_url)
+
+    def _create_zero_cash_ticket_payment(self, *, user: MobileUser, payload: FreedomPaymentInitRequest, branch: Branch, ticket_items: list[dict[str, object]], quote: TicketPaymentQuote) -> FreedomPaymentInitResponse:
+        payment = self._payment_repository.create_ticket_payment(
+            mobile_user_id=user.id, branch_id=branch.id,
+            payable_entity_type=PAYABLE_BRANCH_TICKET_ORDER,
+            payable_entity_id=branch.id, local_order_id=f'sk-{token_hex(12)}',
+            idempotency_key=payload.idempotencyKey, amount_tenge=0,
+            currency=PAYMENT_CURRENCY_KZT,
+            quantity=sum(item['quantity'] for item in ticket_items),
+            visit_date=payload.visitDate, ticket_items=ticket_items,
+            init_payload={'ticketItems': ticket_items, 'gateway': PAYMENT_GATEWAY_KASPI},
+            gross_amount_tenge=quote.subtotal_tenge,
+            bonus_amount=quote.requested_bonus_amount, cash_amount_tenge=0,
+            expires_at=datetime.now(UTC) + timedelta(minutes=PAYMENT_RESERVATION_TTL_MINUTES),
+            gateway=PAYMENT_GATEWAY_KASPI,
+        )
+        if payment.bonus_amount > 0:
+            reservation = self._loyalty_service.reserve(
+                user_id=payment.mobile_user_id,
+                amount=payment.bonus_amount,
+                source_type='mobile_payment',
+                source_id=payment.id,
+                order_amount_kzt=payment.gross_amount_tenge,
+                idempotency_key=f'ticket_payment_reserve:{payment.id}',
+                description='Резерв бонусов для покупки билетов',
+            )
+            payment.loyalty_reservation_id = reservation.id
+            self._payment_repository.db.flush()
+        return self._complete_zero_cash_payment(payment)
 
     def quote_ticket_payment(
         self,
@@ -821,6 +979,87 @@ class MobilePaymentService:
             status='rejected',
             description='Payment cancelled',
             salt=_response_salt(payload, PAYMENT_STATUS_FAILED),
+        )
+
+    def handle_kaspi_request(self, payload: dict[str, str], *, source_ip: str) -> str:
+        """Handle Kaspi check/pay without trusting client-side payment state."""
+        try:
+            allowed_networks = parse_trusted_proxy_cidrs(self._settings.kaspi_allowed_cidrs)
+        except ValueError:
+            allowed_networks = ()
+        txn_id = (payload.get('txn_id') or '').strip()
+        account = (payload.get('account') or '').strip()
+        command = (payload.get('command') or '').strip().lower()
+        if not is_kaspi_source_allowed(source_ip, allowed_networks) or not txn_id or not account:
+            return kaspi_response(result=1, comment='Request rejected', txn_id=txn_id or 'unknown')
+        payment = self._payment_repository.get_by_local_order_id(account)
+        if payment is None or payment.gateway != PAYMENT_GATEWAY_KASPI:
+            return kaspi_response(result=2, comment='Order not found', txn_id=txn_id)
+        if command == 'check':
+            if payment.status in {PAYMENT_STATUS_CANCELED, PAYMENT_STATUS_EXPIRED, PAYMENT_STATUS_FAILED}:
+                return kaspi_response(result=3, comment='Order canceled', txn_id=txn_id)
+            if payment.status == PAYMENT_STATUS_PAID:
+                return kaspi_response(
+                    result=0, comment='Already paid', txn_id=txn_id,
+                    provider_transaction_reference=payment.provider_transaction_reference,
+                    amount=payment.cash_amount_tenge,
+                )
+            return kaspi_response(
+                result=0, comment='OK', txn_id=txn_id, amount=payment.cash_amount_tenge,
+            )
+        if command != 'pay':
+            return kaspi_response(result=1, comment='Unsupported command', txn_id=txn_id)
+
+        payment = self._payment_repository.get_by_local_order_id_for_update(account)
+        if payment is None or payment.gateway != PAYMENT_GATEWAY_KASPI:
+            return kaspi_response(result=2, comment='Order not found', txn_id=txn_id)
+        if payment.status == PAYMENT_STATUS_PAID:
+            if payment.external_payment_id == txn_id:
+                return kaspi_response(
+                    result=0, comment='Already paid', txn_id=txn_id,
+                    provider_transaction_reference=payment.provider_transaction_reference,
+                    amount=payment.cash_amount_tenge,
+                )
+            return kaspi_response(result=4, comment='Order already paid', txn_id=txn_id)
+        if payment.status in {PAYMENT_STATUS_CANCELED, PAYMENT_STATUS_EXPIRED, PAYMENT_STATUS_FAILED}:
+            return kaspi_response(result=3, comment='Order canceled', txn_id=txn_id)
+        try:
+            paid_amount = parse_kaspi_amount(payload.get('sum'))
+        except KaspiProtocolError:
+            return kaspi_response(result=5, comment='Invalid amount', txn_id=txn_id)
+        if paid_amount != Decimal(payment.cash_amount_tenge):
+            return kaspi_response(result=5, comment='Amount mismatch', txn_id=txn_id)
+        provider_reference = payment.provider_transaction_reference
+        if provider_reference is None:
+            provider_reference = self._new_kaspi_provider_reference()
+            payment.provider_transaction_reference = provider_reference
+            self._payment_repository.db.add(payment)
+            self._payment_repository.db.flush()
+        callback_payload = {
+            'command': 'pay', 'txn_id': txn_id, 'txn_date': payload.get('txn_date', ''),
+            'account': account, 'sum': payload.get('sum', ''),
+        }
+        self._process_successful_callback_atomically(
+            payment=payment,
+            payload=callback_payload,
+            external_payment_id=txn_id,
+            paid_at=datetime.now(UTC),
+        )
+        return kaspi_response(
+            result=0, comment='OK', txn_id=txn_id,
+            provider_transaction_reference=provider_reference,
+            amount=payment.cash_amount_tenge,
+        )
+
+    def _new_kaspi_provider_reference(self) -> str:
+        for _ in range(10):
+            candidate = str(randbelow(9_000_000_000_000_000_000) + 1_000_000_000_000_000_000)
+            if self._payment_repository.get_by_provider_transaction_reference(candidate) is None:
+                return candidate
+        raise DomainHTTPException(
+            code='kaspi_transaction_reference_unavailable',
+            message='Kaspi payment could not be completed.',
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
 
     def _process_successful_callback_atomically(
