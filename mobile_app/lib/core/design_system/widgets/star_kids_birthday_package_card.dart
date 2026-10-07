@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../foundations/star_kids_colors.dart';
-import '../foundations/star_kids_icon_sizes.dart';
-import '../foundations/star_kids_radii.dart';
-import '../foundations/star_kids_spacing.dart';
+import '../sk_design_tokens.dart';
+import '../sk_theme.dart';
+import 'primary_button.dart';
 import 'star_kids_media_image.dart';
-import 'star_kids_button.dart';
+import 'star_kids_motion.dart';
 
 class StarKidsBirthdayPackageCard extends StatelessWidget {
   const StarKidsBirthdayPackageCard({
@@ -19,6 +18,8 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
     this.isFeatured = false,
     this.onTap,
     this.onActionTap,
+    this.revealDelay = Duration.zero,
+    this.compact = false,
   });
 
   final String title;
@@ -30,134 +31,153 @@ class StarKidsBirthdayPackageCard extends StatelessWidget {
   final bool isFeatured;
   final VoidCallback? onTap;
   final VoidCallback? onActionTap;
+  final Duration revealDelay;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final c = SKTheme.of(context).colors;
     final normalizedDescription = description.trim();
     final normalizedHighlights = highlights
         .map((item) => item.trim())
         .where((item) => item.isNotEmpty)
         .toList();
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(StarKidsRadii.xl),
-        side: BorderSide(
-          color: isFeatured
-              ? StarKidsColors.brandPrimary
-              : StarKidsColors.borderDefault,
+    return StarKidsReveal(
+      delay: revealDelay,
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(SKRadius.xl),
+          side: BorderSide(
+            color: isFeatured ? c.cta : c.hairline,
+          ),
         ),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AspectRatio(
-              aspectRatio: 19 / 10,
-              child: StarKidsMediaImage(source: imagePath),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(StarKidsSpacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (isFeatured)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: StarKidsSpacing.md),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: StarKidsSpacing.md,
-                        vertical: StarKidsSpacing.sm,
-                      ),
-                      decoration: BoxDecoration(
-                        color: StarKidsColors.surfaceTertiary,
-                        borderRadius: BorderRadius.circular(
-                          StarKidsRadii.full,
-                        ),
-                      ),
-                      child: Text(
-                        'Хит продаж',
-                        style: textTheme.labelMedium?.copyWith(
-                          color: StarKidsColors.brandPrimary,
-                        ),
-                      ),
-                    ),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(title, style: textTheme.titleLarge),
-                      ),
-                      const SizedBox(width: StarKidsSpacing.md),
+        child: InkWell(
+          onTap: onTap,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AspectRatio(
+                aspectRatio: 19 / 10,
+                child: StarKidsMediaImage(
+                  source: imagePath,
+                  fallbackSource: 'assets/images/birthday_hero.jpg',
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(SKSpacing.x4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (isFeatured && !compact)
                       Container(
+                        margin: const EdgeInsets.only(
+                          bottom: SKSpacing.x3,
+                        ),
                         padding: const EdgeInsets.symmetric(
-                          horizontal: StarKidsSpacing.md,
-                          vertical: StarKidsSpacing.sm,
+                          horizontal: SKSpacing.x3,
+                          vertical: SKSpacing.x2,
                         ),
                         decoration: BoxDecoration(
-                          color: StarKidsColors.brandHighlight,
-                          borderRadius: BorderRadius.circular(
-                            StarKidsRadii.full,
-                          ),
+                          color: c.accentSoft,
+                          borderRadius: BorderRadius.circular(SKRadius.pill),
                         ),
                         child: Text(
-                          priceLabel,
+                          'Хит продаж',
                           style: textTheme.labelMedium?.copyWith(
-                            color: StarKidsColors.textPrimary,
+                            color: c.cta,
+                          ),
+                        ),
+                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            maxLines: compact ? 1 : null,
+                            overflow: compact ? TextOverflow.ellipsis : null,
+                            style: textTheme.titleLarge,
+                          ),
+                        ),
+                        const SizedBox(width: SKSpacing.x3),
+                        Container(
+                          constraints: const BoxConstraints(maxWidth: 120),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: SKSpacing.x3,
+                            vertical: SKSpacing.x2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: c.accentSoft,
+                            borderRadius: BorderRadius.circular(SKRadius.pill),
+                          ),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              priceLabel,
+                              maxLines: 1,
+                              style: textTheme.labelMedium?.copyWith(
+                                color: c.textPrimary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: SKSpacing.x1),
+                    Text(guestLabel, style: textTheme.labelMedium),
+                    if (normalizedDescription.isNotEmpty) ...[
+                      const SizedBox(height: SKSpacing.x2),
+                      Text(
+                        normalizedDescription,
+                        maxLines: compact ? 2 : null,
+                        overflow: compact ? TextOverflow.ellipsis : null,
+                        style: textTheme.bodyMedium,
+                      ),
+                    ],
+                    if (!compact && normalizedHighlights.isNotEmpty) ...[
+                      const SizedBox(height: SKSpacing.x3),
+                      ...normalizedHighlights.map(
+                        (highlight) => Padding(
+                          padding: const EdgeInsets.only(
+                            bottom: SKSpacing.x1,
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Icon(
+                                  Icons.star_rounded,
+                                  size: 16,
+                                  color: c.cta,
+                                ),
+                              ),
+                              const SizedBox(width: SKSpacing.x2),
+                              Expanded(
+                                child: Text(
+                                  highlight,
+                                  style: textTheme.bodyMedium,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: StarKidsSpacing.xs),
-                  Text(guestLabel, style: textTheme.labelMedium),
-                  if (normalizedDescription.isNotEmpty) ...[
-                    const SizedBox(height: StarKidsSpacing.sm),
-                    Text(
-                      normalizedDescription,
-                      style: textTheme.bodyMedium,
+                    const SizedBox(height: SKSpacing.x4),
+                    PrimaryButton(
+                      label: 'Оставить заявку',
+                      onPressed: onActionTap,
                     ),
                   ],
-                  if (normalizedHighlights.isNotEmpty) ...[
-                    const SizedBox(height: StarKidsSpacing.md),
-                    ...normalizedHighlights.map(
-                      (highlight) => Padding(
-                        padding:
-                            const EdgeInsets.only(bottom: StarKidsSpacing.xs),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.only(top: 2),
-                              child: Icon(
-                                Icons.star_rounded,
-                                size: StarKidsIconSizes.xs,
-                                color: StarKidsColors.brandPrimary,
-                              ),
-                            ),
-                            const SizedBox(width: StarKidsSpacing.sm),
-                            Expanded(
-                              child: Text(
-                                highlight,
-                                style: textTheme.bodyMedium,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: StarKidsSpacing.lg),
-                  StarKidsButton.primary(
-                    label: 'Оставить заявку',
-                    onPressed: onActionTap,
-                  ),
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

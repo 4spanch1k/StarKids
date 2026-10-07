@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 class ApiClient {
   ApiClient({
@@ -46,6 +47,104 @@ class ApiClient {
           body: jsonEncode(body),
         )
         .timeout(const Duration(seconds: 10));
+
+    return ApiClientResponse(
+      statusCode: response.statusCode,
+      data: _decodeBody(response.body),
+    );
+  }
+
+  Future<ApiClientResponse> putJson(
+    String path, {
+    required Map<String, dynamic> body,
+    Map<String, String>? headers,
+  }) async {
+    final response = await _httpClient
+        .put(
+          _buildUri(path),
+          headers: _mergeHeaders(const {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          }, headers),
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    return ApiClientResponse(
+      statusCode: response.statusCode,
+      data: _decodeBody(response.body),
+    );
+  }
+
+  Future<ApiClientResponse> patchJson(
+    String path, {
+    required Map<String, dynamic> body,
+    Map<String, String>? headers,
+  }) async {
+    final response = await _httpClient
+        .patch(
+          _buildUri(path),
+          headers: _mergeHeaders(const {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          }, headers),
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    return ApiClientResponse(
+      statusCode: response.statusCode,
+      data: _decodeBody(response.body),
+    );
+  }
+
+  Future<ApiClientResponse> deleteJson(
+    String path, {
+    Map<String, String>? headers,
+  }) async {
+    final response = await _httpClient
+        .delete(
+          _buildUri(path),
+          headers: _mergeHeaders(const {
+            'Accept': 'application/json',
+          }, headers),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    return ApiClientResponse(
+      statusCode: response.statusCode,
+      data: _decodeBody(response.body),
+    );
+  }
+
+  Future<ApiClientResponse> postMultipart(
+    String path, {
+    required String fieldName,
+    required List<int> bytes,
+    required String filename,
+    required String contentType,
+    Map<String, String>? headers,
+  }) async {
+    final uri = _buildUri(path);
+    final request = http.MultipartRequest('POST', uri);
+
+    if (headers != null) {
+      request.headers.addAll(headers);
+    }
+    request.headers['Accept'] = 'application/json';
+
+    final mediaType = MediaType.parse(contentType);
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        fieldName,
+        bytes,
+        filename: filename,
+        contentType: mediaType,
+      ),
+    );
+
+    final streamed = await request.send().timeout(const Duration(seconds: 30));
+    final response = await http.Response.fromStream(streamed);
 
     return ApiClientResponse(
       statusCode: response.statusCode,

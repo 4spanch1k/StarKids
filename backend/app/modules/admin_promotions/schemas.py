@@ -1,4 +1,21 @@
-from pydantic import BaseModel, Field
+from datetime import datetime, timezone
+
+from pydantic import BaseModel, Field, field_serializer, field_validator, model_validator
+
+
+def _normalize_timestamp(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _serialize_timestamp(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+    return normalized.astimezone(timezone.utc).isoformat().replace('+00:00', 'Z')
 
 
 class AdminPromotionListQuery(BaseModel):
@@ -18,6 +35,12 @@ class AdminPromotionResponse(BaseModel):
     display_order: int
     is_active: bool
     is_published: bool
+    start_at: datetime | None = None
+    end_at: datetime | None = None
+
+    @field_serializer('start_at', 'end_at')
+    def serialize_datetime(self, value: datetime | None) -> str | None:
+        return _serialize_timestamp(value)
 
 
 class AdminPromotionCreateRequest(BaseModel):
@@ -30,6 +53,19 @@ class AdminPromotionCreateRequest(BaseModel):
     display_order: int = Field(default=0, ge=0, le=1000)
     is_active: bool = True
     is_published: bool = False
+    start_at: datetime | None = None
+    end_at: datetime | None = None
+
+    @field_validator('start_at', 'end_at')
+    @classmethod
+    def normalize_dates(cls, value: datetime | None) -> datetime | None:
+        return _normalize_timestamp(value)
+
+    @model_validator(mode='after')
+    def validate_date_range(self) -> 'AdminPromotionCreateRequest':
+        if self.start_at is not None and self.end_at is not None and self.end_at <= self.start_at:
+            raise ValueError('end_at must be later than start_at')
+        return self
 
 
 class AdminPromotionUpdateRequest(BaseModel):
@@ -42,3 +78,16 @@ class AdminPromotionUpdateRequest(BaseModel):
     display_order: int | None = Field(default=None, ge=0, le=1000)
     is_active: bool | None = None
     is_published: bool | None = None
+    start_at: datetime | None = None
+    end_at: datetime | None = None
+
+    @field_validator('start_at', 'end_at')
+    @classmethod
+    def normalize_dates(cls, value: datetime | None) -> datetime | None:
+        return _normalize_timestamp(value)
+
+    @model_validator(mode='after')
+    def validate_date_range(self) -> 'AdminPromotionUpdateRequest':
+        if self.start_at is not None and self.end_at is not None and self.end_at <= self.start_at:
+            raise ValueError('end_at must be later than start_at')
+        return self

@@ -16,7 +16,7 @@ import type {
 type ToggleFilter = 'all' | 'yes' | 'no';
 
 const defaultForm = (): AdminContentBlockCreatePayload => ({
-  surface: 'home',
+  surface: 'birthdays',
   key: '',
   title: '',
   body: '',

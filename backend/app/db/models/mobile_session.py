@@ -17,7 +17,7 @@ class MobileSession(Base):
         ForeignKey('mobile_users.id', ondelete='CASCADE'),
         index=True,
     )
-    refresh_token_hash: Mapped[str] = mapped_column(String(64))
+    refresh_token_hash: Mapped[str] = mapped_column(String(255))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

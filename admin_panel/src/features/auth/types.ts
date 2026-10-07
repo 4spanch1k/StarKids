@@ -9,6 +9,7 @@ export type AdminCurrentUser = {
   email: string;
   full_name: string;
   role: AdminRole;
+  branch_id: string | null;
 };
 
 export type AdminLoginPayload = {

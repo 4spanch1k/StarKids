@@ -10,7 +10,13 @@
 .env.*
 .env.local
 .env.*.local
+backend/starkids.env
 !.env.example
+env/*.env
+env/*.local
+env/*.secret
+!env/*.example
+!env/README.md
 .tmp_starkids_*
 
 # Python
@@ -21,6 +27,7 @@ __pycache__/
 .ruff_cache/
 .venv/
 venv/
+*.db
 
 # Node
 node_modules/

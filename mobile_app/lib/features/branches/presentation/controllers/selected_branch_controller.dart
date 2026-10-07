@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/config/app_environment.dart';
 import '../../../../core/storage/local_storage.dart';
 import '../../data/branch_seed_data.dart';
 import '../../domain/branch_option.dart';
@@ -9,8 +10,8 @@ class SelectedBranchController extends ChangeNotifier {
   SelectedBranchController({
     required LocalStorage localStorage,
     required BranchRepository branchRepository,
-  })  : _localStorage = localStorage,
-        _branchRepository = branchRepository;
+  }) : _localStorage = localStorage,
+       _branchRepository = branchRepository;
 
   final LocalStorage _localStorage;
   final BranchRepository _branchRepository;
@@ -27,7 +28,32 @@ class SelectedBranchController extends ChangeNotifier {
   Future<void> load() async {
     final storedBranchId = await _localStorage.readPreferredBranch();
     _hasStoredSelection = storedBranchId != null;
-    _selectedBranch = await _resolveBranch(storedBranchId ?? defaultBranchId);
+    final availableBranches = await _listAvailableBranches();
+    if (availableBranches.isNotEmpty) {
+      BranchOption? matchingBranch;
+      for (final branch in availableBranches) {
+        if (branch.id == storedBranchId) {
+          matchingBranch = branch;
+          break;
+        }
+      }
+
+      _selectedBranch = matchingBranch ?? availableBranches.first;
+
+      if (storedBranchId != _selectedBranch.id) {
+        await _localStorage.savePreferredBranch(_selectedBranch.id);
+      }
+    } else {
+      final resolvedBranch = await _resolveBranch(
+        storedBranchId ?? defaultBranchId,
+      );
+      _selectedBranch = resolvedBranch;
+
+      if (storedBranchId != _selectedBranch.id) {
+        await _localStorage.savePreferredBranch(_selectedBranch.id);
+      }
+    }
+
     notifyListeners();
   }
 
@@ -35,19 +61,9 @@ class SelectedBranchController extends ChangeNotifier {
     String branchId, {
     BranchOption? selectedBranch,
   }) async {
-    if (_selectedBranch.id == branchId) {
-      _hasStoredSelection = true;
-      if (selectedBranch != null) {
-        _applySelectedBranch(selectedBranch);
-      }
-      await _localStorage.savePreferredBranch(branchId);
-      return;
-    }
-
     _hasStoredSelection = true;
-    _selectedBranch = selectedBranch ?? await _resolveBranch(branchId);
-    notifyListeners();
-    await _localStorage.savePreferredBranch(branchId);
+    _applySelectedBranch(selectedBranch ?? await _resolveBranch(branchId));
+    await _localStorage.savePreferredBranch(_selectedBranch.id);
   }
 
   Future<void> refreshSelectedBranch() async {
@@ -67,7 +83,14 @@ class SelectedBranchController extends ChangeNotifier {
     try {
       return await _branchRepository.getBranch(branchId);
     } catch (_) {
-      return getBranchById(branchId);
+      if (!AppEnvironment.allowsDevelopmentFixtures) {
+        throw StateError('Branch data is unavailable');
+      }
+      try {
+        return getBranchById(branchId);
+      } catch (_) {
+        return getBranchById(defaultBranchId);
+      }
     }
   }
 
@@ -106,5 +129,13 @@ class SelectedBranchController extends ChangeNotifier {
     }
 
     return true;
+  }
+
+  Future<List<BranchOption>> _listAvailableBranches() async {
+    try {
+      return await _branchRepository.listBranches();
+    } catch (_) {
+      return const <BranchOption>[];
+    }
   }
 }

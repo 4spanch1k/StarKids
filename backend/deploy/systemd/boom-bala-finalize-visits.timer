@@ -1,0 +1,11 @@
+[Unit]
+Description=Finalize expired Boom Bala visits every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+Persistent=true
+Unit=boom-bala-finalize-visits.service
+
+[Install]
+WantedBy=timers.target

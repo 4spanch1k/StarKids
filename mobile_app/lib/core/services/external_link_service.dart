@@ -14,6 +14,10 @@ abstract final class ExternalLinkService {
     return _launchUri(Uri.parse(url));
   }
 
+  static Future<bool> openUrl(String url) {
+    return _launchUri(Uri.parse(url));
+  }
+
   static Future<bool> _launchUri(Uri uri) async {
     try {
       return launchUrl(uri, mode: LaunchMode.externalApplication);

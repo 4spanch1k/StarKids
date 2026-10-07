@@ -6,10 +6,14 @@ from ...db.models.mobile_user import MobileUser
 from ...db.repositories.branch_repository import BranchRepository
 from ...db.repositories.birthday_package_repository import BirthdayPackageRepository
 from ...db.repositories.lead_repository import LeadRepository
+from ...db.repositories.mobile_child_repository import MobileChildRepository
 from ..mobile_auth.dependencies import get_optional_authenticated_mobile_user
+from ..mobile_children.dependencies import get_authenticated_mobile_user
 from .schemas import (
     BirthdayLeadCreate,
     BirthdayLeadGenericErrorResponse,
+    BirthdayLeadListResponse,
+    BirthdayLeadResponse,
     BirthdayLeadSubmittedResponse,
     BirthdayLeadValidationErrorResponse,
     ContactLeadCreate,
@@ -58,8 +62,35 @@ def create_birthday_lead(
         repository=LeadRepository(session),
         branch_repository=BranchRepository(session),
         package_repository=BirthdayPackageRepository(session),
+        child_repository=MobileChildRepository(session),
     )
     return birthday_lead_service.create_birthday_lead(
         payload,
         mobile_user_id=mobile_user.id if mobile_user is not None else None,
     )
+
+
+def _authenticated_lead_service(session: Session) -> LeadService:
+    return LeadService(
+        repository=LeadRepository(session),
+        branch_repository=BranchRepository(session),
+        package_repository=BirthdayPackageRepository(session),
+        child_repository=MobileChildRepository(session),
+    )
+
+
+@router.get('/leads/birthday', response_model=BirthdayLeadListResponse)
+def list_birthday_leads(
+    session: Session = Depends(get_db_session),
+    mobile_user: MobileUser = Depends(get_authenticated_mobile_user),
+) -> BirthdayLeadListResponse:
+    return _authenticated_lead_service(session).list_birthday_leads(mobile_user.id)
+
+
+@router.get('/leads/birthday/{lead_id}', response_model=BirthdayLeadResponse)
+def get_birthday_lead(
+    lead_id: str,
+    session: Session = Depends(get_db_session),
+    mobile_user: MobileUser = Depends(get_authenticated_mobile_user),
+) -> BirthdayLeadResponse:
+    return _authenticated_lead_service(session).get_birthday_lead(lead_id, mobile_user.id)

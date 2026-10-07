@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "491968637725",
+    "project_id": "boom-bala-production",
+    "storage_bucket": "boom-bala-production.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:491968637725:android:bb1edec8d77d1dfad04ff4",
+        "android_client_info": {
+          "package_name": "kz.boombala.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyALN2bMszVgoLffhPEDvMQYgdEQmJvDay8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

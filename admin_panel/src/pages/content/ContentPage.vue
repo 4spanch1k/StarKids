@@ -344,7 +344,7 @@
               <AppSelectField
                 v-model="blockSurface"
                 label="Поверхность"
-                :options="surfaceSelectOptions"
+                :options="editSurfaceSelectOptions"
               />
               <p v-if="editFieldErrors.surface" class="admin-field__error">
                 {{ editFieldErrors.surface }}
@@ -573,7 +573,25 @@ const publicationFilterOptions = [
 ];
 
 const surfaceSelectOptions = computed(() => {
-  const entries = new Map(contentSurfaceOptions.map((option) => [option.value, option.label]));
+  return contentSurfaceOptions;
+});
+
+const editSurfaceSelectOptions = computed(() => {
+  const entries = new Map<string, string>(
+    surfaceSelectOptions.value.map((option) => [option.value, option.label]),
+  );
+  const currentSurface = contentBlocksManager.form.surface;
+  if (currentSurface && !entries.has(currentSurface)) {
+    entries.set(currentSurface, `${getContentSurfaceLabel(currentSurface)} (legacy)`);
+  }
+
+  return Array.from(entries.entries()).map(([value, label]) => ({ value, label }));
+});
+
+const surfaceFilterOptions = computed(() => {
+  const entries = new Map<string, string>(
+    surfaceSelectOptions.value.map((option) => [option.value, option.label]),
+  );
 
   for (const surface of contentBlocksManager.surfaceOptions) {
     if (!entries.has(surface)) {
@@ -581,11 +599,10 @@ const surfaceSelectOptions = computed(() => {
     }
   }
 
-  return Array.from(entries.entries()).map(([value, label]) => ({ value, label }));
-});
-
-const surfaceFilterOptions = computed(() => {
-  return [{ label: 'Все поверхности', value: '' }, ...surfaceSelectOptions.value];
+  return [
+    { label: 'Все поверхности', value: '' },
+    ...Array.from(entries.entries()).map(([value, label]) => ({ value, label })),
+  ];
 });
 
 const routeMode = computed(() => routeState.mode.value);
@@ -650,7 +667,7 @@ const blockIsPublished = computed({
 
 const blockSurface = computed({
   get() {
-    return contentBlocksManager.form.surface ?? 'home';
+    return contentBlocksManager.form.surface ?? 'birthdays';
   },
   set(value: string) {
     contentBlocksManager.form.surface = value;
