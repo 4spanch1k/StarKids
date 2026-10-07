@@ -39,11 +39,14 @@ class ApiOnboardingRepository implements OnboardingRepository {
   @override
   Future<Result<OnboardingCompletion>> complete({
     required String firstName,
+    String? lastName,
     required List<OnboardingChildDraft> children,
     required String privacyConsentVersion,
   }) async {
     final body = <String, dynamic>{
       'firstName': firstName.trim(),
+      if (lastName != null && lastName.trim().isNotEmpty)
+        'lastName': lastName.trim(),
       'children': [
         for (final child in children)
           {

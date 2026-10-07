@@ -8,6 +8,7 @@ abstract interface class OnboardingRepository {
 
   Future<Result<OnboardingCompletion>> complete({
     required String firstName,
+    String? lastName,
     required List<OnboardingChildDraft> children,
     required String privacyConsentVersion,
   });

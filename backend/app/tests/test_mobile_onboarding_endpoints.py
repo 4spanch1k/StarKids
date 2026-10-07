@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import unittest
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -69,7 +69,9 @@ class MobileOnboardingEndpointTests(unittest.TestCase):
     def _complete(self, auth: dict, **overrides) -> TestClient:
         body = {
             'firstName': 'Айжан',
-            'children': [],
+            'children': [
+                {'name': 'Ая', 'birthDate': '2020-05-01', 'gender': 'unspecified'},
+            ],
             'privacyConsentAccepted': True,
             'privacyConsentVersion': 'v1-pending-legal',
         }
@@ -86,15 +88,15 @@ class MobileOnboardingEndpointTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.json()['onboardingCompleted'])
 
-    def test_complete_zero_children_persists_consent(self) -> None:
+    def test_complete_zero_children_is_rejected(self) -> None:
         auth = self._authenticate()
-        response = self._complete(auth)
-        self.assertEqual(response.status_code, 200, response.text)
-        body = response.json()
-        self.assertTrue(body['onboardingCompleted'])
-        self.assertEqual(body['profile']['firstName'], 'Айжан')
-        self.assertEqual(body['children'], [])
-        self.assertEqual(body['privacyConsentVersion'], 'v1-pending-legal')
+        response = self._complete(auth, children=[])
+        self.assertEqual(response.status_code, 422, response.text)
+        profile = self.client.get(
+            '/api/v1/mobile/me', headers=self._headers(auth)
+        )
+        self.assertEqual(profile.status_code, 200)
+        self.assertFalse(profile.json()['onboardingCompleted'])
 
     def test_complete_multiple_children_and_retry_is_idempotent(self) -> None:
         auth = self._authenticate('multiple@example.com')
@@ -118,6 +120,13 @@ class MobileOnboardingEndpointTests(unittest.TestCase):
 
         with self.SessionLocal() as session:
             self.assertEqual(session.query(MobileChild).count(), 3)
+
+    def test_first_and_optional_last_name_are_persisted(self) -> None:
+        auth = self._authenticate('names@example.com')
+        response = self._complete(auth, lastName='Садыкова')
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()['profile']['firstName'], 'Айжан')
+        self.assertEqual(response.json()['profile']['lastName'], 'Садыкова')
 
     def test_identical_children_in_initial_payload_are_not_collapsed(self) -> None:
         auth = self._authenticate('twins@example.com')
@@ -168,9 +177,24 @@ class MobileOnboardingEndpointTests(unittest.TestCase):
             '/api/v1/mobile/onboarding/complete',
             json={
                 'firstName': 'Айжан',
-                'children': [],
+                'children': [
+                    {'name': 'Ая', 'birthDate': '2020-05-01', 'gender': 'unspecified'},
+                ],
                 'privacyConsentAccepted': True,
                 'privacyConsentVersion': 'v1-pending-legal',
             },
         )
         self.assertEqual(response.status_code, 401)
+
+    def test_completed_existing_user_without_children_remains_valid(self) -> None:
+        auth = self._authenticate('legacy-empty-family@example.com')
+        with self.SessionLocal() as session:
+            user = session.query(MobileUser).one()
+            user.onboarding_completed_at = datetime.now(UTC)
+            session.commit()
+
+        response = self.client.get('/api/v1/mobile/me', headers=self._headers(auth))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['onboardingCompleted'])
+        with self.SessionLocal() as session:
+            self.assertEqual(session.query(MobileChild).count(), 0)

@@ -35,6 +35,7 @@ void main() {
       final birthDate = DateTime(2020, 5, 6);
       final completed = await onboarding.complete(
         firstName: 'Айжан',
+        lastName: 'Садыкова',
         children: [
           OnboardingChildDraft(
             name: 'Мадина',
@@ -48,6 +49,7 @@ void main() {
       expect(completed, isTrue);
       expect(onboarding.status, OnboardingStatus.complete);
       expect(onboardingRepository.lastFirstName, 'Айжан');
+      expect(onboardingRepository.lastLastName, 'Садыкова');
       expect(onboardingRepository.lastChildren.single.name, 'Мадина');
       expect(onboardingRepository.lastChildren.single.birthDate, birthDate);
     },
@@ -152,6 +154,7 @@ class _FakeOnboardingRepository implements OnboardingRepository {
 
   UserProfile profile;
   String? lastFirstName;
+  String? lastLastName;
   List<OnboardingChildDraft> lastChildren = const [];
   Completer<Result<OnboardingCompletion>>? completionCompleter;
 
@@ -162,11 +165,13 @@ class _FakeOnboardingRepository implements OnboardingRepository {
   @override
   Future<Result<OnboardingCompletion>> complete({
     required String firstName,
+    String? lastName,
     required List<OnboardingChildDraft> children,
     required String privacyConsentVersion,
   }) async {
     if (completionCompleter != null) return completionCompleter!.future;
     lastFirstName = firstName;
+    lastLastName = lastName;
     lastChildren = children;
     profile = profile.copyWith(firstName: firstName, onboardingCompleted: true);
     return Success<OnboardingCompletion>(
