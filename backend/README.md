@@ -44,6 +44,19 @@ and refresh session. `CLERK_SECRET_KEY`, `CLERK_ISSUER`, a valid HTTPS JWKS URL
 required at startup. Email/password and local OTP remain development/test
 compatibility paths and are rejected in deployed environments.
 
+## Payment provider selection
+
+`PAYMENT_PROVIDER=freedompay` preserves the existing FreedomPay integration.
+`PAYMENT_PROVIDER=kaspi` switches ticket checkout to the provider-neutral
+mobile quote/init routes and the Kaspi `check`/`pay` protocol endpoint. Kaspi
+requires the configured service name, service id, account parameter id, and
+the provider CIDR allowlist. The allowlist must be taken from Kaspi's current
+technical contract; no production IP range is embedded in the application.
+
+The Kaspi `pay` callback is the only authoritative payment transition. Return
+URLs and client polling never mark a payment as paid. Refund/reversal is not
+implemented in V1.
+
 ## Operational payment cleanup
 
 `scripts/expire_mobile_payments.py` is the idempotent reconciliation pass for

@@ -29,7 +29,7 @@ class ApiTicketPurchaseRepository implements TicketPurchaseRepository {
     }
     try {
       final response = await _apiClient.postJson(
-        '/payments/freedom/quote',
+        '/payments/quote',
         body: {
           'ticketItems': items
               .map((item) => {
@@ -70,7 +70,7 @@ class ApiTicketPurchaseRepository implements TicketPurchaseRepository {
 
     try {
       final response = await _apiClient.postJson(
-        '/payments/freedom/init',
+        '/payments/init',
         body: {
           'idempotencyKey': idempotencyKey,
           'ticketItems': items
