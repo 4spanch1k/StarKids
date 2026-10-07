@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 import unittest
 
 from sqlalchemy import create_engine, select
@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.exceptions.http import DomainHTTPException
+from app.core.time.business_time import business_today
 from app.db.models import Base
 from app.db.models.birthday_reminder import BirthdayReminder
 from app.db.models.birthday_request import BirthdayRequest
@@ -165,7 +166,7 @@ class BirthdayLeadCampaignAttributionTests(unittest.TestCase):
             name='Айжан',
             phone='+77071234567',
             branchId='branch-main',
-            preferredDate=date(2026, 10, 6),
+            preferredDate=business_today() + timedelta(days=7),
             guestCount=10,
             childId=child_id,
             sourceCampaignId='campaign-one',
@@ -204,6 +205,7 @@ class BirthdayLeadCampaignAttributionTests(unittest.TestCase):
                 )
             self.assertEqual(raised.exception.code, 'invalid_birthday_campaign')
 
+
     def test_manual_campaign_is_rejected(self) -> None:
         with self.SessionLocal() as session:
             session.get(PushCampaign, 'campaign-one').origin = 'manual'
@@ -231,4 +233,3 @@ class BirthdayLeadCampaignAttributionTests(unittest.TestCase):
                     mobile_user_id='user-one',
                 )
             self.assertEqual(raised.exception.code, 'invalid_birthday_campaign')
-
