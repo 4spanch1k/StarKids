@@ -533,7 +533,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "$(IOS_BUNDLE_IDENTIFIER)";
 				IOS_BUNDLE_IDENTIFIER = kz.boombala.app;
 				APS_ENVIRONMENT = production;
-				GOOGLE_IOS_REVERSED_CLIENT_ID = "";
+				GOOGLE_IOS_REVERSED_CLIENT_ID = "com.googleusercontent.apps.850224380595-hoqh7q3gtpq231p3j4nqrd2mq2ia65ha";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
@@ -719,7 +719,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "$(IOS_BUNDLE_IDENTIFIER)";
 				IOS_BUNDLE_IDENTIFIER = kz.boombala.app;
 				APS_ENVIRONMENT = development;
-				GOOGLE_IOS_REVERSED_CLIENT_ID = "";
+				GOOGLE_IOS_REVERSED_CLIENT_ID = "com.googleusercontent.apps.850224380595-hoqh7q3gtpq231p3j4nqrd2mq2ia65ha";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -745,7 +745,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "$(IOS_BUNDLE_IDENTIFIER)";
 				IOS_BUNDLE_IDENTIFIER = kz.boombala.app;
 				APS_ENVIRONMENT = production;
-				GOOGLE_IOS_REVERSED_CLIENT_ID = "";
+				GOOGLE_IOS_REVERSED_CLIENT_ID = "com.googleusercontent.apps.850224380595-hoqh7q3gtpq231p3j4nqrd2mq2ia65ha";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
