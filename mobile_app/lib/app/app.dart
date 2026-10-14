@@ -41,6 +41,7 @@ class _StarKidsAppState extends State<StarKidsApp> {
   StreamSubscription<PaymentReturnEvent>? _paymentReturnSubscription;
   late final AccountStateCoordinator _accountStateCoordinator;
   final _unauthenticatedNavigatorKey = GlobalKey<NavigatorState>();
+  final _onboardingNavigatorKey = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
@@ -143,13 +144,15 @@ class _StarKidsAppState extends State<StarKidsApp> {
                 : 'auth-gate',
           ),
           title: 'Boom Bala',
-          // Do not reuse the authenticated navigator's route stack for the
-          // unauthenticated shell (or vice versa). MaterialApp rebuilds when
-          // auth changes, but a shared navigator key can preserve the old
-          // auth/loading route and leave it visible after a successful OTP.
-          navigatorKey: isAuthenticated
-              ? StarKidsApp.navigatorKey
-              : _unauthenticatedNavigatorKey,
+          // Do not reuse a navigator route stack between auth, onboarding,
+          // and the completed app. A shared navigator key can preserve the
+          // old Home route when onboarding becomes required asynchronously
+          // after a successful OTP.
+          navigatorKey: !isAuthenticated
+              ? _unauthenticatedNavigatorKey
+              : onboarding.isRequired
+                  ? _onboardingNavigatorKey
+                  : StarKidsApp.navigatorKey,
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),

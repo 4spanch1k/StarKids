@@ -23,17 +23,21 @@ class OnboardingPage extends StatefulWidget {
 
 class _OnboardingPageState extends State<OnboardingPage> {
   static const _consentVersion = AppEnvironment.privacyConsentVersion;
+  static const _minChildren = 1;
+  static const _maxChildren = 20;
 
   late final OnboardingController _controller;
-  final _parentNameController = TextEditingController();
-  final List<_ChildFormState> _children = [];
+  final _parentFirstNameController = TextEditingController();
+  final _parentLastNameController = TextEditingController();
+  final List<_ChildFormState> _children = [_ChildFormState()];
+  int _childCount = _minChildren;
   int _step = 0;
   bool _consentAccepted = false;
   String? _error;
 
-  // High-level progress stays fixed even when the family has several
-  // children: Welcome → Profile → Family → Consent.
-  static const _finalStep = 3;
+  int get _consentStep => _childCount + 3;
+  bool get _isChildStep => _step >= 3 && _step < _consentStep;
+  int get _currentChildIndex => _step - 3;
 
   @override
   void initState() {
@@ -45,7 +49,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
   @override
   void dispose() {
     _controller.removeListener(_onControllerChanged);
-    _parentNameController.dispose();
+    _parentFirstNameController.dispose();
+    _parentLastNameController.dispose();
     for (final child in _children) {
       child.dispose();
     }
@@ -65,7 +70,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     });
   }
 
-  void _next() {
+  Future<void> _next() async {
     FocusScope.of(context).unfocus();
     setState(() => _error = null);
 
@@ -74,7 +79,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       return;
     }
     if (_step == 1) {
-      if (_parentNameController.text.trim().isEmpty) {
+      if (_parentFirstNameController.text.trim().isEmpty) {
         setState(() => _error = 'Введите ваше имя.');
         return;
       }
@@ -82,44 +87,84 @@ class _OnboardingPageState extends State<OnboardingPage> {
       return;
     }
     if (_step == 2) {
-      setState(() => _step = _finalStep);
+      _ensureChildSlots(_childCount);
+      setState(() => _step = 3);
       return;
     }
-    _submit();
+    if (_isChildStep) {
+      if (!_validateChild(_currentChildIndex)) return;
+      setState(() {
+        _step = _currentChildIndex == _childCount - 1
+            ? _consentStep
+            : _step + 1;
+      });
+      return;
+    }
+    await _submit();
   }
 
-  Future<void> _addChild() async {
-    final result = await _showChildEditor();
-    if (result == null || !mounted) return;
+  bool _validateChild(int index) {
+    final child = _children[index];
+    if (child.name.text.trim().isEmpty) {
+      setState(() => _error = 'Введите имя ребёнка.');
+      return false;
+    }
+    if (child.birthDate == null) {
+      setState(() => _error = 'Укажите дату рождения.');
+      return false;
+    }
+    return true;
+  }
+
+  int get _filledChildCount => _children
+      .take(_childCount)
+      .where(
+        (child) =>
+            child.name.text.trim().isNotEmpty || child.birthDate != null,
+      )
+      .length;
+
+  void _changeChildCount(int delta) {
+    final next = (_childCount + delta).clamp(_minChildren, _maxChildren);
+    if (next == _childCount) return;
+    if (next < _filledChildCount) {
+      setState(() => _error = 'Сначала удалите данные лишних детей.');
+      return;
+    }
+    _ensureChildSlots(next);
     setState(() {
-      _children.add(result.toFormState());
+      _childCount = next;
       _error = null;
     });
   }
 
-  Future<void> _editChild(int index) async {
-    final result = await _showChildEditor(initial: _children[index]);
-    if (result == null || !mounted) return;
-    final old = _children[index];
-    final updated = result.toFormState();
-    setState(() {
-      _children[index] = updated;
-      _error = null;
-    });
-    old.dispose();
+  void _ensureChildSlots(int count) {
+    while (_children.length < count) {
+      _children.add(_ChildFormState());
+    }
+    while (_children.length > count) {
+      _children.removeLast().dispose();
+    }
   }
 
-  void _removeChild(int index) {
-    final removed = _children.removeAt(index);
-    removed.dispose();
-    setState(() => _error = null);
-  }
-
-  Future<_ChildDraftResult?> _showChildEditor({_ChildFormState? initial}) {
-    return showDialog<_ChildDraftResult>(
+  Future<void> _pickBirthDate(int index) async {
+    final child = _children[index];
+    final now = DateUtils.dateOnly(DateTime.now());
+    final picked = await showDatePicker(
       context: context,
-      builder: (context) => _ChildEditorDialog(initial: initial),
+      initialDate: child.birthDate ?? DateTime(now.year - 5, now.month, now.day),
+      firstDate: DateTime(1900),
+      lastDate: now,
+      helpText: 'Дата рождения',
+      cancelText: 'Отмена',
+      confirmText: 'Выбрать',
     );
+    if (picked != null && mounted) {
+      setState(() {
+        child.birthDate = DateUtils.dateOnly(picked);
+        _error = null;
+      });
+    }
   }
 
   Future<void> _submit() async {
@@ -127,9 +172,15 @@ class _OnboardingPageState extends State<OnboardingPage> {
       setState(() => _error = 'Подтвердите согласие, чтобы продолжить.');
       return;
     }
+    for (var index = 0; index < _childCount; index++) {
+      if (!_validateChild(index)) {
+        setState(() => _step = 3 + index);
+        return;
+      }
+    }
 
     final drafts = [
-      for (final child in _children)
+      for (final child in _children.take(_childCount))
         OnboardingChildDraft(
           name: child.name.text.trim(),
           birthDate: child.birthDate!,
@@ -138,7 +189,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
     ];
 
     final success = await _controller.complete(
-      firstName: _parentNameController.text.trim(),
+      firstName: _parentFirstNameController.text.trim(),
+      lastName: _parentLastNameController.text.trim().isEmpty
+          ? null
+          : _parentLastNameController.text.trim(),
       children: drafts,
       privacyConsentVersion: _consentVersion,
     );
@@ -194,7 +248,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: SKSpacing.x6),
                   child: LinearProgressIndicator(
-                    value: (_step / _finalStep).clamp(0.0, 1.0),
+                    value: (_step / _consentStep).clamp(0.0, 1.0),
                     minHeight: 4,
                     borderRadius: BorderRadius.circular(SKRadius.pill),
                   ),
@@ -231,7 +285,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 child: PrimaryButton(
                   label: _step == 0
                       ? 'Продолжить'
-                      : _step == _finalStep
+                      : _step == _consentStep
                           ? 'Сохранить и продолжить'
                           : 'Далее',
                   onPressed: isSubmitting ? null : _next,
@@ -245,16 +299,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   Widget _buildStep(BuildContext context) {
-    switch (_step) {
-      case 0:
-        return _welcome(context);
-      case 1:
-        return _parent(context);
-      case 2:
-        return _family(context);
-      default:
-        return _consent(context);
-    }
+    if (_step == 0) return _welcome(context);
+    if (_step == 1) return _parent(context);
+    if (_step == 2) return _familyCount(context);
+    if (_isChildStep) return _childStep(context, _currentChildIndex);
+    return _consent(context);
   }
 
   Widget _welcome(BuildContext context) {
@@ -279,125 +328,155 @@ class _OnboardingPageState extends State<OnboardingPage> {
   Widget _parent(BuildContext context) {
     return _section(
       context,
-      eyebrow: 'Шаг 1 из 3',
+      eyebrow: 'Шаг 1',
       title: 'Как вас зовут?',
-      child: TextField(
-        controller: _parentNameController,
-        autofocus: true,
-        textCapitalization: TextCapitalization.words,
-        textInputAction: TextInputAction.next,
-        maxLength: 50,
-        decoration: const InputDecoration(labelText: 'Имя'),
-      ),
-    );
-  }
-
-  Widget _family(BuildContext context) {
-    return _section(
-      context,
-      eyebrow: 'Шаг 2 из 3',
-      title: 'Расскажите о семье',
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Даты рождения помогают не пропускать важные события, а данные '
-            'ребёнка упрощают заявку на праздник.',
-            style: Theme.of(context).textTheme.bodyLarge,
+          TextField(
+            controller: _parentFirstNameController,
+            autofocus: true,
+            textCapitalization: TextCapitalization.words,
+            textInputAction: TextInputAction.next,
+            maxLength: 50,
+            decoration: const InputDecoration(labelText: 'Имя'),
           ),
-          const SizedBox(height: SKSpacing.x5),
-          if (_children.isEmpty)
-            Text(
-              'Детей пока можно не добавлять — это можно сделать позже в профиле.',
-              style: Theme.of(context).textTheme.bodyMedium,
-            )
-          else
-            for (var index = 0; index < _children.length; index++) ...[
-              _childCard(context, _children[index], index),
-              const SizedBox(height: SKSpacing.x3),
-            ],
-          OutlinedButton.icon(
-            onPressed: _addChild,
-            icon: const Icon(Icons.add),
-            label: Text(
-              _children.isEmpty ? 'Добавить ребёнка' : 'Добавить ещё ребёнка',
+          TextField(
+            controller: _parentLastNameController,
+            textCapitalization: TextCapitalization.words,
+            textInputAction: TextInputAction.done,
+            maxLength: 50,
+            decoration: const InputDecoration(
+              labelText: 'Фамилия (необязательно)',
             ),
           ),
-          if (_children.isEmpty)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                onPressed: _next,
-                child: const Text('Сделать позже'),
-              ),
-            ),
         ],
       ),
     );
   }
 
-  Widget _childCard(BuildContext context, _ChildFormState child, int index) {
+  Widget _familyCount(BuildContext context) {
+    return _section(
+      context,
+      eyebrow: 'Шаг 2',
+      title: 'Сколько у вас детей?',
+      child: Column(
+        children: [
+          Text(
+            'Добавим данные каждого ребёнка, чтобы профиль семьи был полезнее.',
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+          const SizedBox(height: SKSpacing.x8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton.filledTonal(
+                onPressed: _childCount > _minChildren
+                    ? () => _changeChildCount(-1)
+                    : null,
+                icon: const Icon(Icons.remove),
+                tooltip: 'Уменьшить количество детей',
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: SKSpacing.x8),
+                child: Text(
+                  '$_childCount',
+                  style: Theme.of(context).textTheme.displaySmall,
+                ),
+              ),
+              IconButton.filledTonal(
+                onPressed: _childCount < _maxChildren
+                    ? () => _changeChildCount(1)
+                    : null,
+                icon: const Icon(Icons.add),
+                tooltip: 'Увеличить количество детей',
+              ),
+            ],
+          ),
+          const SizedBox(height: SKSpacing.x3),
+          Text(
+            'От 1 до $_maxChildren',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _childStep(BuildContext context, int index) {
+    final child = _children[index];
     final date = child.birthDate == null
-        ? ''
+        ? 'Выберите дату'
         : MaterialLocalizations.of(context).formatMediumDate(child.birthDate!);
-    final gender = switch (child.gender) {
-      ChildGender.male => 'Мальчик',
-      ChildGender.female => 'Девочка',
-      ChildGender.unspecified => null,
-    };
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(SKSpacing.x4),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    return _section(
+      context,
+      eyebrow: 'Ребёнок ${index + 1} из $_childCount',
+      title: 'Расскажите о ребёнке',
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.all(SKSpacing.x4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: child.name,
+                autofocus: true,
+                textCapitalization: TextCapitalization.words,
+                textInputAction: TextInputAction.next,
+                maxLength: 100,
+                decoration: const InputDecoration(labelText: 'Имя ребёнка'),
+              ),
+              InkWell(
+                onTap: () => _pickBirthDate(index),
+                borderRadius: BorderRadius.circular(SKRadius.md),
+                child: InputDecorator(
+                  decoration: const InputDecoration(labelText: 'Дата рождения'),
+                  child: Text(date),
+                ),
+              ),
+              const SizedBox(height: SKSpacing.x4),
+              Text(
+                'Пол (необязательно)',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              const SizedBox(height: SKSpacing.x2),
+              Wrap(
+                spacing: SKSpacing.x2,
                 children: [
-                  Text(
-                    child.name.text,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: SKSpacing.x1),
-                  Text(
-                    [
-                      date,
-                      if (gender != null) gender,
-                    ].where((e) => e.isNotEmpty).join(' · '),
-                  ),
+                  _genderChoice(child, ChildGender.male, 'Мальчик'),
+                  _genderChoice(child, ChildGender.female, 'Девочка'),
+                  _genderChoice(child, ChildGender.unspecified, 'Не указывать'),
                 ],
               ),
-            ),
-            PopupMenuButton<String>(
-              tooltip: 'Действия',
-              onSelected: (value) {
-                if (value == 'edit') _editChild(index);
-                if (value == 'delete') _removeChild(index);
-              },
-              itemBuilder: (context) => const [
-                PopupMenuItem(value: 'edit', child: Text('Изменить')),
-                PopupMenuItem(value: 'delete', child: Text('Удалить')),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _genderChoice(_ChildFormState child, ChildGender value, String label) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: child.gender == value,
+      onSelected: (_) => setState(() {
+        child.gender = value;
+        _error = null;
+      }),
     );
   }
 
   Widget _consent(BuildContext context) {
     return _section(
       context,
-      eyebrow: 'Шаг 3 из 3',
+      eyebrow: 'Готово',
       title: 'Почти готово',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Подтвердите согласие на обработку данных профиля семьи, чтобы '
-            'завершить настройку.',
+            'Проверьте данные семьи и подтвердите согласие на обработку '
+            'персональных данных.',
             style: Theme.of(context).textTheme.bodyLarge,
           ),
           const SizedBox(height: SKSpacing.x4),
@@ -459,167 +538,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
 }
 
 class _ChildFormState {
-  _ChildFormState({
-    String? name,
-    this.birthDate,
-    this.gender = ChildGender.unspecified,
-  }) {
-    this.name.text = name ?? '';
-  }
+  _ChildFormState() : gender = ChildGender.unspecified;
 
   final TextEditingController name = TextEditingController();
   DateTime? birthDate;
   ChildGender gender;
 
   void dispose() => name.dispose();
-}
-
-class _ChildDraftResult {
-  const _ChildDraftResult({
-    required this.name,
-    required this.birthDate,
-    required this.gender,
-  });
-
-  final String name;
-  final DateTime birthDate;
-  final ChildGender gender;
-
-  _ChildFormState toFormState() =>
-      _ChildFormState(name: name, birthDate: birthDate, gender: gender);
-}
-
-class _ChildEditorDialog extends StatefulWidget {
-  const _ChildEditorDialog({this.initial});
-
-  final _ChildFormState? initial;
-
-  @override
-  State<_ChildEditorDialog> createState() => _ChildEditorDialogState();
-}
-
-class _ChildEditorDialogState extends State<_ChildEditorDialog> {
-  late final TextEditingController _nameController;
-  late DateTime? _birthDate = widget.initial?.birthDate;
-  late ChildGender _gender = widget.initial?.gender ?? ChildGender.unspecified;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController(
-      text: widget.initial?.name.text ?? '',
-    );
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickBirthDate() async {
-    final now = DateUtils.dateOnly(DateTime.now());
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _birthDate ?? DateTime(now.year - 5, now.month, now.day),
-      firstDate: DateTime(1900),
-      lastDate: now,
-      helpText: 'Дата рождения',
-      cancelText: 'Отмена',
-      confirmText: 'Выбрать',
-    );
-    if (picked != null && mounted) {
-      setState(() => _birthDate = DateUtils.dateOnly(picked));
-    }
-  }
-
-  void _save() {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) {
-      setState(() => _error = 'Введите имя ребёнка.');
-      return;
-    }
-    if (_birthDate == null) {
-      setState(() => _error = 'Укажите дату рождения.');
-      return;
-    }
-    Navigator.of(context).pop(
-      _ChildDraftResult(name: name, birthDate: _birthDate!, gender: _gender),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(
-        widget.initial == null ? 'Добавить ребёнка' : 'Изменить данные',
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: _nameController,
-              autofocus: true,
-              textCapitalization: TextCapitalization.words,
-              maxLength: 100,
-              decoration: const InputDecoration(labelText: 'Имя ребёнка'),
-            ),
-            InkWell(
-              onTap: _pickBirthDate,
-              borderRadius: BorderRadius.circular(SKRadius.md),
-              child: InputDecorator(
-                decoration: const InputDecoration(labelText: 'Дата рождения'),
-                child: Text(
-                  _birthDate == null
-                      ? 'Выберите дату'
-                      : MaterialLocalizations.of(
-                          context,
-                        ).formatMediumDate(_birthDate!),
-                ),
-              ),
-            ),
-            const SizedBox(height: SKSpacing.x4),
-            Text(
-              'Пол (необязательно)',
-              style: Theme.of(context).textTheme.labelLarge,
-            ),
-            const SizedBox(height: SKSpacing.x2),
-            Wrap(
-              spacing: SKSpacing.x2,
-              children: [
-                _genderChoice(ChildGender.male, 'Мальчик'),
-                _genderChoice(ChildGender.female, 'Девочка'),
-                _genderChoice(ChildGender.unspecified, 'Не указывать'),
-              ],
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: SKSpacing.x3),
-              Text(
-                _error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Отмена'),
-        ),
-        FilledButton(onPressed: _save, child: const Text('Сохранить')),
-      ],
-    );
-  }
-
-  Widget _genderChoice(ChildGender value, String label) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: _gender == value,
-      onSelected: (_) => setState(() => _gender = value),
-    );
-  }
 }
