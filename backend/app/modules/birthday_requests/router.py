@@ -6,6 +6,8 @@ from ...core.exceptions.schemas import ErrorResponse
 from ...db.repositories.birthday_package_repository import BirthdayPackageRepository
 from ...db.repositories.birthday_request_repository import BirthdayRequestRepository
 from ...db.repositories.branch_repository import BranchRepository
+from ...services.push.dependencies import get_push_service
+from ...services.push.push_service import PushService
 from .schemas import BirthdayRequestCreate, BirthdayRequestCreatedResponse
 from .service import BirthdayRequestService
 
@@ -24,10 +26,12 @@ router = APIRouter()
 def create_birthday_request(
     payload: BirthdayRequestCreate,
     session: Session = Depends(get_db_session),
+    push_service: PushService = Depends(get_push_service),
 ) -> BirthdayRequestCreatedResponse:
     service = BirthdayRequestService(
         request_repository=BirthdayRequestRepository(session),
         branch_repository=BranchRepository(session),
         package_repository=BirthdayPackageRepository(session),
+        push_service=push_service,
     )
     return service.create_request(payload)

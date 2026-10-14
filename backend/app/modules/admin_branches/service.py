@@ -1,7 +1,12 @@
 from ...core.exceptions.http import DomainHTTPException, NotFoundException
+from ...core.config.settings import Settings, get_settings
 from ...db.models.branch import Branch
+from ...db.repositories.branch_menu_repository import BranchMenuRepository
 from ...db.repositories.branch_pricing_repository import BranchPricingRepository
 from ...db.repositories.branch_repository import BranchRepository
+from ...db.repositories.branch_ticket_repository import BranchTicketRepository
+from ..branches.menu_seed import DEFAULT_BRANCH_MENU
+from ..branches.ticket_seed import DEFAULT_BRANCH_TICKET_CONFIG
 from .schemas import (
     AdminBranchContactsResponse,
     AdminBranchContactsUpdateRequest,
@@ -10,11 +15,19 @@ from .schemas import (
     AdminBranchGalleryResponse,
     AdminBranchGalleryUpdateRequest,
     AdminBranchListQuery,
+    AdminBranchMenuCategoryResponse,
+    AdminBranchMenuItemResponse,
+    AdminBranchMenuResponse,
+    AdminBranchMenuUpsertRequest,
     AdminBranchPricesRulesResponse,
     AdminBranchPricesRulesUpsertRequest,
     AdminBranchRuleResponse,
     AdminBranchSummaryResponse,
     AdminBranchTariffResponse,
+    AdminBranchTicketItemResponse,
+    AdminBranchTicketNoteResponse,
+    AdminBranchTicketsResponse,
+    AdminBranchTicketsUpsertRequest,
     AdminBranchUpdateRequest,
 )
 
@@ -27,9 +40,15 @@ class AdminBranchService:
         *,
         repository: BranchRepository | None = None,
         pricing_repository: BranchPricingRepository | None = None,
+        menu_repository: BranchMenuRepository | None = None,
+        ticket_repository: BranchTicketRepository | None = None,
+        settings: Settings | None = None,
     ) -> None:
         self.repository = repository or BranchRepository()
         self.pricing_repository = pricing_repository or BranchPricingRepository()
+        self.menu_repository = menu_repository or BranchMenuRepository()
+        self.ticket_repository = ticket_repository or BranchTicketRepository()
+        self.settings = settings or get_settings()
 
     def list_branches(self, query: AdminBranchListQuery) -> list[AdminBranchSummaryResponse]:
         return [
@@ -44,6 +63,8 @@ class AdminBranchService:
     def create_branch(self, payload: AdminBranchCreateRequest) -> AdminBranchDetailResponse:
         self._ensure_slug_available(payload.slug)
         branch = self.repository.create(payload.model_dump())
+        self._ensure_branch_menu_seeded(branch.id)
+        self._ensure_branch_tickets_seeded(branch.id)
         return AdminBranchDetailResponse.model_validate(branch)
 
     def update_branch(
@@ -157,6 +178,56 @@ class AdminBranchService:
         )
         return self.get_branch_prices_rules(branch.id)
 
+    def get_branch_menu(self, branch_id: str) -> AdminBranchMenuResponse:
+        branch = self._get_branch_or_404(branch_id)
+        self._ensure_branch_menu_seeded(branch.id)
+        return self._serialize_admin_menu(branch.id)
+
+    def upsert_branch_menu(
+        self,
+        branch_id: str,
+        payload: AdminBranchMenuUpsertRequest,
+    ) -> AdminBranchMenuResponse:
+        branch = self._get_branch_or_404(branch_id)
+        self._validate_branch_menu(payload)
+        self.menu_repository.replace_branch_menu(
+            branch_id=branch.id,
+            category_payloads=[item.model_dump() for item in payload.categories],
+            item_payloads=[item.model_dump() for item in payload.items],
+        )
+        return self._serialize_admin_menu(branch.id)
+
+    def get_branch_tickets(self, branch_id: str) -> AdminBranchTicketsResponse:
+        branch = self._get_branch_or_404(branch_id)
+        self._ensure_branch_tickets_seeded(branch.id)
+        return self._serialize_admin_tickets(branch.id)
+
+    def upsert_branch_tickets(
+        self,
+        branch_id: str,
+        payload: AdminBranchTicketsUpsertRequest,
+    ) -> AdminBranchTicketsResponse:
+        branch = self._get_branch_or_404(branch_id)
+        self.ticket_repository.replace_branch_ticket_config(
+            branch_id=branch.id,
+            item_payloads=[
+                {
+                    **item.model_dump(),
+                    'badge_labels': [label.strip() for label in item.badge_labels if label.strip()],
+                    'description': item.description.strip() if item.description else None,
+                }
+                for item in payload.items
+            ],
+            note_payloads=[
+                {
+                    **item.model_dump(),
+                    'text': item.text.strip(),
+                }
+                for item in payload.notes
+            ],
+        )
+        return self._serialize_admin_tickets(branch.id)
+
     def _get_branch_or_404(self, branch_id: str) -> Branch:
         branch = self.repository.get_by_id(branch_id)
         if branch is None:
@@ -197,4 +268,123 @@ class AdminBranchService:
             branch_id=branch.id,
             hero_image_url=branch.hero_image_url,
             gallery_image_urls=branch.gallery_image_urls,
+        )
+
+    def _serialize_admin_menu(self, branch_id: str) -> AdminBranchMenuResponse:
+        categories = self.menu_repository.list_categories(branch_id, active_only=False)
+        items = self.menu_repository.list_items(branch_id, active_only=False)
+        categories_by_id = {category.id: category for category in categories}
+
+        return AdminBranchMenuResponse(
+            branch_id=branch_id,
+            categories=[
+                AdminBranchMenuCategoryResponse(
+                    id=category.id,
+                    key=category.key,
+                    title=category.title,
+                    display_order=category.display_order,
+                    is_active=category.is_active,
+                )
+                for category in categories
+            ],
+            items=[
+                AdminBranchMenuItemResponse(
+                    id=item.id,
+                    title=item.title,
+                    price_tenge=item.price_tenge,
+                    image_url=item.image_url,
+                    category_key=categories_by_id[item.category_id].key,
+                    display_order=item.display_order,
+                    is_active=item.is_active,
+                )
+                for item in items
+                if item.category_id in categories_by_id
+            ],
+        )
+
+    def _ensure_branch_menu_seeded(self, branch_id: str) -> None:
+        if not self.settings.development_seed_enabled:
+            return
+        if self.menu_repository.has_menu(branch_id):
+            return
+        self.menu_repository.replace_branch_menu(
+            branch_id=branch_id,
+            category_payloads=DEFAULT_BRANCH_MENU['categories'],
+            item_payloads=DEFAULT_BRANCH_MENU['items'],
+        )
+
+    def _ensure_branch_tickets_seeded(self, branch_id: str) -> None:
+        if not self.settings.development_seed_enabled:
+            return
+        if self.ticket_repository.has_ticket_config(branch_id):
+            return
+        self.ticket_repository.replace_branch_ticket_config(
+            branch_id=branch_id,
+            item_payloads=DEFAULT_BRANCH_TICKET_CONFIG['items'],
+            note_payloads=DEFAULT_BRANCH_TICKET_CONFIG['notes'],
+        )
+
+    def _validate_branch_menu(self, payload: AdminBranchMenuUpsertRequest) -> None:
+        normalized_keys = [item.key.strip() for item in payload.categories]
+        unique_keys = {item for item in normalized_keys if item}
+        if len(unique_keys) != len(normalized_keys):
+            raise DomainHTTPException(
+                code='branch_menu_duplicate_category_key',
+                message='Branch menu category keys must be unique.',
+                status_code=422,
+                details=[
+                    {
+                        'field': 'categories',
+                        'message': 'Категории меню должны иметь уникальные ключи.',
+                    }
+                ],
+            )
+
+        missing_keys = sorted(
+            {
+                item.category_key
+                for item in payload.items
+                if item.category_key not in unique_keys
+            }
+        )
+        if missing_keys:
+            raise DomainHTTPException(
+                code='branch_menu_invalid_category_key',
+                message='Branch menu item references an unknown category key.',
+                status_code=422,
+                details=[
+                    {
+                        'field': 'items',
+                        'message': 'Для позиции меню выбрана несуществующая категория.',
+                    }
+                ],
+            )
+
+    def _serialize_admin_tickets(self, branch_id: str) -> AdminBranchTicketsResponse:
+        items = self.ticket_repository.list_items(branch_id, active_only=False)
+        notes = self.ticket_repository.list_notes(branch_id, active_only=False)
+
+        return AdminBranchTicketsResponse(
+            branch_id=branch_id,
+            items=[
+                AdminBranchTicketItemResponse(
+                    id=item.id,
+                    title=item.title,
+                    description=item.description,
+                    price_tenge=item.price_tenge,
+                    badge_labels=item.badge_labels or [],
+                    display_order=item.display_order,
+                    is_active=item.is_active,
+                )
+                for item in items
+            ],
+            notes=[
+                AdminBranchTicketNoteResponse(
+                    id=note.id,
+                    text=note.text,
+                    display_order=note.display_order,
+                    is_active=note.is_active,
+                )
+                for note in notes
+            ],
         )

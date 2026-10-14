@@ -236,6 +236,42 @@
             </label>
 
             <label
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.startAt) }"
+              data-field="startAt"
+            >
+              <span class="admin-field__label">Начало показа</span>
+              <input
+                v-model="promotionsManager.createForm.startAt"
+                name="startAt"
+                type="datetime-local"
+                class="admin-control"
+                @input="clearCreateFieldError('startAt')"
+              />
+              <p v-if="createFieldErrors.startAt" class="admin-field__error">
+                {{ createFieldErrors.startAt }}
+              </p>
+            </label>
+
+            <label
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(createFieldErrors.endAt) }"
+              data-field="endAt"
+            >
+              <span class="admin-field__label">Окончание показа</span>
+              <input
+                v-model="promotionsManager.createForm.endAt"
+                name="endAt"
+                type="datetime-local"
+                class="admin-control"
+                @input="clearCreateFieldError('endAt')"
+              />
+              <p v-if="createFieldErrors.endAt" class="admin-field__error">
+                {{ createFieldErrors.endAt }}
+              </p>
+            </label>
+
+            <label
               class="admin-field admin-field--full"
               :class="{ 'admin-field--error': Boolean(createFieldErrors.description) }"
               data-field="description"
@@ -463,6 +499,42 @@
               />
               <p v-if="editFieldErrors.imageUrl" class="admin-field__error">
                 {{ editFieldErrors.imageUrl }}
+              </p>
+            </label>
+
+            <label
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(editFieldErrors.startAt) }"
+              data-field="startAt"
+            >
+              <span class="admin-field__label">Начало показа</span>
+              <input
+                v-model="promotionsManager.form.startAt"
+                name="startAt"
+                type="datetime-local"
+                class="admin-control"
+                @input="clearEditFieldError('startAt')"
+              />
+              <p v-if="editFieldErrors.startAt" class="admin-field__error">
+                {{ editFieldErrors.startAt }}
+              </p>
+            </label>
+
+            <label
+              class="admin-field"
+              :class="{ 'admin-field--error': Boolean(editFieldErrors.endAt) }"
+              data-field="endAt"
+            >
+              <span class="admin-field__label">Окончание показа</span>
+              <input
+                v-model="promotionsManager.form.endAt"
+                name="endAt"
+                type="datetime-local"
+                class="admin-control"
+                @input="clearEditFieldError('endAt')"
+              />
+              <p v-if="editFieldErrors.endAt" class="admin-field__error">
+                {{ editFieldErrors.endAt }}
               </p>
             </label>
 
@@ -758,6 +830,8 @@ const promotionPublicationItems = computed(() => {
   return [
     { label: 'Активность', value: promotion.isActive ? 'Активна' : 'Выключена' },
     { label: 'Публикация', value: promotion.isPublished ? 'Опубликована' : 'Черновик' },
+    { label: 'Начало показа', value: formatDateTime(promotion.startAt, 'Сразу') },
+    { label: 'Окончание показа', value: formatDateTime(promotion.endAt, 'Без окончания') },
     { label: 'Изображение', value: promotion.imageUrl || 'Не задано', fullWidth: true },
   ];
 });
@@ -846,6 +920,10 @@ async function handleCreateSubmit() {
       promotionsManager.createForm.displayOrder,
       'Введите порядок не меньше 0.',
     ),
+    ...validateDateRange(
+      promotionsManager.createForm.startAt,
+      promotionsManager.createForm.endAt,
+    ),
   });
 
   replaceFieldErrors(createFieldErrors, errors);
@@ -900,6 +978,7 @@ async function handleSave() {
       promotionsManager.form.displayOrder ?? 0,
       'Введите порядок не меньше 0.',
     ),
+    ...validateDateRange(promotionsManager.form.startAt, promotionsManager.form.endAt),
   });
 
   replaceFieldErrors(editFieldErrors, errors);
@@ -940,6 +1019,40 @@ function clearPromotionFeedback() {
   replaceFieldErrors(editFieldErrors, {});
   createSummaryMessage.value = '';
   editSummaryMessage.value = '';
+}
+
+function validateDateRange(
+  startAt: string | null | undefined,
+  endAt: string | null | undefined,
+): AdminFieldErrors {
+  if (!startAt || !endAt) {
+    return {};
+  }
+
+  const start = new Date(startAt);
+  const end = new Date(endAt);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+    return { endAt: 'Окончание показа должно быть позже начала.' };
+  }
+
+  return {};
+}
+
+function formatDateTime(value: string | null, emptyLabel: string): string {
+  if (!value) {
+    return emptyLabel;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat('ru-RU', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Asia/Almaty',
+  }).format(parsed);
 }
 
 function compactErrors(errors: AdminFieldErrors): AdminFieldErrors {

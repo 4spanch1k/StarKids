@@ -31,6 +31,7 @@ class MobileRequestHistoryItem(BaseModel):
     notes: str | None = None
     branch: MobileRequestHistoryBranchSummary | None = None
     package: MobileRequestHistoryPackageSummary | None = None
+    childName: str | None = None
 
     @field_serializer('createdAt')
     def serialize_created_at(self, value: datetime) -> str:

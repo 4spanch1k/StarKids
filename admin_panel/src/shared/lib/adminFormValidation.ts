@@ -92,6 +92,18 @@ export function validateOptionalText(
   return '';
 }
 
+export function validateMaxTextLength(
+  value: string,
+  maxLength: number,
+  message: string,
+): string {
+  if (value.trim().length > maxLength) {
+    return message;
+  }
+
+  return '';
+}
+
 export function validateRequiredPhone(
   value: string,
   missingMessage: string,

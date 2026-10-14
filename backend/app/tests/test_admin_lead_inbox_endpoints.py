@@ -207,8 +207,9 @@ class AdminLeadInboxEndpointTests(unittest.TestCase):
         body = response.json()
         self.assertEqual(body['total'], 1)
         self.assertEqual(len(body['items']), 1)
+        item = body['items'][0]
         self.assertEqual(
-            body['items'][0],
+            {key: item[key] for key in item if key not in {'waitingForContactMinutes', 'firstContactMinutes'}},
             {
                 'id': 'lead-new',
                 'type': 'birthday_request',
@@ -231,6 +232,8 @@ class AdminLeadInboxEndpointTests(unittest.TestCase):
                 },
             },
         )
+        self.assertGreater(item['waitingForContactMinutes'], 0)
+        self.assertIsNone(item['firstContactMinutes'])
 
     def test_get_admin_lead_returns_detail_card(self) -> None:
         response = self.client.get(
@@ -239,8 +242,9 @@ class AdminLeadInboxEndpointTests(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
+        body = response.json()
         self.assertEqual(
-            response.json(),
+            {key: body[key] for key in body if key not in {'waitingForContactMinutes', 'firstContactMinutes'}},
             {
                 'id': 'lead-in-progress',
                 'type': 'birthday_request',
@@ -263,6 +267,58 @@ class AdminLeadInboxEndpointTests(unittest.TestCase):
                 'contactMethod': 'whatsapp',
             },
         )
+        self.assertIsNone(body['waitingForContactMinutes'])
+        self.assertIsNone(body['firstContactMinutes'])
+
+    def test_birthday_operations_summary_is_available_for_lead_roles(self) -> None:
+        response = self.client.get(
+            '/api/v1/admin/leads/birthday/operations-summary',
+            headers=self._auth_headers(),
+            params={'period': '30d'},
+        )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        body = response.json()
+        self.assertEqual(body['period'], '30d')
+        self.assertIn('newAwaitingContact', body)
+        self.assertIn('medianFirstContactMinutes', body)
+
+    def test_awaiting_contact_filter_excludes_contacted_and_contact_leads(self) -> None:
+        response = self.client.get(
+            '/api/v1/admin/leads',
+            headers=self._auth_headers(),
+            params={'awaitingContact': 'true', 'sort': 'oldest_uncontacted'},
+        )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual([item['id'] for item in response.json()['items']], ['lead-new'])
+
+    def test_get_birthday_lead_detail_and_update_status_note(self) -> None:
+        response = self.client.get(
+            '/api/v1/admin/leads/lead-new/birthday',
+            headers=self._auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['contactMethod'], 'phone')
+        self.assertEqual(response.json()['packageNameSnapshot'], 'Spark Party')
+        self.assertEqual(response.json()['comment'], 'Позвонить после 15:00')
+
+        update = self.client.patch(
+            '/api/v1/admin/leads/lead-new/status',
+            headers=self._auth_headers(),
+            json={'status': 'contacted', 'adminNote': 'Позвонили родителю.'},
+        )
+        self.assertEqual(update.status_code, 200)
+
+        detail = self.client.get(
+            '/api/v1/admin/leads/lead-new/birthday',
+            headers=self._auth_headers(),
+        )
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail.json()['status'], 'contacted')
+        self.assertEqual(detail.json()['adminNote'], 'Позвонили родителю.')
+        self.assertIsNotNone(detail.json()['contactedAt'])
 
     def test_patch_admin_lead_status_updates_allowed_transition(self) -> None:
         response = self.client.patch(

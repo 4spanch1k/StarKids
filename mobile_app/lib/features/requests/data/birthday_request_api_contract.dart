@@ -3,10 +3,10 @@
 /// Request body:
 /// {
 ///   "branchId": "shymkent-mega",
-///   "packageId": "star-show",
+///   "packageId": "star-show", // optional
 ///   "name": "Айдана",
 ///   "phone": "+77070000000",
-///   "preferredDate": "2026-04-10",
+///   "preferredDate": "2026-04-10", // optional
 ///   "guestCount": 12,
 ///   "comment": "Нужен аниматор и торт"
 /// }
@@ -41,6 +41,10 @@ abstract final class BirthdayRequestApiContract {
   static const preferredDate = 'preferredDate';
   static const guestCount = 'guestCount';
   static const comment = 'comment';
+  static const childId = 'childId';
+  static const idempotencyKey = 'idempotencyKey';
+  static const sourceCampaignId = 'sourceCampaignId';
+  static const birthdayCycleId = 'birthdayCycleId';
 
   static const requestId = 'requestId';
   static const submittedAt = 'submittedAt';

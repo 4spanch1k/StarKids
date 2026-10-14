@@ -11,6 +11,8 @@ import json
 JWT_ALGORITHM = 'HS256'
 ADMIN_JWT_ISSUER = 'star-kids-admin'
 MOBILE_JWT_ISSUER = 'star-kids-mobile'
+TOKEN_HASH_SCHEME_HMAC_SHA256 = 'hmac-sha256'
+TOKEN_HASH_SCHEME_SHA256 = 'sha256'
 
 
 @dataclass(frozen=True)
@@ -212,8 +214,66 @@ def _decode_token(
     )
 
 
-def hash_token_value(token: str) -> str:
-    return hashlib.sha256(token.encode('utf-8')).hexdigest()
+def hash_secret_value(
+    value: str,
+    *,
+    secret_key: str,
+    purpose: str,
+) -> str:
+    digest = hmac.new(
+        secret_key.encode('utf-8'),
+        f'{purpose}:{value}'.encode('utf-8'),
+        hashlib.sha256,
+    ).hexdigest()
+    return f'{TOKEN_HASH_SCHEME_HMAC_SHA256}${digest}'
+
+
+def verify_secret_value(
+    value: str,
+    stored_hash: str,
+    *,
+    secret_key: str,
+    purpose: str,
+) -> bool:
+    expected_hash = hash_secret_value(
+        value,
+        secret_key=secret_key,
+        purpose=purpose,
+    )
+    return hmac.compare_digest(expected_hash, stored_hash)
+
+
+def hash_token_value(
+    token: str,
+    *,
+    secret_key: str,
+) -> str:
+    return hash_secret_value(
+        token,
+        secret_key=secret_key,
+        purpose='refresh-token',
+    )
+
+
+def verify_token_value(
+    token: str,
+    stored_hash: str,
+    *,
+    secret_key: str,
+) -> bool:
+    if stored_hash.startswith(f'{TOKEN_HASH_SCHEME_HMAC_SHA256}$'):
+        return verify_secret_value(
+            token,
+            stored_hash,
+            secret_key=secret_key,
+            purpose='refresh-token',
+        )
+
+    legacy_digest = hashlib.sha256(token.encode('utf-8')).hexdigest()
+    legacy_stored_hash = stored_hash
+    if stored_hash.startswith(f'{TOKEN_HASH_SCHEME_SHA256}$'):
+        legacy_stored_hash = stored_hash.split('$', maxsplit=1)[1]
+    return hmac.compare_digest(legacy_digest, legacy_stored_hash)
 
 
 def generate_placeholder_token_pair(prefix: str) -> TokenPair:

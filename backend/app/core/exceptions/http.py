@@ -9,11 +9,12 @@ class DomainHTTPException(HTTPException):
         message: str,
         status_code: int = status.HTTP_400_BAD_REQUEST,
         details: list[dict[str, str | None]] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> None:
         self.code = code
         self.message = message
         self.details = details or []
-        super().__init__(status_code=status_code, detail=message)
+        super().__init__(status_code=status_code, detail=message, headers=headers)
 
 
 class NotFoundException(DomainHTTPException):

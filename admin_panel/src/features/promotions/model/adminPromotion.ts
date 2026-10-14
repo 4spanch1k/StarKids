@@ -9,6 +9,8 @@ export type AdminPromotion = {
   displayOrder: number;
   isActive: boolean;
   isPublished: boolean;
+  startAt: string | null;
+  endAt: string | null;
 };
 
 export type AdminPromotionCreatePayload = Omit<AdminPromotion, 'id'>;

@@ -1,6 +1,8 @@
 import type { Component } from 'vue';
 import type { RouteRecordRaw } from 'vue-router';
 
+import type { AdminRole } from '@/features/auth/types';
+
 export type AdminCrudRouteGroup = {
   list: string;
   detail?: string;
@@ -17,6 +19,7 @@ type AdminCrudRouteOptions = {
   allowCreate?: boolean;
   allowEdit?: boolean;
   allowDetail?: boolean;
+  allowedRoles?: AdminRole[];
 };
 
 export function buildAdminCrudRouteGroup(
@@ -36,6 +39,7 @@ export function buildAdminCrudRouteGroup(
       path: options.path,
       name: names.list,
       component: options.component,
+      ...(options.allowedRoles ? { meta: { allowedRoles: options.allowedRoles } } : {}),
     },
   ];
 
@@ -45,6 +49,7 @@ export function buildAdminCrudRouteGroup(
       path: `${options.path}/new`,
       name: names.create,
       component: options.component,
+      ...(options.allowedRoles ? { meta: { allowedRoles: options.allowedRoles } } : {}),
     });
   }
 
@@ -54,6 +59,7 @@ export function buildAdminCrudRouteGroup(
       path: `${options.path}/:${options.idParam}`,
       name: names.detail,
       component: options.component,
+      ...(options.allowedRoles ? { meta: { allowedRoles: options.allowedRoles } } : {}),
     });
   }
 
@@ -63,6 +69,7 @@ export function buildAdminCrudRouteGroup(
       path: `${options.path}/:${options.idParam}/edit`,
       name: names.edit,
       component: options.component,
+      ...(options.allowedRoles ? { meta: { allowedRoles: options.allowedRoles } } : {}),
     });
   }
 
@@ -96,6 +103,13 @@ export const adminCrudRouteNames = {
     edit: 'promotions-edit',
     idParam: 'promotionId',
   },
+  news: {
+    list: 'news',
+    detail: 'news-detail',
+    create: 'news-create',
+    edit: 'news-edit',
+    idParam: 'newsId',
+  },
   content: {
     list: 'content',
     detail: 'content-detail',
@@ -116,10 +130,16 @@ export const adminCrudRouteNames = {
     edit: 'faq-edit',
     idParam: 'faqId',
   },
-  tariffs: {
-    list: 'tariffs',
-    detail: 'tariffs-detail',
-    edit: 'tariffs-edit',
+  menu: {
+    list: 'menu',
+    detail: 'menu-detail',
+    edit: 'menu-edit',
+    idParam: 'branchId',
+  },
+  tickets: {
+    list: 'tickets',
+    detail: 'tickets-detail',
+    edit: 'tickets-edit',
     idParam: 'branchId',
   },
 } as const;

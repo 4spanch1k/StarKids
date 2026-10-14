@@ -1,19 +1,17 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/utils/result.dart';
 import '../../../birthdays/domain/birthday_package.dart';
 import '../../../birthdays/domain/birthday_package_repository.dart';
+import '../../../children/domain/child.dart';
 import '../../domain/birthday_request_payload.dart';
 import '../../domain/birthday_request_repository.dart';
 import '../../domain/birthday_request_submission.dart';
 import '../formatters/kz_phone_input_formatter.dart';
 
-enum BirthdayRequestSubmissionStatus {
-  idle,
-  submitting,
-  success,
-  error,
-}
+enum BirthdayRequestSubmissionStatus { idle, submitting, success, error }
 
 class BirthdayRequestFormController extends ChangeNotifier {
   BirthdayRequestFormController({
@@ -21,10 +19,17 @@ class BirthdayRequestFormController extends ChangeNotifier {
     required BirthdayPackageRepository packageRepository,
     String? initialPackageId,
     BirthdayPackage? initialPackage,
+    String? initialChildId,
+    DateTime? initialPreferredDate,
+    this.sourceCampaignId,
+    this.birthdayCycleId,
   })  : _repository = repository,
         _packageRepository = packageRepository,
         _selectedPackageId = initialPackage?.id ?? initialPackageId,
-        _selectedPackage = initialPackage {
+        _selectedPackage = initialPackage,
+        _initialChildId = initialChildId,
+        _desiredDate = initialPreferredDate {
+    guestCountController.text = '10';
     if (initialPackage != null) {
       _applySuggestedGuests(initialPackage);
     } else if (initialPackageId != null) {
@@ -34,16 +39,22 @@ class BirthdayRequestFormController extends ChangeNotifier {
 
   final BirthdayRequestRepository _repository;
   final BirthdayPackageRepository _packageRepository;
+  final String? _initialChildId;
+  final String? sourceCampaignId;
+  final String? birthdayCycleId;
 
   final nameController = TextEditingController();
   final phoneController = TextEditingController();
   final guestCountController = TextEditingController();
   final commentController = TextEditingController();
+  Child? _selectedChild;
+  String _idempotencyKey = _newIdempotencyKey();
 
   String? _selectedPackageId;
   BirthdayPackage? _selectedPackage;
   DateTime? _desiredDate;
   String? _packageErrorText;
+  String? _childErrorText;
   String? _dateErrorText;
   String? _submissionErrorText;
   BirthdayRequestSubmission? _submission;
@@ -58,6 +69,7 @@ class BirthdayRequestFormController extends ChangeNotifier {
   DateTime? get desiredDate => _desiredDate;
 
   String? get packageErrorText => _packageErrorText;
+  String? get childErrorText => _childErrorText;
 
   String? get dateErrorText => _dateErrorText;
 
@@ -66,9 +78,34 @@ class BirthdayRequestFormController extends ChangeNotifier {
   BirthdayRequestSubmission? get submission => _submission;
 
   BirthdayRequestSubmissionStatus get status => _status;
+  Child? get selectedChild => _selectedChild;
 
   bool get isSubmitting =>
       _status == BirthdayRequestSubmissionStatus.submitting;
+
+  String get idempotencyKey => _idempotencyKey;
+
+  void selectInitialChild(Iterable<Child> children) {
+    if (_selectedChild != null || _initialChildId == null) return;
+    final match =
+        children.where((child) => child.id == _initialChildId).toList();
+    if (match.isNotEmpty) {
+      _selectedChild = match.first;
+      notifyListeners();
+    }
+  }
+
+  @override
+  void notifyListeners() {
+    if (!_isDisposed) super.notifyListeners();
+  }
+
+  void updateSelectedChild(Child? child) {
+    _selectedChild = child;
+    _childErrorText = null;
+    clearTransientFeedback();
+    notifyListeners();
+  }
 
   void updateSelectedPackage(
     String? packageId, {
@@ -104,23 +141,21 @@ class BirthdayRequestFormController extends ChangeNotifier {
       lastDate: now.add(const Duration(days: 365)),
     );
 
-    if (selectedDate != null) {
+    if (selectedDate != null && !_isDisposed) {
       updateDesiredDate(selectedDate);
     }
   }
 
   bool validateSelections() {
-    _packageErrorText =
-        _selectedPackageId == null ? 'Выберите пакет для праздника.' : null;
-    _dateErrorText = _desiredDate == null ? 'Укажите желаемую дату.' : null;
+    _packageErrorText = null;
+    _childErrorText = null;
+    _dateErrorText = null;
     notifyListeners();
 
-    return _packageErrorText == null && _dateErrorText == null;
+    return true;
   }
 
-  Future<void> submit({
-    required String branchId,
-  }) async {
+  Future<void> submit({required String branchId}) async {
     _submissionErrorText = null;
     _status = BirthdayRequestSubmissionStatus.submitting;
     notifyListeners();
@@ -128,12 +163,16 @@ class BirthdayRequestFormController extends ChangeNotifier {
     final result = await _repository.submitBirthdayRequest(
       BirthdayRequestPayload(
         branchId: branchId,
+        childId: _selectedChild?.id,
         packageId: _selectedPackageId,
         name: nameController.text.trim(),
         phone: KzPhoneInputFormatter.normalizeForSubmit(phoneController.text),
-        preferredDate: _desiredDate!,
-        guestCount: int.parse(guestCountController.text.trim()),
+        preferredDate: _desiredDate,
+        guestCount: int.tryParse(guestCountController.text.trim()) ?? 10,
         comment: _normalizeComment(commentController.text),
+        idempotencyKey: _idempotencyKey,
+        sourceCampaignId: sourceCampaignId,
+        birthdayCycleId: birthdayCycleId,
       ),
     );
 
@@ -154,6 +193,7 @@ class BirthdayRequestFormController extends ChangeNotifier {
     _submission = null;
     _submissionErrorText = null;
     _status = BirthdayRequestSubmissionStatus.idle;
+    _idempotencyKey = _newIdempotencyKey();
     notifyListeners();
   }
 
@@ -165,9 +205,7 @@ class BirthdayRequestFormController extends ChangeNotifier {
     }
   }
 
-  void resetForm({
-    bool preserveSelectedPackage = false,
-  }) {
+  void resetForm({bool preserveSelectedPackage = false}) {
     final preservedPackageId =
         preserveSelectedPackage ? _selectedPackageId : null;
     final preservedPackage = preserveSelectedPackage ? _selectedPackage : null;
@@ -176,14 +214,18 @@ class BirthdayRequestFormController extends ChangeNotifier {
     phoneController.clear();
     guestCountController.clear();
     commentController.clear();
+    guestCountController.text = '10';
+    _selectedChild = null;
     _selectedPackageId = preservedPackageId;
     _selectedPackage = preservedPackage;
     _desiredDate = null;
     _packageErrorText = null;
+    _childErrorText = null;
     _dateErrorText = null;
     _submission = null;
     _submissionErrorText = null;
     _status = BirthdayRequestSubmissionStatus.idle;
+    _idempotencyKey = _newIdempotencyKey();
 
     if (_selectedPackage != null) {
       _applySuggestedGuests(_selectedPackage!);
@@ -259,15 +301,12 @@ class BirthdayRequestFormController extends ChangeNotifier {
 
   Future<void> _hydrateInitialPackage(String packageId) async {
     final package = await _packageRepository.getPackageById(packageId);
-    if (package == null) {
+    if (package == null || _isDisposed) {
       return;
     }
 
     _selectedPackage = package;
     _applySuggestedGuests(package);
-    if (_isDisposed) {
-      return;
-    }
     notifyListeners();
   }
 
@@ -290,5 +329,14 @@ class BirthdayRequestFormController extends ChangeNotifier {
 
     final match = RegExp(r'\d+').firstMatch(package.guestLabel);
     return match == null ? null : int.tryParse(match.group(0)!);
+  }
+
+  static String _newIdempotencyKey() {
+    final random = Random.secure();
+    final parts = List.generate(
+      4,
+      (_) => random.nextInt(1 << 32).toRadixString(16).padLeft(8, '0'),
+    );
+    return '${DateTime.now().microsecondsSinceEpoch}-${parts.join()}';
   }
 }

@@ -27,6 +27,7 @@ class MobileRequestHistoryRecord:
     branch_short_label: str | None
     birthday_package_id: str | None
     birthday_package_name: str | None
+    child_name: str | None
 
 
 class MobileRequestHistoryRepository(Repository):
@@ -61,6 +62,9 @@ class MobileRequestHistoryRepository(Repository):
         row: tuple[BirthdayRequest, Branch, BirthdayPackage | None],
     ) -> MobileRequestHistoryRecord:
         request, branch, package = row
+        package_name = request.package_name_snapshot or (
+            package.name if package is not None else None
+        )
         return MobileRequestHistoryRecord(
             id=request.id,
             type=LEAD_TYPE_BIRTHDAY_REQUEST,
@@ -73,7 +77,8 @@ class MobileRequestHistoryRepository(Repository):
             branch_name=branch.name,
             branch_short_label=branch.short_label,
             birthday_package_id=package.id if package is not None else None,
-            birthday_package_name=package.name if package is not None else None,
+            birthday_package_name=package_name,
+            child_name=request.child_name_snapshot or request.child_name,
         )
 
     def _map_contact_record(self, lead: ContactLead) -> MobileRequestHistoryRecord:
@@ -90,4 +95,5 @@ class MobileRequestHistoryRepository(Repository):
             branch_short_label=None,
             birthday_package_id=None,
             birthday_package_name=None,
+            child_name=None,
         )

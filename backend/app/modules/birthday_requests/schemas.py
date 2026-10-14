@@ -8,7 +8,7 @@ PHONE_PATTERN = r'^[0-9+\-\s()]{8,20}$'
 
 
 class BirthdayRequestCreate(BaseModel):
-    branch_id: str = Field(min_length=1, max_length=32)
+    branch_id: str = Field(min_length=1, max_length=120)
     birthday_package_id: str | None = Field(default=None, min_length=1, max_length=32)
     customer_name: str = Field(min_length=2, max_length=120)
     phone: str = Field(min_length=8, max_length=20, pattern=PHONE_PATTERN)

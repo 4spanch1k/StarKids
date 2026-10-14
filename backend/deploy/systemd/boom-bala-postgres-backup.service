@@ -1,0 +1,17 @@
+[Unit]
+Description=Boom Bala PostgreSQL staging backup
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=boom-bala
+Group=boom-bala
+WorkingDirectory=/opt/boom-bala/backend
+EnvironmentFile=/etc/boom-bala/staging.env
+ExecStart=/opt/boom-bala/backend/deploy/scripts/backup_postgres.sh
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/backups/boom-bala/postgres

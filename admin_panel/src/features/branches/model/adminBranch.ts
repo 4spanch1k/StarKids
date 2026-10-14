@@ -97,3 +97,54 @@ export type AdminBranchPricesRulesPayload = Omit<
   AdminBranchPricesRules,
   'branchId'
 >;
+
+export type AdminBranchMenuCategory = {
+  id?: string;
+  key: string;
+  title: string;
+  displayOrder: number;
+  isActive: boolean;
+};
+
+export type AdminBranchMenuItem = {
+  id?: string;
+  title: string;
+  priceTenge: number;
+  imageUrl: string;
+  categoryKey: string;
+  displayOrder: number;
+  isActive: boolean;
+};
+
+export type AdminBranchMenu = {
+  branchId: string;
+  categories: AdminBranchMenuCategory[];
+  items: AdminBranchMenuItem[];
+};
+
+export type AdminBranchMenuPayload = Omit<AdminBranchMenu, 'branchId'>;
+
+export type AdminBranchTicketItem = {
+  id?: string;
+  title: string;
+  description: string;
+  priceTenge: number;
+  badgeLabels: string[];
+  displayOrder: number;
+  isActive: boolean;
+};
+
+export type AdminBranchTicketNote = {
+  id?: string;
+  text: string;
+  displayOrder: number;
+  isActive: boolean;
+};
+
+export type AdminBranchTickets = {
+  branchId: string;
+  items: AdminBranchTicketItem[];
+  notes: AdminBranchTicketNote[];
+};
+
+export type AdminBranchTicketsPayload = Omit<AdminBranchTickets, 'branchId'>;

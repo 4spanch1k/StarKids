@@ -15,13 +15,17 @@ class PromotionsService:
         self.branch_repository = branch_repository or BranchRepository()
 
     def list_promotions(self, branch_id: str | None = None) -> list[PromotionSummary]:
-        if branch_id and self.branch_repository.get_active_by_id(branch_id) is None:
-            raise NotFoundException(
-                code='branch_not_found',
-                message='Branch was not found.',
-            )
+        resolved_branch_id: str | None = None
+        if branch_id:
+            branch = self.branch_repository.get_active_by_id_or_slug(branch_id)
+            if branch is None:
+                raise NotFoundException(
+                    code='branch_not_found',
+                    message='Branch was not found.',
+                )
+            resolved_branch_id = branch.id
 
-        promotions = self.repository.list_mobile(branch_id=branch_id)
+        promotions = self.repository.list_mobile(branch_id=resolved_branch_id)
         branch_ids_map = self.repository.get_branch_ids_map([promotion.id for promotion in promotions])
         return [
             PromotionSummary(

@@ -55,4 +55,5 @@ class MobileRequestHistoryService:
                 and record.birthday_package_name is not None
                 else None
             ),
+            childName=record.child_name,
         )

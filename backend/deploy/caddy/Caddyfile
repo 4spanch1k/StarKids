@@ -1,0 +1,27 @@
+# Staging domains. Point both DNS records at the VPS before starting Caddy.
+
+api-staging.boombala.kz {
+	encode gzip
+	header {
+		-Server
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "DENY"
+		Permissions-Policy "camera=(), geolocation=(), microphone=()"
+	}
+	reverse_proxy 127.0.0.1:8000
+}
+
+ops-staging.boombala.kz {
+	root * /opt/boom-bala/admin_panel/dist
+	encode gzip
+	header {
+		-Server
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "DENY"
+		Permissions-Policy "camera=(self), geolocation=(), microphone=()"
+	}
+	try_files {path} /index.html
+	file_server
+}

@@ -20,6 +20,43 @@ void main() {
       SharedPreferences.setMockInitialValues({});
     });
 
+    test('omits an optional preferred date from the request body', () async {
+      Map<String, dynamic>? requestBody;
+      final repository = ApiBirthdayRequestRepository(
+        apiClient: ApiClient(
+          baseUrl: 'http://example.com',
+          httpClient: MockClient((request) async {
+            requestBody = jsonDecode(request.body) as Map<String, dynamic>;
+            return http.Response(
+              jsonEncode({
+                'requestId': 'request-optional',
+                'submittedAt': '2026-04-09T01:00:00Z',
+                'nextStep': 'Менеджер свяжется с вами',
+              }),
+              201,
+              headers: const {'content-type': 'application/json'},
+            );
+          }),
+        ),
+        sessionStorage: MobileAuthSessionStorage(),
+      );
+
+      final result = await repository.submitBirthdayRequest(
+        const BirthdayRequestPayload(
+          name: 'Dana',
+          phone: '+77070000002',
+          branchId: 'branch-main',
+          guestCount: 8,
+        ),
+      );
+
+      expect(result, isA<Success<BirthdayRequestSubmission>>());
+      expect(requestBody, isNotNull);
+      expect(requestBody!.containsKey('preferredDate'), isFalse);
+      expect(requestBody!['packageId'], isNull);
+      expect(requestBody!.containsKey('childId'), isFalse);
+    });
+
     test('adds bearer token when a mobile auth session exists', () async {
       String? authorizationHeader;
       final sessionStorage = MobileAuthSessionStorage();
@@ -68,42 +105,44 @@ void main() {
       expect(authorizationHeader, 'Bearer access-token');
     });
 
-    test('keeps anonymous submit behavior when no mobile auth session exists',
-        () async {
-      String? authorizationHeader;
-      final sessionStorage = MobileAuthSessionStorage();
-      final repository = ApiBirthdayRequestRepository(
-        apiClient: ApiClient(
-          baseUrl: 'http://example.com',
-          httpClient: MockClient((request) async {
-            authorizationHeader = request.headers['Authorization'];
-            return http.Response(
-              jsonEncode({
-                'requestId': 'request-2',
-                'submittedAt': '2026-04-09T01:00:00Z',
-                'nextStep':
-                    'Менеджер свяжется с вами для подтверждения деталей',
-              }),
-              201,
-              headers: const {'content-type': 'application/json'},
-            );
-          }),
-        ),
-        sessionStorage: sessionStorage,
-      );
+    test(
+      'keeps anonymous submit behavior when no mobile auth session exists',
+      () async {
+        String? authorizationHeader;
+        final sessionStorage = MobileAuthSessionStorage();
+        final repository = ApiBirthdayRequestRepository(
+          apiClient: ApiClient(
+            baseUrl: 'http://example.com',
+            httpClient: MockClient((request) async {
+              authorizationHeader = request.headers['Authorization'];
+              return http.Response(
+                jsonEncode({
+                  'requestId': 'request-2',
+                  'submittedAt': '2026-04-09T01:00:00Z',
+                  'nextStep':
+                      'Менеджер свяжется с вами для подтверждения деталей',
+                }),
+                201,
+                headers: const {'content-type': 'application/json'},
+              );
+            }),
+          ),
+          sessionStorage: sessionStorage,
+        );
 
-      final result = await repository.submitBirthdayRequest(
-        BirthdayRequestPayload(
-          name: 'Dana',
-          phone: '+77070000002',
-          branchId: 'branch-main',
-          preferredDate: DateTime(2026, 4, 10),
-          guestCount: 8,
-        ),
-      );
+        final result = await repository.submitBirthdayRequest(
+          BirthdayRequestPayload(
+            name: 'Dana',
+            phone: '+77070000002',
+            branchId: 'branch-main',
+            preferredDate: DateTime(2026, 4, 10),
+            guestCount: 8,
+          ),
+        );
 
-      expect(result, isA<Success<BirthdayRequestSubmission>>());
-      expect(authorizationHeader, isNull);
-    });
+        expect(result, isA<Success<BirthdayRequestSubmission>>());
+        expect(authorizationHeader, isNull);
+      },
+    );
   });
 }

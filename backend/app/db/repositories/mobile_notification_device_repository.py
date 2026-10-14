@@ -1,12 +1,48 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select, update
+from sqlalchemy.exc import IntegrityError
 
 from ..models.mobile_notification_device import MobileNotificationDevice
+from ..models.mobile_session import MobileSession
 from .base import Repository
 
 
 class MobileNotificationDeviceRepository(Repository):
+    def get_active_devices_for_user(
+        self,
+        mobile_user_id: str,
+        *,
+        now: datetime | None = None,
+    ) -> list[MobileNotificationDevice]:
+        """Return devices whose owning session is still valid.
+
+        Client-side logout cleanup is best-effort; the session join is the
+        server-side privacy boundary for every direct user push path.
+        """
+        effective_now = now or datetime.now(UTC)
+        return list(
+            self.db.scalars(
+                select(MobileNotificationDevice)
+                .join(
+                    MobileSession,
+                    and_(
+                        MobileSession.id == MobileNotificationDevice.mobile_session_id,
+                        MobileSession.mobile_user_id == MobileNotificationDevice.mobile_user_id,
+                    ),
+                )
+                .where(
+                    MobileNotificationDevice.mobile_user_id == mobile_user_id,
+                    MobileNotificationDevice.notifications_enabled.is_(True),
+                    MobileNotificationDevice.permission_status.not_in(
+                        ['denied', 'unavailable']
+                    ),
+                    MobileSession.revoked_at.is_(None),
+                    MobileSession.expires_at > effective_now,
+                )
+            ).all()
+        )
+
     def get_by_mobile_session_id(
         self,
         mobile_session_id: str,
@@ -18,6 +54,40 @@ class MobileNotificationDeviceRepository(Repository):
         )
 
     def upsert(
+        self,
+        *,
+        mobile_user_id: str,
+        mobile_session_id: str,
+        platform: str,
+        push_token: str,
+        permission_status: str,
+        notifications_enabled: bool,
+    ) -> MobileNotificationDevice:
+        try:
+            return self._upsert_once(
+                mobile_user_id=mobile_user_id,
+                mobile_session_id=mobile_session_id,
+                platform=platform,
+                push_token=push_token,
+                permission_status=permission_status,
+                notifications_enabled=notifications_enabled,
+            )
+        except IntegrityError:
+            # The unique push_token constraint is authoritative when two
+            # authenticated sessions bind the same physical token at once.
+            # Retry after the losing transaction rolls back and rebind the
+            # winner to the latest authenticated session.
+            self.db.rollback()
+            return self._upsert_once(
+                mobile_user_id=mobile_user_id,
+                mobile_session_id=mobile_session_id,
+                platform=platform,
+                push_token=push_token,
+                permission_status=permission_status,
+                notifications_enabled=notifications_enabled,
+            )
+
+    def _upsert_once(
         self,
         *,
         mobile_user_id: str,
@@ -97,3 +167,21 @@ class MobileNotificationDeviceRepository(Repository):
         self.db.delete(device)
         self.db.commit()
         return True
+
+    def disable(self, device_id: str, *, commit: bool = False) -> bool:
+        """Stop retrying a token that the provider says is no longer valid.
+
+        The repository flushes by default and leaves transaction ownership to
+        the push use-case.  Callers that intentionally use this repository as
+        a standalone boundary may opt into the legacy commit behavior.
+        """
+        result = self.db.execute(
+            update(MobileNotificationDevice)
+            .where(MobileNotificationDevice.id == device_id)
+            .values(notifications_enabled=False, updated_at=datetime.now(UTC))
+        )
+        if commit:
+            self.db.commit()
+        else:
+            self.db.flush()
+        return bool(result.rowcount)

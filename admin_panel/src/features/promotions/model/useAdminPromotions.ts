@@ -28,6 +28,8 @@ const defaultForm = (): AdminPromotionCreatePayload => ({
   displayOrder: 0,
   isActive: true,
   isPublished: false,
+  startAt: null,
+  endAt: null,
 });
 
 export function useAdminPromotions() {
@@ -150,7 +152,11 @@ export function useAdminPromotions() {
       });
 
       selectedPromotion.value = response;
-      Object.assign(form, response);
+      Object.assign(form, {
+        ...response,
+        startAt: toDateTimeLocalValue(response.startAt),
+        endAt: toDateTimeLocalValue(response.endAt),
+      });
     } catch (error) {
       detailErrorMessage.value = resolveAdminRequestError(error, 'Не удалось открыть акцию.');
     } finally {
@@ -271,4 +277,18 @@ export function useAdminPromotions() {
     selectedPromotionId,
     startCreate,
   };
+}
+
+function toDateTimeLocalValue(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  const local = new Date(parsed.getTime() - parsed.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
 }

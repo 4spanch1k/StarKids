@@ -8,6 +8,10 @@ class RequestPageArgs {
     this.initialPackage,
     this.initialContactContextLabel,
     this.initialContactMessage,
+    this.initialChildId,
+    this.initialPreferredDate,
+    this.sourceCampaignId,
+    this.birthdayCycleId,
   });
 
   final RequestType initialType;
@@ -15,4 +19,8 @@ class RequestPageArgs {
   final BirthdayPackage? initialPackage;
   final String? initialContactContextLabel;
   final String? initialContactMessage;
+  final String? initialChildId;
+  final DateTime? initialPreferredDate;
+  final String? sourceCampaignId;
+  final String? birthdayCycleId;
 }

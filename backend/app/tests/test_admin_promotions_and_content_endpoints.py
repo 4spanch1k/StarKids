@@ -1,4 +1,5 @@
 import unittest
+from datetime import UTC, datetime, timedelta
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -210,6 +211,143 @@ class AdminPromotionsAndContentEndpointTests(unittest.TestCase):
                 }
             ],
         )
+
+    def test_mobile_promotions_respect_validity_window_and_state(self) -> None:
+        now = datetime.now(UTC)
+        promotion_payload = {
+            'title': 'Timed family offer',
+            'description': 'A promotion visible only during its configured window.',
+            'badge_label': 'Limited',
+            'image_url': 'https://cdn.example/timed.jpg',
+            'branch_ids': ['branch-main'],
+            'cta_label': 'See details',
+            'display_order': 1,
+            'is_active': True,
+            'is_published': True,
+            'start_at': (now - timedelta(days=1)).isoformat(),
+            'end_at': (now + timedelta(days=1)).isoformat(),
+        }
+        visible_response = self.client.post(
+            '/api/v1/admin/promotions',
+            headers=self._auth_headers(),
+            json=promotion_payload,
+        )
+        self.assertEqual(visible_response.status_code, 200)
+        self.assertTrue(visible_response.json()['start_at'].endswith('Z'))
+        self.assertTrue(visible_response.json()['end_at'].endswith('Z'))
+
+        future_response = self.client.post(
+            '/api/v1/admin/promotions',
+            headers=self._auth_headers(),
+            json={
+                **promotion_payload,
+                'title': 'Future offer',
+                'start_at': (now + timedelta(days=1)).isoformat(),
+                'end_at': (now + timedelta(days=2)).isoformat(),
+            },
+        )
+        self.assertEqual(future_response.status_code, 200)
+
+        expired_response = self.client.post(
+            '/api/v1/admin/promotions',
+            headers=self._auth_headers(),
+            json={
+                **promotion_payload,
+                'title': 'Expired offer',
+                'start_at': (now - timedelta(days=2)).isoformat(),
+                'end_at': (now - timedelta(days=1)).isoformat(),
+            },
+        )
+        self.assertEqual(expired_response.status_code, 200)
+
+        no_dates_response = self.client.post(
+            '/api/v1/admin/promotions',
+            headers=self._auth_headers(),
+            json={
+                **promotion_payload,
+                'title': 'Always-on offer',
+                'display_order': 2,
+                'start_at': None,
+                'end_at': None,
+            },
+        )
+        self.assertEqual(no_dates_response.status_code, 200)
+
+        inactive_response = self.client.post(
+            '/api/v1/admin/promotions',
+            headers=self._auth_headers(),
+            json={**promotion_payload, 'title': 'Inactive offer', 'is_active': False},
+        )
+        self.assertEqual(inactive_response.status_code, 200)
+
+        unpublished_response = self.client.post(
+            '/api/v1/admin/promotions',
+            headers=self._auth_headers(),
+            json={**promotion_payload, 'title': 'Draft offer', 'is_published': False},
+        )
+        self.assertEqual(unpublished_response.status_code, 200)
+
+        other_branch_response = self.client.post(
+            '/api/v1/admin/promotions',
+            headers=self._auth_headers(),
+            json={**promotion_payload, 'title': 'North offer', 'branch_ids': ['branch-north']},
+        )
+        self.assertEqual(other_branch_response.status_code, 200)
+
+        mobile_response = self.client.get(
+            '/api/v1/mobile/promotions',
+            params={'branch_id': 'branch-main'},
+        )
+        self.assertEqual(mobile_response.status_code, 200)
+        self.assertEqual(
+            [item['title'] for item in mobile_response.json()],
+            ['Timed family offer', 'Always-on offer'],
+        )
+
+    def test_promotion_validity_window_rejects_non_increasing_dates(self) -> None:
+        response = self.client.post(
+            '/api/v1/admin/promotions',
+            headers=self._auth_headers(),
+            json={
+                'title': 'Invalid window',
+                'description': 'A promotion with an invalid validity window.',
+                'badge_label': 'Invalid',
+                'image_url': None,
+                'branch_ids': [],
+                'cta_label': 'See details',
+                'display_order': 1,
+                'is_active': True,
+                'is_published': True,
+                'start_at': '2026-09-20T12:00:00Z',
+                'end_at': '2026-09-20T12:00:00Z',
+            },
+        )
+        self.assertEqual(response.status_code, 422)
+
+        valid_response = self.client.post(
+            '/api/v1/admin/promotions',
+            headers=self._auth_headers(),
+            json={
+                'title': 'Valid window',
+                'description': 'A promotion with a valid validity window.',
+                'badge_label': 'Valid',
+                'image_url': None,
+                'branch_ids': [],
+                'cta_label': 'See details',
+                'display_order': 1,
+                'is_active': True,
+                'is_published': True,
+                'start_at': '2026-09-20T12:00:00Z',
+                'end_at': '2026-09-21T12:00:00Z',
+            },
+        )
+        self.assertEqual(valid_response.status_code, 200)
+        update_response = self.client.patch(
+            f"/api/v1/admin/promotions/{valid_response.json()['id']}",
+            headers=self._auth_headers(),
+            json={'end_at': '2026-09-20T11:00:00Z'},
+        )
+        self.assertEqual(update_response.status_code, 422)
 
     def test_admin_content_blocks_mobile_surface_filter_only_returns_published_active(self) -> None:
         create_home_response = self.client.post(

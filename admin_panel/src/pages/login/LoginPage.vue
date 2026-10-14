@@ -2,7 +2,7 @@
   <main class="login-page">
     <form class="login-card" @submit.prevent="submit">
       <div class="login-card__copy">
-        <p class="login-card__eyebrow">Star Kids</p>
+        <p class="login-card__eyebrow">Boom Bala</p>
         <h1>Вход в админ-панель</h1>
         <p class="login-card__description">
           Откройте рабочее пространство для заявок, филиалов и контента.
@@ -16,7 +16,7 @@
           type="email"
           autocomplete="email"
           class="admin-control"
-          placeholder="manager@starkids.kz"
+          placeholder="manager@example.com"
         />
       </label>
 

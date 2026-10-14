@@ -14,10 +14,7 @@ class RequestHistoryBranchSummary {
 }
 
 class RequestHistoryPackageSummary {
-  const RequestHistoryPackageSummary({
-    required this.id,
-    required this.name,
-  });
+  const RequestHistoryPackageSummary({required this.id, required this.name});
 
   final String id;
   final String name;
@@ -34,6 +31,7 @@ class RequestHistoryItem {
     this.notes,
     this.branch,
     this.package,
+    this.childName,
   });
 
   final String id;
@@ -45,6 +43,7 @@ class RequestHistoryItem {
   final String? notes;
   final RequestHistoryBranchSummary? branch;
   final RequestHistoryPackageSummary? package;
+  final String? childName;
 
   bool get hasNotes => (notes ?? '').trim().isNotEmpty;
 }
