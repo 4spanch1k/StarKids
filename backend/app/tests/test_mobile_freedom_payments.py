@@ -1,5 +1,8 @@
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, date, datetime, timedelta
 import hashlib
+import os
+import threading
 import unittest
 from unittest.mock import patch
 from urllib import parse
@@ -140,11 +143,15 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        cls.engine = create_engine(
-            'sqlite://',
-            connect_args={'check_same_thread': False},
-            poolclass=StaticPool,
-        )
+        database_url = os.getenv('KASPI_TEST_DATABASE_URL')
+        if database_url:
+            cls.engine = create_engine(database_url, pool_pre_ping=True)
+        else:
+            cls.engine = create_engine(
+                'sqlite://',
+                connect_args={'check_same_thread': False},
+                poolclass=StaticPool,
+            )
         cls.SessionLocal = sessionmaker(
             bind=cls.engine,
             autoflush=False,
@@ -642,6 +649,60 @@ class MobileFreedomPaymentsEndpointTests(unittest.TestCase):
             source_patch.stop()
             for key, value in original.items():
                 setattr(settings, key, value)
+
+    def test_kaspi_duplicate_pay_is_serialized_on_postgresql(self) -> None:
+        if not os.getenv('KASPI_TEST_DATABASE_URL'):
+            self.skipTest('set KASPI_TEST_DATABASE_URL for PostgreSQL concurrency proof')
+
+        settings, original, source_patch = self._enable_kaspi()
+        try:
+            auth = self._authenticate_mobile_user('+77071234567')
+            headers = {'Authorization': f"Bearer {auth['access_token']}"}
+            payment = self.client.post(
+                '/api/v1/mobile/payments/init',
+                headers=headers,
+                json={
+                    'idempotencyKey': 'kaspi-postgres-concurrent-pay-1234',
+                    'ticketItems': [{'ticketItemId': 'ticket-kids', 'quantity': 1}],
+                    'visitDate': str(date.today()),
+                },
+            ).json()
+
+            barrier = threading.Barrier(2)
+
+            def pay_once() -> str:
+                barrier.wait()
+                response = self.client.get(
+                    '/api/v1/public/payments/kaspi',
+                    params={
+                        'command': 'pay',
+                        'txn_id': 'kaspi-postgres-concurrent-txn',
+                        'account': payment['localOrderId'],
+                        'sum': '2700.00',
+                    },
+                )
+                self.assertEqual(response.status_code, 200)
+                return response.text
+
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                responses = list(executor.map(lambda _: pay_once(), range(2)))
+
+            references = [
+                response.split('<prv_txn>', 1)[1].split('</prv_txn>', 1)[0]
+                for response in responses
+            ]
+            self.assertEqual(references[0], references[1])
+            self.assertTrue(references[0].isdigit())
+            self.assertLessEqual(len(references[0]), 20)
+
+            with self.SessionLocal() as session:
+                stored = session.get(MobilePayment, payment['paymentId'])
+                self.assertEqual(stored.status, 'paid')
+                self.assertEqual(stored.external_payment_id, 'kaspi-postgres-concurrent-txn')
+                self.assertEqual(stored.provider_transaction_reference, references[0])
+                self.assertEqual(session.query(IssuedTicket).count(), 1)
+        finally:
+            self._restore_kaspi(settings, original, source_patch)
 
     def test_kaspi_retry_rejects_changed_ticket_date_or_bonus_identity(self) -> None:
         settings, original, source_patch = self._enable_kaspi()
